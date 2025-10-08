@@ -286,7 +286,7 @@ chore/<descripcion>                 # Tareas de mantenimiento
    ```
 
 3. **Commits atómicos**
-   ```bash
+```bash
    git add .
    git commit -m "feat(backend): agregar endpoint de usuarios"
    git push origin feat/123-nueva-funcionalidad
@@ -377,13 +377,23 @@ PR → CI (lint + test + build) → Code Review → Merge a main
 - **[Arquitectura](./docs/ARCHITECTURE.md)** - Arquitectura del sistema
 - **[Recursos de Hardware](./docs/RESOURCES_HARDWARE.md)** - Especificación de recursos y límites por ambiente
 
-### Roles
-- **[Guías por Rol](./docs/roles/README.md)** - Procedimientos detallados
-  - Desarrollador Junior
-  - Founder/Lead
-  - PM/Analista de Calidad
-  - DevOps/Back (SSR)
+### Roles y Equipo
+- **[Estructura de Roles Atomizada](./docs/ESTRUCTURA_ROLES_ATOMIZADA.md)** - Definición profesional de 7 roles claramente separados
+- **[Plan de Implementación de Roles](./docs/PLAN_IMPLEMENTACION_ROLES.md)** - Plan pragmático de mejora y crecimiento del equipo
+- **[Guías por Rol](./docs/roles/README.md)** - Procedimientos operativos detallados
+  - Desarrollador Junior (Entry/Mid/Senior)
+  - Tech Lead / Líder Técnico
+  - Product Manager
+  - QA Analyst / Analista de Calidad
+  - DevOps Engineer / SRE
   - Product Owner (referencia)
+
+### Scripts y Automatización
+- **[Scripts DevOps](./scripts/README_SCRIPTS.md)** - Scripts de automatización (health check, monitor, cleanup, reportes)
+  - `health-check-all.sh` - Verificación de servicios
+  - `monitor-resources.sh` - Monitoreo de CPU/RAM/Disco
+  - `cleanup-docker.sh` - Limpieza automática de Docker
+  - `daily-report.sh` - Reporte diario del sistema
 
 ### Técnica
 - **[Prisma Configuration](./docs/PRISMA_CONFIGURATION.md)** - Arquitectura y configuración de Prisma
