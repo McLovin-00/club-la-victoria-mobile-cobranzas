@@ -196,8 +196,9 @@ DevOps Junior → DevOps Mid → DevOps Senior → SRE / DevOps Lead
 
 ### Desarrollo
 - **GitHub**: Código, PRs, issues
-- **VSCode**: IDE con extensiones (ESLint, Prettier)
+- **Cursor AI**: IDE con extensiones (ESLint, Prettier, Prisma)
 - **Docker**: Contenedores para desarrollo local
+- **HeidiSQL**: Cliente visual de PostgreSQL
 
 ### Gestión
 - **Jira / Linear**: Backlog, sprints, tracking

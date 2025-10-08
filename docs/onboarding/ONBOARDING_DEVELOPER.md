@@ -106,7 +106,8 @@ Tech Lead: _________________________________
   - [ ] Git
   - [ ] Node.js 20+ (via nvm)
   - [ ] Docker y Docker Compose
-  - [ ] VSCode con extensiones requeridas
+  - [ ] Cursor AI con extensiones requeridas
+  - [ ] HeidiSQL (cliente de BD)
   - [ ] Postman
 - [ ] **Clonar repositorio** `monorepo-bca`
 - [ ] **Ejecutar `npm install`** (primera vez, puede tardar 15 min)

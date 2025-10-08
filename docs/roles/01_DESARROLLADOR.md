@@ -20,7 +20,7 @@ El Desarrollador es responsable de **implementar features**, **mantener el códi
 - **Backend**: Node.js 20+, Express, Prisma ORM, PostgreSQL
 - **DevOps básico**: Docker, Git, npm
 - **Testing**: Jest (unitarios), Playwright (E2E básico)
-- **Herramientas**: VSCode, GitHub, Jira/Linear
+- **Herramientas**: Cursor AI, GitHub, Jira/Linear, HeidiSQL
 
 ### Skills Blandas
 - **Comunicación**: Capacidad de explicar problemas técnicos y pedir ayuda
@@ -387,9 +387,10 @@ El Desarrollador es responsable de **implementar features**, **mantener el códi
 ## 🛠️ Herramientas (Todos los Niveles)
 
 ### Desarrollo
-- **IDE**: VSCode con extensiones (ESLint, Prettier, TypeScript)
+- **IDE**: Cursor AI con extensiones (ESLint, Prettier, TypeScript, Prisma)
 - **Git**: GitHub (PRs, branches, reviews)
 - **Terminal**: bash/zsh, npm, docker
+- **BD**: HeidiSQL (cliente visual PostgreSQL)
 
 ### Testing
 - **Jest**: Tests unitarios

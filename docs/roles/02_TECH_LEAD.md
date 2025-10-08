@@ -293,7 +293,7 @@ El Tech Lead es responsable del **liderazgo técnico operativo del equipo de des
 
 ### Code Review y Desarrollo
 - **GitHub**: PRs, reviews, issues, projects
-- **VSCode**: IDE con extensiones (ESLint, Prettier, GitLens)
+- **Cursor AI**: IDE con extensiones (ESLint, Prettier, GitLens, Prisma)
 
 ### Monitoring y Observabilidad
 - **Sentry**: Error tracking y performance monitoring

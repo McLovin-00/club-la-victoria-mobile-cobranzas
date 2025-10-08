@@ -20,7 +20,7 @@ Usa estos procedimientos cuando:
 **Duración**: 2-3 horas  
 **Cuándo usar**: Nuevo desarrollador configura su laptop desde cero  
 **Incluye**:
-- Instalación de herramientas (Git, Node, Docker, VSCode)
+- Instalación de herramientas (Git, Node, Docker, Cursor AI, HeidiSQL)
 - Configuración de Git y SSH
 - Clonar repositorio e instalar dependencias
 - Levantar infraestructura local (PostgreSQL, Redis, MinIO)

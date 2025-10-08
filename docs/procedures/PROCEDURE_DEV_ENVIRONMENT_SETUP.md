@@ -148,35 +148,44 @@ docker --version
 docker compose version
 ```
 
-### 1.4 VSCode (10 min)
+### 1.4 Cursor AI (10 min)
 
 **Descargar e instalar**:
 ```bash
-# Linux (snap)
-sudo snap install code --classic
+# Descargar desde: https://cursor.sh/
+
+# Linux
+# 1. Descargar el .AppImage o .deb
+# 2. Dar permisos de ejecución: chmod +x Cursor.AppImage
+# 3. Ejecutar o instalar .deb con: sudo dpkg -i cursor_*.deb
 
 # macOS
-brew install --cask visual-studio-code
+# 1. Descargar el .dmg
+# 2. Arrastrar a Applications
 
-# Windows: Descargar desde https://code.visualstudio.com/
+# Windows
+# 1. Descargar el .exe
+# 2. Ejecutar instalador
 ```
 
-**Extensiones obligatorias** (instalar desde VSCode):
-```
-code --install-extension dbaeumer.vscode-eslint
-code --install-extension esbenp.prettier-vscode
-code --install-extension ms-vscode.vscode-typescript-next
-code --install-extension bradlc.vscode-tailwindcss
-code --install-extension Prisma.prisma
-code --install-extension eamodio.gitlens
+**Extensiones obligatorias** (Cursor usa las mismas extensiones que VSCode):
+```bash
+# Instalar extensiones (Cursor usa comandos de VSCode)
+cursor --install-extension dbaeumer.vscode-eslint
+cursor --install-extension esbenp.prettier-vscode
+cursor --install-extension ms-vscode.vscode-typescript-next
+cursor --install-extension bradlc.vscode-tailwindcss
+cursor --install-extension Prisma.prisma
+cursor --install-extension eamodio.gitlens
 ```
 
 **Extensiones recomendadas**:
+```bash
+cursor --install-extension ms-azuretools.vscode-docker
+cursor --install-extension christian-kohler.npm-intellisense
 ```
-code --install-extension GitHub.copilot  # Si tienes licencia
-code --install-extension ms-azuretools.vscode-docker
-code --install-extension christian-kohler.npm-intellisense
-```
+
+**Nota**: Cursor AI incluye IA integrada (similar a GitHub Copilot), no necesitas licencias adicionales.
 
 ### 1.5 Herramientas Adicionales (5 min)
 
@@ -191,15 +200,18 @@ brew install --cask postman
 # Windows: Descargar desde https://www.postman.com/downloads/
 ```
 
-**DBeaver** (cliente de PostgreSQL, opcional):
+**HeidiSQL** (cliente de PostgreSQL):
 ```bash
-# Linux
-sudo snap install dbeaver-ce
+# Windows: Descargar desde https://www.heidisql.com/download.php
+# Es la herramienta principal del equipo para gestionar BD
 
-# macOS
-brew install --cask dbeaver-community
+# Linux: Usar wine + HeidiSQL o alternativas:
+# - Adminer (web, incluido en docker-compose.dev.yml)
+# - pgAdmin (cliente oficial PostgreSQL)
 
-# Windows: Descargar desde https://dbeaver.io/download/
+# macOS: Alternativas recomendadas:
+# - Adminer (web, incluido en docker-compose.dev.yml)
+# - pgAdmin: brew install --cask pgadmin4
 ```
 
 ---
@@ -252,8 +264,8 @@ ssh -T git@github.com
 ### 2.3 Configuraciones Útiles
 
 ```bash
-# Editor por defecto (VSCode)
-git config --global core.editor "code --wait"
+# Editor por defecto (Cursor AI)
+git config --global core.editor "cursor --wait"
 
 # Colores en terminal
 git config --global color.ui auto
@@ -510,7 +522,7 @@ npx playwright test --ui
 - [ ] **Frontend corriendo** (http://localhost:8550 muestra login)
 - [ ] **Documentos corriendo** (http://localhost:4802/health/ready responde OK)
 - [ ] **Tests pasan** (`npm test` sin errores críticos)
-- [ ] **VSCode configurado** (extensiones instaladas)
+- [ ] **Cursor AI configurado** (extensiones instaladas)
 
 ---
 
