@@ -1,283 +1,322 @@
 # Guías de Roles - Monorepo BCA
 
-> **Alineado con**: Manual Operativo Microsyst (Startup + Staging)  
-> **Equipo**: 3 devs jr + 1 DevOps/Back ssr + 1 PM/Analista jr-ssr + Founder/Lead  
-> **Última actualización**: 8 Octubre 2025
-
-Este directorio contiene guías detalladas y procedimientos paso a paso para cada rol del equipo en el proyecto Monorepo BCA, siguiendo las mejores prácticas del Manual Operativo Microsyst.
-
-## 📚 Guías Disponibles
-
-### 1. [Desarrollador Junior](./01_DESARROLLADOR.md)
-**Para**: Desarrolladores Junior (equipo de 3 colaborando)
-
-**Contenido**:
-- Flujo completo de desarrollo (desde recibir issue hasta merge)
-- PRs chicos (≤300 líneas) con pasos de prueba
-- Peer review entre desarrolladores (1 aprobación)
-- Quality gates: lint/test/build antes de PR
-- Documentación: README y .env.example
-- Soporte a PM/Analista en datos de prueba
-
-**Responsabilidades clave**: Implementar, revisar código entre pares, ejecutar quality gates, actualizar docs
-
-**Tiempo estimado de lectura**: 45 minutos
+> **Última actualización**: 8 Octubre 2025  
+> **Versión**: 2.0 - Roles atomizados profesionalmente
 
 ---
 
-### 2. [Founder/Lead](./02_TECH_LEAD.md)
-**Para**: Tech Lead / Founder con responsabilidades técnicas y de negocio
+## 🎯 Visión General
 
-**Contenido**:
-- Priorización de sprint (top 10 de 5-15 tareas propuestas)
-- Aprobación de deploys a Producción
-- Revisión exhaustiva de Pull Requests
-- Definición de estándares técnicos
-- Mentoría y enseñanza del equipo
-- Gestión de deuda técnica
-- Decisiones arquitectónicas (ADRs)
-- Gestión de incidentes y excepciones (hotfixes)
+Este directorio contiene **guías operativas detalladas** para cada rol en la software factory de Microsyst. Cada guía define responsabilidades, cadencias, KPIs, herramientas y paths de crecimiento de forma clara y accionable.
 
-**Responsabilidades clave**: Definir prioridades, aprobar producción, alinear objetivos, destrabar bloqueos
-
-**Tiempo estimado de lectura**: 60 minutos
+**Documentos relacionados**:
+- **[ESTRUCTURA_ROLES_ATOMIZADA.md](../ESTRUCTURA_ROLES_ATOMIZADA.md)** - Estructura completa de 7 roles, matriz RACI, escenarios de equipo
+- **[PLAN_IMPLEMENTACION_ROLES.md](../PLAN_IMPLEMENTACION_ROLES.md)** - Plan pragmático de implementación en 4 fases
 
 ---
 
-### 3. [PM/Analista de Calidad](./03_QA_ANALISTA_CALIDAD.md)
-**Para**: PM/Analista jr-ssr (rol dual: Product Management + QA)
+## 📂 Roles Definidos
 
-**Contenido**:
-- Redacción de User Stories con Criterios de Aceptación
-- Gestión de tablero (Trello/Jira/Linear)
+### 1️⃣ [Desarrollador (Developer)](./01_DESARROLLADOR.md)
+**Tipo**: Implementación de features y código  
+**Dedicación**: 100%  
+**Niveles**: 5 niveles de progresión
+
+#### Niveles de Junior (0-24 meses)
+- **Junior Entry** (0-6 meses): Tareas guiadas, supervisión alta
+- **Junior Mid** (6-18 meses): Autonomía media, aprueba PRs de Entry
+- **Junior Senior** (18-24 meses): Alta autonomía, mentorea Entry
+
+#### Desarrolladores Experimentados
+- **Mid Developer** (2-5 años): Autonomía completa, ownership de módulos
+- **Senior Developer** (5+ años): Referente técnico, liderazgo informal
+
+**Responsabilidades clave**:
+- Implementar features según User Stories
+- Code review (según nivel)
+- Testing (unitarios, E2E básico)
+- Mentoría (Mid/Senior)
+
+---
+
+### 2️⃣ [Tech Lead (Líder Técnico)](./02_TECH_LEAD.md)
+**Tipo**: Liderazgo técnico operativo  
+**Dedicación**: 100%  
+**Reporta a**: Founder/CEO
+
+**Responsabilidades clave**:
+- Arquitectura de soluciones
+- Code review de PRs críticos
+- Mentoría de desarrolladores (1:1s)
+- Aprobación de deploys a producción
+- Gestión de incidentes técnicos
+- Hiring técnico
+
+**Balance tiempo**: 20% código, 80% liderazgo
+
+---
+
+### 3️⃣ [Product Manager (PM)](./03_PRODUCT_MANAGER.md)
+**Tipo**: Gestión de producto y requerimientos  
+**Dedicación**: 60-100% (según escenario)  
+**Reporta a**: Founder/CEO
+
+**Responsabilidades clave**:
+- Definir User Stories y Criterios de Aceptación
+- Priorizar backlog (RICE, valor/esfuerzo)
+- UAT (User Acceptance Testing) en staging
+- Demo de features a stakeholders
+- Análisis de métricas de producto
+- Comunicación de roadmap
+
+**Separación con QA**: PM define "qué construir". QA valida "qué tan bien funciona".
+
+---
+
+### 4️⃣ [QA Analyst (Analista de Calidad)](./04_QA_ANALYST.md)
+**Tipo**: Aseguramiento de calidad y testing  
+**Dedicación**: 40-100% (según escenario)  
+**Reporta a**: Tech Lead (técnico) y PM (funcional)
+
+**Responsabilidades clave**:
+- Testing funcional en DEV (valida Criterios de Aceptación)
+- Smoke testing en Staging y Producción
+- Automatización E2E (Playwright)
+- Gestión de bugs (triage, re-testing)
+- Documentación de casos de prueba
 - Preparación de datos de prueba
-- QA en DEV (CHECKLIST_QA_DEV)
-- Smoke/E2E en Staging (manual + Playwright)
-- Documentación mínima (README, CHECKLISTS, INCIDENTES)
 
-**Responsabilidades clave**: Escribir historias, mantener tablero, ejecutar QA DEV/Staging, documentar
-
-**Cadencia**: Planificación lunes, deploy Staging miércoles 11:00, deploy Prod jueves 11:00
-
-**Tiempo estimado de lectura**: 50 minutos
+**Métricas**: Bugs en DEV 70% / Staging 25% / Prod 5%
 
 ---
 
-### 4. [DevOps/Back (SSR)](./04_DEVOPS_SRE.md)
-**Para**: DevOps/Backend Semi-Senior a Senior
+### 5️⃣ [DevOps Engineer / SRE](./05_DEVOPS_SRE.md)
+**Tipo**: Infraestructura, CI/CD y operaciones  
+**Dedicación**: 75-100% (según escenario)  
+**Reporta a**: Tech Lead (técnico)
 
-**Contenido**:
-- CI/CD: GitHub Actions (ci.yml, deploy-staging.yml, deploy-prod.yml)
-- Deploys: Staging miércoles 11:00, Producción jueves 11:00
-- Infraestructura: Docker, docker-compose, Nginx Proxy Manager
-- Monitoreo: Sentry (errores), Uptime Kuma (health checks)
-- Backups: Diarios automatizados + restore mensual documentado
-- Seguridad: SSH keys, ufw, fail2ban, GitHub Secrets
-- Rollback y procedimientos de emergencia
+**Responsabilidades clave**:
+- CI/CD Pipeline (GitHub Actions)
+- Gestión de infraestructura (Docker, Swarm, Nginx)
+- Ejecución de deploys (Staging miércoles, Prod jueves)
+- Monitoreo (Sentry, Uptime Kuma)
+- Backups y Disaster Recovery
+- Seguridad de infraestructura (SSH, firewall, SSL)
 
-**Responsabilidades clave**: CI/CD, deploys, infraestructura, monitoreo, backups, seguridad básica
-
-**Cadencia**: Deploy Staging miércoles 11:00, Producción jueves 11:00 (con aprobación Lead)
-
-**Tiempo estimado de lectura**: 70 minutos
+**Automatización**: Scripts disponibles ahorran 12h/mes
 
 ---
 
-### 5. [Product Owner / Stakeholder](./05_PRODUCT_OWNER.md)
-**Para**: Referencia complementaria para stakeholders externos
-
-**Contenido**:
-- Definición de requerimientos (User Stories)
-- Priorización del backlog (RICE, matriz valor/esfuerzo)
-- Aceptación de entregables (UAT, demos)
-- Gestión de stakeholders
-- Medición de éxito (framework HEART, métricas)
-
-**Nota**: En el equipo Microsyst, estas responsabilidades son compartidas entre **PM/Analista** (operativo) y **Founder/Lead** (estratégico).
-
-**Tiempo estimado de lectura**: 55 minutos
+### 6️⃣ [Product Owner (PO)](./06_PRODUCT_OWNER.md)
+**Tipo**: Referencia (opcional, rol enterprise)  
+**Dedicación**: Variable  
+**Nota**: En Microsyst, este rol lo cubre el PM o Founder según el contexto
 
 ---
 
-## 🎯 Cómo Usar Estas Guías
+## 🔄 Flujos de Colaboración
 
-### Para Nuevos Miembros del Equipo (Onboarding)
-1. **Día 1-3**: Lee tu guía completa en profundidad
-2. **Semana 1**: Sigue los procedimientos paso a paso en un entorno de prueba
-3. **Semana 2-4**: Aplica los procedimientos en tareas reales con supervisión
-4. **Mes 2+**: Consulta la guía como referencia cuando tengas dudas
+### Sprint Planning (Lunes)
+```
+PM propone tareas → Tech Lead valida esfuerzo → Equipo estima → Goal definido
+```
 
-### Para Miembros Experimentados
-- **Consulta rápida**: Usa el índice para encontrar procedimientos específicos
-- **Estandarización**: Sigue los templates y checklists proporcionados
-- **Mejora continua**: Propone actualizaciones si encuentras mejores prácticas
+### Implementación (Martes-Jueves)
+```
+Dev implementa → Dev abre PR → Peers review → Tech Lead aprueba → QA testea en DEV
+```
 
-### Para Líderes de Equipo
-- **Capacitación**: Usa estas guías como material de training
-- **Evaluación**: Verifica que los procedimientos se sigan consistentemente
-- **Evolución**: Actualiza las guías cuando cambien procesos o herramientas
+### Deploy Staging (Miércoles 11:00)
+```
+Tech Lead valida gates → DevOps ejecuta → QA smoke test → OK para prod
+```
 
----
+### Deploy Producción (Jueves 11:00)
+```
+Tech Lead checklist → DevOps ejecuta → Tech Lead monitorea → QA smoke test
+```
 
-## 📋 Checklist de Onboarding por Rol
-
-### ✅ Desarrollador Junior
-- [ ] Leí la guía completa del Desarrollador
-- [ ] Configuré mi entorno local (Node, Docker, Git)
-- [ ] Tengo acceso a repositorio GitHub
-- [ ] Completé mi primer PR de prueba (con peer review)
-- [ ] Entiendo el flujo de Git y branches (feat/*, fix/*, chore/*)
-- [ ] Sé ejecutar: `npm ci && npm run lint && npm test && npm run build`
-- [ ] Conozco a mi Founder/Lead y compañeros desarrolladores
-- [ ] Entiendo restricción de PRs ≤300 líneas
-
-### ✅ Founder/Lead
-- [ ] Leí la guía completa del Founder/Lead
-- [ ] Entiendo mi doble rol: técnico + priorización de negocio
-- [ ] Revisé al menos 3 PRs siguiendo el checklist
-- [ ] Tengo acceso a todos los repositorios y ambientes
-- [ ] Conozco la arquitectura actual del sistema
-- [ ] Participé en Planificación (lunes): prioricé top 10 tareas
-- [ ] Aprobé mi primer deploy a Producción (jueves 11:00)
-- [ ] Agendé 1:1s con cada miembro del equipo (3 devs, PM, DevOps)
-
-### ✅ PM/Analista
-- [ ] Leí la guía completa de PM/Analista
-- [ ] Entiendo mi doble rol: escribir User Stories + ejecutar QA
-- [ ] Redacté mi primera historia con CA y datos de prueba
-- [ ] Tengo acceso a tablero (Trello/Jira) y lo actualizo diariamente
-- [ ] Tengo acceso a ambientes DEV, STAGING y PROD
-- [ ] Instalé Postman y tengo credenciales de usuarios de prueba
-- [ ] Ejecuté CHECKLIST_QA_DEV y smoke test en Staging
-- [ ] Participé en planificación (lunes): propuse 5-15 tareas chicas
-
-### ✅ DevOps/Back (SSR)
-- [ ] Leí la guía completa de DevOps/Back
-- [ ] Tengo acceso SSH a servidores (con keys, no password)
-- [ ] Revisé arquitectura: Docker, Nginx Proxy Manager, Portainer
-- [ ] Ejecuté deploy manual a Staging (miércoles 11:00)
-- [ ] Verifiqué acceso a Sentry (errores) y Uptime Kuma (health)
-- [ ] Validé que backups diarios funcionan y probé restore
-- [ ] Entiendo procedimiento de rollback
-- [ ] Configuré ufw, fail2ban y verifiqué GitHub Secrets
-
----
-
-## 🔄 Actualización y Mantenimiento
-
-### Frecuencia de Revisión
-- **Trimestral**: Revisión general de todas las guías
-- **Después de incidentes**: Actualizar procedimientos basados en learnings
-- **Nuevas herramientas**: Actualizar cuando se adopten nuevas tecnologías
-
-### Proceso de Actualización
-1. Identificar necesidad de cambio (feedback, incidente, nueva herramienta)
-2. Crear Issue con label `documentation`
-3. Proponer cambios en PR
-4. Revisión por al menos 2 personas del rol afectado
-5. Merge y comunicar cambios al equipo
-
-### Proponer Mejoras
-Si encuentras:
-- ❌ Información desactualizada
-- ❌ Procedimientos confusos o incompletos
-- ❌ Mejores prácticas que no están documentadas
-- ✅ Ejemplos que pueden ayudar a otros
-
-**Crea un Issue**:
-```markdown
-Título: [DOCS] Actualizar procedimiento de X en guía de Y
-
-**Sección afectada**: docs/roles/02_TECH_LEAD.md - Sección 2.3
-
-**Problema**: El procedimiento describe usar herramienta A, pero ahora usamos herramienta B
-
-**Propuesta**: Actualizar a herramienta B con ejemplos
-
-**Beneficio**: Evitar confusión en nuevos Tech Leads
+### Sprint Review & Retro (Viernes 16:00)
+```
+PM demo features → Tech Lead demo técnico → Equipo retrospectiva
 ```
 
 ---
 
-## 📞 Soporte y Preguntas
+## 📊 Matriz de Responsabilidades (RACI Simplificada)
 
-### Si tienes dudas sobre tu rol:
-1. **Consulta primero la guía** (la respuesta probablemente está ahí)
-2. **Pregunta a tu líder directo** (Tech Lead, QA Lead, etc)
-3. **Pregunta en Slack** en el canal de tu equipo
-4. **Agenda 15 min** con alguien experimentado en ese rol
+| Actividad | Developer | Tech Lead | PM | QA | DevOps |
+|-----------|-----------|-----------|----|----|--------|
+| Implementar features | **R** | A | I | I | I |
+| Code review crítico | C | **R/A** | I | I | I |
+| Definir User Stories | I | C | **R/A** | C | I |
+| Testing en DEV | I | C | C | **R/A** | I |
+| Deploy a Producción | I | **A** | C | **R** | **R** |
+| Gestión de incidentes | C | **A** | I | C | **R** |
 
-### Si la guía no cubre tu caso:
-1. **Documenta tu situación** (qué estabas tratando de hacer, qué pasó)
-2. **Pregunta al equipo** cómo lo han resuelto antes
-3. **Una vez resuelto**, propón agregar ese caso a la guía
-
----
-
-## 📊 Métricas de Adopción
-
-Medimos la efectividad de estas guías con:
-- **Tiempo de onboarding**: Días hasta que nuevo miembro es productivo
-- **Incidentes**: Reducción de errores por desconocimiento de procesos
-- **Consistencia**: Todos siguen los mismos estándares
-- **Satisfacción**: Encuestas trimestrales sobre utilidad de las guías
+**Leyenda**:
+- **R** = Responsible (ejecuta)
+- **A** = Accountable (aprueba, uno solo)
+- **C** = Consulted (consultado)
+- **I** = Informed (informado)
 
 ---
 
-## 🚀 Principios Guía
+## 📈 Paths de Crecimiento
 
-Todas estas guías siguen los principios establecidos por el usuario:
+### Desarrollador
+```
+Junior Entry (0-6m) → Junior Mid (6-18m) → Junior Senior (18-24m) 
+→ Mid (2-5y) → Senior (5+y) → Tech Lead (8+y)
+```
 
-1. **Simplicidad**: Código y procesos simples, profesionales, eficientes
-2. **Calidad**: Soluciones óptimas basadas en mejores prácticas
-3. **Integridad**: Código mantenible, sin shortcuts ni simulaciones
-4. **Profesionalismo**: Estándares altos en todo lo que hacemos
-5. **Aprendizaje continuo**: Siempre hay espacio para mejorar
+### Tech Lead
+```
+Tech Lead → Engineering Manager / CTO (gestión de múltiples equipos)
+```
 
----
+### Product Manager
+```
+PM Junior → PM Mid → PM Senior → Head of Product / CPO
+```
 
-## 📖 Documentos Relacionados
+### QA Analyst
+```
+QA Junior → QA Mid → QA Senior → QA Lead / QA Automation Engineer
+```
 
-- [Manual Operativo Microsyst](../MANUAL_OPERATIVO_MICROSYST.md) - Manual operativo completo (base de estos roles)
-- [CI/CD Pipeline](../CICD_PIPELINE_3_SERVICES.md) - Flujo completo de CI/CD para 3 servicios
-- [Arquitectura](../ARCHITECTURE.md) - Arquitectura del monorepo
-- [Ambientes](../ENVIRONMENTS.md) - Descripción de ambientes (DEV, STAGING, PROD)
-- [README Principal](../../README.md) - Información general del proyecto
-
----
-
-## 🎯 Cadencia Semanal del Equipo (Manual Operativo)
-
-**Sprints semanales** con reuniones clave:
-
-| Día | Hora | Actividad | Participantes | Duración |
-|-----|------|-----------|---------------|----------|
-| **Lunes** | - | **Planificación** | PM propone 5-15 tareas, Lead prioriza top 10 | 30 min |
-| **Diario** | - | **Daily** | Todos: qué haré hoy, bloqueos | 10 min |
-| **Miércoles** | 11:00 | **Deploy Staging** | DevOps ejecuta, PM valida smoke+E2E | - |
-| **Jueves** | 11:00 | **Deploy Producción** | DevOps ejecuta (si Lead aprueba), PM valida | - |
-| **Viernes** | - | **Demo/Cierre** | Todos: entregado, aprendizajes, próximos pasos | 30 min |
-
-**Regla de oro**: Nada llega a **Producción** sin pasar por **Staging** (E2E + smoke OK + 30 min sin errores en Sentry).
+### DevOps
+```
+DevOps Junior → DevOps Mid → DevOps Senior → SRE / DevOps Lead
+```
 
 ---
 
-## 📝 Notas Finales
+## 🛠️ Herramientas Comunes
 
-Estas guías son **documentos vivos**. Evolucionan con el equipo y el proyecto. Tu feedback es valioso para mantenerlas actualizadas y útiles.
+### Desarrollo
+- **GitHub**: Código, PRs, issues
+- **VSCode**: IDE con extensiones (ESLint, Prettier)
+- **Docker**: Contenedores para desarrollo local
 
-**Principios del Manual Operativo Microsyst**:
-- ✅ Entregar valor cada semana con cambios pequeños y seguros
-- ✅ Staging como red de seguridad (todo pasa por Staging antes de Prod)
-- ✅ Automatizar lo que ahorre tiempo (CI/CD, pruebas E2E, backups)
-- ✅ Documentación mínima y viva en el repo, sin burocracia
+### Gestión
+- **Jira / Linear**: Backlog, sprints, tracking
+- **Slack**: Comunicación diaria
+- **Loom**: Videos de demos o explicaciones
 
-Trabajamos como profesionales, aprendemos continuamente, y compartimos conocimiento generosamente.
+### Testing y Calidad
+- **Jest**: Tests unitarios
+- **Playwright**: E2E automatizado
+- **SonarQube**: Code quality
+
+### Infraestructura
+- **GitHub Actions**: CI/CD
+- **Docker Compose / Swarm**: Orquestación
+- **Sentry**: Error tracking
+- **Uptime Kuma**: Health checks
+
+### Documentación
+- **Notion / Confluence**: Wikis, ADRs, runbooks
+- **README.md**: Documentación de código
 
 ---
 
-**Última actualización**: 2025-10-08  
-**Alineado con**: Manual Operativo Microsyst (Startup + Staging)  
-**Mantenido por**: Founder/Lead + PM/Analista  
-**Versión**: 2.0 (actualizado según Manual Operativo)
+## 📚 Documentos de Soporte
 
+### Procedimientos Operativos
+- **[MANUAL_OPERATIVO_MICROSYST.md](../MANUAL_OPERATIVO_MICROSYST.md)** - Manual completo del equipo
+- **[CICD_PIPELINE_3_SERVICES.md](../CICD_PIPELINE_3_SERVICES.md)** - Flujo de CI/CD
+- **[ENVIRONMENTS.md](../ENVIRONMENTS.md)** - Configuración de ambientes
+
+### Checklists
+- **CHECKLIST_DESARROLLO.md** - Checklist de desarrollo
+- **CHECKLIST_QA_DEV.md** - Checklist de testing en DEV
+- **CHECKLIST_STAGING.md** - Checklist de deploy a staging
+- **CHECKLIST_DEPLOY_PROD.md** - Checklist de deploy a producción
+- **CHECKLIST_INCIDENTE.md** - Checklist de manejo de incidentes
+
+### Scripts de Automatización
+- **[scripts/README_SCRIPTS.md](../../scripts/README_SCRIPTS.md)** - Documentación de scripts DevOps
+  - `health-check-all.sh` - Verificación de servicios
+  - `monitor-resources.sh` - Monitoreo de CPU/RAM/Disco
+  - `cleanup-docker.sh` - Limpieza automática
+  - `daily-report.sh` - Reporte diario
+
+---
+
+## 🎓 Onboarding por Rol
+
+### Nuevo Desarrollador
+**Semana 1**: Setup, contexto, primera tarea guiada  
+**Semana 2-3**: Tareas pequeñas con code review  
+**Semana 4**: Primera feature completa
+
+**Documentos**: Leer `01_DESARROLLADOR.md`, `README.md`, `MANUAL_OPERATIVO_MICROSYST.md`
+
+### Nuevo Tech Lead
+**Semana 1**: Contexto (Founder, PM, Devs)  
+**Semana 2**: Observación (sprint completo)  
+**Semana 3**: Acción (proponer mejoras)  
+**Semana 4**: Liderazgo (liderar planificación)
+
+**Documentos**: Leer TODO el repositorio de docs/
+
+### Nuevo PM
+**Semana 1**: Contexto (Founder, Tech Lead, usuarios)  
+**Semana 2**: Inmersión (participar en sprint)  
+**Semana 3**: Práctica (redactar primeras US)  
+**Semana 4**: Autonomía (liderar planificación)
+
+**Documentos**: Leer `03_PRODUCT_MANAGER.md`, roadmap actual, backlog
+
+### Nuevo QA
+**Semana 1**: Contexto (arquitectura, ambientes)  
+**Semana 2**: Inmersión (observar testing)  
+**Semana 3**: Práctica (testear en DEV)  
+**Semana 4**: Automatización (Playwright)
+
+**Documentos**: Leer `04_QA_ANALYST.md`, casos de prueba, checklists
+
+### Nuevo DevOps
+**Semana 1**: Contexto (infraestructura actual, accesos)  
+**Semana 2**: Observación (deploy, monitoreo)  
+**Semana 3**: Práctica (deploy con supervisión)  
+**Semana 4**: Autonomía (deploy independiente)
+
+**Documentos**: Leer `05_DEVOPS_SRE.md`, runbooks, scripts
+
+---
+
+## 🤝 Cómo Usar Estas Guías
+
+### Para Miembros del Equipo
+1. **Lee tu guía de rol** completa (30-60 min)
+2. **Imprime tu checklist** operativo (o ponlo en tu espacio de trabajo)
+3. **Consulta regularmente** ante dudas ("¿esto es mi responsabilidad?")
+4. **Propone mejoras** si algo está desactualizado
+
+### Para Tech Lead / Founder
+1. **Onboarding**: Asigna guía correspondiente a nuevo miembro
+2. **1:1s**: Usar KPIs de guía para feedback
+3. **Promociones**: Usar criterios de "Promoción a..." para evaluaciones
+4. **Resolución de conflictos**: "Según la guía, esto es responsabilidad de X"
+
+### Para Actualizar Guías
+1. **Frecuencia**: Revisar trimestralmente o cuando hay cambio significativo
+2. **Proceso**: Proponer cambio → Revisar con equipo → Actualizar → Comunicar
+3. **Versión**: Incrementar versión (2.0 → 2.1) y fecha de actualización
+
+---
+
+## 📞 Contacto
+
+**Dudas sobre roles o responsabilidades**:
+- Tech Lead: [nombre@microsyst.com]
+- PM: [nombre@microsyst.com]
+- Founder/CEO: [nombre@microsyst.com]
+
+---
+
+**Versión**: 2.0 (Roles atomizados profesionalmente)  
+**Última actualización**: 8 Octubre 2025  
+**Mantenido por**: Tech Lead + Founder

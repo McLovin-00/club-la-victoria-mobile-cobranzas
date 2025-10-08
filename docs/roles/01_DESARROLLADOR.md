@@ -1,704 +1,472 @@
-# Guía del Desarrollador (Junior)
+# Desarrollador (Developer)
 
-> **Rol según Manual Operativo Microsyst**: Implementan tareas, abren PRs chicos y hacen revisión entre pares (1 aprobación). Ejecutan lint/test/build y dejan pasos de prueba en la PR. Actualizan README y .env.example cuando cambia cómo correr o desplegar. Soportan a PM/Analista en preparación de datos de prueba y verificación funcional.
+> **Última actualización**: 8 Octubre 2025  
+> **Rol**: Implementación de features y mantenimiento de código  
+> **Dedicación**: 100%  
+> **Reporta a**: Tech Lead
 
-## 1. Características del Rol
+---
+
+## 🎯 Visión General
+
+El Desarrollador es responsable de **implementar features**, **mantener el código**, y **contribuir al crecimiento técnico del equipo**. Este rol tiene 3 niveles de progresión: **Junior (Entry/Mid/Senior)**, **Mid**, y **Senior**, cada uno con responsabilidades crecientes.
+
+---
+
+## 👤 Perfil General
+
+### Skills Técnicas Base
+- **Frontend**: React 18, TypeScript, Tailwind CSS, Vite
+- **Backend**: Node.js 20+, Express, Prisma ORM, PostgreSQL
+- **DevOps básico**: Docker, Git, npm
+- **Testing**: Jest (unitarios), Playwright (E2E básico)
+- **Herramientas**: VSCode, GitHub, Jira/Linear
+
+### Skills Blandas
+- **Comunicación**: Capacidad de explicar problemas técnicos y pedir ayuda
+- **Trabajo en equipo**: Colaboración en PRs, pair programming
+- **Aprendizaje continuo**: Curiosidad técnica, ganas de crecer
+- **Ownership**: Responsabilidad por las tareas asignadas
+
+---
+
+## 📊 Niveles de Desarrollador
+
+### Resumen de Niveles
+
+| Nivel | Experiencia | Autonomía | Supervisión | Aprueba PRs | Mentorea |
+|-------|-------------|-----------|-------------|-------------|----------|
+| **Jr Entry** | 0-6 meses | Baja | Alta | ❌ | ❌ |
+| **Jr Mid** | 6-18 meses | Media | Media | Jr Entry | ❌ |
+| **Jr Senior** | 18-24 meses | Alta | Baja | Todos Jr | Jr Entry |
+| **Mid** | 2-5 años | Muy alta | Mínima | Jr y Mid | Jr y Mid |
+| **Senior** | 5+ años | Completa | Ninguna | Todos | Todos |
+
+---
+
+## 🌱 **DESARROLLADOR JUNIOR - ENTRY (0-6 meses)**
 
 ### Perfil
-- **Responsabilidad**: Implementar funcionalidades, corregir bugs, mantener código de calidad y colaborar en QA
-- **Nivel**: Junior (equipo de 3 devs jr trabajando colaborativamente)
-- **Herramientas**: Git, GitHub, VSCode/Cursor, Node.js, npm, Docker
-- **Conocimientos requeridos**: TypeScript, React, Express, Prisma, Git Flow, testing básico
+- **Experiencia**: 0-6 meses en el equipo/empresa
+- **Nivel técnico**: Conocimientos básicos de stack, aprendiendo
+- **Supervisión**: Alta (daily check-ins con Tech Lead o Mid/Senior)
 
-### Competencias Clave
-- ✅ Programación en TypeScript (frontend y backend)
-- ✅ Gestión de versiones con Git
-- ✅ Escritura de tests unitarios y de integración
-- ✅ Comprensión de arquitectura de microservicios
-- ✅ Capacidad de trabajar con feedback de revisiones
-- ✅ Preparación de datos de prueba
-- ✅ Documentación básica (README, .env.example)
+### Responsabilidades
 
-### Responsabilidades Core (Manual Operativo)
-1. **Implementación**: Desarrolla tareas asignadas en ramas `feat/*`, `fix/*`, `chore/*`
-2. **PRs Chicos**: Abre Pull Requests ≤300 líneas con descripción, pasos de prueba y evidencias
-3. **Peer Review**: Revisa código de compañeros (1 aprobación requerida antes de merge)
-4. **Quality Gates**: Ejecuta `npm ci && npm run lint && npm test && npm run build` antes de PR
-5. **Documentación**: Actualiza README y .env.example cuando cambia setup o deploy
-6. **Soporte a QA**: Ayuda a PM/Analista con datos de prueba y verificación funcional
+#### R1: Implementar Tareas con Supervisión
+- Recibir tareas bien definidas (User Stories claras, CA específicos)
+- Implementar features siguiendo estándares del equipo
+- Hacer muchas preguntas (es esperado y valorado)
+- Estimar tiempo de forma conservadora (x2 o x3 vs estimación inicial)
 
-### Restricciones Importantes
-- ❌ PRs > 300 líneas (dividir en PRs más chicos)
-- ❌ Commits sin lint/test (verificar antes de push)
-- ❌ Secrets hardcodeados (usar variables de entorno)
-- ❌ Cambios fuera del alcance del issue (solo lo asignado)
+#### R2: Abrir Pull Requests con Descripción Clara
+- Usar template de PR del repositorio
+- Describir:
+  - **Qué**: Qué cambios se hicieron
+  - **Por qué**: Qué problema resuelve
+  - **Cómo testear**: Pasos para validar la feature
+- Incluir screenshots o videos (Loom) si es cambio de UI
+- Linkar a User Story en Jira/Linear
+
+#### R3: Ejecutar Quality Gates Localmente
+- Antes de abrir PR, ejecutar:
+  ```bash
+  npm run lint          # Linter sin errores
+  npm run type-check    # TypeScript sin errores
+  npm test              # Tests unitarios pasan
+  npm run build         # Build exitoso
+  ```
+- Si algo falla, arreglarlo antes de abrir PR
+
+#### R4: Escribir Tests Unitarios Básicos
+- Testear "happy path" (flujo exitoso)
+- Ejemplo:
+  ```typescript
+  describe('calcularTotal', () => {
+    it('debe calcular total correctamente con 2 items', () => {
+      const items = [{ precio: 100 }, { precio: 200 }];
+      expect(calcularTotal(items)).toBe(300);
+    });
+  });
+  ```
+- Cobertura mínima: 50% (irá subiendo con experiencia)
+
+#### R5: Actualizar Documentación Básica
+- Si se agrega variable de entorno nueva, actualizar `.env.example`
+- Si cambia cómo correr el proyecto, actualizar `README.md`
+- Si se elimina código, eliminar comentarios obsoletos
+
+#### R6: Participar en Daily Standup
+- **Qué hice ayer**: Resumir avance
+- **Qué haré hoy**: Próxima tarea
+- **Blockers**: Si estoy bloqueado > 2h, pedir ayuda
+
+#### R7: Pedir Ayuda Proactivamente
+- **Regla de 2 horas**: Si estás bloqueado > 2h, pedir ayuda (Slack, pair programming)
+- **Cómo pedir ayuda bien**:
+  - ❌ "No funciona, ayuda"
+  - ✅ "Estoy implementando X, probé A y B (adjunto screenshots), pero sigo teniendo error Z. ¿Puedes ayudarme?"
+
+### Funciones que NO Debe Hacer
+- ❌ Aprobar PRs de otros (aún)
+- ❌ Cambios en arquitectura o infraestructura
+- ❌ Decisiones técnicas sin consultar
+- ❌ Deploy a staging/producción
+
+### Cadencia
+- **Diario**: Daily standup (10 min), desarrollo (6-7h), code review (1h)
+- **Semanal**: 1:1 con Tech Lead (30 min) - check-in, feedback, desbloqueo
+
+### KPIs
+- **PRs abiertos**: 2-4 por semana (tareas pequeñas)
+- **Tiempo de resolución**: Dentro de estimación (±30%)
+- **Feedback en PRs**: Máximo 2 rondas de cambios (learning curve)
+
+### Promoción a Jr Mid (6 meses)
+- ✅ Implementa tareas con autonomía creciente
+- ✅ PRs con calidad aceptable (lint, tests, descripción)
+- ✅ Proactividad para pedir ayuda y desbloquear
+- ✅ Feedback positivo de Tech Lead
 
 ---
 
-## 2. Flujo de Trabajo Diario
+## 🌿 **DESARROLLADOR JUNIOR - MID (6-18 meses)**
 
-### 2.1 Inicio de una Nueva Tarea
+### Perfil
+- **Experiencia**: 6-18 meses en el equipo
+- **Nivel técnico**: Conoce bien el stack, autonomía media
+- **Supervisión**: Media (check-ins semanales)
 
-#### Paso 1: Recibir Asignación
-1. Ve a GitHub Issues: `https://github.com/sergiobleynat1969/monorepo-bca/issues`
-2. Localiza el issue asignado a ti
-3. Lee completamente la descripción, criterios de aceptación y comentarios
-4. Si tienes dudas, **pregunta en el issue ANTES de comenzar**
+### Responsabilidades (además de Jr Entry)
 
-#### Paso 2: Preparar Entorno Local
-```bash
-# 1. Asegúrate de estar en la rama main actualizada
-cd /ruta/a/monorepo-bca
-git checkout main
-git pull origin main
+#### R1: Implementar Tareas con Autonomía
+- Recibir tareas y ejecutarlas sin supervisión constante
+- Proponer soluciones técnicas (con validación de Tech Lead)
+- Estimar tiempo de forma realista (±20% vs real)
 
-# 2. Verifica que tu entorno funcione
-npm install
-npm run dev
+#### R2: Aprobar PRs de Junior Entry (Peer Review)
+- Hacer code review constructivo de PRs de Jr Entry
+- Validar:
+  - ✅ Código sigue estándares (linting, convenciones)
+  - ✅ Tests cubren casos principales
+  - ✅ No hay código duplicado
+  - ✅ Documentación actualizada si es necesario
+- Dar feedback amigable y educativo (no solo "está mal", sino "está mal porque...")
 
-# 3. Confirma que backend, frontend y documentos arranquen sin errores
-# Revisa la consola - debe ver:
-# ✓ Backend corriendo en puerto 4800
-# ✓ Frontend corriendo en puerto 8550
-# ✓ Documentos corriendo en puerto 4900
-```
-
-#### Paso 3: Crear Branch de Trabajo
-```bash
-# Nomenclatura: feature/<issue-number>-<descripcion-corta>
-# Ejemplo para issue #42 "Agregar validación de email"
-git checkout -b feature/42-validacion-email
-
-# O para un bug:
-git checkout -b fix/42-corregir-login
-```
-
-**Reglas de nomenclatura:**
-- `feature/` → Nueva funcionalidad
-- `fix/` → Corrección de bug
-- `refactor/` → Mejora de código sin cambio funcional
-- `docs/` → Solo cambios en documentación
-- `test/` → Solo agregar/mejorar tests
-
----
-
-### 2.2 Implementación de Código
-
-#### Paso 4: Programar con Calidad
-
-**Antes de escribir código:**
-1. **Analiza el alcance**: ¿Qué archivos necesitas modificar?
-2. **Revisa código existente**: ¿Hay patrones similares en el proyecto?
-3. **Planifica tests**: ¿Cómo vas a probar esto?
-
-**Durante la implementación:**
-
-```typescript
-// ❌ MAL - Código sin tipado, sin validación
-app.post('/api/users', (req, res) => {
-  const user = req.body;
-  db.create(user);
-  res.send(user);
-});
-
-// ✅ BIEN - Tipado, validación, manejo de errores
-import { z } from 'zod';
-import { Request, Response } from 'express';
-import { prisma } from '../config/database';
-
-const CreateUserSchema = z.object({
-  email: z.string().email(),
-  nombre: z.string().min(2).max(100),
-  rol: z.enum(['ADMIN', 'USER'])
-});
-
-export const createUser = async (req: Request, res: Response) => {
-  try {
-    // Validar entrada
-    const data = CreateUserSchema.parse(req.body);
-    
-    // Lógica de negocio
-    const user = await prisma.user.create({
-      data: {
-        email: data.email,
-        nombre: data.nombre,
-        rol: data.rol
-      }
+#### R3: Escribir Tests Completos
+- Testear happy path + edge cases + errores
+- Ejemplo:
+  ```typescript
+  describe('validarEmail', () => {
+    it('debe aceptar email válido', () => {
+      expect(validarEmail('user@example.com')).toBe(true);
     });
     
-    // Respuesta exitosa
-    res.status(201).json({
-      success: true,
-      data: user
-    });
-  } catch (error) {
-    if (error instanceof z.ZodError) {
-      return res.status(400).json({
-        success: false,
-        message: 'Datos inválidos',
-        errors: error.errors
-      });
-    }
-    
-    // Log del error (sin exponer en producción)
-    console.error('Error creando usuario:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Error interno del servidor'
-    });
-  }
-};
-```
-
-**Checklist de calidad:**
-- [ ] ¿Usé TypeScript estricto? (`no any`)
-- [ ] ¿Validé todas las entradas del usuario?
-- [ ] ¿Manejé errores apropiadamente?
-- [ ] ¿Agregué logs informativos?
-- [ ] ¿Evité hardcodear valores? (usar variables de entorno)
-- [ ] ¿El código es legible? (nombres descriptivos, funciones pequeñas)
-
-#### Paso 5: Escribir Tests
-
-**Para cada funcionalidad, escribe al menos:**
-
-1. **Test Unitario** (lógica aislada)
-```typescript
-// apps/backend/src/__tests__/services/user.service.test.ts
-import { createUser } from '../../services/user.service';
-import { prisma } from '../../config/database';
-
-jest.mock('../../config/database');
-
-describe('UserService - createUser', () => {
-  it('debe crear un usuario válido', async () => {
-    const mockUser = {
-      email: 'test@example.com',
-      nombre: 'Test User',
-      rol: 'USER'
-    };
-    
-    (prisma.user.create as jest.Mock).mockResolvedValue({
-      id: 1,
-      ...mockUser
+    it('debe rechazar email sin @', () => {
+      expect(validarEmail('userexample.com')).toBe(false);
     });
     
-    const result = await createUser(mockUser);
-    
-    expect(result).toHaveProperty('id');
-    expect(result.email).toBe(mockUser.email);
+    it('debe rechazar email vacío', () => {
+      expect(validarEmail('')).toBe(false);
+    });
   });
+  ```
+- Cobertura mínima: 70%
 
-  it('debe lanzar error con email inválido', async () => {
-    await expect(
-      createUser({ email: 'invalid', nombre: 'Test', rol: 'USER' })
-    ).rejects.toThrow();
-  });
-});
-```
+#### R4: Soportar a QA en Datos de Prueba
+- Ayudar a QA a preparar datos de prueba (seeds de BD, usuarios test)
+- Coordinar con QA para entender cómo testear features
 
-2. **Test de Integración** (flujo completo)
-```typescript
-// apps/backend/src/__tests__/routes/users.routes.test.ts
-import request from 'supertest';
-import app from '../../app';
+#### R5: Proponer Mejoras Menores
+- Refactors pequeños (extraer función, renombrar variable, eliminar código duplicado)
+- Proponer a Tech Lead para aprobación
+- Implementar si es aprobado
 
-describe('POST /api/users', () => {
-  it('debe crear usuario y retornar 201', async () => {
-    const response = await request(app)
-      .post('/api/users')
-      .send({
-        email: 'nuevo@example.com',
-        nombre: 'Nuevo Usuario',
-        rol: 'USER'
-      })
-      .expect(201);
-    
-    expect(response.body.success).toBe(true);
-    expect(response.body.data).toHaveProperty('id');
-  });
+### Funciones que NO Debe Hacer
+- ❌ Aprobar PRs de Mid/Senior (aún)
+- ❌ Decisiones arquitectónicas
+- ❌ Cambios críticos sin supervisión
 
-  it('debe rechazar email duplicado con 400', async () => {
-    await request(app)
-      .post('/api/users')
-      .send({
-        email: 'duplicado@example.com',
-        nombre: 'Usuario 1',
-        rol: 'USER'
-      });
-    
-    const response = await request(app)
-      .post('/api/users')
-      .send({
-        email: 'duplicado@example.com',
-        nombre: 'Usuario 2',
-        rol: 'USER'
-      })
-      .expect(400);
-    
-    expect(response.body.success).toBe(false);
-  });
-});
-```
+### Cadencia
+- **Diario**: Daily standup, desarrollo, code review
+- **Quincenal**: 1:1 con Tech Lead (30 min)
 
-**Ejecutar tests:**
-```bash
-# Todos los tests
-npm run test
+### KPIs
+- **PRs abiertos**: 3-5 por semana (tareas medianas)
+- **Code reviews**: 2-4 por semana (PRs de Jr Entry)
+- **Tests con cobertura ≥ 70%**
+- **Autonomía**: Menos bloqueos, menos rondas de feedback en PRs
 
-# Solo un archivo
-npm run test -- user.service.test.ts
-
-# Con cobertura
-npm run test:coverage
-
-# Objetivo: cobertura ≥ 80%
-```
-
-#### Paso 6: Verificar Linting y Build
-
-```bash
-# 1. Lint (corregir problemas de estilo)
-npm run lint
-
-# Si hay errores, corregirlos automáticamente:
-npm run lint:fix
-
-# 2. Build (verificar que compile sin errores)
-npm run build
-
-# 3. Verificar que no rompiste nada
-npm run dev
-# Probar manualmente la funcionalidad en el navegador
-```
+### Promoción a Jr Senior (18 meses)
+- ✅ Implementa features complejas end-to-end
+- ✅ Code reviews útiles y constructivos
+- ✅ Proactividad para proponer mejoras
+- ✅ Feedback positivo de peers
 
 ---
 
-### 2.3 Commits y Pull Request
+## 🌳 **DESARROLLADOR JUNIOR - SENIOR (18-24 meses)**
 
-#### Paso 7: Hacer Commits Atómicos
+### Perfil
+- **Experiencia**: 18-24 meses en el equipo
+- **Nivel técnico**: Domina el stack, alta autonomía
+- **Supervisión**: Baja (check-ins mensuales)
+- **Próximo paso**: Candidato a promoción a Mid Developer
 
-**Regla de oro**: Un commit = Una unidad lógica de cambio
+### Responsabilidades (además de Jr Mid)
 
-```bash
-# ❌ MAL - Commit gigante con todo mezclado
-git add .
-git commit -m "cambios"
+#### R1: Implementar Features Complejas End-to-End
+- Features que tocan Frontend + Backend + BD
+- Features con múltiples edge cases y validaciones
+- Coordinar con PM y Tech Lead para diseño de solución
 
-# ✅ BIEN - Commits pequeños y descriptivos
-git add apps/backend/src/services/user.service.ts
-git commit -m "feat(backend): agregar validación de email en UserService"
+#### R2: Mentorear a Junior Entry (Pair Programming)
+- Dedicar 2-4h/semana a pair programming con Jr Entry
+- Enseñar buenas prácticas, debugging, cómo usar herramientas
+- Dar feedback constructivo y celebrar progreso
 
-git add apps/backend/src/__tests__/services/user.service.test.ts
-git commit -m "test(backend): agregar tests para validación de email"
+#### R3: Aprobar PRs de Cualquier Junior
+- Code review de PRs de Jr Entry y Jr Mid
+- Validar calidad técnica, arquitectura, performance
+- Balancear exigencia con educación
 
-git add apps/frontend/src/features/users/UserForm.tsx
-git commit -m "feat(frontend): agregar campo de email en formulario de usuario"
-```
+#### R4: Proponer Mejoras de Arquitectura (Pequeñas)
+- Identificar patrones problemáticos en el código
+- Proponer refactors a Tech Lead
+- Ejemplo: "Tenemos mucha lógica duplicada en 5 controladores, propongo crear un service compartido"
 
-**Formato de commits (Conventional Commits):**
-```
-<tipo>(<scope>): <descripción corta>
+#### R5: Participar en Estimación de Esfuerzo
+- Ayudar a Tech Lead y PM a estimar esfuerzo de features en planificación de sprint
+- Dar opinión técnica sobre viabilidad
 
-[cuerpo opcional - explicar el POR QUÉ]
+#### R6: Ownership de Features Complejas
+- Ser el "dueño" técnico de una feature desde inicio hasta deploy
+- Coordinar con QA, PM, DevOps según sea necesario
 
-[footer opcional - referencias a issues]
-```
+### Funciones que NO Debe Hacer
+- ❌ Aprobar PRs críticos sin revisión de Tech Lead (seguridad, arquitectura mayor)
+- ❌ Tomar decisiones arquitectónicas mayores solo (consultar siempre)
 
-**Tipos válidos:**
-- `feat`: Nueva funcionalidad
-- `fix`: Corrección de bug
-- `refactor`: Cambio de código sin afectar funcionalidad
-- `test`: Agregar o modificar tests
-- `docs`: Solo documentación
-- `style`: Formato, punto y coma, etc (no afecta código)
-- `chore`: Tareas de mantenimiento (deps, config, etc)
+### Cadencia
+- **Diario**: Daily standup, desarrollo, code review, mentoría
+- **Mensual**: 1:1 con Tech Lead (enfoque en crecimiento a Mid)
 
-**Ejemplos reales:**
-```bash
-git commit -m "feat(backend): agregar endpoint GET /api/users/:id"
+### KPIs
+- **PRs abiertos**: 2-4 por semana (tareas complejas)
+- **Mentoría**: Feedback positivo de Jr Entry mentoreados
+- **Contribución a mejoras**: 1-2 propuestas de refactor por mes
+- **Ownership**: Features completadas end-to-end sin supervisión
 
-git commit -m "fix(frontend): corregir error de validación en LoginForm
-
-El formulario no validaba emails con caracteres especiales.
-Se actualizó el regex para soportar RFC 5322.
-
-Closes #42"
-
-git commit -m "test(documentos): aumentar cobertura de TemplateService a 85%"
-
-git commit -m "refactor(backend): extraer lógica de autenticación a middleware"
-```
-
-#### Paso 8: Subir Branch a GitHub
-
-```bash
-# Primera vez - crear branch remoto
-git push -u origin feature/42-validacion-email
-
-# Siguientes veces
-git push
-```
-
-#### Paso 9: Crear Pull Request
-
-1. **Ve a GitHub**: `https://github.com/sergiobleynat1969/monorepo-bca/pulls`
-2. **Click en "New Pull Request"**
-3. **Base**: `main` ← **Compare**: `feature/42-validacion-email`
-4. **Completa el template del PR:**
-
-```markdown
-## Descripción
-Implementa validación de email en el formulario de registro de usuarios.
-Ahora se valida formato RFC 5322 y se verifica que no esté duplicado en BD.
-
-## Tipo de cambio
-- [x] Nueva funcionalidad (feature)
-- [ ] Corrección de bug (fix)
-- [ ] Cambio que rompe compatibilidad (breaking change)
-
-## ¿Cómo se probó?
-- [x] Tests unitarios (user.service.test.ts)
-- [x] Tests de integración (users.routes.test.ts)
-- [x] Prueba manual en DEV (creé 5 usuarios, intenté duplicar email)
-
-## Checklist
-- [x] Mi código sigue las convenciones del proyecto
-- [x] He revisado mi propio código
-- [x] He comentado código complejo donde fue necesario
-- [x] He actualizado la documentación relevante
-- [x] Mis cambios no generan warnings
-- [x] He agregado tests que prueban mi funcionalidad
-- [x] Tests nuevos y existentes pasan localmente
-- [x] Cobertura de tests ≥ 80%
-
-## Issues relacionados
-Closes #42
-
-## Capturas de pantalla (si aplica)
-[Adjuntar screenshot del formulario funcionando]
-
-## Notas adicionales
-- Se agregó dependencia `validator` para validación de email
-- Se actualizó schema de Zod en UserController
-```
-
-5. **Asignar revisores:**
-   - Selecciona al menos 1 Tech Lead / Senior
-   - Selecciona 1 desarrollador del equipo
-6. **Click en "Create Pull Request"**
+### Promoción a Mid Developer (24 meses)
+- ✅ Implementa features complejas de forma independiente
+- ✅ Mentorea efectivamente a Juniors
+- ✅ Contribuye a mejora de arquitectura
+- ✅ Liderazgo técnico informal (sin ser Tech Lead)
+- ✅ Recomendación de Tech Lead
 
 ---
 
-### 2.4 Proceso de Revisión
+## 💼 **DESARROLLADOR MID (2-5 años experiencia)**
 
-#### Paso 10: Responder a Comentarios
+### Perfil
+- **Experiencia**: 2-5 años en desarrollo de software
+- **Nivel técnico**: Experto en el stack, autonomía completa
+- **Supervisión**: Mínima (check-ins según necesidad)
 
-**Cuando recibas comentarios de revisión:**
+### Responsabilidades
 
-1. **Lee todos los comentarios antes de responder**
-2. **Para cada comentario:**
-   - Si estás de acuerdo → Implementa el cambio
-   - Si tienes dudas → Pregunta educadamente
-   - Si no estás de acuerdo → Argumenta con fundamentos técnicos
+#### R1: Implementar Features Complejas Independientemente
+- Features que requieren diseño técnico
+- Refactors medianos (reestructurar módulo, optimizar performance)
+- Integraciones con APIs externas
 
-**Ejemplo de buena respuesta:**
-```markdown
-> Revisor: "Esta función es muy larga, considera dividirla"
+#### R2: Aprobar PRs de Junior y Otros Mid
+- Code review de calidad (arquitectura, performance, seguridad)
+- Balancear calidad con velocidad (saber cuándo es "suficientemente bueno")
+- Ser mentor en PRs (explicar el "por qué")
 
-✅ Respuesta: "Tienes razón. La dividí en 3 funciones más pequeñas:
-- `validateUserData()`
-- `createUserInDatabase()`
-- `sendWelcomeEmail()`
+#### R3: Proponer y Ejecutar Refactors Medianos
+- Identificar deuda técnica
+- Proponer plan de refactor a Tech Lead
+- Ejecutar refactor en 1-2 sprints
 
-Commit: abc123"
-```
+#### R4: Participar en Diseño de Soluciones con Tech Lead
+- Sesiones de diseño técnico (whiteboarding, ADRs)
+- Aportar experiencia y perspectiva técnica
+- Desafiar decisiones (constructivamente) si no tiene sentido
 
-**Ejemplo de mala respuesta:**
-```markdown
-> Revisor: "Esta función es muy larga, considera dividirla"
+#### R5: Mentorear 1-2 Juniors (Pair Programming Semanal)
+- Asignar 4-6h/semana a mentoría
+- Pair programming, code review educativo, 1:1s informales
 
-❌ Respuesta: "A mí me parece bien así"
-```
+#### R6: Participar en Hiring (Entrevistas Técnicas)
+- Hacer entrevistas técnicas de candidatos Junior/Mid
+- Evaluar skills técnicas y fit cultural
+- Dar feedback a Tech Lead para decisión de contratación
 
-3. **Implementar cambios solicitados:**
+#### R7: On-call Rotation (si existe)
+- Participar en rotación de on-call (1 semana cada N semanas)
+- Responder a incidentes en producción
+- Coordinar hotfixes si es necesario
 
-```bash
-# Hacer cambios en tu branch
-git add .
-git commit -m "refactor: dividir createUser en funciones más pequeñas"
+### Funciones que NO Debe Hacer
+- ❌ Aprobar PRs críticos sin contexto (seguridad, arquitectura mayor)
+- ❌ Decisiones arquitectónicas mayores sin Tech Lead
 
-# Subir cambios
-git push
+### Cadencia
+- **Diario**: Daily standup, desarrollo, code review, mentoría
+- **Mensual**: 1:1 con Tech Lead (crecimiento profesional)
 
-# GitHub automáticamente actualizará el PR
-```
+### KPIs
+- **Ownership de módulos completos**: 1-2 módulos bajo su responsabilidad
+- **Code reviews de alta calidad**: Feedback útil, educativo
+- **Contribución a deuda técnica**: Propone y ejecuta mejoras
+- **Mentoría efectiva**: Juniors muestran crecimiento
 
-4. **Marcar conversaciones como resueltas** cuando hayas implementado el cambio
-
-5. **Tiempo de respuesta**: Máximo 24 horas
-
----
-
-### 2.5 Merge y Deploy
-
-#### Paso 11: Preparar para Merge
-
-**Antes del merge, asegúrate:**
-
-```bash
-# 1. Sincronizar con main (puede haber cambios nuevos)
-git checkout main
-git pull origin main
-
-git checkout feature/42-validacion-email
-git merge main
-
-# Si hay conflictos, resuélvelos:
-# - Abre archivos con conflictos
-# - Busca marcadores <<<<<<< ======= >>>>>>>
-# - Decide qué código mantener
-# - Elimina los marcadores
-
-git add .
-git commit -m "merge: resolver conflictos con main"
-git push
-```
-
-2. **Verifica que CI pase:**
-   - Ve a la pestaña "Checks" en tu PR
-   - Debe haber ✅ verde en: Lint, Test, Build
-
-3. **Obtén aprobaciones requeridas:**
-   - Mínimo 2 aprobaciones
-   - Al menos 1 de un Senior
-
-#### Paso 12: Merge del PR
-
-**Opciones de merge:**
-
-1. **Squash and Merge** (recomendado para features pequeños)
-   - Combina todos tus commits en uno solo
-   - Mantiene historial limpio
-   - Usa cuando tienes muchos commits pequeños
-
-2. **Merge Commit** (para features grandes)
-   - Preserva todos los commits
-   - Usa cuando la historia de commits es valiosa
-
-3. **Rebase and Merge** (para mantener linealidad)
-   - Aplica commits uno a uno sobre main
-   - Usa cuando quieres historial lineal sin merge commits
-
-**Proceso:**
-1. Click en "Squash and Merge" (o la opción elegida)
-2. Edita el mensaje del commit final si es necesario
-3. Click en "Confirm merge"
-4. **Elimina el branch remoto** (GitHub lo sugiere automáticamente)
-
-```bash
-# Limpieza local
-git checkout main
-git pull origin main
-git branch -d feature/42-validacion-email
-```
+### Promoción a Senior (5+ años)
+- ✅ Expertise técnico reconocido
+- ✅ Liderazgo técnico sin ser Tech Lead formal
+- ✅ Contribución significativa a arquitectura
+- ✅ Mentoría efectiva y reconocida
 
 ---
 
-## 3. Casos Especiales
+## 🏆 **DESARROLLADOR SENIOR (5+ años experiencia)**
 
-### 3.1 Trabajar en Bug Crítico (Hotfix)
+### Perfil
+- **Experiencia**: 5+ años en desarrollo de software
+- **Nivel técnico**: Experto reconocido, referente técnico
+- **Supervisión**: Ninguna (trabaja con Tech Lead de par a par)
 
-```bash
-# 1. Crear branch desde main
-git checkout main
-git pull origin main
-git checkout -b hotfix/123-corregir-login-produccion
+### Responsabilidades
 
-# 2. Implementar FIX mínimo (sin features adicionales)
-# 3. Testear exhaustivamente
-# 4. PR con etiqueta "hotfix" y "priority: high"
-# 5. Solicitar revisión urgente
-# 6. Una vez mergeado, se despliega inmediatamente
-```
+#### R1: Diseñar Soluciones Técnicas Complejas
+- Diseñar arquitectura de features complejas
+- Evaluar trade-offs (performance vs mantenibilidad, etc)
+- Documentar decisiones técnicas (ADRs)
 
-### 3.2 Actualizar Branch Desactualizado
+#### R2: Aprobar PRs Críticos
+- PRs de seguridad (autenticación, autorización)
+- PRs de performance (queries optimizadas, caching)
+- PRs de arquitectura (cambios estructurales)
 
-```bash
-# Si tu branch está muy atrás de main
-git checkout feature/42-validacion-email
-git fetch origin
-git rebase origin/main
+#### R3: Liderar Iniciativas Técnicas
+- Migrations (ej: React 17 → 18, Node 18 → 20)
+- Refactors mayores (ej: modularización, microservicios)
+- Implementación de nuevas herramientas (ej: SonarQube, E2E)
 
-# Si hay conflictos, resolver uno a uno:
-git status  # Ver archivos con conflicto
-# Editar archivos
-git add .
-git rebase --continue
+#### R4: Mentorear Mid y Junior
+- Ser referente técnico del equipo
+- Pair programming en problemas complejos
+- Code reviews profundos (enseñar patrones avanzados)
 
-# Forzar push (solo en TU branch, nunca en main)
-git push --force-with-lease
-```
+#### R5: Participar en Definición de Estándares Técnicos
+- Proponer estándares de código
+- Proponer herramientas y procesos
+- Mantener guías técnicas actualizadas
 
-### 3.3 Revertir Cambios Locales
+#### R6: Apoyar a Tech Lead en Decisiones Arquitectónicas
+- Ser "sparring partner" del Tech Lead
+- Aportar perspectiva técnica en decisiones estratégicas
+- Puede actuar como Tech Lead temporal si es necesario
 
-```bash
-# Descartar cambios no commiteados en un archivo
-git checkout -- archivo.ts
+#### R7: Candidato a Tech Lead
+- Si Tech Lead se va o se crea nuevo equipo, Senior es candidato natural
 
-# Descartar TODOS los cambios no commiteados
-git reset --hard HEAD
+### Cadencia
+- **Diario**: Daily standup, desarrollo estratégico, code review, mentoría
+- **Según necesidad**: 1:1 con Tech Lead (colaboración técnica)
 
-# Revertir último commit (mantener cambios)
-git reset --soft HEAD~1
-
-# Revertir último commit (eliminar cambios)
-git reset --hard HEAD~1
-```
-
----
-
-## 4. Checklist de Buenas Prácticas
-
-### Antes de Abrir PR
-- [ ] Lei y entiendo completamente el issue
-- [ ] Mi branch está actualizado con main
-- [ ] Todos los tests pasan (`npm run test`)
-- [ ] El linting pasa (`npm run lint`)
-- [ ] El build es exitoso (`npm run build`)
-- [ ] Probé manualmente la funcionalidad
-- [ ] Escribí tests con cobertura ≥ 80%
-- [ ] Documenté código complejo
-- [ ] Actualicé README o docs si es necesario
-- [ ] No hay console.logs o código comentado
-- [ ] No hay secrets hardcodeados
-
-### Durante Revisión
-- [ ] Respondo comentarios en < 24h
-- [ ] Implemento cambios solicitados
-- [ ] Soy receptivo al feedback
-- [ ] Hago preguntas cuando no entiendo
-- [ ] Marco conversaciones como resueltas
-
-### Después de Merge
-- [ ] Elimino branch local y remoto
-- [ ] Sincronizo mi main local
-- [ ] Verifico que el deploy automático fue exitoso
-- [ ] Pruebo en el ambiente de DEV
-- [ ] Cierro el issue correspondiente
+### KPIs
+- **Impacto técnico**: Contribuciones significativas a arquitectura
+- **Calidad de decisiones**: Decisiones técnicas correctas (medido a posteriori)
+- **Liderazgo técnico**: Equipo lo reconoce como referente
 
 ---
 
-## 5. Recursos y Ayuda
+## 🛠️ Herramientas (Todos los Niveles)
 
-### Documentación del Proyecto
-- **README**: `/README.md`
-- **Arquitectura**: `/docs/ARCHITECTURE.md`
-- **CI/CD**: `/docs/CICD_PIPELINE_3_SERVICES.md`
-- **Ambientes**: `/docs/ENVIRONMENTS.md`
+### Desarrollo
+- **IDE**: VSCode con extensiones (ESLint, Prettier, TypeScript)
+- **Git**: GitHub (PRs, branches, reviews)
+- **Terminal**: bash/zsh, npm, docker
 
-### Comandos Útiles
-```bash
-# Ver estado de git
-git status
+### Testing
+- **Jest**: Tests unitarios
+- **Playwright**: E2E (básico)
+- **Postman**: Testing de APIs (manual)
 
-# Ver diferencias antes de commit
-git diff
+### Gestión
+- **Jira / Linear**: Tracking de tareas y sprints
+- **Slack**: Comunicación diaria
+- **Loom**: Videos para PRs o demos
 
-# Ver historial de commits
-git log --oneline --graph --decorate
-
-# Ver branches locales
-git branch
-
-# Ver branches remotos
-git branch -r
-
-# Buscar en el código
-grep -r "searchTerm" apps/
-
-# Ver puertos ocupados
-lsof -i :4800
-```
-
-### ¿A quién preguntar?
-- **Dudas técnicas**: Tech Lead del proyecto
-- **Problemas de entorno**: DevOps/SRE
-- **Clarificación de requerimientos**: Product Owner
-- **Revisión de código**: Cualquier Senior del equipo
-
-### Canales de Comunicación
-- **GitHub Issues**: Para requerimientos y bugs documentados
-- **Pull Requests**: Para discusiones de código
-- **Slack/Teams** (si aplica): Para preguntas rápidas
-- **Daily Standup**: Para reportar progreso y bloqueos
+### Documentación
+- **Notion / Confluence**: Documentación técnica
+- **README**: Documentación de código
 
 ---
 
-## 6. Tiempo de Respuesta Esperado
+## 📚 Recursos de Aprendizaje
 
-| Actividad | Tiempo Máximo |
-|-----------|---------------|
-| Leer y comprender issue asignado | 2 horas |
-| Responder a comentarios en PR | 24 horas |
-| Implementar cambios solicitados en revisión | 48 horas |
-| Resolver conflictos de merge | 4 horas |
-| Responder preguntas de revisores | 24 horas |
+### Para Junior Entry
+- **FreeCodeCamp**: React, JavaScript, Node.js
+- **The Odin Project**: Full-stack development
+- **Documentation oficial**: React, TypeScript, Prisma
 
----
+### Para Junior Mid/Senior
+- **"Clean Code"** de Robert C. Martin
+- **"The Pragmatic Programmer"** de Hunt & Thomas
+- **Refactoring.Guru**: Patrones de diseño
 
-## 7. Ejemplo Completo de Flujo
-
-**Issue #42: "Agregar validación de email en registro de usuarios"**
-
-```bash
-# DÍA 1 - Setup
-git checkout main
-git pull origin main
-git checkout -b feature/42-validacion-email
-
-# Leer issue, investigar solución (2 horas)
-
-# DÍA 1-2 - Implementación
-# Programar backend (4 horas)
-# Programar frontend (3 horas)
-# Escribir tests (3 horas)
-
-git add apps/backend/src/services/user.service.ts
-git commit -m "feat(backend): agregar validación de email en UserService"
-
-git add apps/backend/src/__tests__/services/user.service.test.ts
-git commit -m "test(backend): agregar tests para validación de email"
-
-git add apps/frontend/src/features/users/UserForm.tsx
-git commit -m "feat(frontend): agregar validación de email en formulario"
-
-# DÍA 2 - Verificación
-npm run lint
-npm run test
-npm run build
-
-# DÍA 2 - PR
-git push -u origin feature/42-validacion-email
-# Crear PR en GitHub con descripción completa
-
-# DÍA 3 - Revisión
-# Recibir comentarios, implementar cambios
-git add .
-git commit -m "refactor: aplicar sugerencias de code review"
-git push
-
-# DÍA 4 - Merge
-# Obtener 2 aprobaciones
-# Merge del PR
-# Limpiar branch
-
-git checkout main
-git pull origin main
-git branch -d feature/42-validacion-email
-```
+### Para Mid/Senior
+- **"Designing Data-Intensive Applications"** de Martin Kleppmann
+- **"System Design Interview"** de Alex Xu
+- **Blogs técnicos**: Kent C. Dodds, Dan Abramov, etc.
 
 ---
 
-**Recuerda**: La calidad del código es responsabilidad de todos. Escribe código como si la próxima persona que lo lea fuera un asesino en serie que sabe dónde vives. 😄
+## 🤝 Colaboración con Otros Roles
 
+### Con Tech Lead
+- **Daily**: Desbloqueos, validación de soluciones técnicas
+- **Semanal (Jr)** / **Mensual (Mid/Sr)**: 1:1 de crecimiento
+
+### Con PM
+- **Planificación**: Clarificar User Stories, estimar esfuerzo
+- **Demo**: Mostrar features completadas
+
+### Con QA
+- **Testing**: Coordinar testing de features, preparar datos
+- **Bugs**: Reproducir y fixear bugs reportados
+
+### Con DevOps
+- **Deploy**: Coordinar deploys si hay cambios de infra
+- **Troubleshooting**: Debug de issues en staging/prod
+
+---
+
+## 🎓 Checklist de Onboarding (Primera Semana)
+
+### Día 1: Setup
+- [ ] Laptop configurado (OS, herramientas básicas)
+- [ ] Acceso a GitHub, Jira, Slack, 1Password
+- [ ] Clonar repositorio y configurar entorno local
+- [ ] Ejecutar `npm install && npm run dev` exitosamente
+
+### Día 2-3: Contexto
+- [ ] Leer README y documentación principal
+- [ ] Leer código (estructura de carpetas, convenciones)
+- [ ] Hacer tour de la aplicación (como usuario)
+- [ ] Reunión de onboarding con Tech Lead (1-2h)
+
+### Día 4-5: Primera Tarea
+- [ ] Recibir primera tarea (pequeña, guiada)
+- [ ] Implementar, testear, abrir PR
+- [ ] Recibir feedback y aprender del proceso
+
+---
+
+**Última actualización**: 8 Octubre 2025  
+**Versión**: 2.0 (Atomizada - 3 niveles de Junior + Mid + Senior)  
+**Mantenido por**: Tech Lead
