@@ -15,11 +15,12 @@
 
 | Herramienta | Uso | Requerido | Alternativa |
 |-------------|-----|-----------|-------------|
-| **VSCode** | Editor principal | ✅ Sí | WebStorm, Vim |
-| **Cursor** | Editor con IA | 🔶 Opcional | VSCode + Copilot |
+| **Cursor AI** | Editor principal con IA integrada | ✅ Sí | VSCode, WebStorm |
+| **VSCode** | Alternativa si no se usa Cursor | 🔶 Opcional | - |
 
-**Extensiones VSCode obligatorias**:
+**Extensiones Cursor/VSCode obligatorias**:
 ```bash
+# Cursor usa las mismas extensiones que VSCode
 code --install-extension dbaeumer.vscode-eslint
 code --install-extension esbenp.prettier-vscode
 code --install-extension ms-vscode.vscode-typescript-next
@@ -30,10 +31,11 @@ code --install-extension eamodio.gitlens
 
 **Extensiones recomendadas**:
 ```bash
-code --install-extension GitHub.copilot           # Si tienes licencia
 code --install-extension ms-azuretools.vscode-docker
 code --install-extension christian-kohler.npm-intellisense
 ```
+
+**Nota**: Cursor AI incluye IA integrada, no necesita GitHub Copilot adicional
 
 ---
 
@@ -68,9 +70,9 @@ code --install-extension christian-kohler.npm-intellisense
 |-------------|-----|-----------|
 | **PostgreSQL 16** | Base de datos principal | ✅ Sí |
 | **Prisma** | ORM | ✅ Sí |
-| **DBeaver** | Cliente BD visual | 🔶 Opcional |
+| **HeidiSQL** | Cliente BD visual | ✅ Sí (recomendado) |
 | **Adminer** | Cliente BD web (en Docker) | 🔶 Opcional |
-| **pgAdmin** | Cliente BD oficial | 🔶 Opcional |
+| **pgAdmin** | Cliente BD oficial PostgreSQL | 🔶 Opcional |
 
 ---
 
@@ -262,9 +264,9 @@ code --install-extension christian-kohler.npm-intellisense
 
 | Herramienta | Uso | Requerido | Costo |
 |-------------|-----|-----------|-------|
-| **GitHub Copilot** | AI pair programming | 🔶 Opcional | $10/mes |
-| **Cursor AI** | Editor con IA integrada | 🔶 Opcional | $20/mes |
+| **Cursor AI** | Editor con IA integrada (usado por el equipo) | ✅ Sí | $20/mes |
 | **ChatGPT** | Consultas generales, debugging | 🔶 Opcional | Gratis/Plus |
+| **GitHub Copilot** | Alternativa si se usa VSCode | 🔶 Opcional | $10/mes |
 
 ### Document Processing
 
@@ -296,16 +298,16 @@ code --install-extension christian-kohler.npm-intellisense
 **Obligatorias**:
 - ✅ Git + GitHub
 - ✅ Node.js 20+ (via nvm)
-- ✅ VSCode con extensiones
+- ✅ Cursor AI con extensiones
 - ✅ Docker + Docker Compose
+- ✅ HeidiSQL (cliente BD)
 - ✅ Postman (testing de APIs)
 - ✅ Slack
 - ✅ Jira/Linear
 
 **Recomendadas**:
-- 🔶 GitHub Copilot / Cursor AI
-- 🔶 DBeaver (cliente BD)
 - 🔶 Loom (grabar demos)
+- 🔶 Adminer (cliente BD web alternativo)
 
 ---
 
@@ -416,11 +418,11 @@ code --install-extension christian-kohler.npm-intellisense
 | **Sentry Team** | $26/mes | Equipo completo |
 | **Uptime Kuma** | Gratis (self-hosted) | - |
 | **SonarQube** | Gratis (Community) | - |
-| **GitHub Copilot** | $10/usuario | Desarrolladores (opcional) |
+| **Cursor AI** | $20/usuario | Desarrolladores |
 
-**Costo estimado** (equipo de 6 personas):
+**Costo estimado** (equipo de 6 personas, 4 desarrolladores):
 - **Mínimo**: ~$250/mes (GitHub + Jira + Notion + 1Password + Sentry)
-- **Óptimo**: ~$350/mes (+ Copilot para 3 devs)
+- **Óptimo**: ~$330/mes (+ Cursor AI para 4 devs)
 
 ---
 
@@ -449,10 +451,21 @@ sudo apt install git docker.io   # Linux
 curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.5/install.sh | bash
 nvm install 20
 
-# VSCode extensiones
-code --install-extension dbaeumer.vscode-eslint
-code --install-extension esbenp.prettier-vscode
-code --install-extension Prisma.prisma
+# Cursor AI
+# Descargar desde: https://cursor.sh/
+# macOS: Instalar .dmg
+# Linux: Instalar .AppImage o .deb
+# Windows: Instalar .exe
+
+# Cursor extensiones (usa comandos de VSCode)
+cursor --install-extension dbaeumer.vscode-eslint
+cursor --install-extension esbenp.prettier-vscode
+cursor --install-extension Prisma.prisma
+
+# HeidiSQL (cliente de BD)
+# Windows: Descargar desde https://www.heidisql.com/download.php
+# Linux: wine + HeidiSQL o usar Adminer web
+# macOS: usar Adminer web o pgAdmin
 
 # Postman
 brew install --cask postman  # macOS
@@ -482,11 +495,12 @@ sudo snap install postman    # Linux
 
 | Herramienta | Usuarios Activos | Frecuencia de Uso | Satisfacción |
 |-------------|------------------|-------------------|--------------|
-| VSCode | 6/6 | Diaria | ⭐⭐⭐⭐⭐ |
+| Cursor AI | 6/6 | Diaria | ⭐⭐⭐⭐⭐ |
 | GitHub | 6/6 | Diaria | ⭐⭐⭐⭐⭐ |
 | Slack | 6/6 | Diaria | ⭐⭐⭐⭐ |
 | Jira | 6/6 | Diaria | ⭐⭐⭐ |
 | Docker | 6/6 | Diaria | ⭐⭐⭐⭐ |
+| HeidiSQL | 4/6 | Semanal | ⭐⭐⭐⭐ |
 | Postman | 4/6 | Semanal | ⭐⭐⭐⭐ |
 
 **Última actualización de stats**: 8 Octubre 2025
