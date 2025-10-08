@@ -1,0 +1,413 @@
+// Prisma Schema para Microservicio Documentos
+// "Simplicidad es la sofisticación definitiva"
+
+generator client {
+  provider        = "prisma-client-js"
+  output          = "../../node_modules/.prisma/documentos"
+  binaryTargets   = ["native", "linux-musl-openssl-3.0.x"]
+  previewFeatures = ["views"]
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DOCUMENTOS_DATABASE_URL")
+  directUrl = env("DOCUMENTOS_DATABASE_URL")
+}
+
+// =================================
+// ENUMS - Estados Simples y Claros
+// =================================
+
+enum EntityType {
+  DADOR
+  EMPRESA_TRANSPORTISTA
+  CHOFER
+  CAMION
+  ACOPLADO
+}
+
+enum DocumentStatus {
+  PENDIENTE             // Subido, esperando clasificación/validación
+  VALIDANDO             // En proceso de validación IA (legacy, compat)
+  CLASIFICANDO          // En proceso de clasificación IA
+  PENDIENTE_APROBACION  // Clasificado, esperando aprobación humana
+  APROBADO              // Validado y aprobado
+  RECHAZADO             // Validación falló
+  VENCIDO               // Documento expiró
+  DEPRECADO             // Reemplazado por una versión más nueva
+}
+
+// Notificaciones
+enum NotificationType {
+  aviso
+  alerta
+  alarma
+  faltante
+}
+
+enum NotificationAudience {
+  CHOFER
+  DADOR
+}
+
+// =================================
+// MODELOS ESENCIALES (ampliados)
+// =================================
+
+// Plantillas globales configurables por superadmin
+model DocumentTemplate {
+  id          Int        @id @default(autoincrement())
+  name        String     @db.VarChar(100)
+  entityType  EntityType @map("entity_type")
+  active      Boolean    @default(true)
+  createdAt   DateTime   @default(now()) @map("created_at")
+  updatedAt   DateTime   @updatedAt @map("updated_at")
+
+  // Relaciones
+  clientRequirements ClienteDocumentRequirement[] @relation("TemplateToClienteRequirement")
+  documents    Document[]
+
+  @@index([entityType, active])
+  @@map("document_templates")
+}
+
+// Eliminados modelos dependientes de 'empresa'
+
+// Documentos subidos por usuarios
+model Document {
+  id            Int            @id @default(autoincrement())
+  templateId    Int            @map("template_id")
+  entityType    EntityType     @map("entity_type")
+  entityId      Int            @map("entity_id")
+  dadorCargaId  Int            @map("dador_carga_id")
+  tenantEmpresaId Int          @map("tenant_empresa_id")
+  
+  // Información del archivo
+  fileName      String         @map("file_name") @db.VarChar(255)
+  filePath      String         @map("file_path") @db.VarChar(500)
+  fileSize      Int            @map("file_size")
+  mimeType      String         @map("mime_type") @db.VarChar(100)
+  
+  // Estado y validación
+  status        DocumentStatus @default(PENDIENTE)
+  validationData Json?         @map("validation_data")
+  expiresAt     DateTime?      @map("expires_at")
+  
+  // Timestamps
+  uploadedAt    DateTime       @default(now()) @map("uploaded_at")
+  validatedAt   DateTime?      @map("validated_at")
+  updatedAt     DateTime       @updatedAt @map("updated_at")
+
+  // Relaciones
+  template    DocumentTemplate     @relation(fields: [templateId], references: [id])
+
+  classification DocumentClassification?
+
+  @@index([tenantEmpresaId, dadorCargaId, entityType, entityId])
+  @@index([status, expiresAt])
+  @@index([templateId])
+  @@map("documents")
+}
+
+// =================================
+// CLIENTES y REQUISITOS POR CLIENTE
+// =================================
+
+// =================================
+// MAESTROS: CHOFERES, CAMIONES, ACOPLADOS (asociados a DADOR DE CARGA)
+// =================================
+
+model Chofer {
+  id           Int      @id @default(autoincrement())
+  dadorCargaId Int      @map("dador_carga_id")
+  tenantEmpresaId Int   @map("tenant_empresa_id")
+  empresaTransportistaId Int?     @map("empresa_transportista_id")
+  dni          String   @db.VarChar(32)
+  dniNorm      String   @map("dni_norm") @db.VarChar(32)
+  nombre       String?  @db.VarChar(120)
+  apellido     String?  @db.VarChar(120)
+  phones       String[] @default([])
+  activo       Boolean  @default(true)
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  dador DadorCarga @relation(fields: [dadorCargaId], references: [id])
+  empresaTransportista EmpresaTransportista? @relation(fields: [empresaTransportistaId], references: [id])
+
+  @@unique([tenantEmpresaId, dadorCargaId, dniNorm])
+  @@index([tenantEmpresaId, dadorCargaId])
+  @@map("choferes")
+}
+
+model Camion {
+  id          Int      @id @default(autoincrement())
+  dadorCargaId Int     @map("dador_carga_id")
+  tenantEmpresaId Int  @map("tenant_empresa_id")
+  empresaTransportistaId Int?     @map("empresa_transportista_id")
+  patente     String   @db.VarChar(32)
+  patenteNorm String   @map("patente_norm") @db.VarChar(32)
+  marca       String?  @db.VarChar(120)
+  modelo      String?  @db.VarChar(120)
+  activo      Boolean  @default(true)
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  dador DadorCarga @relation(fields: [dadorCargaId], references: [id])
+  empresaTransportista EmpresaTransportista? @relation(fields: [empresaTransportistaId], references: [id])
+
+  @@unique([tenantEmpresaId, dadorCargaId, patenteNorm])
+  @@index([tenantEmpresaId, dadorCargaId])
+  @@map("camiones")
+}
+
+model Acoplado {
+  id          Int      @id @default(autoincrement())
+  dadorCargaId Int     @map("dador_carga_id")
+  tenantEmpresaId Int  @map("tenant_empresa_id")
+  empresaTransportistaId Int?     @map("empresa_transportista_id")
+  patente     String   @db.VarChar(32)
+  patenteNorm String   @map("patente_norm") @db.VarChar(32)
+  tipo        String?  @db.VarChar(120)
+  activo      Boolean  @default(true)
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  dador DadorCarga @relation(fields: [dadorCargaId], references: [id])
+  empresaTransportista EmpresaTransportista? @relation(fields: [empresaTransportistaId], references: [id])
+
+  @@unique([tenantEmpresaId, dadorCargaId, patenteNorm])
+  @@index([tenantEmpresaId, dadorCargaId])
+  @@map("acoplados")
+}
+
+model Cliente {
+  id          Int      @id @default(autoincrement())
+  tenantEmpresaId Int  @map("tenant_empresa_id")
+  razonSocial String   @map("razon_social") @db.VarChar(200)
+  cuit        String   @db.VarChar(20)
+  activo      Boolean  @default(true)
+  notas       String?  @db.Text
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  requisitos ClienteDocumentRequirement[]
+  equipos    EquipoCliente[]
+
+  @@unique([tenantEmpresaId, cuit])
+  @@index([tenantEmpresaId])
+  @@map("clientes")
+}
+
+// =================================
+// DADOR DE CARGA (empresa externa que provee transportistas)
+// =================================
+
+model DadorCarga {
+  id          Int      @id @default(autoincrement())
+  tenantEmpresaId Int  @map("tenant_empresa_id")
+  razonSocial String   @map("razon_social") @db.VarChar(200)
+  cuit        String   @db.VarChar(20)
+  phones      String[] @default([])
+  notifyDriverEnabled Boolean @default(true) @map("notify_driver_enabled")
+  notifyDadorEnabled  Boolean @default(true) @map("notify_dador_enabled")
+  activo      Boolean  @default(true)
+  notas       String?  @db.Text
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  equipos Equipo[]
+  choferes Chofer[]
+  camiones Camion[]
+  acoplados Acoplado[]
+  empresasTransportistas EmpresaTransportista[]
+
+  @@unique([tenantEmpresaId, cuit])
+  @@index([tenantEmpresaId])
+  @@map("dadores_carga")
+}
+model ClienteDocumentRequirement {
+  id               Int        @id @default(autoincrement())
+  tenantEmpresaId  Int        @map("tenant_empresa_id")
+  clienteId        Int        @map("cliente_id")
+  templateId       Int        @map("template_id")
+  entityType       EntityType @map("entity_type")
+  obligatorio      Boolean    @default(true)
+  diasAnticipacion Int        @default(0) @map("dias_anticipacion")
+  visibleChofer    Boolean    @default(true) @map("visible_chofer")
+  createdAt        DateTime   @default(now()) @map("created_at")
+  updatedAt        DateTime   @updatedAt @map("updated_at")
+
+  cliente  Cliente          @relation(fields: [clienteId], references: [id])
+  template DocumentTemplate @relation("TemplateToClienteRequirement", fields: [templateId], references: [id])
+
+  @@unique([tenantEmpresaId, clienteId, templateId, entityType])
+  @@index([tenantEmpresaId, clienteId, entityType])
+  @@map("cliente_document_requirement")
+}
+
+// =================================
+// EQUIPOS y RELACIÓN CON CLIENTES
+// =================================
+
+enum EquipoEstado {
+  activa
+  finalizada
+}
+
+model Equipo {
+  id                Int          @id @default(autoincrement())
+  driverId          Int          @map("driver_id")
+  truckId           Int          @map("truck_id")
+  trailerId         Int?         @map("trailer_id")
+  dadorCargaId      Int          @map("dador_carga_id")
+  tenantEmpresaId   Int          @map("tenant_empresa_id")
+  empresaTransportistaId Int?     @map("empresa_transportista_id")
+  driverDniNorm     String       @map("driver_dni_norm") @db.VarChar(32)
+  truckPlateNorm    String       @map("truck_plate_norm") @db.VarChar(32)
+  trailerPlateNorm  String?      @map("trailer_plate_norm") @db.VarChar(32)
+  validFrom         DateTime     @map("valid_from")
+  validTo           DateTime?    @map("valid_to")
+  estado            EquipoEstado @default(activa)
+  createdAt         DateTime     @default(now()) @map("created_at")
+  updatedAt         DateTime     @updatedAt @map("updated_at")
+
+  clientes EquipoCliente[]
+  history  EquipoHistory[]
+  dador    DadorCarga?          @relation(fields: [dadorCargaId], references: [id])
+  empresaTransportista EmpresaTransportista? @relation(fields: [empresaTransportistaId], references: [id])
+
+  @@index([tenantEmpresaId, dadorCargaId, driverDniNorm])
+  @@index([tenantEmpresaId, dadorCargaId, truckPlateNorm])
+  @@index([tenantEmpresaId, dadorCargaId, trailerPlateNorm])
+  @@index([tenantEmpresaId, dadorCargaId])
+  @@index([validFrom, validTo])
+  @@unique([tenantEmpresaId, dadorCargaId, driverDniNorm, truckPlateNorm, trailerPlateNorm, validFrom])
+  @@map("equipo")
+}
+
+model EquipoCliente {
+  equipoId       Int       @map("equipo_id")
+  clienteId      Int       @map("cliente_id")
+  asignadoDesde  DateTime  @map("asignado_desde")
+  asignadoHasta  DateTime? @map("asignado_hasta")
+
+  equipo  Equipo  @relation(fields: [equipoId], references: [id])
+  cliente Cliente @relation(fields: [clienteId], references: [id])
+
+  @@id([equipoId, clienteId, asignadoDesde])
+  @@index([clienteId, equipoId])
+  @@map("equipo_cliente")
+}
+
+// Historial mínimo de movimientos de componentes de equipos
+model EquipoHistory {
+  id               Int      @id @default(autoincrement())
+  equipoId         Int      @map("equipo_id")
+  action           String   @db.VarChar(32) // attach|detach|create|forcemove|close|reopen
+  component        String   @db.VarChar(16) // driver|truck|trailer|empresa
+  originEquipoId   Int?     @map("origin_equipo_id")
+  payload          Json?
+  createdAt        DateTime @default(now()) @map("created_at")
+
+  equipo  Equipo  @relation(fields: [equipoId], references: [id])
+
+  @@index([equipoId, createdAt])
+  @@map("equipo_history")
+}
+
+// =================================
+// CONFIGURACIÓN DEL SISTEMA
+// =================================
+
+model SystemConfig {
+  id        Int      @id @default(autoincrement())
+  key       String   @unique @db.VarChar(100)
+  value     String?  @db.Text
+  encrypted Boolean  @default(false)
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("system_config")
+}
+
+// Registro de notificaciones enviadas (deduplicación y auditoría)
+model NotificationLog {
+  id               Int                   @id @default(autoincrement())
+  tenantEmpresaId  Int                   @map("tenant_empresa_id")
+  dadorCargaId     Int?                  @map("dador_carga_id")
+  documentId       Int?                  @map("document_id")
+  equipoId         Int?                  @map("equipo_id")
+  type             NotificationType
+  audience         NotificationAudience
+  target           String                @db.VarChar(64)
+  templateKey      String                @map("template_key") @db.VarChar(64)
+  payload          Json?
+  status           String                @db.VarChar(16)
+  error            String?               @db.Text
+  sentAt           DateTime              @default(now()) @map("sent_at")
+
+  @@index([documentId, type, audience])
+  @@index([equipoId, type, audience])
+  @@map("notification_log")
+}
+
+// =================================
+// VISTA MATERIALIZADA PARA PERFORMANCE
+// =================================
+
+// Esta vista se actualizará via triggers para performance óptima
+// Materialized view para performance del dashboard
+// Se crea manualmente en migración SQL
+
+// =================================
+// EMPRESA TRANSPORTISTA (nueva entidad intermedia)
+// =================================
+
+model EmpresaTransportista {
+  id              Int      @id @default(autoincrement())
+  dadorCargaId    Int      @map("dador_carga_id")
+  tenantEmpresaId Int      @map("tenant_empresa_id")
+  razonSocial     String   @map("razon_social") @db.VarChar(200)
+  cuit            String   @db.VarChar(20)
+  activo          Boolean  @default(true)
+  notas           String?  @db.Text
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+
+  // Relaciones
+  dador     DadorCarga @relation(fields: [dadorCargaId], references: [id])
+  choferes  Chofer[]
+  camiones  Camion[]
+  acoplados Acoplado[]
+  equipos   Equipo[]
+
+  @@unique([tenantEmpresaId, dadorCargaId, cuit])
+  @@index([tenantEmpresaId, dadorCargaId])
+  @@map("empresas_transportistas")
+}
+
+// =================================
+// CLASIFICACIÓN DE DOCUMENTOS (para aprobación manual)
+// =================================
+
+model DocumentClassification {
+  id                    Int         @id @default(autoincrement())
+  documentId            Int         @unique @map("document_id")
+  detectedEntityType    EntityType? @map("detected_entity_type")
+  detectedEntityId      String?     @map("detected_entity_id") @db.VarChar(100)
+  detectedExpiration    DateTime?   @map("detected_expiration")
+  detectedDocumentType  String?     @map("detected_document_type") @db.VarChar(100)
+  confidence            Float       @default(0.0)
+  aiResponse            Json?       @map("ai_response")
+  reviewedAt            DateTime?   @map("reviewed_at")
+  reviewedBy            Int?        @map("reviewed_by")
+  reviewNotes           String?     @map("review_notes") @db.Text
+  createdAt             DateTime    @default(now()) @map("created_at")
+  updatedAt             DateTime    @updatedAt @map("updated_at")
+
+  document Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
+
+  @@index([detectedEntityType, confidence])
+  @@index([reviewedAt])
+  @@map("document_classifications")
+}

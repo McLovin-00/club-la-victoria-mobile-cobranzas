@@ -1,0 +1,164 @@
+version: "3.9"
+
+networks:
+  frontend:
+    driver: bridge
+  backend:
+    driver: bridge
+
+volumes:
+  pg_data:
+  redis_data:
+  minio_data:
+
+services:
+  frontend:
+    build:
+      context: .
+      dockerfile: deploy/stack-ip-192.168.15.136/Dockerfile.frontend
+    container_name: test-frontend
+    environment:
+      NODE_ENV: test
+      VITE_API_URL: ${VITE_API_URL}
+      VITE_API_BASE_URL: ${VITE_API_BASE_URL}
+      VITE_DOCUMENTOS_API_URL: ${VITE_DOCUMENTOS_API_URL}
+      VITE_DOCUMENTOS_WS_URL: ${VITE_DOCUMENTOS_WS_URL}
+    ports:
+      - "${TEST_FRONTEND_PORT:-18550}:8550"
+    networks:
+      - frontend
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:8550/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  backend:
+    build:
+      context: .
+      dockerfile: deploy/stack-ip-192.168.15.136/Dockerfile.backend
+    container_name: test-backend
+    environment:
+      NODE_ENV: test
+      PORT: 4800
+      DATABASE_URL: ${DATABASE_URL}
+      JWT_PRIVATE_KEY_PATH: /app/keys/jwt_private.pem
+      JWT_PUBLIC_KEY_PATH: /app/keys/jwt_public.pem
+      REDIS_URL: redis://redis:6379
+      LOG_LEVEL: info
+      FRONTEND_URLS: ${FRONTEND_URLS}
+    ports:
+      - "${TEST_BACKEND_PORT:-14800}:4800"
+    networks:
+      - frontend
+      - backend
+    volumes:
+      - ./keys:/app/keys:ro
+    depends_on:
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:4800/api/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  documentos:
+    build:
+      context: ./apps/documentos
+      dockerfile: Dockerfile
+    container_name: test-documentos
+    environment:
+      NODE_ENV: test
+      ENABLE_DOCUMENTOS: "true"
+      DOCUMENTOS_PORT: 4802
+      DOCUMENTOS_DATABASE_URL: ${DOCUMENTOS_DATABASE_URL}
+      JWT_PUBLIC_KEY_PATH: /app/keys/jwt_public.pem
+      MINIO_ENDPOINT: minio:9000
+      MINIO_ACCESS_KEY: ${MINIO_ACCESS_KEY}
+      MINIO_SECRET_KEY: ${MINIO_SECRET_KEY}
+      MINIO_USE_SSL: "false"
+      MINIO_BUCKET_PREFIX: test-
+      MINIO_PUBLIC_BASE_URL: ${MINIO_PUBLIC_BASE_URL}
+      MINIO_INTERNAL_BASE_URL: http://minio:9000
+      REDIS_URL: redis://redis:6379
+      LOG_LEVEL: info
+      FRONTEND_URLS: ${FRONTEND_URLS}
+    ports:
+      - "${TEST_DOCUMENTOS_PORT:-14802}:4802"
+    networks:
+      - frontend
+      - backend
+    volumes:
+      - ./keys:/app/keys:ro
+    depends_on:
+      redis:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:4802/health/ready || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+  minio:
+    image: minio/minio:latest
+    container_name: minio
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ACCESS_KEY}
+      MINIO_ROOT_PASSWORD: ${MINIO_SECRET_KEY}
+      MINIO_SERVER_URL: ${MINIO_SERVER_URL:-http://localhost:9000}
+    ports:
+      - "${TEST_MINIO_PORT:-19000}:9000"
+    networks:
+      - backend
+    volumes:
+      - minio_data:/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://localhost:9000/minio/health/ready || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+
+  redis:
+    image: redis:7-alpine
+    container_name: redis
+    command: redis-server --appendonly yes --maxmemory 512mb --maxmemory-policy allkeys-lru
+    ports:
+      - "127.0.0.1:6379:6379"
+    networks:
+      - backend
+    volumes:
+      - redis_data:/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+
+  postgres:
+    image: postgres:16-alpine
+    container_name: postgres
+    environment:
+      POSTGRES_USER: test_user
+      POSTGRES_PASSWORD: test_pass
+      POSTGRES_DB: monorepo-bca
+    ports:
+      - "127.0.0.1:5432:5432"
+    networks:
+      - backend
+    volumes:
+      - pg_data:/var/lib/postgresql/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U test_user -d monorepo-bca || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
+

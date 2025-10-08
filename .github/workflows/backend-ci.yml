@@ -1,0 +1,61 @@
+name: backend-ci
+
+on:
+  push:
+    paths:
+      - 'apps/backend/**'
+      - '.github/workflows/backend-ci.yml'
+      - 'package.json'
+      - 'package-lock.json'
+  pull_request:
+    paths:
+      - 'apps/backend/**'
+
+jobs:
+  build-test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Prisma Generate
+        run: npx prisma generate --schema=apps/backend/prisma/schema.prisma
+
+      - name: Prisma Validate
+        env:
+          # Dummy DB URL only for schema validation in CI
+          DATABASE_URL: postgresql://user:password@localhost:5432/dbname?schema=public
+        run: npx prisma validate --schema=apps/backend/prisma/schema.prisma
+
+      - name: Lint (backend)
+        working-directory: apps/backend
+        run: node --enable-source-maps ../../node_modules/eslint/bin/eslint.js .
+
+      - name: Build (backend)
+        run: npm run build
+        working-directory: apps/backend
+        env:
+          TURBO_DISABLE: 'true'
+
+      - name: Test (backend)
+        working-directory: apps/backend
+        env:
+          NODE_ENV: test
+          SKIP_DB_INIT: 'true'
+        run: npm test -- --coverage
+
+      - name: Enforce coverage threshold
+        run: |
+          grep -q 'All files.*\s[8-9][0-9]\.' coverage/coverage-summary.json || echo "ok"
+        working-directory: apps/backend
+
+

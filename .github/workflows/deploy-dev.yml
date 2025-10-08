@@ -1,0 +1,202 @@
+name: Deploy to DEV
+
+# ================================================
+# AUTO-DEPLOY A AMBIENTE DEV
+# ================================================
+# Propósito: Despliegue automático al ambiente DEV tras merge a main
+# Cadencia: Automático (cada push a main)
+# Responsable: DevOps/Back (configuración), Automático (ejecución)
+# ================================================
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:  # Permite ejecución manual también
+
+jobs:
+  deploy-dev:
+    name: Deploy to Development Environment
+    runs-on: ubuntu-latest
+    
+    # Solo ejecutar si no es un merge de dependabot o renovate
+    if: |
+      !contains(github.event.head_commit.message, '[skip ci]') &&
+      !contains(github.event.head_commit.message, '[ci skip]')
+    
+    environment:
+      name: development
+      url: http://dev.microsyst.local  # URL del ambiente DEV
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Set deployment timestamp
+        id: timestamp
+        run: echo "timestamp=$(date +'%Y-%m-%d %H:%M:%S')" >> $GITHUB_OUTPUT
+      
+      - name: Notify deployment start
+        run: |
+          echo "🚀 Iniciando deploy a DEV"
+          echo "Commit: ${{ github.sha }}"
+          echo "Author: ${{ github.actor }}"
+          echo "Message: ${{ github.event.head_commit.message }}"
+          echo "Timestamp: ${{ steps.timestamp.outputs.timestamp }}"
+      
+      - name: Deploy via SSH
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.DEV_HOST }}
+          username: ${{ secrets.DEV_USER }}
+          key: ${{ secrets.DEV_SSH_KEY }}
+          port: ${{ secrets.DEV_PORT || 22 }}
+          script_stop: true
+          script: |
+            set -e
+            
+            echo "================================================"
+            echo "DEPLOY A DESARROLLO - $(date +'%Y-%m-%d %H:%M:%S')"
+            echo "================================================"
+            
+            # Navegar al directorio del proyecto
+            cd /home/administrador/monorepo-bca || exit 1
+            
+            echo "📥 Pulling latest changes from main..."
+            git fetch origin
+            git reset --hard origin/main
+            
+            echo "📦 Installing dependencies..."
+            npm ci
+            
+            echo "🔄 Running Prisma migrations (Backend)..."
+            npx dotenv-cli -e .env -- npx prisma migrate deploy \
+              --schema=apps/backend/prisma/schema.prisma || true
+            
+            echo "🔄 Generating Prisma Client (Backend)..."
+            npx dotenv-cli -e .env -- npx prisma generate \
+              --schema=apps/backend/prisma/schema.prisma
+            
+            echo "🔄 Running Prisma migrations (Documentos)..."
+            npx dotenv-cli -e .env -- npx prisma migrate deploy \
+              --schema=apps/documentos/src/prisma/schema.prisma || true
+            
+            echo "🔄 Generating Prisma Client (Documentos)..."
+            npx dotenv-cli -e .env -- npx prisma generate \
+              --schema=apps/documentos/src/prisma/schema.prisma
+            
+            echo "🏗️ Building all services..."
+            npm run build --workspaces --if-present
+            
+            echo "🔄 Restarting services with Docker Compose..."
+            docker compose -f docker-compose.dev.yml down || true
+            docker compose -f docker-compose.dev.yml up -d --build
+            
+            echo "⏳ Waiting for services to be ready..."
+            sleep 15
+            
+            echo "🔍 Checking service health..."
+            docker compose -f docker-compose.dev.yml ps
+            
+            echo "================================================"
+            echo "✅ DEPLOY COMPLETADO"
+            echo "================================================"
+      
+      - name: Health Check
+        if: success()
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.DEV_HOST }}
+          username: ${{ secrets.DEV_USER }}
+          key: ${{ secrets.DEV_SSH_KEY }}
+          port: ${{ secrets.DEV_PORT || 22 }}
+          script: |
+            echo "🔍 Verificando endpoints de salud..."
+            
+            # Backend health check
+            if curl -f -s http://localhost:4800/api/health > /dev/null 2>&1; then
+              echo "✅ Backend: OK"
+            else
+              echo "⚠️ Backend: No responde"
+            fi
+            
+            # Documentos health check  
+            if curl -f -s http://localhost:4802/health > /dev/null 2>&1; then
+              echo "✅ Documentos: OK"
+            else
+              echo "⚠️ Documentos: No responde"
+            fi
+            
+            # Frontend check (verificar que el contenedor esté corriendo)
+            if docker ps | grep -q frontend; then
+              echo "✅ Frontend: Contenedor corriendo"
+            else
+              echo "⚠️ Frontend: Contenedor no encontrado"
+            fi
+      
+      - name: Notify deployment success
+        if: success()
+        run: |
+          echo "✅ Deploy a DEV completado exitosamente"
+          echo "🌐 Acceso: http://dev.microsyst.local"
+          echo "📝 Commit: ${{ github.sha }}"
+          echo "👤 Deployed by: ${{ github.actor }}"
+      
+      - name: Notify deployment failure
+        if: failure()
+        run: |
+          echo "❌ Deploy a DEV falló"
+          echo "📝 Commit: ${{ github.sha }}"
+          echo "👤 Attempted by: ${{ github.actor }}"
+          echo "🔍 Revisar logs para más detalles"
+      
+      # Opcional: Notificación a Slack/Discord/Email
+      # - name: Notify Slack
+      #   if: always()
+      #   uses: slackapi/slack-github-action@v1
+      #   with:
+      #     payload: |
+      #       {
+      #         "text": "Deploy to DEV ${{ job.status }}",
+      #         "blocks": [
+      #           {
+      #             "type": "section",
+      #             "text": {
+      #               "type": "mrkdwn",
+      #               "text": "*Deploy to DEV*: ${{ job.status }}\n*Commit*: `${{ github.sha }}`\n*Author*: ${{ github.actor }}"
+      #             }
+      #           }
+      #         ]
+      #       }
+      #   env:
+      #     SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+
+# ================================================
+# CONFIGURACIÓN REQUERIDA
+# ================================================
+#
+# GitHub Secrets necesarios:
+#   DEV_HOST         - IP o hostname del servidor DEV
+#   DEV_USER         - Usuario SSH (ej: administrador)
+#   DEV_SSH_KEY      - Clave privada SSH para autenticación
+#   DEV_PORT         - Puerto SSH (opcional, default: 22)
+#
+# Ambiente DEV debe tener:
+#   - Docker y Docker Compose instalados
+#   - Proyecto clonado en /home/administrador/monorepo-bca
+#   - Archivo .env configurado
+#   - docker-compose.dev.yml presente
+#   - Permisos adecuados para el usuario SSH
+#
+# ================================================
+# NOTAS
+# ================================================
+#
+# - Este workflow se ejecuta automáticamente en cada push a main
+# - Para saltearlo, incluir [skip ci] o [ci skip] en el mensaje de commit
+# - El ambiente DEV es para testing/QA, no para producción
+# - Los errores en migrations son tratados como warnings (|| true)
+# - Health checks son informativos, no bloquean el deploy
+#
+# ================================================
+

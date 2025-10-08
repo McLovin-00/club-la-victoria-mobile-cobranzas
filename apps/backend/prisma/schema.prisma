@@ -1,0 +1,272 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DATABASE_URL")
+}
+
+model Empresa {
+  id                Int                @id @default(autoincrement())
+  nombre            String             @unique @db.VarChar(150)
+  descripcion       String?
+  createdAt         DateTime           @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt         DateTime           @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  endUsers          EndUser[]
+  instances         Instance[]
+  platformUsers     User[]
+  schedules         Schedule[]
+
+  @@index([nombre], map: "idx_empresas_textos_nombre")
+  @@map("empresas_textos")
+}
+
+model Service {
+  id          Int           @id @default(autoincrement())
+  nombre      String        @unique @db.VarChar(150)
+  descripcion String?
+  version     String?       @db.VarChar(50)
+  estado      ServiceEstado @default(activo)
+  createdAt   DateTime      @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt   DateTime      @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  instances   Instance[]
+
+  @@index([nombre], map: "idx_services_nombre")
+  @@index([createdAt], map: "idx_services_created_at")
+  @@index([estado], map: "idx_services_estado")
+  @@map("services")
+}
+
+model Instance {
+  id                 Int                 @id @default(autoincrement())
+  nombre             String              @db.VarChar(150)
+  serviceId          Int                 @map("service_id")
+  empresaId          Int                 @map("empresa_id")
+  estado             InstanceEstado      @default(activa)
+  requierePermisos   Boolean             @default(true) @map("requiere_permisos")
+  configuracion      Json?               @default("{}")
+  createdAt          DateTime            @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt          DateTime            @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  auditLogs          AuditLog[]
+  empresa            Empresa             @relation(fields: [empresaId], references: [id])
+  service            Service             @relation(fields: [serviceId], references: [id])
+  permisos           Permiso[]
+  // chatProcessorInstance eliminado (migrado a microservicio chat)
+
+  @@unique([nombre, empresaId], map: "unique_instance_nombre_empresa")
+  @@index([serviceId], map: "idx_instances_service_id")
+  @@index([empresaId], map: "idx_instances_empresa_id")
+  @@index([createdAt], map: "idx_instances_created_at")
+  @@index([estado], map: "idx_instances_estado")
+  @@map("instances")
+}
+
+
+model Permiso {
+  id             Int               @id @default(autoincrement())
+  platformUserId Int?              @map("platform_user_id")
+  endUserId      Int?              @map("end_user_id")
+  instanciaId    Int               @map("instancia_id")
+  esWhitelist    Boolean           @default(false) @map("es_whitelist")
+  limiteTotal    Int               @default(0) @map("limite_total")
+  consumido      Int               @default(0)
+  periodoReseteo PeriodoReseteo    @default(NUNCA) @map("periodo_reseteo")
+  endUser        EndUser?          @relation("PermisoEndUser", fields: [endUserId], references: [id], onDelete: Cascade)
+  instancia      Instance          @relation(fields: [instanciaId], references: [id], onDelete: Cascade)
+  platformUser   User?     @relation(fields: [platformUserId], references: [id], onDelete: Cascade)
+  pases          PermisoTemporal[]
+
+  @@index([platformUserId], map: "idx_permisos_platform_user_id")
+  @@index([endUserId], map: "idx_permisos_end_user_id")
+  @@index([instanciaId], map: "idx_permisos_instancia_id")
+  @@map("permisos")
+}
+
+model PermisoTemporal {
+  id          Int      @id @default(autoincrement())
+  permisoId   Int      @map("permiso_id")
+  fechaInicio DateTime @map("fecha_inicio")
+  fechaFin    DateTime @map("fecha_fin")
+  permiso     Permiso  @relation(fields: [permisoId], references: [id], onDelete: Cascade)
+
+  @@index([permisoId], map: "idx_permisos_temporales_permiso_id")
+  @@map("permisos_temporales")
+}
+
+model AuditLog {
+  id              Int      @id @default(autoincrement())
+  timestamp       DateTime @default(now())
+  instanciaId     Int      @map("instancia_id")
+  accion          String
+  detalles        Json?
+  platformAdminId Int?     @map("platform_admin_id")
+  endUserId       Int?     @map("end_user_id")
+  endUser         EndUser? @relation("EndUserActions", fields: [endUserId], references: [id])
+  instancia       Instance @relation(fields: [instanciaId], references: [id])
+  platformAdmin   User?    @relation("PlatformAdminActions", fields: [platformAdminId], references: [id])
+
+  @@index([instanciaId], map: "idx_audit_log_instancia_id")
+  @@map("audit_logs")
+}
+
+model Payment {
+  id              Int            @id @default(autoincrement())
+  clientId        Int
+  mpPreferenceId  String
+  tipo            PaymentTipo
+  status          PaymentStatus
+  qtyLimit        Int?
+  createdAt       DateTime       @default(now())
+  gatewayClientId Int?
+
+  @@map("payments")
+}
+
+// Eliminado: FlowChat (migrado a microservicio chat)
+
+// Eliminado: ChatProcessingLog (migrado a microservicio chat)
+
+// Eliminado: Agent (migrado a microservicio chat)
+
+// Eliminado: AgentRoundRobin (migrado a microservicio chat)
+
+// Driver, Truck, Trailer y DocumentRequest fueron migradas al esquema `documentos` y se eliminaron del schema público
+
+model Schedule {
+  id           Int          @id @default(autoincrement())
+  empresaId    Int
+  tipo         ScheduleTipo
+  titulo       String
+  descripcion  String?
+  fechaInicio  DateTime
+  fechaFin     DateTime
+  participante Json?
+  createdAt    DateTime     @default(now())
+  empresa      Empresa      @relation(fields: [empresaId], references: [id])
+
+  @@map("schedules")
+}
+
+
+model EndUser {
+  id                 Int            @id @default(autoincrement())
+  email              String         @unique @db.VarChar(255)
+  password           String?        @db.VarChar(255)
+  role               EndUserRole    @default(CLIENT)
+  empresaId          Int?           @map("empresa_id")
+  identifierType     IdentifierType @default(email) @map("identifier_type")
+  identifier_value   String
+  is_active          Boolean        @default(true)
+  last_access        DateTime?
+  metadata           Json?
+  nombre             String?
+  apellido           String?
+  direccion          String?
+  localidad          String?
+  provincia          String?
+  pais               String?
+  contacto           String?
+  createdAt          DateTime       @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt          DateTime       @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  auditLogsAsEndUser AuditLog[]     @relation("EndUserActions")
+  empresa            Empresa?       @relation(fields: [empresaId], references: [id])
+  permisos           Permiso[]      @relation("PermisoEndUser")
+
+  @@unique([identifierType, identifier_value], map: "identifier_type_identifier_value")
+  @@index([empresaId], map: "idx_end_users_empresa_id")
+  @@index([createdAt], map: "idx_end_users_created_at")
+  @@index([email], map: "idx_end_users_email")
+  @@index([identifierType], map: "idx_end_users_identifier_type")
+  @@map("end_users")
+}
+
+model User {
+  id              Int        @id @default(autoincrement())
+  email           String     @unique @db.VarChar(255)
+  password        String     @db.VarChar(255)
+  role            UserRole   @default(OPERATOR)
+  empresaId       Int?       @map("empresa_id")
+  nombre          String?
+  apellido        String?
+  createdAt       DateTime   @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt       DateTime   @updatedAt @map("updated_at") @db.Timestamptz(6)
+  
+  // Relations
+  adminActions    AuditLog[] @relation("PlatformAdminActions")
+  permisos        Permiso[]
+  empresa         Empresa?   @relation(fields: [empresaId], references: [id])
+  // manualExecutionsRequested eliminado (migrado a microservicio chat)
+  // manualExecutionsCancelled eliminado (migrado a microservicio chat)
+
+  @@index([createdAt], map: "idx_users_created_at")
+  @@index([email], map: "idx_users_email")
+  @@index([empresaId], map: "idx_users_empresa_id")
+  @@index([role], map: "idx_users_role")
+  @@map("platform_users")
+}
+
+enum PeriodoReseteo {
+  NUNCA
+  DIARIO
+  SEMANAL
+  MENSUAL
+  ANUAL
+}
+
+// Eliminado: FuenteIdentificador
+
+enum PaymentTipo {
+  CREDIT
+  SUBSCRIPTION
+}
+
+enum PaymentStatus {
+  PENDING
+  SUCCESS
+  FAILED
+  CANCELLED
+}
+
+// Eliminado: FlowChatEstado
+
+// Enums asociados a DocumentRequest eliminados por migración a `documentos`
+
+enum ScheduleTipo {
+  VIAJE
+  MANTENIMIENTO
+  INSPECCION
+}
+
+enum ServiceEstado {
+  activo
+  inactivo
+  mantenimiento
+}
+
+enum InstanceEstado {
+  activa
+  inactiva
+  error
+}
+
+// Eliminados: GatewayWhitelistScope, GatewayPermissionTipo
+
+enum EndUserRole {
+  CLIENT
+  CONTACT
+}
+
+enum IdentifierType {
+  email
+  whatsapp
+  telegram
+  facebook
+}
+
+enum UserRole {
+  SUPERADMIN
+  ADMIN
+  OPERATOR
+}

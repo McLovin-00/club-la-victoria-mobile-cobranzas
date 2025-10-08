@@ -1,0 +1,51 @@
+name: preview-build
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+jobs:
+  build-preview-images:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build frontend
+        working-directory: apps/frontend
+        run: npm run build
+
+      - name: Build backend
+        run: |
+          docker build -t ghcr.io/${{ github.repository }}/backend:pr-${{ github.event.number }} ./apps/backend
+
+      - name: Build documentos
+        run: |
+          docker build -t ghcr.io/${{ github.repository }}/documentos:pr-${{ github.event.number }} ./apps/documentos
+
+      - name: Login to GHCR (optional)
+        if: env.DO_PUSH == 'true'
+        env:
+          DO_PUSH: ${{ secrets.GHCR_PUSH || 'false' }}
+          CR_PAT: ${{ secrets.GHCR_TOKEN }}
+        run: |
+          echo "$CR_PAT" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+
+      - name: Push images (optional)
+        if: env.DO_PUSH == 'true'
+        env:
+          DO_PUSH: ${{ secrets.GHCR_PUSH || 'false' }}
+        run: |
+          docker push ghcr.io/${{ github.repository }}/backend:pr-${{ github.event.number }}
+          docker push ghcr.io/${{ github.repository }}/documentos:pr-${{ github.event.number }}
+
+

@@ -1,0 +1,250 @@
+{
+  "$schema": "https://turbo.build/schema.json",
+  "ui": "stream",
+  "daemon": false,
+  "globalDependencies": [
+    "**/.env.*",
+    "**/.env",
+    "package.json",
+    "tsconfig.json",
+    "turbo.json",
+    ".eslintrc.js",
+    ".prettierrc"
+  ],
+  "tasks": {
+    "build": {
+      "dependsOn": ["^build"],
+      "outputs": [
+        "dist/**",
+        "build/**",
+        ".next/**",
+        "!.next/cache/**"
+      ],
+      "inputs": [
+        "src/**/*.{ts,tsx,js,jsx}",
+        "public/**",
+        "package.json",
+        "tsconfig.json",
+        "vite.config.ts",
+        "tailwind.config.js",
+        "postcss.config.js"
+      ],
+      "env": [
+        "NODE_ENV",
+        "VITE_API_URL",
+        "VITE_APP_TITLE",
+        "DATABASE_URL",
+        "JWT_SECRET",
+        "ENABLE_DOCUMENTOS",
+        "DOCUMENTOS_DATABASE_URL",
+        "DOCUMENTOS_PORT",
+        "MINIO_ENDPOINT",
+        "MINIO_ACCESS_KEY",
+        "MINIO_SECRET_KEY",
+        "FLOWISE_ENDPOINT",
+        "FLOWISE_API_KEY"
+      ]
+    },
+    "dev": {
+      "dependsOn": ["^build"],
+      "cache": false,
+      "persistent": true,
+      "env": [
+        "NODE_ENV",
+        "PORT",
+        "VITE_API_URL",
+        "VITE_APP_TITLE",
+        "DATABASE_URL",
+        "JWT_SECRET",
+        "ENABLE_DOCUMENTOS",
+        "DOCUMENTOS_DATABASE_URL",
+        "DOCUMENTOS_PORT",
+        "MINIO_ENDPOINT",
+        "MINIO_ACCESS_KEY",
+        "MINIO_SECRET_KEY",
+        "FLOWISE_ENDPOINT",
+        "FLOWISE_API_KEY"
+      ]
+    },
+    "start": {
+      "cache": false,
+      "persistent": true,
+      "dependsOn": ["build"],
+      "env": [
+        "NODE_ENV",
+        "PORT",
+        "DATABASE_URL",
+        "JWT_SECRET",
+        "ENABLE_DOCUMENTOS",
+        "DOCUMENTOS_DATABASE_URL",
+        "DOCUMENTOS_PORT"
+      ]
+    },
+    "test": {
+      "dependsOn": ["^build"],
+      "outputs": [
+        "coverage/**",
+        "test-results/**",
+        "junit.xml"
+      ],
+      "inputs": [
+        "src/**/*.{ts,tsx,js,jsx}",
+        "test/**/*.{ts,tsx,js,jsx}",
+        "**/*.test.{ts,tsx,js,jsx}",
+        "**/*.spec.{ts,tsx,js,jsx}",
+        "jest.config.js",
+        "vitest.config.ts"
+      ],
+      "env": [
+        "NODE_ENV",
+        "CI"
+      ]
+    },
+    "test:watch": {
+      "cache": false,
+      "persistent": true,
+      "dependsOn": ["^build"]
+    },
+    "test:coverage": {
+      "dependsOn": ["^build"],
+      "outputs": [
+        "coverage/**"
+      ],
+      "inputs": [
+        "src/**/*.{ts,tsx,js,jsx}",
+        "test/**/*.{ts,tsx,js,jsx}",
+        "**/*.test.{ts,tsx,js,jsx}",
+        "**/*.spec.{ts,tsx,js,jsx}"
+      ]
+    },
+    "lint": {
+      "dependsOn": ["^build"],
+      "outputs": [
+        ".eslintcache"
+      ],
+      "inputs": [
+        "src/**/*.{ts,tsx,js,jsx}",
+        ".eslintrc.js",
+        ".eslintrc.json",
+        "eslint.config.js"
+      ]
+    },
+    "lint:fix": {
+      "dependsOn": ["^build"],
+      "outputs": [
+        ".eslintcache"
+      ],
+      "inputs": [
+        "src/**/*.{ts,tsx,js,jsx}",
+        ".eslintrc.js",
+        ".eslintrc.json",
+        "eslint.config.js"
+      ]
+    },
+    "format": {
+      "outputs": [],
+      "inputs": [
+        "src/**/*.{ts,tsx,js,jsx,json,md}",
+        ".prettierrc",
+        "prettier.config.js"
+      ]
+    },
+    "format:check": {
+      "outputs": [],
+      "inputs": [
+        "src/**/*.{ts,tsx,js,jsx,json,md}",
+        ".prettierrc",
+        "prettier.config.js"
+      ]
+    },
+    "type-check": {
+      "dependsOn": ["^build"],
+      "outputs": [
+        "tsconfig.tsbuildinfo"
+      ],
+      "inputs": [
+        "src/**/*.{ts,tsx}",
+        "tsconfig.json"
+      ]
+    },
+    "clean": {
+      "cache": false,
+      "outputs": []
+    },
+    "clean:cache": {
+      "cache": false,
+      "outputs": []
+    },
+    "db:setup": {
+      "cache": false,
+      "outputs": [],
+      "env": [
+        "DATABASE_URL",
+        "NODE_ENV"
+      ]
+    },
+    "db:migrate": {
+      "cache": false,
+      "outputs": [],
+      "env": [
+        "DATABASE_URL",
+        "NODE_ENV"
+      ]
+    },
+    "db:seed": {
+      "cache": false,
+      "outputs": [],
+      "env": [
+        "DATABASE_URL",
+        "NODE_ENV"
+      ]
+    },
+    "db:reset": {
+      "cache": false,
+      "outputs": [],
+      "env": [
+        "DATABASE_URL",
+        "NODE_ENV"
+      ]
+    },
+    "db:studio": {
+      "cache": false,
+      "persistent": true,
+      "env": [
+        "DATABASE_URL"
+      ]
+    },
+    "db:generate": {
+      "cache": false,
+      "outputs": [
+        "node_modules/.prisma/**",
+        "prisma/generated/**"
+      ],
+      "inputs": [
+        "prisma/schema.prisma"
+      ],
+      "env": [
+        "DATABASE_URL"
+      ]
+    },
+    "preview": {
+      "dependsOn": ["build"],
+      "cache": false,
+      "persistent": true,
+      "env": [
+        "NODE_ENV",
+        "PORT"
+      ]
+    },
+    "analyze": {
+      "dependsOn": ["build"],
+      "outputs": [
+        "dist/report.html",
+        "bundle-analyzer-report.html"
+      ]
+    }
+  },
+  "remoteCache": {
+    "signature": true
+  }
+} 

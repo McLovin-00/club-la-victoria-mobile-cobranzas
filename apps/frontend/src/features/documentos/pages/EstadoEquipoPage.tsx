@@ -1,0 +1,226 @@
+import React, { useMemo } from 'react';
+import { useParams, useNavigate } from 'react-router-dom';
+import { Button } from '../../../components/ui/button';
+import { Card } from '../../../components/ui/card';
+import { Badge } from '../../../components/ui/badge';
+import { ArrowLeftIcon, DocumentTextIcon, CheckCircleIcon, ExclamationTriangleIcon, XCircleIcon, ClockIcon } from '@heroicons/react/24/outline';
+import { useGetEquipoComplianceQuery, useGetTemplatesQuery } from '../api/documentosApiSlice';
+
+const getStatusConfig = (state?: string) => {
+  const v = String(state || '').toUpperCase();
+  switch (v) {
+    case 'OK':
+      return { label: 'Vigente', color: 'bg-green-100 text-green-800 border-green-200', icon: CheckCircleIcon };
+    case 'PROXIMO':
+      return { label: 'Por vencer', color: 'bg-yellow-100 text-yellow-800 border-yellow-200', icon: ClockIcon };
+    case 'FALTANTE':
+      return { label: 'Faltante', color: 'bg-red-100 text-red-800 border-red-200', icon: XCircleIcon };
+    case 'VENCIDO':
+      return { label: 'Vencido', color: 'bg-orange-100 text-orange-800 border-orange-200', icon: ExclamationTriangleIcon };
+    default:
+      return { label: v || '-', color: 'bg-gray-100 text-gray-800 border-gray-200', icon: DocumentTextIcon };
+  }
+};
+
+const Section: React.FC<{ title: string; items: Array<{ templateId: number; templateName?: string; state?: string; expiresAt?: string | null; documentId?: number }> }> = ({ title, items }) => {
+  const formatDate = (dateStr?: string | null) => {
+    if (!dateStr) return null;
+    try {
+      return new Date(dateStr).toLocaleDateString('es-AR', { 
+        day: '2-digit', 
+        month: '2-digit', 
+        year: 'numeric' 
+      });
+    } catch {
+      return dateStr;
+    }
+  };
+
+  const totalCount = items.length;
+  const faltantes = items.filter(item => item.state?.toUpperCase() === 'FALTANTE').length;
+  const vigentes = items.filter(item => item.state?.toUpperCase() === 'OK').length;
+  const porVencer = items.filter(item => item.state?.toUpperCase() === 'PROXIMO').length;
+  const vencidos = items.filter(item => item.state?.toUpperCase() === 'VENCIDO').length;
+
+  return (
+    <Card className='overflow-hidden'>
+      <div className='bg-gradient-to-r from-blue-50 to-indigo-50 px-3 sm:px-6 py-4 border-b'>
+        <div className='flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between'>
+          <h3 className='font-semibold text-lg text-gray-900'>{title}</h3>
+          <div className='flex flex-wrap items-center gap-2'>
+            {totalCount > 0 && (
+              <>
+                {vigentes > 0 && <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200 text-xs sm:text-sm">{vigentes} vigentes</Badge>}
+                {porVencer > 0 && <Badge variant="outline" className="bg-yellow-50 text-yellow-700 border-yellow-200 text-xs sm:text-sm">{porVencer} por vencer</Badge>}
+                {vencidos > 0 && <Badge variant="outline" className="bg-orange-50 text-orange-700 border-orange-200 text-xs sm:text-sm">{vencidos} vencidos</Badge>}
+                {faltantes > 0 && <Badge variant="outline" className="bg-red-50 text-red-700 border-red-200 text-xs sm:text-sm">{faltantes} faltantes</Badge>}
+              </>
+            )}
+          </div>
+        </div>
+      </div>
+      
+      <div className='p-3 sm:p-6'>
+        {items.length === 0 ? (
+          <div className='text-center py-8'>
+            <DocumentTextIcon className='h-8 w-8 sm:h-12 sm:w-12 text-gray-300 mx-auto mb-3' />
+            <p className='text-xs sm:text-sm text-muted-foreground'>Sin documentos requeridos</p>
+          </div>
+        ) : (
+          <div className='space-y-3'>
+            {items.map((item, idx) => {
+              const config = getStatusConfig(item.state);
+              const Icon = config.icon;
+              
+              return (
+                <div key={idx} className='group flex flex-col sm:flex-row sm:items-center justify-between p-3 sm:p-4 rounded-lg border hover:shadow-sm transition-all duration-200 hover:border-blue-200 gap-3'>
+                  <div className='flex items-center gap-3 min-w-0 flex-1'>
+                    <div className={`p-1.5 sm:p-2 rounded-full flex-shrink-0 ${config.color.replace('text-', 'text-').replace('bg-', 'bg-').replace('border-', '')}`}>
+                      <Icon className='h-3 w-3 sm:h-4 sm:w-4' />
+                    </div>
+                    <div className='min-w-0 flex-1'>
+                      <div className='font-medium text-gray-900 text-sm sm:text-base truncate'>{item.templateName || `Plantilla #${item.templateId}`}</div>
+                      {item.expiresAt && (
+                        <div className='text-xs text-muted-foreground mt-1'>
+                          Vencimiento: {formatDate(item.expiresAt)}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                  
+                  <div className='flex items-center gap-3 flex-shrink-0'>
+                    <Badge variant="outline" className={`${config.color} text-xs sm:text-sm`}>
+                      {config.label}
+                    </Badge>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+    </Card>
+  );
+};
+
+export const EstadoEquipoPage: React.FC = () => {
+  const { id } = useParams();
+  const equipoId = Number(id);
+  const navigate = useNavigate();
+  const { data, isLoading, error } = useGetEquipoComplianceQuery({ id: equipoId }, { skip: !equipoId });
+  const { data: templates = [] } = useGetTemplatesQuery();
+
+  const templateNameById = useMemo(() => {
+    const m = new Map<number, string>();
+    (templates as any[]).forEach((t: any) => { if (t?.id) m.set(t.id, (t.nombre ?? t.name ?? `Plantilla #${t.id}`)); });
+    return m;
+  }, [templates]);
+
+  const complianceByEntidad = useMemo(() => {
+    const map: Record<string, Array<any>> = { EMPRESA_TRANSPORTISTA: [], CHOFER: [], CAMION: [], ACOPLADO: [] };
+    try {
+      const clientes = (data?.clientes || []) as Array<{ clienteId: number; compliance: any[] }>;
+      for (const c of clientes) {
+        for (const r of c.compliance || []) {
+          (map[r.entityType] = map[r.entityType] || []).push(r);
+        }
+      }
+    } catch {}
+    return map;
+  }, [data]);
+
+  const totalDocs = Object.values(complianceByEntidad).flat().length;
+  const faltantesTotal = Object.values(complianceByEntidad).flat().filter(r => r.state?.toUpperCase() === 'FALTANTE').length;
+  const vigentesTotal = Object.values(complianceByEntidad).flat().filter(r => r.state?.toUpperCase() === 'OK').length;
+  const porVencerTotal = Object.values(complianceByEntidad).flat().filter(r => r.state?.toUpperCase() === 'PROXIMO').length;
+  const vencidosTotal = Object.values(complianceByEntidad).flat().filter(r => r.state?.toUpperCase() === 'VENCIDO').length;
+
+  return (
+    <div className='min-h-screen bg-gradient-to-br from-gray-50 to-blue-50'>
+      <div className='container mx-auto px-3 sm:px-4 py-4 sm:py-8'>
+        {/* Header */}
+        <div className='flex flex-col gap-4 mb-6 sm:mb-8 sm:flex-row sm:items-center'>
+          <Button variant='outline' size='sm' onClick={() => navigate(-1)} className='flex items-center hover:bg-white self-start'>
+            <ArrowLeftIcon className='h-4 w-4 mr-2' /> Volver
+          </Button>
+          <div className='flex-1'>
+            <h1 className='text-2xl sm:text-3xl font-bold text-gray-900'>Estado Documental del Equipo</h1>
+            <p className='text-sm sm:text-base text-muted-foreground mt-1'>Resumen completo de la documentación requerida</p>
+          </div>
+        </div>
+
+        {/* Loading y Error */}
+        {isLoading && (
+          <div className='flex items-center justify-center py-12'>
+            <div className='animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600'></div>
+            <span className='ml-3 text-muted-foreground'>Cargando información...</span>
+          </div>
+        )}
+        
+        {error && (
+          <Card className='p-6 border-red-200 bg-red-50'>
+            <div className='flex items-center gap-3'>
+              <XCircleIcon className='h-6 w-6 text-red-600' />
+              <div>
+                <h3 className='font-medium text-red-900'>Error al cargar</h3>
+                <p className='text-sm text-red-700 mt-1'>No se pudo obtener la información del equipo</p>
+              </div>
+            </div>
+          </Card>
+        )}
+
+        {/* Resumen general */}
+        {!isLoading && data && totalDocs > 0 && (
+          <Card className='mb-6 sm:mb-8 overflow-hidden'>
+            <div className='bg-gradient-to-r from-blue-600 to-indigo-600 text-white px-4 sm:px-6 py-4'>
+              <h2 className='text-lg sm:text-xl font-semibold'>Resumen General</h2>
+              <p className='text-blue-100 mt-1 text-sm sm:text-base'>Equipo #{equipoId}</p>
+            </div>
+            <div className='p-4 sm:p-6'>
+              <div className='grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4'>
+                <div className='text-center p-3 sm:p-4 rounded-lg bg-green-50 border border-green-200'>
+                  <div className='text-xl sm:text-2xl font-bold text-green-700'>{vigentesTotal}</div>
+                  <div className='text-xs sm:text-sm text-green-600'>Vigentes</div>
+                </div>
+                <div className='text-center p-3 sm:p-4 rounded-lg bg-yellow-50 border border-yellow-200'>
+                  <div className='text-xl sm:text-2xl font-bold text-yellow-700'>{porVencerTotal}</div>
+                  <div className='text-xs sm:text-sm text-yellow-600'>Por vencer</div>
+                </div>
+                <div className='text-center p-3 sm:p-4 rounded-lg bg-orange-50 border border-orange-200'>
+                  <div className='text-xl sm:text-2xl font-bold text-orange-700'>{vencidosTotal}</div>
+                  <div className='text-xs sm:text-sm text-orange-600'>Vencidos</div>
+                </div>
+                <div className='text-center p-3 sm:p-4 rounded-lg bg-red-50 border border-red-200'>
+                  <div className='text-xl sm:text-2xl font-bold text-red-700'>{faltantesTotal}</div>
+                  <div className='text-xs sm:text-sm text-red-600'>Faltantes</div>
+                </div>
+              </div>
+            </div>
+          </Card>
+        )}
+
+        {/* Secciones por entidad */}
+        {!isLoading && data && (
+          <div className='grid grid-cols-1 xl:grid-cols-2 gap-4 sm:gap-6'>
+            <Section title='Empresa Transportista' items={(complianceByEntidad['EMPRESA_TRANSPORTISTA'] || []).map((r: any)=> ({ ...r, templateName: templateNameById.get(r.templateId) }))} />
+            <Section title='Chofer' items={(complianceByEntidad['CHOFER'] || []).map((r: any)=> ({ ...r, templateName: templateNameById.get(r.templateId) }))} />
+            <Section title='Camión/Tractor' items={(complianceByEntidad['CAMION'] || []).map((r: any)=> ({ ...r, templateName: templateNameById.get(r.templateId) }))} />
+            <Section title='Semirremolque/Acoplado' items={(complianceByEntidad['ACOPLADO'] || []).map((r: any)=> ({ ...r, templateName: templateNameById.get(r.templateId) }))} />
+          </div>
+        )}
+
+        {!isLoading && data && totalDocs === 0 && (
+          <Card className='p-8 sm:p-12 text-center'>
+            <DocumentTextIcon className='h-12 w-12 sm:h-16 sm:w-16 text-gray-300 mx-auto mb-4' />
+            <h3 className='text-base sm:text-lg font-medium text-gray-900 mb-2'>Sin documentos configurados</h3>
+            <p className='text-sm sm:text-base text-muted-foreground'>No hay documentos requeridos para este equipo</p>
+          </Card>
+        )}
+      </div>
+    </div>
+  );
+};
+
+export default EstadoEquipoPage;
+
+

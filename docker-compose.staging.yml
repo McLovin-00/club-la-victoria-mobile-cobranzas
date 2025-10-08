@@ -1,0 +1,444 @@
+version: "3.9"
+
+# ================================================
+# STAGING ENVIRONMENT - Docker Swarm Configuration
+# ================================================
+# Propósito: Réplica de producción para validación pre-release
+# Características:
+#   - Configuración idéntica a Producción (mismo stack)
+#   - Recursos reducidos (staging usa menos recursos)
+#   - Datos anonimizados (nunca datos reales)
+#   - Permite pruebas E2E y smoke testing
+# Deploy: Miércoles 11:00 (manual workflow)
+# ================================================
+
+networks:
+  frontend:
+    driver: overlay
+    external: false
+  backend:
+    driver: overlay
+    external: false
+
+services:
+  # ================================
+  # NGINX REVERSE PROXY (EXTERNAL GATEWAY)
+  # ================================
+  nginx:
+    image: nginx:alpine
+    container_name: nginx-proxy-staging
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/ssl:/etc/nginx/ssl:ro
+      - nginx_logs:/var/log/nginx
+    networks:
+      - frontend
+      - backend
+    depends_on:
+      - frontend
+      - backend
+      - documentos
+      - minio
+    deploy:
+      replicas: 1
+      placement:
+        constraints:
+          - node.role == manager
+      resources:
+        limits:
+          memory: 256M
+          cpus: '0.5'
+        reservations:
+          memory: 128M
+          cpus: '0.25'
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+        max_attempts: 3
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # ================================
+  # FRONTEND (INTERNAL NETWORK ONLY)
+  # ================================
+  frontend:
+    build:
+      context: ./apps/frontend
+      dockerfile: Dockerfile
+    container_name: frontend-staging
+    environment:
+      NODE_ENV: staging
+      VITE_API_URL: ${VITE_API_URL}
+      VITE_DOCUMENTOS_API_URL: ${VITE_DOCUMENTOS_API_URL}
+      VITE_DOCUMENTOS_WS_URL: ${VITE_DOCUMENTOS_WS_URL}
+    networks:
+      - frontend
+    # NO PORTS EXPOSED - Only through nginx
+    deploy:
+      replicas: 1  # Staging: solo 1 replica
+      placement:
+        constraints:
+          - node.role == worker
+      resources:
+        limits:
+          memory: 512M
+          cpus: '0.5'
+        reservations:
+          memory: 256M
+          cpus: '0.25'
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:8550/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # ================================
+  # BACKEND (INTERNAL NETWORK ONLY)
+  # ================================
+  backend:
+    build:
+      context: ./apps/backend
+      dockerfile: Dockerfile
+    container_name: backend-staging
+    environment:
+      NODE_ENV: staging
+      PORT: 4800
+      DATABASE_URL: ${DATABASE_URL}
+      JWT_PRIVATE_KEY_PATH: /app/keys/jwt_private.pem
+      JWT_PUBLIC_KEY_PATH: /app/keys/jwt_public.pem
+      REDIS_URL: redis://redis:6379
+      ENABLE_DOCUMENTOS: "true"
+      ENABLE_GATEWAY: "false"
+      ENABLE_CHAT: "false"
+      ENABLE_CALIDAD: "false"
+      LOG_LEVEL: debug  # Staging: más logging para debugging
+      FRONTEND_URLS: ${FRONTEND_URLS}
+      # Sentry para staging (ambiente separado)
+      SENTRY_DSN: ${SENTRY_DSN:-}
+      SENTRY_ENVIRONMENT: staging
+    networks:
+      - frontend
+      - backend
+    # NO PORTS EXPOSED - Only through nginx
+    volumes:
+      - ./keys:/app/keys:ro
+    depends_on:
+      - postgres
+      - redis
+    deploy:
+      replicas: 1  # Staging: solo 1 replica
+      placement:
+        constraints:
+          - node.role == worker
+      resources:
+        limits:
+          memory: 1G
+          cpus: '1.0'
+        reservations:
+          memory: 512M
+          cpus: '0.5'
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:4800/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # ================================
+  # DOCUMENTOS MICROSERVICE (INTERNAL NETWORK ONLY)
+  # ================================
+  documentos:
+    build:
+      context: ./apps/documentos
+      dockerfile: Dockerfile
+    container_name: documentos-staging
+    environment:
+      NODE_ENV: staging
+      ENABLE_DOCUMENTOS: "true"
+      DOCUMENTOS_PORT: 4802
+      DOCUMENTOS_DATABASE_URL: ${DOCUMENTOS_DATABASE_URL}
+      JWT_PUBLIC_KEY_PATH: /app/keys/jwt_public.pem
+      # CRITICAL: Internal MinIO access
+      MINIO_ENDPOINT: minio:9000
+      MINIO_ACCESS_KEY: ${MINIO_ACCESS_KEY}
+      MINIO_SECRET_KEY: ${MINIO_SECRET_KEY}
+      MINIO_USE_SSL: "false"
+      MINIO_BUCKET_PREFIX: documentos-empresa-staging
+      # External public URLs for signed URLs
+      MINIO_PUBLIC_BASE_URL: ${MINIO_PUBLIC_BASE_URL}
+      # Internal access for Flowise and file processing
+      MINIO_INTERNAL_BASE_URL: http://minio:9000
+      REDIS_URL: redis://redis:6379
+      LOG_LEVEL: debug  # Staging: más logging
+      FRONTEND_URLS: ${FRONTEND_URLS}
+      # Sentry para staging
+      SENTRY_DSN: ${SENTRY_DSN:-}
+      SENTRY_ENVIRONMENT: staging
+    networks:
+      - frontend
+      - backend
+    # NO PORTS EXPOSED - Only through nginx
+    volumes:
+      - ./keys:/app/keys:ro
+    depends_on:
+      - postgres
+      - redis
+      - minio
+    deploy:
+      replicas: 1  # Staging: solo 1 replica
+      placement:
+        constraints:
+          - node.role == worker
+      resources:
+        limits:
+          memory: 1G
+          cpus: '1.0'
+        reservations:
+          memory: 512M
+          cpus: '0.5'
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:4802/health/ready"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # ================================
+  # MINIO STORAGE (INTERNAL NETWORK ONLY)
+  # ================================
+  minio:
+    image: minio/minio:latest
+    container_name: minio-staging
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ACCESS_KEY}
+      MINIO_ROOT_PASSWORD: ${MINIO_SECRET_KEY}
+      # Important: Set server URL for proper signed URLs
+      MINIO_SERVER_URL: ${MINIO_PUBLIC_BASE_URL}
+    networks:
+      - backend
+    # NO PORTS EXPOSED - Only through nginx
+    volumes:
+      - minio_data:/data
+    deploy:
+      replicas: 1
+      placement:
+        constraints:
+          - node.role == worker
+      resources:
+        limits:
+          memory: 1G
+          cpus: '0.5'
+        reservations:
+          memory: 512M
+          cpus: '0.25'
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://localhost:9000/minio/health/ready || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # ================================
+  # DATABASE (INTERNAL NETWORK ONLY)
+  # ================================
+  postgres:
+    image: postgres:16-alpine
+    container_name: postgres-staging
+    environment:
+      POSTGRES_USER: ${DB_USER}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+      POSTGRES_DB: ${DB_NAME}
+    networks:
+      - backend
+    # NO PORTS EXPOSED - Internal only
+    volumes:
+      - pg_data:/var/lib/postgresql/data
+    deploy:
+      replicas: 1
+      placement:
+        constraints:
+          - node.role == manager
+      resources:
+        limits:
+          memory: 1G  # Staging: menos recursos que prod
+          cpus: '1.0'
+        reservations:
+          memory: 512M
+          cpus: '0.5'
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $POSTGRES_USER"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # ================================
+  # REDIS CACHE (INTERNAL NETWORK ONLY)
+  # ================================
+  redis:
+    image: redis:7-alpine
+    container_name: redis-staging
+    command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru
+    networks:
+      - backend
+    # NO PORTS EXPOSED - Internal only
+    volumes:
+      - redis_data:/data
+    deploy:
+      replicas: 1
+      placement:
+        constraints:
+          - node.role == worker
+      resources:
+        limits:
+          memory: 256M  # Staging: menos cache
+          cpus: '0.5'
+        reservations:
+          memory: 128M
+          cpus: '0.25'
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # ================================
+  # FLOWISE AI (OPTIONAL - INTERNAL NETWORK ONLY)
+  # ================================
+  # Servicio de IA para clasificación automática de documentos.
+  # Descomentar este bloque para habilitar Flowise en Staging.
+  # Requiere ~4GB RAM adicionales.
+  flowise-staging:
+    image: flowiseai/flowise:latest
+    container_name: flowise-staging
+    environment:
+      PORT: 3005
+      # Base de datos (usa el PostgreSQL del stack)
+      OVERRIDE_DATABASE: "true"
+      DATABASE_TYPE: postgres
+      DATABASE_HOST: postgres-staging
+      DATABASE_PORT: 5432
+      DATABASE_USER: ${DB_USER}
+      DATABASE_PASSWORD: ${DB_PASSWORD}
+      DATABASE_NAME: ${DB_NAME}
+      DATABASE_SCHEMA: flowise
+      # Node.js optimizations
+      NODE_ENV: staging
+      NODE_OPTIONS: "--max-old-space-size=2048"
+      # Autenticación UI
+      FLOWISE_USERNAME: ${FLOWISE_USERNAME:-admin}
+      FLOWISE_PASSWORD: ${FLOWISE_PASSWORD:-staging123}
+      # Seguridad
+      FLOWISE_SECRETKEY_OVERWRITE: ${FLOWISE_SECRET_KEY:-staging-flowise-secret-2025}
+      # Límites de carga
+      FLOWISE_MAX_REQUEST_SIZE: "50mb"
+      FLOWISE_MAX_UPLOAD_SIZE: "50mb"
+      # CORS (permitir staging domains)
+      CORS_ORIGINS: "https://staging.example.com,https://doc.staging.example.com"
+      # Logging
+      LOG_LEVEL: info
+    networks:
+      - backend  # Solo red interna
+    # NO PORTS EXPOSED - Solo acceso interno desde microservicio documentos
+    volumes:
+      - flowise_data:/root/.flowise
+      - /tmp/flowise-uploads-staging:/root/.flowise/uploads
+    depends_on:
+      - postgres-staging
+    deploy:
+      replicas: 1
+      placement:
+        constraints:
+          - node.role == worker
+      resources:
+        limits:
+          memory: 2G  # Staging: VM de 16GB RAM, límite conservador
+          cpus: '1.0'
+        reservations:
+          memory: 1G
+          cpus: '0.5'
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:3005/api/v1/ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    # Descomentar para habilitar (comentado por defecto para ahorrar recursos)
+    profiles:
+      - ai
+
+volumes:
+  pg_data:
+  redis_data:
+  minio_data:
+  nginx_logs:
+  flowise_data:
+
+# ================================================
+# DEPLOYMENT NOTES
+# ================================================
+# Deploy command:
+#   docker stack deploy -c docker-compose.staging.yml monorepo-staging
+#
+# Scale services (if needed):
+#   docker service scale monorepo-staging_backend=2
+#   docker service scale monorepo-staging_frontend=2
+#
+# View logs:
+#   docker service logs monorepo-staging_backend --tail 100
+#
+# Remove stack:
+#   docker stack rm monorepo-staging
+#
+# Diferencias con Producción:
+#   - Replicas reducidas (1 en vez de 2-3)
+#   - Recursos de CPU/RAM más bajos
+#   - LOG_LEVEL=debug para mejor debugging
+#   - Nombres de contenedor con sufijo -staging
+#   - Bucket de MinIO con sufijo -staging
+#   - Sentry environment: staging
+# ================================================
+

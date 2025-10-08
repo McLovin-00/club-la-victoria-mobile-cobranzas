@@ -1,0 +1,233 @@
+version: "3.9"
+
+# ==============================================================================
+# DOCKER COMPOSE PARA DESARROLLO LOCAL - Monorepo BCA
+# ==============================================================================
+# Este archivo incluye todos los servicios de infraestructura opcionales para
+# desarrollo local. Puedes habilitar/deshabilitar servicios según necesites.
+#
+# Uso:
+#   docker compose -f docker-compose.dev.yml up -d           # Levantar todos
+#   docker compose -f docker-compose.dev.yml up postgres -d  # Solo PostgreSQL
+#   docker compose -f docker-compose.dev.yml down            # Detener todos
+#
+# Servicios incluidos:
+#   - PostgreSQL 16   (opcional, comentar si usas DB externa)
+#   - Redis 7         (requerido para backend/documentos)
+#   - MinIO           (requerido para documentos)
+#   - Flowise AI      (opcional, solo si necesitas IA local)
+#   - MailHog         (opcional, para testing de emails)
+#   - Adminer         (opcional, herramienta de gestión DB)
+# ==============================================================================
+
+services:
+
+  # ================================
+  # POSTGRESQL 16 (OPCIONAL)
+  # ================================
+  # Descomentar si quieres una base de datos local en contenedor.
+  # De lo contrario, usa una DB externa (ej: 10.3.0.244).
+  postgres:
+    image: postgres:16-alpine
+    container_name: dev-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${DB_USER:-postgres}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-postgres}
+      POSTGRES_DB: ${DB_NAME:-monorepo-bca}
+      # Optimizaciones para desarrollo
+      POSTGRES_MAX_CONNECTIONS: 100
+      POSTGRES_SHARED_BUFFERS: 256MB
+      POSTGRES_EFFECTIVE_CACHE_SIZE: 1GB
+    ports:
+      - "5432:5432"  # Expuesto para Prisma Studio y herramientas locales
+    volumes:
+      - pg_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-postgres}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    # Comentar este bloque si NO quieres que PostgreSQL se levante automáticamente
+    # profiles:
+    #   - full-stack
+
+  # ================================
+  # REDIS 7 (REQUERIDO)
+  # ================================
+  redis:
+    image: redis:7-alpine
+    container_name: dev-redis
+    restart: unless-stopped
+    command: redis-server --appendonly yes --maxmemory 512mb --maxmemory-policy allkeys-lru
+    volumes:
+      - redis_data:/data
+    # No exponer puerto por defecto para evitar conflictos con Redis del host
+    # Descomentar si necesitas acceso desde el host:
+    # ports:
+    #   - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ================================
+  # MINIO (REQUERIDO para Documentos)
+  # ================================
+  minio:
+    image: minio/minio:latest
+    container_name: dev-minio
+    restart: unless-stopped
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ACCESS_KEY:-minioadmin}
+      MINIO_ROOT_PASSWORD: ${MINIO_SECRET_KEY:-minioadmin}
+      MINIO_SERVER_URL: http://localhost:9000
+    ports:
+      - "9000:9000"  # API S3
+      - "9001:9001"  # Console UI
+    volumes:
+      - minio_data:/data
+      # Opcional: habilitar TLS montando certificados válidos
+      # Colocar public.crt y private.key en ./local/minio/certs
+      # - ./local/minio/certs:/root/.minio/certs:ro
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://localhost:9000/minio/health/ready || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+
+  # ================================
+  # FLOWISE AI (OPCIONAL)
+  # ================================
+  # Servicio de IA para clasificación automática de documentos.
+  # Descomentar si necesitas procesamiento de IA local.
+  flowise:
+    image: flowiseai/flowise:latest
+    container_name: dev-flowise
+    restart: unless-stopped
+    environment:
+      PORT: 3000
+      # Configuración de base de datos
+      # Opción A: Usar PostgreSQL del contenedor (recomendado)
+      OVERRIDE_DATABASE: "true"
+      DATABASE_TYPE: postgres
+      DATABASE_HOST: postgres
+      DATABASE_PORT: 5432
+      DATABASE_USER: ${DB_USER:-postgres}
+      DATABASE_PASSWORD: ${DB_PASSWORD:-postgres}
+      DATABASE_NAME: ${DB_NAME:-monorepo-bca}
+      DATABASE_SCHEMA: flowise
+      # Opción B: Usar DB externa (comentar líneas anteriores y descomentar estas)
+      # OVERRIDE_DATABASE: "true"
+      # DATABASE_TYPE: postgres
+      # DATABASE_HOST: 10.3.0.244
+      # DATABASE_PORT: 5432
+      # DATABASE_USER: ${DB_USER}
+      # DATABASE_PASSWORD: ${DB_PASSWORD}
+      # DATABASE_NAME: ${DB_NAME}
+      # DATABASE_SCHEMA: flowise
+      # Configuración general
+      NODE_ENV: development
+      NODE_OPTIONS: "--max-old-space-size=2048"
+      # Autenticación de la UI (opcional)
+      FLOWISE_USERNAME: ${FLOWISE_USERNAME:-admin}
+      FLOWISE_PASSWORD: ${FLOWISE_PASSWORD:-admin123}
+      # Seguridad
+      FLOWISE_SECRETKEY_OVERWRITE: ${FLOWISE_SECRET_KEY:-dev-flowise-secret-2025}
+      # Límites de carga
+      FLOWISE_MAX_REQUEST_SIZE: "50mb"
+      FLOWISE_MAX_UPLOAD_SIZE: "50mb"
+      # CORS
+      CORS_ORIGINS: "*"
+      # Logging
+      LOG_LEVEL: debug
+    ports:
+      - "3000:3000"  # UI y API
+    volumes:
+      - flowise_data:/root/.flowise
+      - /tmp/flowise-uploads:/root/.flowise/uploads
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:3000/api/v1/ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+    # Descomentar para habilitar solo cuando se necesite explícitamente
+    # profiles:
+    #   - ai
+
+  # ================================
+  # MAILHOG (OPCIONAL)
+  # ================================
+  # Servidor SMTP falso para testing de emails en desarrollo.
+  mailhog:
+    image: mailhog/mailhog:v1.0.1
+    container_name: dev-mailhog
+    restart: unless-stopped
+    ports:
+      - "1025:1025"  # SMTP
+      - "8025:8025"  # UI
+    # Descomentar para habilitar solo cuando se necesite
+    # profiles:
+    #   - mail
+
+  # ================================
+  # ADMINER (OPCIONAL)
+  # ================================
+  # Herramienta web para gestión de base de datos.
+  adminer:
+    image: adminer:4
+    container_name: dev-adminer
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    environment:
+      # Servidor por defecto al abrir Adminer
+      # Cambiar a 'postgres' si usas el contenedor local
+      ADMINER_DEFAULT_SERVER: ${ADMINER_DEFAULT_SERVER:-postgres}
+      ADMINER_DESIGN: dracula
+    # Descomentar para habilitar solo cuando se necesite
+    # profiles:
+    #   - tools
+
+volumes:
+  pg_data:
+    name: dev-pg-data
+  redis_data:
+    name: dev-redis-data
+  minio_data:
+    name: dev-minio-data
+  flowise_data:
+    name: dev-flowise-data
+
+# ==============================================================================
+# NOTAS DE USO
+# ==============================================================================
+#
+# 1. Levantar stack completo:
+#    docker compose -f docker-compose.dev.yml up -d
+#
+# 2. Levantar solo infraestructura básica (sin Flowise, MailHog, Adminer):
+#    docker compose -f docker-compose.dev.yml up postgres redis minio -d
+#
+# 3. Usar DB externa en lugar del contenedor PostgreSQL:
+#    - Comentar todo el bloque 'postgres' o usar profiles
+#    - Configurar DATABASE_URL en .env apuntando a 10.3.0.244
+#    - Cambiar ADMINER_DEFAULT_SERVER a 10.3.0.244
+#
+# 4. Verificar servicios corriendo:
+#    docker compose -f docker-compose.dev.yml ps
+#
+# 5. Ver logs de un servicio:
+#    docker compose -f docker-compose.dev.yml logs -f flowise
+#
+# 6. Detener y eliminar:
+#    docker compose -f docker-compose.dev.yml down
+#    docker compose -f docker-compose.dev.yml down -v  # También elimina volúmenes
+#
+# ==============================================================================

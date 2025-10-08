@@ -1,0 +1,18 @@
+FROM node:20-alpine AS builder
+WORKDIR /app
+# Copiar todo el monorepo (necesario por workspaces y paths de tsconfig)
+COPY . .
+# Instalar dependencias de workspaces y compilar backend
+RUN --mount=type=cache,target=/root/.npm npm ci --workspaces && npm run -w apps/backend build
+
+FROM node:20-alpine AS runner
+WORKDIR /app
+ENV NODE_ENV=production
+COPY --from=builder /app/node_modules ./node_modules
+COPY --from=builder /app/apps/backend/dist ./apps/backend/dist
+COPY apps/backend/prisma ./apps/backend/prisma
+EXPOSE 4800
+HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 CMD wget -qO- http://localhost:4800/health || exit 1
+CMD ["node", "apps/backend/dist/src/server.js"]
+
+

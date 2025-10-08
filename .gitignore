@@ -1,0 +1,145 @@
+# Dependencies
+node_modules/
+jspm_packages/
+
+# Build outputs
+dist/
+build/
+out/
+.next/
+.nuxt
+public
+
+# Turbo/Monorepo
+.turbo/
+.turbo
+.changeset
+
+# TypeScript
+*.tsbuildinfo
+
+# Logs
+logs/
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+lerna-debug.log*
+
+# Diagnostic reports
+report.*.json
+
+# Runtime data
+pids
+*.pid
+*.seed
+*.pid.lock
+
+# Coverage
+coverage/
+*.lcov
+.nyc_output
+.coverage
+junit.xml
+
+# Caches
+.cache
+.parcel-cache
+.rpt2_cache/
+.rts2_cache_cjs/
+.rts2_cache_es/
+.rts2_cache_umd/
+.sass-cache/
+
+# IDE/Editor
+.vscode/*
+!.vscode/extensions.json
+.vscode-test
+.idea/
+*.sw?
+*.swo
+*.swp
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+
+# OS files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# npm/yarn
+.npm
+.eslintcache
+.stylelintcache
+.yarn-integrity
+.pnp.*
+.yarn/*
+!.yarn/patches
+!.yarn/plugins
+!.yarn/releases
+!.yarn/sdks
+!.yarn/versions
+
+# Environment files
+.env
+.env.*
+!.env.example
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# Output of 'npm pack'
+*.tgz
+
+# Framework specific
+.vuepress/dist
+.temp
+.svelte-kit/
+**/.vitepress/dist
+**/.vitepress/cache
+.docusaurus
+.serverless/
+.fusebox/
+.dynamodb/
+.firebase/
+.tern-port
+
+# Next/Gatsby
+.next
+.cache/
+
+# Misc
+lib-cov
+build/Release
+web_modules/
+
+# Docker
+docker-compose.override.yml
+
+# Database
+*.db
+*.sqlite
+*.sqlite3
+prisma/dev.db
+prisma/migrations/dev.db
+
+# Documentation
+docs/build/
+docs/.docusaurus/
+docs/.cache-loader/
+
+# Husky
+.husky/_
+
+# Security
+keys/
+*.pem
+

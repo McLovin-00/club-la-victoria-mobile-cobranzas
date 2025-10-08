@@ -1,0 +1,35 @@
+{
+  "extends": "./tsconfig.json",
+  "include": [
+    "src/app.ts",
+    "src/server.ts",
+    "src/config/**/*.ts",
+    "src/middlewares/**/*.ts",
+    "src/routes/health.routes.ts",
+    "src/routes/metrics.routes.ts",
+    "src/routes/openapi.routes.ts",
+    "src/types/**/*.d.ts"
+  ],
+  "exclude": [
+    "node_modules",
+    "dist",
+    "**/*.spec.ts",
+    "src/services/**",
+    "src/types/**",
+    "src/routes/chat-processor.routes.ts",
+    "src/routes/monitoring.routes.ts",
+    "src/routes/actions.routes.ts",
+    "src/routes/wizard-v2.routes.ts",
+    "src/routes/gateway.routes.ts",
+    "src/routes/empresa.routes.ts",
+    "src/routes/service.routes.ts",
+    "src/routes/instance.routes.ts",
+    "src/routes/permiso.routes.ts",
+    "src/routes/calidad-proxy.routes.ts",
+    "src/controllers/**",
+    "src/scripts/**",
+    "src/seed/**"
+  ]
+}
+
+

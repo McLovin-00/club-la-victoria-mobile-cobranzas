@@ -1,0 +1,212 @@
+/* 📱 Mobile-First Design Tokens */
+/* Inspirado en la filosofía de diseño de Apple: simplicidad, elegancia, funcionalidad */
+
+:root {
+  /* 📏 Breakpoints Mobile-First */
+  --mobile-sm: 320px;   /* iPhone SE, Galaxy S5 */
+  --mobile-md: 375px;   /* iPhone 12/13/14 standard */
+  --mobile-lg: 414px;   /* iPhone 12/13/14 Plus */
+  --tablet-sm: 768px;   /* iPad mini */
+  --tablet-lg: 1024px;  /* iPad */
+  --desktop: 1280px;    /* Desktop */
+
+  /* 🎯 Touch Targets - Apple Human Interface Guidelines */
+  --touch-target-min: 44px;
+  --touch-target-comfortable: 48px;
+  --touch-target-large: 56px;
+  
+  /* 📐 Spacing Scale - Basado en 8px grid */
+  --space-xs: 4px;
+  --space-sm: 8px;
+  --space-md: 16px;
+  --space-lg: 24px;
+  --space-xl: 32px;
+  --space-2xl: 48px;
+  --space-3xl: 64px;
+  
+  /* 📱 Mobile-specific spacing */
+  --mobile-padding: 16px;
+  --mobile-margin: 12px;
+  --mobile-gap: 16px;
+  
+  /* 🎨 Color Palette - Accesible y Moderna */
+  /* Primary - Azul confiable */
+  --color-primary-50: #eff6ff;
+  --color-primary-100: #dbeafe;
+  --color-primary-200: #bfdbfe;
+  --color-primary-300: #93c5fd;
+  --color-primary-400: #60a5fa;
+  --color-primary-500: #3b82f6;
+  --color-primary-600: #2563eb;
+  --color-primary-700: #1d4ed8;
+  --color-primary-800: #1e40af;
+  --color-primary-900: #1e3a8a;
+  
+  /* Secondary - Naranja energético */
+  --color-secondary-50: #fff7ed;
+  --color-secondary-100: #ffedd5;
+  --color-secondary-200: #fed7aa;
+  --color-secondary-300: #fdba74;
+  --color-secondary-400: #fb923c;
+  --color-secondary-500: #f97316;
+  --color-secondary-600: #ea580c;
+  --color-secondary-700: #c2410c;
+  --color-secondary-800: #9a3412;
+  --color-secondary-900: #7c2d12;
+  
+  /* Semantic Colors */
+  --color-success-50: #f0fdf4;
+  --color-success-500: #22c55e;
+  --color-success-600: #16a34a;
+  --color-success-700: #15803d;
+  
+  --color-warning-50: #fffbeb;
+  --color-warning-500: #f59e0b;
+  --color-warning-600: #d97706;
+  --color-warning-700: #b45309;
+  
+  --color-error-50: #fef2f2;
+  --color-error-500: #ef4444;
+  --color-error-600: #dc2626;
+  --color-error-700: #b91c1c;
+  
+  /* Neutral Colors */
+  --color-gray-50: #f9fafb;
+  --color-gray-100: #f3f4f6;
+  --color-gray-200: #e5e7eb;
+  --color-gray-300: #d1d5db;
+  --color-gray-400: #9ca3af;
+  --color-gray-500: #6b7280;
+  --color-gray-600: #4b5563;
+  --color-gray-700: #374151;
+  --color-gray-800: #1f2937;
+  --color-gray-900: #111827;
+  
+  /* 🌈 Surface Colors */
+  --surface-background: #ffffff;
+  --surface-card: #ffffff;
+  --surface-overlay: rgba(0, 0, 0, 0.1);
+  --surface-backdrop: rgba(0, 0, 0, 0.5);
+  
+  /* 📝 Typography Scale - Optimizada para mobile */
+  --font-size-xs: 12px;
+  --font-size-sm: 14px;
+  --font-size-base: 16px;  /* iOS no zoom size */
+  --font-size-lg: 18px;
+  --font-size-xl: 20px;
+  --font-size-2xl: 24px;
+  --font-size-3xl: 30px;
+  --font-size-4xl: 36px;
+  
+  /* Line Heights */
+  --line-height-tight: 1.25;
+  --line-height-normal: 1.5;
+  --line-height-relaxed: 1.75;
+  
+  /* Font Weights */
+  --font-weight-normal: 400;
+  --font-weight-medium: 500;
+  --font-weight-semibold: 600;
+  --font-weight-bold: 700;
+  
+  /* 🎭 Shadows - Sutiles y elegantes */
+  --shadow-xs: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+  --shadow-sm: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06);
+  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+  --shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+  
+  /* Mobile-specific shadows */
+  --shadow-fab: 0 4px 12px rgba(59, 130, 246, 0.4);
+  --shadow-card-mobile: 0 2px 8px rgba(0, 0, 0, 0.1);
+  
+  /* 🎯 Border Radius - Moderno y touch-friendly */
+  --radius-sm: 6px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --radius-xl: 16px;
+  --radius-2xl: 24px;
+  --radius-full: 9999px;
+  
+  /* 🏃‍♂️ Animation & Transitions */
+  --transition-fast: 150ms cubic-bezier(0.4, 0, 0.2, 1);
+  --transition-normal: 250ms cubic-bezier(0.4, 0, 0.2, 1);
+  --transition-slow: 350ms cubic-bezier(0.4, 0, 0.2, 1);
+  
+  /* Mobile-specific timings */
+  --transition-touch: 100ms ease-out;
+  --transition-swipe: 200ms cubic-bezier(0.25, 0.46, 0.45, 0.94);
+  
+  /* 📏 Z-Index Scale */
+  --z-dropdown: 1000;
+  --z-sticky: 1020;
+  --z-fixed: 1030;
+  --z-modal-backdrop: 1040;
+  --z-modal: 1050;
+  --z-popover: 1060;
+  --z-tooltip: 1070;
+  --z-toast: 1080;
+}
+
+/* 🌙 Dark Mode Support */
+@media (prefers-color-scheme: dark) {
+  :root {
+    --surface-background: #0f172a;
+    --surface-card: #1e293b;
+    --surface-overlay: rgba(255, 255, 255, 0.1);
+    --surface-backdrop: rgba(0, 0, 0, 0.8);
+    
+    /* Adjust colors for dark mode */
+    --color-gray-50: #1e293b;
+    --color-gray-100: #334155;
+    --color-gray-200: #475569;
+    --color-gray-300: #64748b;
+    --color-gray-400: #94a3b8;
+    --color-gray-500: #cbd5e1;
+    --color-gray-600: #e2e8f0;
+    --color-gray-700: #f1f5f9;
+    --color-gray-800: #f8fafc;
+    --color-gray-900: #ffffff;
+  }
+}
+
+/* 📱 Mobile-First Media Queries Helpers */
+@media (max-width: 374px) {
+  :root {
+    --mobile-padding: 12px;
+    --mobile-margin: 8px;
+    --font-size-base: 14px;
+  }
+}
+
+@media (min-width: 768px) {
+  :root {
+    --mobile-padding: 24px;
+    --mobile-margin: 16px;
+  }
+}
+
+/* 🎯 Touch-friendly defaults */
+
+/* Ocultar scrollbars en contenedores horizontales (mobile) */
+.no-scrollbar {
+  -ms-overflow-style: none; /* IE y Edge */
+  scrollbar-width: none; /* Firefox */
+}
+.no-scrollbar::-webkit-scrollbar {
+  display: none; /* Chrome, Safari */
+}
+* {
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+}
+
+/* 📱 Safe area support for iOS */
+@supports (padding: max(0px)) {
+  :root {
+    --safe-area-inset-top: env(safe-area-inset-top);
+    --safe-area-inset-right: env(safe-area-inset-right);
+    --safe-area-inset-bottom: env(safe-area-inset-bottom);
+    --safe-area-inset-left: env(safe-area-inset-left);
+  }
+}

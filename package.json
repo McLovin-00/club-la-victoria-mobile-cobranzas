@@ -1,0 +1,60 @@
+{
+  "name": "monorepo-microservices",
+  "version": "1.0.0",
+  "description": "Monorepo elegante para microservicios empresariales",
+  "main": "index.js",
+  "scripts": {
+    "dev": "turbo dev",
+    "build": "turbo build",
+    "test": "turbo test",
+    "lint": "turbo lint",
+    "format": "turbo format",
+    "clean": "turbo clean",
+    "setup-npm": "node scripts/setup-npm-automated.js",
+    "test-proxy": "./scripts/test-proxy-routes.sh",
+    "deploy-prod": "./scripts/deploy-prod.sh",
+    "start": "turbo start",
+    "deploy-hybrid": "bash ./scripts/deploy-hybrid.sh",
+    "pm2:start-hybrid": "bash ./scripts/pm2-start-hybrid.sh",
+    
+    "compose:dev:infra:up": "docker compose -f docker-compose.dev.yml up -d",
+    "compose:dev:infra:down": "docker compose -f docker-compose.dev.yml down -v",
+    "compose:dev:infra:logs": "docker compose -f docker-compose.dev.yml logs -f --tail=200",
+    "compose:dev:infra:ps": "docker compose -f docker-compose.dev.yml ps",
+    
+    "compose:test:up": "docker compose -f docker-compose.hybrid.yml up -d",
+    "compose:test:down": "docker compose -f docker-compose.hybrid.yml down -v",
+    "compose:test:logs": "docker compose -f docker-compose.hybrid.yml logs -f --tail=200",
+    "compose:test:ps": "docker compose -f docker-compose.hybrid.yml ps"
+  },
+  "keywords": [
+    "microservices",
+    "monorepo",
+    "express",
+    "react",
+    "typescript",
+    "docker"
+  ],
+  "author": "Microsyst Team",
+  "license": "MIT",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "devDependencies": {
+    "turbo": "^2.2.1"
+  },
+  "packageManager": "npm@10.0.0",
+  "engines": {
+    "node": ">=20.0.0",
+    "npm": ">=10.0.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/microsyst/monorepo.git"
+  },
+  "bugs": {
+    "url": "https://github.com/microsyst/monorepo/issues"
+  },
+  "homepage": "https://github.com/microsyst/monorepo#readme"
+}

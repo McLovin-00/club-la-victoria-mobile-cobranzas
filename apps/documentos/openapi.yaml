@@ -1,0 +1,791 @@
+openapi: 3.0.3
+info:
+  title: Documentos API
+  version: 1.0.0
+  description: API del microservicio Documentos (mínimo inicial)
+servers:
+  - url: http://localhost:4802
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  schemas:
+    EntityType:
+      type: string
+      enum: [DADOR, EMPRESA_TRANSPORTISTA, CHOFER, CAMION, ACOPLADO]
+    DocumentStatus:
+      type: string
+      enum: [PENDIENTE, VALIDANDO, CLASIFICANDO, PENDIENTE_APROBACION, APROBADO, RECHAZADO, VENCIDO]
+    Template:
+      type: object
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        entityType:
+          $ref: '#/components/schemas/EntityType'
+        active:
+          type: boolean
+    Document:
+      type: object
+      properties:
+        id:
+          type: integer
+        templateId:
+          type: integer
+        entityType:
+          $ref: '#/components/schemas/EntityType'
+        entityId:
+          type: integer
+        dadorCargaId:
+          type: integer
+        status:
+          $ref: '#/components/schemas/DocumentStatus'
+        uploadedAt:
+          type: string
+          format: date-time
+    Pagination:
+      type: object
+      properties:
+        page:
+          type: integer
+        limit:
+          type: integer
+        total:
+          type: integer
+        pages:
+          type: integer
+    ErrorResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: false
+        message:
+          type: string
+          example: "Datos de entrada inválidos"
+        code:
+          type: string
+          example: "VALIDATION_ERROR"
+        errors:
+          nullable: true
+    HealthResponse:
+      type: object
+      properties:
+        service: { type: string, example: documentos }
+        status:  { type: string, example: healthy }
+        timestamp: { type: string, format: date-time }
+        version: { type: string, example: "1.0.0" }
+    TemplateCreateRequest:
+      type: object
+      required: [name, entityType]
+      properties:
+        name: { type: string, example: "Licencia de Conducir" }
+        entityType: { $ref: '#/components/schemas/EntityType' }
+    DocumentUploadRequest:
+      type: object
+      properties:
+        templateId: { type: integer, example: 1 }
+        entityType: { $ref: '#/components/schemas/EntityType' }
+        entityId:   { type: integer, example: 101 }
+        dadorCargaId: { type: integer, example: 55 }
+        document: { type: string, format: binary }
+    DocumentPreviewResponse:
+      type: object
+      properties:
+        success: { type: boolean }
+        data:
+          type: object
+          properties:
+            id: { type: integer }
+            fileName: { type: string }
+            mimeType: { type: string }
+            templateName: { type: string }
+            previewUrl: { type: string, example: "https://minio/signed" }
+            expiresIn: { type: integer, example: 3600 }
+    EmpresaConfig:
+      type: object
+      properties:
+        enabled: { type: boolean }
+        templateIds:
+          type: array
+          items: { type: integer }
+    DocumentStatusListResponse:
+      type: object
+      properties:
+        success: { type: boolean, example: true }
+        data:
+          type: array
+          items: { $ref: '#/components/schemas/Document' }
+        pagination: { $ref: '#/components/schemas/Pagination' }
+        stats:
+          type: object
+          properties:
+            pendiente: { type: integer, example: 0 }
+            validando: { type: integer, example: 0 }
+            aprobado:  { type: integer, example: 0 }
+            rechazado: { type: integer, example: 0 }
+            vencido:   { type: integer, example: 0 }
+    SearchResult:
+      type: object
+      properties:
+        type: { type: string, example: "CHOFER" }
+        id:   { type: integer, example: 123 }
+        label: { type: string, example: "DNI 20333444" }
+    StorageStats:
+      type: object
+      properties:
+        bucketName: { type: string }
+        objectCount: { type: integer }
+        totalSize: { type: integer }
+    FlowiseConfig:
+      type: object
+      properties:
+        enabled: { type: boolean }
+        baseUrl: { type: string }
+        apiKey: { type: string }
+        flowId: { type: string }
+        timeout: { type: integer }
+    EvolutionConfig:
+      type: object
+      properties:
+        enabled: { type: boolean }
+        baseUrl: { type: string }
+        apiKey: { type: string }
+        timeout: { type: integer }
+    SuccessResponse:
+      type: object
+      properties:
+        success: { type: boolean, example: true }
+        message: { type: string, example: "OK" }
+        data: { description: "Payload opcional", nullable: true }
+    Chofer:
+      type: object
+      properties:
+        id: { type: integer }
+        dadorCargaId: { type: integer }
+        tenantEmpresaId: { type: integer }
+        dni: { type: string }
+        dniNorm: { type: string }
+        nombre: { type: string, nullable: true }
+        apellido: { type: string, nullable: true }
+        phones:
+          type: array
+          items: { type: string }
+        activo: { type: boolean }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+    Camion:
+      type: object
+      properties:
+        id: { type: integer }
+        dadorCargaId: { type: integer }
+        tenantEmpresaId: { type: integer }
+        patente: { type: string }
+        patenteNorm: { type: string }
+        marca: { type: string, nullable: true }
+        modelo: { type: string, nullable: true }
+        activo: { type: boolean }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+    Acoplado:
+      type: object
+      properties:
+        id: { type: integer }
+        dadorCargaId: { type: integer }
+        tenantEmpresaId: { type: integer }
+        patente: { type: string }
+        patenteNorm: { type: string }
+        tipo: { type: string, nullable: true }
+        activo: { type: boolean }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+    Cliente:
+      type: object
+      properties:
+        id: { type: integer }
+        tenantEmpresaId: { type: integer }
+        razonSocial: { type: string }
+        cuit: { type: string }
+        activo: { type: boolean }
+        notas: { type: string, nullable: true }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+    DadorCarga:
+      type: object
+      properties:
+        id: { type: integer }
+        tenantEmpresaId: { type: integer }
+        razonSocial: { type: string }
+        cuit: { type: string }
+        phones:
+          type: array
+          items: { type: string }
+        notifyDriverEnabled: { type: boolean }
+        notifyDadorEnabled: { type: boolean }
+        activo: { type: boolean }
+        notas: { type: string, nullable: true }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+    Equipo:
+      type: object
+      properties:
+        id: { type: integer }
+        driverId: { type: integer }
+        truckId: { type: integer }
+        trailerId: { type: integer, nullable: true }
+        dadorCargaId: { type: integer }
+        tenantEmpresaId: { type: integer }
+        driverDniNorm: { type: string }
+        truckPlateNorm: { type: string }
+        trailerPlateNorm: { type: string, nullable: true }
+        validFrom: { type: string, format: date-time }
+        validTo: { type: string, format: date-time, nullable: true }
+        estado: { type: string, enum: [activa, finalizada] }
+    EquipoAttachRequest:
+      type: object
+      description: "Indique al menos un componente a asociar (driverId/driverDni, truckId/truckPlate, trailerId/trailerPlate)"
+      properties:
+        driverId: { type: integer, example: 12 }
+        truckId:  { type: integer, example: 34 }
+        trailerId: { type: integer, example: 56 }
+        driverDni: { type: string, example: "20333444" }
+        truckPlate: { type: string, example: "AB123CD" }
+        trailerPlate: { type: string, example: "AA123BB" }
+    EquipoDetachRequest:
+      type: object
+      description: "Indique qué componentes desasociar. Nota: chofer y camión no pueden desasociarse en equipos activos."
+      properties:
+        driver: { type: boolean, example: false }
+        truck:  { type: boolean, example: false }
+        trailer: { type: boolean, example: true }
+security:
+  - bearerAuth: []
+tags:
+  - name: Health
+  - name: Documents
+  - name: Templates
+  - name: Config
+  - name: Dashboard
+  - name: Approval
+  - name: EmpresasTransportistas
+  - name: Search
+  - name: Storage
+  - name: Notifications
+  - name: Defaults
+  - name: Dadores
+  - name: Maestros
+  - name: Equipos
+  - name: Clients
+  - name: Batch
+  - name: Transportistas
+  - name: Metrics
+paths:
+  /health:
+    get:
+      summary: Health check
+      tags: [Health]
+      responses:
+        '200':
+          description: OK
+        '500':
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /api/docs/documents/status:
+    get:
+      summary: Estado de documentos
+      tags: [Documents]
+      parameters:
+        - in: query
+          name: dadorCargaId
+          schema:
+            type: integer
+        - in: query
+          name: entityType
+          schema:
+            type: string
+            enum: [DADOR, CHOFER, CAMION, ACOPLADO]
+        - in: query
+          name: entityId
+          schema:
+            type: integer
+        - in: query
+          name: status
+          schema:
+            type: string
+            enum: [PENDIENTE, VALIDANDO, APROBADO, RECHAZADO, VENCIDO]
+      responses:
+        '200':
+          description: Lista paginada y estadísticas por estado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DocumentStatusListResponse'
+              examples:
+                ok:
+                  value:
+                    success: true
+                    data: []
+                    pagination: { page: 1, limit: 50, total: 0, pages: 0 }
+                    stats: { pendiente: 0, validando: 0, aprobado: 0, rechazado: 0, vencido: 0 }
+        '400': { description: Datos inválidos, content: { application/json: { schema: { $ref: '#/components/schemas/ErrorResponse' } } } }
+        '401': { description: No autenticado, content: { application/json: { schema: { $ref: '#/components/schemas/ErrorResponse' } } } }
+        '403': { description: Prohibido, content: { application/json: { schema: { $ref: '#/components/schemas/ErrorResponse' } } } }
+        '500': { description: Error servidor, content: { application/json: { schema: { $ref: '#/components/schemas/ErrorResponse' } } } }
+  /api/docs/templates:
+    get:
+      summary: Listar plantillas
+      tags: [Templates]
+      responses:
+        '200':
+          description: OK
+    post:
+      summary: Crear plantilla
+      tags: [Templates]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                entityType:
+                  type: string
+                  enum: [DADOR, CHOFER, CAMION, ACOPLADO]
+      responses:
+        '201':
+          description: Creado
+  /api/docs/config/{empresaId}:
+    get:
+      summary: Obtener configuración de empresa
+      tags: [Config]
+      parameters:
+        - in: path
+          name: empresaId
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: OK
+    post:
+      summary: Actualizar configuración de empresa
+      tags: [Config]
+      parameters:
+        - in: path
+          name: empresaId
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                enabled:
+                  type: boolean
+                templateIds:
+                  type: array
+                  items:
+                    type: integer
+      responses:
+        '200':
+          description: OK
+  /api/docs/documents/upload:
+    post:
+      summary: Subir documento
+      tags: [Documents]
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                templateId:
+                  type: integer
+                entityType:
+                  type: string
+                  enum: [DADOR, CHOFER, CAMION, ACOPLADO]
+                entityId:
+                  type: integer
+                dadorCargaId:
+                  type: integer
+                document:
+                  type: string
+                  format: binary
+      responses:
+        '201':
+          description: Creado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Document'
+        '400': { description: Datos inválidos o archivo infectado, content: { application/json: { schema: { $ref: '#/components/schemas/ErrorResponse' } } } }
+        '401': { description: No autenticado, content: { application/json: { schema: { $ref: '#/components/schemas/ErrorResponse' } } } }
+        '403': { description: Prohibido, content: { application/json: { schema: { $ref: '#/components/schemas/ErrorResponse' } } } }
+        '429': { description: Rate limit excedido }
+        '500': { description: Error servidor, content: { application/json: { schema: { $ref: '#/components/schemas/ErrorResponse' } } } }
+  /api/docs/documents/{id}/preview:
+    get:
+      summary: Obtener URL firmada para preview de documento
+      tags: [Documents]
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DocumentPreviewResponse'
+        '401': { description: No autenticado, content: { application/json: { schema: { $ref: '#/components/schemas/ErrorResponse' } } } }
+        '403': { description: Prohibido, content: { application/json: { schema: { $ref: '#/components/schemas/ErrorResponse' } } } }
+        '404': { description: No encontrado, content: { application/json: { schema: { $ref: '#/components/schemas/ErrorResponse' } } } }
+  /api/docs/dashboard/semaforos:
+    get:
+      summary: Vista de semáforos por entidad
+      tags: [Dashboard]
+      responses:
+        '200':
+          description: OK
+  /api/docs/dashboard/stats:
+    get:
+      summary: Estadísticas globales
+      tags: [Dashboard]
+      responses:
+        '200':
+          description: OK
+  /api/docs/dashboard/alerts:
+    get:
+      summary: Vista de alertas
+      tags: [Dashboard]
+      responses:
+        '200':
+          description: OK
+  /api/docs/dashboard/approval-kpis:
+    get:
+      summary: KPIs de aprobación
+      tags: [Dashboard]
+      responses:
+        '200':
+          description: OK
+  /api/docs/approval/pending:
+    get:
+      summary: Lista de documentos pendientes de aprobación
+      tags: [Approval]
+      responses:
+        '200':
+          description: OK
+  /api/docs/approval/pending/{id}:
+    get:
+      summary: Detalle de documento pendiente
+      tags: [Approval]
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: OK
+  /api/docs/approval/pending/{id}/approve:
+    post:
+      summary: Aprobar documento pendiente
+      tags: [Approval]
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Aprobado
+  /api/docs/approval/pending/{id}/reject:
+    post:
+      summary: Rechazar documento pendiente
+      tags: [Approval]
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Rechazado
+  /api/docs/approval/stats:
+    get:
+      summary: Estadísticas de aprobación
+      tags: [Approval]
+      responses:
+        '200':
+          description: OK
+  /api/docs/approval/pending/batch-approve:
+    post:
+      summary: Aprobación masiva de documentos pendientes
+      tags: [Approval]
+      responses:
+        '200':
+          description: OK
+  /api/docs/empresas-transportistas:
+    get:
+      summary: Listar empresas transportistas
+      tags: [EmpresasTransportistas]
+      responses:
+        '200':
+          description: OK
+    post:
+      summary: Crear empresa transportista
+      tags: [EmpresasTransportistas]
+      responses:
+        '201':
+          description: Creado
+  /api/docs/empresas-transportistas/{id}:
+    get:
+      summary: Obtener empresa transportista por ID
+      tags: [EmpresasTransportistas]
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: OK
+    put:
+      summary: Actualizar empresa transportista
+      tags: [EmpresasTransportistas]
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: OK
+    delete:
+      summary: Eliminar empresa transportista
+      tags: [EmpresasTransportistas]
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: OK
+  /api/docs/empresas-transportistas/{id}/choferes:
+    get:
+      summary: Listar choferes de empresa transportista
+      tags: [EmpresasTransportistas]
+      responses:
+        '200':
+          description: OK
+  /api/docs/empresas-transportistas/{id}/equipos:
+    get:
+      summary: Listar equipos de empresa transportista
+      tags: [EmpresasTransportistas]
+      responses:
+        '200':
+          description: OK
+  /api/docs/flowise:
+    get:
+      summary: Configuración Flowise
+      tags: [Config]
+      responses:
+        '200': { description: OK, content: { application/json: { schema: { $ref: '#/components/schemas/FlowiseConfig' } } } }
+        '401': { description: No autenticado, content: { application/json: { schema: { $ref: '#/components/schemas/ErrorResponse' } } } }
+    post:
+      summary: Actualizar configuración Flowise
+      tags: [Config]
+      responses:
+        '200': { description: OK }
+        '400': { description: Datos inválidos, content: { application/json: { schema: { $ref: '#/components/schemas/ErrorResponse' } } } }
+        '401': { description: No autenticado, content: { application/json: { schema: { $ref: '#/components/schemas/ErrorResponse' } } } }
+  /api/docs/evolution:
+    get:
+      summary: Configuración Evolution
+      tags: [Config]
+      responses:
+        '200': { description: OK, content: { application/json: { schema: { $ref: '#/components/schemas/EvolutionConfig' } } } }
+        '401': { description: No autenticado, content: { application/json: { schema: { $ref: '#/components/schemas/ErrorResponse' } } } }
+    post:
+      summary: Actualizar configuración Evolution
+      tags: [Config]
+      responses:
+        '200': { description: OK }
+        '400': { description: Datos inválidos, content: { application/json: { schema: { $ref: '#/components/schemas/ErrorResponse' } } } }
+        '401': { description: No autenticado, content: { application/json: { schema: { $ref: '#/components/schemas/ErrorResponse' } } } }
+  /api/docs/search:
+    get:
+      summary: Búsqueda por DNI/patente
+      tags: [Search]
+      responses:
+        '200': { description: OK, content: { application/json: { schema: { type: array, items: { $ref: '#/components/schemas/SearchResult' } } } } }
+        '400': { description: Datos inválidos, content: { application/json: { schema: { $ref: '#/components/schemas/ErrorResponse' } } } }
+  /api/docs/storage/stats:
+    get:
+      summary: Estadísticas de storage por tenant
+      tags: [Storage]
+      responses:
+        '200': { description: OK, content: { application/json: { schema: { $ref: '#/components/schemas/StorageStats' } } } }
+        '401': { description: No autenticado, content: { application/json: { schema: { $ref: '#/components/schemas/ErrorResponse' } } } }
+  /api/docs/notifications/test:
+    post:
+      summary: Enviar notificación de prueba
+      tags: [Notifications]
+      responses:
+        '200': { description: OK }
+        '400': { description: Datos inválidos, content: { application/json: { schema: { $ref: '#/components/schemas/ErrorResponse' } } } }
+  /api/docs/defaults:
+    get:
+      summary: Obtener defaults del sistema
+      tags: [Defaults]
+      responses:
+        '200': { description: OK }
+  /api/docs/dadores:
+    get:
+      summary: Listar dadores de carga
+      tags: [Dadores]
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/DadorCarga' }
+  /api/docs/maestros/choferes:
+    get:
+      summary: Listar choferes
+      tags: [Maestros]
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/Chofer' }
+  /api/docs/equipos:
+    get:
+      summary: Listar equipos
+      tags: [Equipos]
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/Equipo' }
+  /api/docs/equipos/{id}/attach:
+    post:
+      summary: Asociar componentes (chofer/camión/semirremolque) a un equipo
+      tags: [Equipos]
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EquipoAttachRequest'
+      responses:
+        '200':
+          description: OK
+        '400': { description: Datos inválidos, content: { application/json: { schema: { $ref: '#/components/schemas/ErrorResponse' } } } }
+        '401': { description: No autenticado }
+        '403': { description: Prohibido }
+  /api/docs/equipos/{id}/detach:
+    post:
+      summary: Desasociar componentes del equipo
+      tags: [Equipos]
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EquipoDetachRequest'
+      responses:
+        '200':
+          description: OK
+        '400': { description: Datos inválidos o acción no soportada }
+        '401': { description: No autenticado }
+        '403': { description: Prohibido }
+  /api/docs/clients:
+    get:
+      summary: Listar clientes
+      tags: [Clients]
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/Cliente' }
+  /api/docs/batch:
+    post:
+      summary: Operaciones batch de documentos
+      tags: [Batch]
+      responses:
+        '202': { description: Aceptado }
+        '400': { description: Datos inválidos }
+  /api/docs/transportistas:
+    get:
+      summary: Listar transportistas
+      tags: [Transportistas]
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    id: { type: integer, example: 101 }
+                    driverDniNorm: { type: string, example: '12345678' }
+                    truckPlateNorm: { type: string, example: 'ABC123' }
+                    trailerPlateNorm: { type: string, nullable: true, example: 'DEF456' }
+                    estado: { type: string, enum: ['ACTIVO','INACTIVO'], example: 'ACTIVO' }
+                    cumplimiento: { type: integer, example: 85 }
+  /metrics/custom:
+    get:
+      summary: Métricas personalizadas
+      tags: [Metrics]
+      responses:
+        '200':
+          description: OK

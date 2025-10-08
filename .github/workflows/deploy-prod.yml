@@ -1,0 +1,64 @@
+name: deploy-prod
+
+on:
+  workflow_dispatch:
+    inputs:
+      release_tag:
+        description: 'Tag de release (vX.Y.Z)'
+        required: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: production
+      url: https://bca.microsyst.com.ar
+    permissions:
+      contents: read
+      deployments: write
+    steps:
+      - name: Require manual approval
+        uses: trstringer/manual-approval@v1
+        with:
+          secret: ${{ github.TOKEN }}
+          approvers: ${{ secrets.PROD_APPROVERS }}
+          minimum-approvals: 1
+          issue-title: "Deploy a producción"
+          issue-body: "Aprobar despliegue a producción para ${{ github.ref }} (tag: ${{ inputs.release_tag }})"
+
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.release_tag }}
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Set up SSH
+        uses: webfactory/ssh-agent@v0.8.0
+        with:
+          ssh-private-key: ${{ secrets.PROD_SSH_KEY }}
+
+      - name: Deploy to production (Docker Swarm)
+        env:
+          HOST: ${{ secrets.PROD_HOST }}
+          SSH_USER: ${{ secrets.PROD_SSH_USER }}
+        run: |
+          set -euo pipefail
+          echo "🔗 Connecting to $SSH_USER@$HOST"
+          ssh -o StrictHostKeyChecking=no "$SSH_USER@$HOST" 'bash -s' <<'REMOTE'
+          set -euo pipefail
+          cd /home/administrador/monorepo
+          git fetch --all --prune
+          git checkout ${{ inputs.release_tag }}
+          git pull --rebase || true
+          npm ci
+          # Migraciones en producción
+          npx prisma migrate deploy --schema=apps/backend/prisma/schema.prisma
+          # Despliegue
+          bash scripts/deploy-prod.sh
+          REMOTE
+
+

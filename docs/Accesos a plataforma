@@ -1,0 +1,36 @@
+ACCESOS A LA PLATAFORMA - VM 10.8.10.20
+
+=== SERVICIOS PRINCIPALES ===
+• Frontend: http://10.8.10.20:8550/
+• Backend API: http://10.8.10.20:4800/
+• Documentos API: http://10.8.10.20:4802/
+• Flowise AI: http://10.8.10.20:3005/
+• MinIO Storage: http://10.8.10.20:9000/
+
+=== CREDENCIALES DE ACCESO ===
+Backend Platform Admin:
+- Email: admin@empresa.com
+- Password: password123
+- Rol: ADMIN
+
+Backend Platform SuperAdmin:
+- Email: superadmin@empresa.com  
+- Password: password123
+- Rol: SUPERADMIN
+
+MinIO Storage:
+- Access Key: minioadmin
+- Secret Key: minioadmin
+- Console: http://10.8.10.20:9000/
+
+PostgreSQL Database:
+- Host: 10.8.10.20:5432
+- Database: monorepo-bca
+- User: evo
+- Password: phoenix
+
+=== NOTAS TÉCNICAS ===
+- Gateway, Chat y Calidad servicios están DESHABILITADOS según especificación
+- Redis interno en puerto 6379 (no expuesto)
+- Todos los servicios usan IP interna sin dominios
+- JWT keys generados automáticamente en /app/config/jwt/

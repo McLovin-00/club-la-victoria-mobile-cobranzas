@@ -1,0 +1,58 @@
+{
+  "extends": "../../tsconfig.json",
+  "compilerOptions": {
+    "target": "ES2020",
+    "module": "commonjs",
+    "lib": ["ES2020"],
+    "types": ["node", "jest"],
+    "outDir": "./dist",
+    "rootDir": ".",
+    "strict": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+    "resolveJsonModule": true,
+    "allowSyntheticDefaultImports": true,
+    "moduleResolution": "node",
+    "experimentalDecorators": true,
+    "emitDecoratorMetadata": true,
+    "sourceMap": true,
+    "declaration": true,
+    "composite": true,
+    "isolatedModules": true,
+    "baseUrl": ".",
+    "paths": {
+      "@workspace/types": ["../../packages/types/src"],
+      "@workspace/utils": ["../../packages/utils/src"]
+    }
+  },
+  "include": [
+    "src/**/*",
+    "scripts/**/*",
+    "prisma/**/*"
+  ],
+  "exclude": [
+    "node_modules",
+    "dist",
+    "**/*.spec.ts",
+    // Excluir módulos dependientes de otros microservicios o WIP que rompen el build de CI
+    "src/controllers/chat-processor.controller.ts",
+    "src/routes/chat-processor.routes.ts",
+    "src/routes/monitoring.routes.ts",
+    "src/routes/actions.routes.ts",
+    "src/routes/wizard-v2.routes.ts",
+    "src/services/metrics.service.ts",
+    "src/services/conversation-verification.service.ts",
+    "src/services/conversation-source-adapter.ts",
+    "src/types/**",
+    "src/services/strategies/**",
+    "src/services/chat-processor-*.ts",
+    "src/services/gateway.service.ts",
+    "src/routes/gateway.routes.ts",
+    "src/seed/**"
+  ],
+  "references": [
+    { "path": "../../packages/types" },
+    { "path": "../../packages/utils" }
+  ]
+} 

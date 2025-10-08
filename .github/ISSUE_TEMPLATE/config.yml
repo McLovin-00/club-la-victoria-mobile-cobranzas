@@ -1,0 +1,10 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Preguntas de soporte
+    url: https://github.com/microsyst/monorepo/discussions
+    about: Usá las discusiones para preguntas generales.
+  - name: Reporte de seguridad
+    url: mailto:security@empresa.com
+    about: No abras issues públicos para vulnerabilidades. Contactanos por aquí.
+
+

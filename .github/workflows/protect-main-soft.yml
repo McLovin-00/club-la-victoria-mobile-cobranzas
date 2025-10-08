@@ -1,0 +1,29 @@
+name: soft-protect-main
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  deny-direct-push:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check if push commit is associated to a merged PR
+        env:
+          GH_REPO: ${{ github.repository }}
+          SHA: ${{ github.sha }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          url="https://api.github.com/repos/${GH_REPO}/commits/${SHA}/pulls"
+          # Use commit->pulls association API; empty array means direct push
+          res=$(curl -sS -H "Accept: application/vnd.github.groot-preview+json" -H "Authorization: Bearer ${GITHUB_TOKEN}" "$url")
+          echo "API response: $res" | sed 's/\(token\): [^,]*/\1: ***hidden***/g' || true
+          count=$(printf "%s" "$res" | jq 'length')
+          if [ "$count" -eq 0 ]; then
+            echo "❌ Direct push to main detected. Please use Pull Requests."
+            exit 1
+          fi
+          echo "✅ Push originated from a merged PR."
+

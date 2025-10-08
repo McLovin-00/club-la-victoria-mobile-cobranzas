@@ -1,0 +1,190 @@
+import { Router } from 'express';
+import { authenticate, authorize, validate } from '../middlewares/auth.middleware';
+import { equipoHistoryQuerySchema } from '../schemas/validation.schemas';
+// Usamos literales para roles para evitar dependencia directa en enum como valor
+import { EquiposController } from '../controllers/equipos.controller';
+import { createEquipoSchema, equipoClienteAssocSchema, equipoListQuerySchema, updateEquipoSchema, equipoAttachSchema, equipoDetachSchema } from '../schemas/validation.schemas';
+import { z } from 'zod';
+import { prisma } from '../config/database';
+import { AppLogger } from '../config/logger';
+
+const router = Router();
+
+router.use(authenticate);
+router.get('/', validate(equipoListQuerySchema), EquiposController.list);
+router.post('/', authorize(['ADMIN' as any, 'SUPERADMIN' as any]), validate(createEquipoSchema), EquiposController.create);
+
+// Alta mínima desde identificadores para Dadores/Transportistas
+const phoneRegex = /^\+?[1-9]\d{7,14}$/;
+const createMinimalSchema = z.object({
+  body: z.object({
+    dadorCargaId: z.union([z.string(), z.number()]).transform((v) => Number(v)).refine((v) => v > 0),
+    dniChofer: z.string().min(7),
+    patenteTractor: z.string().min(5),
+    patenteAcoplado: z.string().min(5).optional().nullable(),
+    choferPhones: z.array(z.string().regex(phoneRegex, 'Formato WhatsApp inválido')).max(3).optional(),
+  }),
+});
+router.post('/minimal', authorize(['ADMIN' as any, 'SUPERADMIN' as any]), validate(createMinimalSchema), EquiposController.createMinimal);
+router.put('/:id', authorize(['ADMIN' as any, 'SUPERADMIN' as any]), validate(updateEquipoSchema), EquiposController.update);
+router.delete('/:id', authorize(['ADMIN' as any, 'SUPERADMIN' as any]), EquiposController.delete);
+router.get('/:id/history', authorize(['ADMIN' as any, 'SUPERADMIN' as any]), validate(equipoHistoryQuerySchema), EquiposController.history);
+router.post('/:equipoId/clientes/:clienteId', authorize(['ADMIN' as any, 'SUPERADMIN' as any]), validate(equipoClienteAssocSchema), EquiposController.associateCliente);
+router.delete('/:equipoId/clientes/:clienteId', authorize(['ADMIN' as any, 'SUPERADMIN' as any]), EquiposController.removeCliente);
+
+// Acciones de soporte para dadores/admin: revisar faltantes ahora y solicitar documentos (chofer)
+router.post('/:equipoId/check-missing-now', authorize(['ADMIN' as any, 'SUPERADMIN' as any]), async (req, res) => {
+  const equipoId = Number(req.params.equipoId);
+  const { NotificationService } = await import('../services/notification.service');
+  // resolver tenant actual del equipo para cumplir firma (tenantId, equipoId)
+  const equipo = await prisma.equipo.findUnique({ where: { id: equipoId }, select: { tenantEmpresaId: true } });
+  const count = await NotificationService.checkMissingForEquipo(equipo?.tenantEmpresaId || 1, equipoId);
+  res.json({ success: true, data: { sent: count } });
+});
+
+router.post('/:equipoId/request-missing', authorize(['ADMIN' as any, 'SUPERADMIN' as any]), async (req, res) => {
+  const equipoId = Number(req.params.equipoId);
+  const { prisma } = await import('../config/database');
+  const { ComplianceService } = await import('../services/compliance.service');
+  const { NotificationService } = await import('../services/notification.service');
+  const equipo = await prisma.equipo.findUnique({ where: { id: equipoId }, select: { id: true, tenantEmpresaId: true, dadorCargaId: true, driverId: true } });
+  if (!equipo) return res.status(404).json({ success: false, message: 'Equipo no encontrado' });
+  // Clientes vigentes
+  const clientes = await prisma.equipoCliente.findMany({ where: { equipoId, asignadoHasta: null }, select: { clienteId: true } });
+  const faltantes: Array<{ clienteId: number; items: any[] }> = [];
+  for (const c of clientes) {
+    const results = await ComplianceService.evaluateEquipoCliente(equipoId, c.clienteId);
+    const miss = results.filter(r => r.state === 'FALTANTE');
+    if (miss.length) faltantes.push({ clienteId: c.clienteId, items: miss });
+  }
+  // Enviar mensaje al chofer si hay faltantes y si el dador lo permite
+  let sent = 0;
+  if (faltantes.length > 0) {
+    const dador = await prisma.dadorCarga.findUnique({ where: { id: equipo.dadorCargaId }, select: { notifyDriverEnabled: true } });
+    if (dador?.notifyDriverEnabled) {
+      const ch = await prisma.chofer.findUnique({ where: { id: equipo.driverId! }, select: { phones: true, dni: true } });
+      const text = `Faltan documentos requeridos para tu equipo #${equipo.id}. Por favor, sube la documentación pendiente.`;
+      for (const ms of (ch?.phones || []).slice(0,3)) {
+        await NotificationService.send(ms, text, { tenantId: equipo.tenantEmpresaId, dadorId: equipo.dadorCargaId, equipoId: equipo.id, audience: 'CHOFER', type: 'faltante', templateKey: 'faltante.chofer' });
+        sent++;
+      }
+    }
+  }
+  res.json({ success: true, data: { faltantes, sent } });
+});
+
+// Asociar / Desasociar componentes del equipo
+router.post('/:id/attach', authorize(['ADMIN' as any, 'SUPERADMIN' as any]), validate(equipoAttachSchema), async (req: any, res) => {
+  const { EquipoService } = await import('../services/equipo.service');
+  const result = await EquipoService.attachComponents(req.tenantId!, Number(req.params.id), req.body);
+  return res.json({ success: true, data: result });
+});
+
+router.post('/:id/detach', authorize(['ADMIN' as any, 'SUPERADMIN' as any]), validate(equipoDetachSchema), async (req: any, res) => {
+  const { EquipoService } = await import('../services/equipo.service');
+  const result = await EquipoService.detachComponents(req.tenantId!, Number(req.params.id), req.body);
+  return res.json({ success: true, data: result });
+});
+
+// ==============================
+// Búsqueda por DNIs (JSON) → lista de equipos
+// ==============================
+const searchByDnisSchema = z.object({
+  body: z.object({ dnis: z.array(z.string().min(7)).min(1).max(5000) }),
+});
+router.post('/search/dnis', validate(searchByDnisSchema), async (req: any, res) => {
+  const tenantEmpresaId: number = req.tenantId!;
+  const dnis: string[] = (req.body?.dnis || []).map((v: string) => (v || '').replace(/\D+/g, ''));
+  const unique = Array.from(new Set(dnis.filter(Boolean)));
+  if (unique.length === 0) return res.json({ success: true, data: [] });
+  try {
+    const equipos = await prisma.equipo.findMany({
+      where: { tenantEmpresaId, driverDniNorm: { in: unique } },
+      orderBy: { validFrom: 'desc' },
+      select: { id: true, dadorCargaId: true, tenantEmpresaId: true, driverDniNorm: true, truckPlateNorm: true, trailerPlateNorm: true, estado: true },
+    });
+    return res.json({ success: true, data: equipos });
+  } catch (e: any) {
+    AppLogger.error('💥 Error en búsqueda por DNIs', e);
+    return res.status(500).json({ success: false, message: 'Error interno' });
+  }
+});
+
+// ==============================
+// Descarga masiva de documentación vigente por lista de equipos
+// ==============================
+let _archiver: any;
+async function getArchiver() {
+  if (!_archiver) {
+    const mod = await import('archiver');
+    _archiver = (mod as any).default || (mod as any);
+  }
+  return _archiver;
+}
+
+const bulkZipSchema = z.object({ body: z.object({ equipoIds: z.array(z.number().int().positive()).min(1).max(500) }) });
+router.post('/download/vigentes', authorize(['ADMIN' as any, 'SUPERADMIN' as any]), validate(bulkZipSchema), async (req: any, res) => {
+  const equipoIds: number[] = req.body.equipoIds || [];
+  const now = new Date();
+  res.setHeader('Content-Type', 'application/zip');
+  const stamp = new Date().toISOString().replace(/[-:T]/g, '').slice(0, 12);
+  res.setHeader('Content-Disposition', `attachment; filename=documentacion_equipos_vigentes_${stamp}_${equipoIds.length}equipos.zip`);
+  const archiver = await getArchiver();
+  const archive = archiver('zip', { zlib: { level: 9 } });
+  archive.on('error', (err: any) => res.status(500).end(String(err)));
+  archive.pipe(res);
+
+  try {
+    const { minioService } = await import('../services/minio.service');
+    for (const equipoId of equipoIds) {
+      const equipo = await prisma.equipo.findUnique({
+        where: { id: equipoId },
+        select: { id: true, tenantEmpresaId: true, dadorCargaId: true, driverId: true, truckId: true, trailerId: true, truckPlateNorm: true, trailerPlateNorm: true, driverDniNorm: true },
+      });
+      if (!equipo) continue;
+      const clauses: any[] = [];
+      if (equipo.driverId) clauses.push({ entityType: 'CHOFER' as any, entityId: equipo.driverId });
+      if (equipo.truckId) clauses.push({ entityType: 'CAMION' as any, entityId: equipo.truckId });
+      if (equipo.trailerId) clauses.push({ entityType: 'ACOPLADO' as any, entityId: equipo.trailerId });
+      const docs = await prisma.document.findMany({
+        where: {
+          tenantEmpresaId: equipo.tenantEmpresaId,
+          dadorCargaId: equipo.dadorCargaId,
+          status: 'APROBADO' as any,
+          OR: clauses.length ? clauses : undefined,
+          OR2: [{ expiresAt: null }, { expiresAt: { gt: now } }] as any,
+        } as any,
+        select: { id: true, filePath: true, entityType: true, entityId: true, template: { select: { name: true } } },
+        orderBy: { uploadedAt: 'desc' },
+      });
+
+      for (const d of docs) {
+        let bucketName: string;
+        let objectPath: string;
+        if (typeof d.filePath === 'string' && d.filePath.includes('/')) {
+          const idx = d.filePath.indexOf('/');
+          bucketName = d.filePath.slice(0, idx);
+          objectPath = d.filePath.slice(idx + 1);
+        } else {
+          bucketName = `docs-t${equipo.tenantEmpresaId}`;
+          objectPath = d.filePath as any;
+        }
+        const stream = await minioService.getObject(bucketName, objectPath);
+        const folder = `equipo_${equipo.id}_DNI_${equipo.driverDniNorm || ''}`.replace(/_+$/,'');
+        const safeTpl = String(d.template?.name || 'documento').replace(/[^a-z0-9_-]/gi,'_');
+        const name = `${folder}/${safeTpl}_${d.id}.pdf`;
+        archive.append(stream as any, { name });
+      }
+    }
+  } catch (err) {
+    AppLogger.error('💥 Error generando ZIP masivo', err);
+    if (!res.headersSent) res.status(500).end('Error generando ZIP');
+    try { archive.abort(); } catch {}
+    return;
+  }
+  archive.finalize();
+});
+
+export default router;
+
+

@@ -1,0 +1,1080 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Manual de Usuario - Microservicio de Documentos</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            box-shadow: 0 0 30px rgba(0,0,0,0.1);
+            border-radius: 15px;
+            overflow: hidden;
+            margin-top: 20px;
+            margin-bottom: 20px;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 40px;
+            text-align: center;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .header::before {
+            content: '';
+            position: absolute;
+            top: -50%;
+            left: -50%;
+            width: 200%;
+            height: 200%;
+            background: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><defs><pattern id="grain" patternUnits="userSpaceOnUse" width="100" height="100"><circle cx="25" cy="25" r="1" fill="white" opacity="0.1"/><circle cx="75" cy="75" r="1" fill="white" opacity="0.1"/><circle cx="50" cy="10" r="0.5" fill="white" opacity="0.1"/></pattern></defs><rect width="100" height="100" fill="url(%23grain)"/></svg>');
+            animation: float 20s infinite linear;
+        }
+
+        @keyframes float {
+            0% { transform: translate(-50%, -50%) rotate(0deg); }
+            100% { transform: translate(-50%, -50%) rotate(360deg); }
+        }
+
+        .header h1 {
+            font-size: 3em;
+            margin-bottom: 10px;
+            position: relative;
+            z-index: 1;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+        }
+
+        .header p {
+            font-size: 1.2em;
+            opacity: 0.9;
+            position: relative;
+            z-index: 1;
+        }
+
+        .content {
+            padding: 40px;
+        }
+
+        .toc {
+            background: #f8f9fa;
+            border-radius: 10px;
+            padding: 30px;
+            margin-bottom: 40px;
+            border-left: 5px solid #667eea;
+        }
+
+        .toc h2 {
+            color: #667eea;
+            margin-bottom: 20px;
+            font-size: 1.5em;
+        }
+
+        .toc ol {
+            padding-left: 20px;
+        }
+
+        .toc li {
+            margin-bottom: 8px;
+            font-weight: 500;
+        }
+
+        .toc a {
+            color: #333;
+            text-decoration: none;
+            transition: color 0.3s ease;
+        }
+
+        .toc a:hover {
+            color: #667eea;
+        }
+
+        .section {
+            margin-bottom: 50px;
+            scroll-margin-top: 100px;
+        }
+
+        .section h2 {
+            color: #2c3e50;
+            font-size: 2.2em;
+            margin-bottom: 20px;
+            padding-bottom: 15px;
+            border-bottom: 3px solid #667eea;
+            position: relative;
+        }
+
+        .section h2::after {
+            content: '';
+            position: absolute;
+            bottom: -3px;
+            left: 0;
+            width: 50px;
+            height: 3px;
+            background: #764ba2;
+        }
+
+        .section h3 {
+            color: #34495e;
+            font-size: 1.6em;
+            margin: 30px 0 15px 0;
+            padding-left: 20px;
+            border-left: 4px solid #3498db;
+        }
+
+        .section h4 {
+            color: #2980b9;
+            font-size: 1.3em;
+            margin: 25px 0 10px 0;
+        }
+
+        .feature-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+            margin: 30px 0;
+        }
+
+        .feature-card {
+            background: #fff;
+            border-radius: 10px;
+            padding: 25px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+            border: 1px solid #e9ecef;
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .feature-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 4px;
+            background: linear-gradient(90deg, #667eea, #764ba2);
+        }
+
+        .feature-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 15px 30px rgba(0,0,0,0.2);
+        }
+
+        .feature-card h4 {
+            color: #667eea;
+            margin-bottom: 15px;
+            font-size: 1.4em;
+        }
+
+        .feature-list {
+            list-style: none;
+            padding: 0;
+        }
+
+        .feature-list li {
+            margin-bottom: 8px;
+            padding-left: 25px;
+            position: relative;
+        }
+
+        .feature-list li::before {
+            content: '✓';
+            position: absolute;
+            left: 0;
+            color: #27ae60;
+            font-weight: bold;
+            font-size: 1.2em;
+        }
+
+        .workflow-diagram {
+            background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+            border-radius: 15px;
+            padding: 30px;
+            margin: 30px 0;
+            text-align: center;
+            border: 2px solid #e9ecef;
+        }
+
+        .workflow-step {
+            display: inline-block;
+            background: white;
+            padding: 15px 20px;
+            margin: 10px;
+            border-radius: 25px;
+            box-shadow: 0 3px 10px rgba(0,0,0,0.1);
+            font-weight: 500;
+            color: #2c3e50;
+            transition: transform 0.3s ease;
+        }
+
+        .workflow-step:hover {
+            transform: scale(1.05);
+        }
+
+        .workflow-arrow {
+            color: #667eea;
+            font-size: 1.5em;
+            margin: 0 10px;
+        }
+
+        .info-box {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 25px;
+            border-radius: 15px;
+            margin: 25px 0;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .info-box::before {
+            content: '';
+            position: absolute;
+            top: -50%;
+            right: -50%;
+            width: 100px;
+            height: 100px;
+            background: rgba(255,255,255,0.1);
+            border-radius: 50%;
+        }
+
+        .warning-box {
+            background: linear-gradient(135deg, #ff9a56 0%, #ff6b6b 100%);
+            color: white;
+            padding: 20px;
+            border-radius: 10px;
+            margin: 20px 0;
+        }
+
+        .success-box {
+            background: linear-gradient(135deg, #56ab2f 0%, #a8e6cf 100%);
+            color: white;
+            padding: 20px;
+            border-radius: 10px;
+            margin: 20px 0;
+        }
+
+        .tab-content {
+            background: #f8f9fa;
+            border-radius: 10px;
+            padding: 25px;
+            margin: 20px 0;
+            border-left: 5px solid #667eea;
+        }
+
+        .tab-header {
+            display: flex;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+
+        .tab-icon {
+            font-size: 2em;
+            margin-right: 15px;
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .tab-title {
+            font-size: 1.5em;
+            font-weight: bold;
+            color: #2c3e50;
+        }
+
+        .use-case {
+            background: white;
+            border-radius: 10px;
+            padding: 25px;
+            margin: 20px 0;
+            box-shadow: 0 3px 15px rgba(0,0,0,0.1);
+            border-left: 5px solid #3498db;
+        }
+
+        .step-list {
+            counter-reset: step-counter;
+            list-style: none;
+            padding: 0;
+        }
+
+        .step-list li {
+            counter-increment: step-counter;
+            margin-bottom: 15px;
+            padding-left: 50px;
+            position: relative;
+            font-weight: 500;
+        }
+
+        .step-list li::before {
+            content: counter(step-counter);
+            position: absolute;
+            left: 0;
+            top: 0;
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            font-size: 0.9em;
+        }
+
+        .footer {
+            background: #2c3e50;
+            color: white;
+            text-align: center;
+            padding: 30px;
+            margin-top: 50px;
+        }
+
+        .footer p {
+            opacity: 0.8;
+            font-style: italic;
+        }
+
+        .back-to-top {
+            position: fixed;
+            bottom: 30px;
+            right: 30px;
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            border: none;
+            cursor: pointer;
+            font-size: 1.2em;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+            transition: transform 0.3s ease;
+        }
+
+        .back-to-top:hover {
+            transform: scale(1.1);
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .container {
+                margin: 10px;
+                border-radius: 10px;
+            }
+            
+            .header {
+                padding: 30px 20px;
+            }
+            
+            .header h1 {
+                font-size: 2.2em;
+            }
+            
+            .content {
+                padding: 20px;
+            }
+            
+            .feature-grid {
+                grid-template-columns: 1fr;
+            }
+            
+            .workflow-step {
+                display: block;
+                margin: 10px 0;
+            }
+            
+            .workflow-arrow {
+                display: block;
+                transform: rotate(90deg);
+            }
+        }
+
+        /* Smooth scrolling */
+        html {
+            scroll-behavior: smooth;
+        }
+
+        /* Print styles */
+        @media print {
+            body {
+                background: white;
+            }
+            .container {
+                box-shadow: none;
+                margin: 0;
+            }
+            .back-to-top {
+                display: none;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header class="header">
+            <h1>📚 Manual de Usuario</h1>
+            <p>Microservicio de Documentos - Sistema Integral de Gestión Documental</p>
+        </header>
+
+        <div class="content">
+            <!-- Índice -->
+            <div class="toc">
+                <h2>📋 Índice</h2>
+                <ol>
+                    <li><a href="#introduccion">Introducción</a></li>
+                    <li><a href="#acceso">Acceso al Sistema</a></li>
+                    <li><a href="#navegacion">Navegación Principal</a></li>
+                    <li><a href="#pestañas">Pestañas/Módulos del Sistema</a></li>
+                    <li><a href="#workflow">Workflow Lógico de Uso</a></li>
+                    <li><a href="#portal">Portal de Transportistas</a></li>
+                    <li><a href="#configuracion">Configuración del Sistema</a></li>
+                    <li><a href="#casos-uso">Casos de Uso Comunes</a></li>
+                    <li><a href="#troubleshooting">Troubleshooting</a></li>
+                </ol>
+            </div>
+
+            <!-- Introducción -->
+            <section id="introduccion" class="section">
+                <h2>🎯 Introducción</h2>
+                
+                <div class="info-box">
+                    <p>El <strong>Microservicio de Documentos</strong> es una plataforma integral diseñada para gestionar la documentación de transportistas de manera automatizada e inteligente. Utiliza inteligencia artificial para clasificar documentos, validar información y mantener el control de vigencias de manera profesional y eficiente.</p>
+                </div>
+
+                <h3>Características Principales</h3>
+                <div class="feature-grid">
+                    <div class="feature-card">
+                        <h4>🎯 Gestión Completa</h4>
+                        <p>Administración integral de documentos por entidad (choferes, camiones, acoplados, empresas)</p>
+                    </div>
+                    <div class="feature-card">
+                        <h4>🤖 IA Integrada</h4>
+                        <p>Clasificación automática con inteligencia artificial mediante integración con Flowise</p>
+                    </div>
+                    <div class="feature-card">
+                        <h4>📊 Sistema de Semáforos</h4>
+                        <p>Control visual de vigencias con códigos de color (verde/amarillo/rojo)</p>
+                    </div>
+                    <div class="feature-card">
+                        <h4>🔍 Búsqueda Avanzada</h4>
+                        <p>Consultas por múltiples criterios con filtros inteligentes</p>
+                    </div>
+                    <div class="feature-card">
+                        <h4>📋 Aprobación Manual</h4>
+                        <p>Sistema de revisión con preview de documentos y validación humana</p>
+                    </div>
+                    <div class="feature-card">
+                        <h4>📈 Dashboard en Tiempo Real</h4>
+                        <p>Métricas y estadísticas actualizadas constantemente</p>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Acceso al Sistema -->
+            <section id="acceso" class="section">
+                <h2>🔐 Acceso al Sistema</h2>
+
+                <h3>Roles de Usuario</h3>
+                <div class="feature-grid">
+                    <div class="feature-card">
+                        <h4>SUPERADMIN</h4>
+                        <p>Acceso completo a todas las funcionalidades del sistema</p>
+                    </div>
+                    <div class="feature-card">
+                        <h4>ADMIN</h4>
+                        <p>Gestión operativa de documentos y equipos</p>
+                    </div>
+                </div>
+
+                <h3>URL de Acceso</h3>
+                <div class="info-box">
+                    <p><strong>🌐 Sistema Principal:</strong> <a href="https://bca.microsyst.com.ar" style="color: white; text-decoration: underline;">https://bca.microsyst.com.ar</a></p>
+                    <p><strong>📁 Módulo Documentos:</strong> Accesible desde la ruta <code>/documentos</code></p>
+                </div>
+            </section>
+
+            <!-- Navegación Principal -->
+            <section id="navegacion" class="section">
+                <h2>🧭 Navegación Principal</h2>
+
+                <h3>Página Principal</h3>
+                <p>La pantalla principal (<code>/documentos</code>) presenta una interfaz organizada y funcional:</p>
+
+                <div class="tab-content">
+                    <div class="tab-header">
+                        <span class="tab-icon">🎛️</span>
+                        <span class="tab-title">Header con Navegación</span>
+                    </div>
+                    <ul class="feature-list">
+                        <li>Botones para acceder a cada módulo especializado</li>
+                        <li>Información de estado del sistema en tiempo real</li>
+                        <li>Indicadores de rendimiento y salud del servicio</li>
+                    </ul>
+                </div>
+
+                <div class="tab-content">
+                    <div class="tab-header">
+                        <span class="tab-icon">📊</span>
+                        <span class="tab-title">Indicadores de Gestión</span>
+                    </div>
+                    <ul class="feature-list">
+                        <li>Contador de documentos pendientes de aprobación</li>
+                        <li>Estadísticas generales (vencidos/por vencer/vigentes)</li>
+                        <li>Estado de procesamiento por lotes</li>
+                        <li>Métricas de performance del sistema</li>
+                    </ul>
+                </div>
+
+                <div class="tab-content">
+                    <div class="tab-header">
+                        <span class="tab-icon">🏢</span>
+                        <span class="tab-title">Lista de Dadores de Carga</span>
+                    </div>
+                    <ul class="feature-list">
+                        <li>Tarjetas visuales con información resumida</li>
+                        <li>Indicadores de semáforo por dador</li>
+                        <li>Acceso directo a documentos por empresa</li>
+                        <li>Estadísticas de compliance por dador</li>
+                    </ul>
+                </div>
+            </section>
+
+            <!-- Pestañas/Módulos -->
+            <section id="pestañas" class="section">
+                <h2>📁 Pestañas/Módulos del Sistema</h2>
+
+                <!-- Clientes -->
+                <div class="tab-content">
+                    <div class="tab-header">
+                        <span class="tab-icon">👥</span>
+                        <span class="tab-title">1. Clientes (/documentos/clientes)</span>
+                    </div>
+                    
+                    <div class="info-box">
+                        <strong>Propósito:</strong> Gestión de empresas clientes que requieren documentación específica de transportistas.
+                    </div>
+
+                    <h4>Funcionalidades:</h4>
+                    <ul class="feature-list">
+                        <li><strong>Crear clientes:</strong> Registro completo con razón social y CUIT</li>
+                        <li><strong>Configuración por defecto:</strong> Selección de cliente principal para asignaciones automáticas</li>
+                        <li><strong>Configuración de sistema:</strong> 
+                            <ul style="margin-left: 20px; margin-top: 10px;">
+                                <li>Delay de verificación de faltantes (minutos)</li>
+                                <li>Horizonte sin vencimiento (años)</li>
+                            </ul>
+                        </li>
+                        <li><strong>Gestión de requisitos:</strong> Definir documentos requeridos por cliente</li>
+                        <li><strong>Administración:</strong> Activar/desactivar/eliminar clientes</li>
+                    </ul>
+
+                    <h4>Casos de Uso:</h4>
+                    <div class="use-case">
+                        <ul class="feature-list">
+                            <li>Registrar nuevos clientes con requisitos documentales específicos</li>
+                            <li>Configurar plantillas de documentación personalizada</li>
+                            <li>Establecer cliente por defecto para streamlining de procesos</li>
+                        </ul>
+                    </div>
+                </div>
+
+                <!-- Empresas Transportistas -->
+                <div class="tab-content">
+                    <div class="tab-header">
+                        <span class="tab-icon">🚛</span>
+                        <span class="tab-title">2. Empresas Transportistas (/documentos/empresas-transportistas)</span>
+                    </div>
+                    
+                    <div class="info-box">
+                        <strong>Propósito:</strong> Administración integral de empresas de transporte que operan con los equipos registrados.
+                    </div>
+
+                    <ul class="feature-list">
+                        <li><strong>Registro de empresas:</strong> Datos completos con información legal y de contacto</li>
+                        <li><strong>Gestión de contacto:</strong> Múltiples números de WhatsApp para notificaciones</li>
+                        <li><strong>Asociación con equipos:</strong> Vinculación empresa-vehículo para trazabilidad</li>
+                        <li><strong>Control de documentación:</strong> Seguimiento específico por empresa transportista</li>
+                    </ul>
+                </div>
+
+                <!-- Choferes -->
+                <div class="tab-content">
+                    <div class="tab-header">
+                        <span class="tab-icon">👤</span>
+                        <span class="tab-title">3. Choferes (/documentos/choferes)</span>
+                    </div>
+                    
+                    <div class="info-box">
+                        <strong>Propósito:</strong> Gestión completa de conductores y su documentación personal con validación automática.
+                    </div>
+
+                    <ul class="feature-list">
+                        <li><strong>Registro por DNI:</strong> Datos personales completos con validación</li>
+                        <li><strong>Múltiples teléfonos:</strong> Hasta 3 números WhatsApp con formato internacional</li>
+                        <li><strong>Búsqueda avanzada:</strong> Por DNI, nombre o apellido con filtros inteligentes</li>
+                        <li><strong>Paginación eficiente:</strong> Manejo optimizado de grandes volúmenes de datos</li>
+                        <li><strong>Gestión rápida:</strong> Activar/desactivar/eliminar con confirmación</li>
+                    </ul>
+
+                    <div class="use-case">
+                        <h4>Casos de Uso:</h4>
+                        <ul class="feature-list">
+                            <li>Registrar nuevos conductores con validación automática de datos</li>
+                            <li>Actualizar información de contacto para sistema de notificaciones</li>
+                            <li>Búsqueda rápida de choferes para asignación de equipos</li>
+                        </ul>
+                    </div>
+                </div>
+
+                <!-- Equipos (Módulo Central) -->
+                <div class="tab-content" style="border-left: 5px solid #e74c3c;">
+                    <div class="tab-header">
+                        <span class="tab-icon">🎯</span>
+                        <span class="tab-title">6. Equipos (/documentos/equipos) - MÓDULO CENTRAL</span>
+                    </div>
+                    
+                    <div class="warning-box">
+                        <strong>⚡ MÓDULO CENTRAL:</strong> Este es el corazón del sistema para asociación y gestión integral de equipos (chofer + camión + acoplado opcional).
+                    </div>
+
+                    <h4>🔧 Creación de Equipos:</h4>
+                    <div class="feature-grid">
+                        <div class="feature-card">
+                            <h4>Selección por Dropdowns</h4>
+                            <p>Asociación de elementos ya existentes en el sistema</p>
+                        </div>
+                        <div class="feature-card">
+                            <h4>Alta Mínima</h4>
+                            <p>DNI + patentes con creación automática si no existen</p>
+                        </div>
+                        <div class="feature-card">
+                            <h4>Importación CSV</h4>
+                            <p>Carga masiva con plantilla predefinida</p>
+                        </div>
+                    </div>
+
+                    <h4>📊 Sistema de Semáforos:</h4>
+                    <div class="workflow-diagram">
+                        <div class="workflow-step" style="background: #e74c3c; color: white;">🔴 Faltantes y Vencidos</div>
+                        <span class="workflow-arrow">→</span>
+                        <div class="workflow-step" style="background: #f39c12; color: white;">🟡 Por Vencer Próximamente</div>
+                        <span class="workflow-arrow">→</span>
+                        <div class="workflow-step" style="background: #27ae60; color: white;">🟢 Vigentes y Aprobados</div>
+                    </div>
+
+                    <h4>🔍 Capacidades de Búsqueda:</h4>
+                    <ul class="feature-list">
+                        <li>Búsqueda por DNI del chofer con validación automática</li>
+                        <li>Búsqueda por patente de camión con normalización</li>
+                        <li>Búsqueda por patente de acoplado</li>
+                        <li>Combinación inteligente de múltiples criterios</li>
+                        <li>Persistencia de últimos criterios de búsqueda</li>
+                    </ul>
+
+                    <h4>⚙️ Gestión Avanzada de Componentes:</h4>
+                    <ul class="feature-list">
+                        <li><strong>Attach/Swap:</strong> Cambio de chofer, camión o acoplado</li>
+                        <li><strong>Detach:</strong> Desasociación de semirremolque</li>
+                        <li><strong>Cambio de empresa:</strong> Reasignación de empresa transportista</li>
+                        <li><strong>Creación automática:</strong> Si el componente no existe, se ofrece crearlo</li>
+                    </ul>
+
+                    <div class="success-box">
+                        <h4>📥 Descarga Inteligente de Documentación:</h4>
+                        <ul class="feature-list" style="color: white;">
+                            <li>Generación automática de ZIP con documentos vigentes</li>
+                            <li>Conservación de nombres originales de archivos</li>
+                            <li>Inclusión exclusiva de documentos aprobados</li>
+                            <li>Nomenclatura inteligente: equipo_ID_DNI_chofer.zip</li>
+                        </ul>
+                    </div>
+                </div>
+
+                <!-- Consulta -->
+                <div class="tab-content">
+                    <div class="tab-header">
+                        <span class="tab-icon">🔍</span>
+                        <span class="tab-title">8. Consulta (/documentos/consulta)</span>
+                    </div>
+                    
+                    <div class="info-box">
+                        <strong>Propósito:</strong> Búsqueda transversal avanzada y consultas especializadas para auditorías y controles.
+                    </div>
+
+                    <ul class="feature-list">
+                        <li><strong>Búsqueda múltiple:</strong> DNI, patente camión, patente acoplado simultáneamente</li>
+                        <li><strong>Importación CSV:</strong> Búsqueda masiva por lista de DNIs con procesamiento inteligente</li>
+                        <li><strong>Descarga masiva:</strong> ZIP consolidado con documentación de múltiples equipos</li>
+                        <li><strong>Persistencia inteligente:</strong> Guarda y restaura último criterio de búsqueda</li>
+                        <li><strong>Resultados en tiempo real:</strong> Actualización automática sin recargas</li>
+                    </ul>
+
+                    <div class="use-case">
+                        <h4>Casos de Uso Especializados:</h4>
+                        <ul class="feature-list">
+                            <li>Auditorías masivas por listas de DNIs de clientes</li>
+                            <li>Consultas específicas para validaciones externas</li>
+                            <li>Generación de reportes consolidados para múltiples equipos</li>
+                        </ul>
+                    </div>
+                </div>
+
+                <!-- Aprobación Manual -->
+                <div class="tab-content">
+                    <div class="tab-header">
+                        <span class="tab-icon">✅</span>
+                        <span class="tab-title">11. Aprobación Manual (/documentos/aprobacion)</span>
+                    </div>
+                    
+                    <div class="info-box">
+                        <strong>Propósito:</strong> Revisión humana especializada y validación de documentos que requieren intervención manual.
+                    </div>
+
+                    <h4>🤖 Datos Detectados por IA:</h4>
+                    <ul class="feature-list">
+                        <li>Tipo de entidad (chofer/camión/acoplado/empresa)</li>
+                        <li>Identidad detectada (DNI/patente automática)</li>
+                        <li>Clasificación de tipo de documento</li>
+                        <li>Extracción automática de fecha de vencimiento</li>
+                    </ul>
+
+                    <h4>Workflow de Aprobación:</h4>
+                    <ol class="step-list">
+                        <li><strong>Lista de pendientes:</strong> Vista organizada de documentos esperando revisión</li>
+                        <li><strong>Selección y preview:</strong> Click en documento para revisar con vista previa completa</li>
+                        <li><strong>Verificación inteligente:</strong> Contraste entre datos detectados por IA y realidad</li>
+                        <li><strong>Corrección asistida:</strong> Ajuste de campos con validación automática</li>
+                        <li><strong>Decisión documentada:</strong> Aprobar o rechazar con motivo detallado</li>
+                        <li><strong>Trazabilidad completa:</strong> Registro automático de decisión y auditoría</li>
+                    </ol>
+                </div>
+            </section>
+
+            <!-- Workflow -->
+            <section id="workflow" class="section">
+                <h2>🔄 Workflow Lógico de Uso</h2>
+
+                <h3>Flujo Inicial - Configuración del Sistema</h3>
+                <div class="workflow-diagram">
+                    <div class="workflow-step">🏗️ Configurar Clientes</div>
+                    <span class="workflow-arrow">→</span>
+                    <div class="workflow-step">🏢 Configurar Dadores</div>
+                    <span class="workflow-arrow">→</span>
+                    <div class="workflow-step">📋 Crear Plantillas</div>
+                    <span class="workflow-arrow">→</span>
+                    <div class="workflow-step">🤖 Configurar Flowise IA</div>
+                    <span class="workflow-arrow">→</span>
+                    <div class="workflow-step">✅ Sistema Listo</div>
+                </div>
+
+                <h3>Flujo Operativo - Gestión de Equipos</h3>
+                <div class="workflow-diagram">
+                    <div class="workflow-step">👥 Registrar Maestros</div>
+                    <span class="workflow-arrow">→</span>
+                    <div class="workflow-step">🚛 Crear Equipos</div>
+                    <span class="workflow-arrow">→</span>
+                    <div class="workflow-step">🔗 Asignar a Clientes</div>
+                    <span class="workflow-arrow">→</span>
+                    <div class="workflow-step">📄 Cargar Documentos</div>
+                    <span class="workflow-arrow">→</span>
+                    <div class="workflow-step">🤖 Clasificación IA</div>
+                    <span class="workflow-arrow">→</span>
+                    <div class="workflow-step">✅ Monitoreo Vigencias</div>
+                </div>
+            </section>
+
+            <!-- Portal Transportistas -->
+            <section id="portal" class="section">
+                <h2>📱 Portal de Transportistas</h2>
+
+                <div class="info-box">
+                    <strong>🌐 Acceso:</strong> <code>/portal/transportistas</code><br>
+                    <strong>📱 Optimización:</strong> Diseñado mobile-first para dispositivos móviles y tablets
+                </div>
+
+                <h3>Pestañas del Portal Móvil:</h3>
+
+                <div class="feature-grid">
+                    <div class="feature-card">
+                        <h4>📊 Dashboard/Panel</h4>
+                        <ul class="feature-list">
+                            <li>Cumplimiento documentario con semáforo visual</li>
+                            <li>Alertas tempranas de próximos vencimientos</li>
+                            <li>Estadísticas personales del transportista</li>
+                        </ul>
+                    </div>
+
+                    <div class="feature-card">
+                        <h4>➕ Registro</h4>
+                        <ul class="feature-list">
+                            <li>Formulario simplificado para creación de equipos</li>
+                            <li>Validación automática en tiempo real</li>
+                            <li>Selección inteligente de dador de carga</li>
+                        </ul>
+                    </div>
+
+                    <div class="feature-card">
+                        <h4>📄 Documentos</h4>
+                        <ul class="feature-list">
+                            <li>Carga masiva inteligente con IA</li>
+                            <li>Procesamiento automático en background</li>
+                            <li>Notificaciones de estado por documento</li>
+                        </ul>
+                    </div>
+
+                    <div class="feature-card">
+                        <h4>🚛 Mis Equipos</h4>
+                        <ul class="feature-list">
+                            <li>Lista personalizada de vehículos registrados</li>
+                            <li>Estado visual de documentación por equipo</li>
+                            <li>Descarga directa de documentos vigentes</li>
+                        </ul>
+                    </div>
+
+                    <div class="feature-card">
+                        <h4>📅 Calendario</h4>
+                        <ul class="feature-list">
+                            <li>Vista calendario de vencimientos próximos</li>
+                            <li>Recordatorios personalizados</li>
+                            <li>Planificación de renovaciones</li>
+                        </ul>
+                    </div>
+
+                    <div class="feature-card">
+                        <h4>👤 Perfil</h4>
+                        <ul class="feature-list">
+                            <li>Gestión de datos personales</li>
+                            <li>Configuración de notificaciones</li>
+                            <li>Preferencias del sistema</li>
+                        </ul>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Configuración -->
+            <section id="configuracion" class="section">
+                <h2>⚙️ Configuración del Sistema</h2>
+
+                <div class="tab-content">
+                    <div class="tab-header">
+                        <span class="tab-icon">🤖</span>
+                        <span class="tab-title">Flowise (IA) - /configuracion/flowise</span>
+                    </div>
+                    
+                    <div class="info-box">
+                        <strong>Propósito:</strong> Configuración de la inteligencia artificial para clasificación automática de documentos.
+                    </div>
+
+                    <h4>Parámetros de Configuración:</h4>
+                    <ul class="feature-list">
+                        <li><strong>URL Base:</strong> Dirección completa del servidor Flowise</li>
+                        <li><strong>API Key:</strong> Clave de autenticación (opcional según configuración)</li>
+                        <li><strong>Flow ID:</strong> Identificador específico del flujo de validación</li>
+                        <li><strong>Timeout:</strong> Tiempo máximo de espera en segundos</li>
+                        <li><strong>Habilitación:</strong> Switch para activar/desactivar procesamiento IA</li>
+                    </ul>
+
+                    <h4>Funcionalidades Avanzadas:</h4>
+                    <ul class="feature-list">
+                        <li><strong>Test de conexión:</strong> Verificación en tiempo real con métricas</li>
+                        <li><strong>Métricas de respuesta:</strong> Tiempo de procesamiento y estadísticas</li>
+                        <li><strong>Reintentos automáticos:</strong> Manejo inteligente de errores de conexión</li>
+                        <li><strong>Monitoreo de salud:</strong> Dashboard de estado del servicio IA</li>
+                    </ul>
+                </div>
+            </section>
+
+            <!-- Casos de Uso -->
+            <section id="casos-uso" class="section">
+                <h2>💼 Casos de Uso Comunes</h2>
+
+                <div class="use-case">
+                    <h3>Caso 1: Onboarding de Nuevo Transportista</h3>
+                    <ol class="step-list">
+                        <li><strong>Registrar chofer</strong> en módulo Choferes con datos completos</li>
+                        <li><strong>Registrar vehículos</strong> en módulos Camiones/Acoplados</li>
+                        <li><strong>Crear equipo</strong> en módulo Equipos con asociación inteligente</li>
+                        <li><strong>Asignar cliente</strong> según requisitos específicos</li>
+                        <li><strong>Cargar documentos</strong> vía portal móvil o carga masiva</li>
+                        <li><strong>Aprobar documentos</strong> pendientes con validación manual</li>
+                    </ol>
+                </div>
+
+                <div class="use-case">
+                    <h3>Caso 2: Intercambio de Vehículos (Swap)</h3>
+                    <ol class="step-list">
+                        <li><strong>Acceder a Equipos</strong> y localizar equipo origen</li>
+                        <li><strong>Seleccionar equipo</strong> que requiere modificación</li>
+                        <li><strong>Gestionar componentes</strong> → Cambiar camión/acoplado específico</li>
+                        <li><strong>Confirmar operación</strong> con auto-cierre del equipo anterior</li>
+                        <li><strong>Validar nueva configuración</strong> y estado documental</li>
+                    </ol>
+                </div>
+
+                <div class="use-case">
+                    <h3>Caso 3: Auditoría Masiva por Cliente</h3>
+                    <ol class="step-list">
+                        <li><strong>Ir a Consulta</strong> y preparar criterios de búsqueda</li>
+                        <li><strong>Cargar CSV</strong> con DNIs a verificar del cliente</li>
+                        <li><strong>Revisar resultados</strong> con semáforos por equipo</li>
+                        <li><strong>Descargar ZIP</strong> masivo con documentación vigente</li>
+                        <li><strong>Generar reporte</strong> de cumplimiento consolidado</li>
+                    </ol>
+                </div>
+            </section>
+
+            <!-- Troubleshooting -->
+            <section id="troubleshooting" class="section">
+                <h2>🔧 Troubleshooting</h2>
+
+                <h3>Problemas Comunes y Soluciones</h3>
+
+                <div class="warning-box">
+                    <h4>⚠️ Documentos no se clasifican automáticamente</h4>
+                    <ul class="feature-list" style="color: white;">
+                        <li>Verificar conexión Flowise en <code>/configuracion/flowise</code></li>
+                        <li>Confirmar que el Flow ID es correcto y activo</li>
+                        <li>Revisar logs de procesamiento en Dashboard</li>
+                        <li>Validar timeout y configuración de red</li>
+                    </ul>
+                </div>
+
+                <div class="warning-box">
+                    <h4>🔍 Búsquedas sin resultados</h4>
+                    <ul class="feature-list" style="color: white;">
+                        <li>Verificar formatos de DNI (solo números, sin puntos)</li>
+                        <li>Confirmar normalización de patentes (mayúsculas, sin espacios)</li>
+                        <li>Revisar filtros por dador de carga activo</li>
+                        <li>Validar que los equipos estén en estado activo</li>
+                    </ul>
+                </div>
+
+                <div class="warning-box">
+                    <h4>⚡ Problemas de Performance</h4>
+                    <ul class="feature-list" style="color: white;">
+                        <li>Usar paginación en listas grandes (>100 elementos)</li>
+                        <li>Aplicar filtros específicos en búsquedas amplias</li>
+                        <li>Revisar estado de jobs de procesamiento en background</li>
+                        <li>Monitorear métricas de sistema en health check</li>
+                    </ul>
+                </div>
+
+                <h3>Contacto y Soporte</h3>
+                <div class="info-box">
+                    <p>Para problemas técnicos o consultas sobre funcionalidades específicas, consultar con el equipo de desarrollo o revisar los logs del sistema en el módulo de health check disponible en <code>/health/detailed</code>.</p>
+                </div>
+            </section>
+
+            <!-- Conclusión -->
+            <section class="section">
+                <h2>📚 Conclusión</h2>
+                
+                <div class="info-box">
+                    <p>El <strong>Microservicio de Documentos</strong> ofrece una solución integral para la gestión documental de transportistas, combinando automatización inteligente con controles manuales precisos. Su diseño modular permite adaptarse a diferentes flujos de trabajo manteniendo siempre la trazabilidad y el control de calidad requeridos en el sector logístico.</p>
+                    
+                    <p style="margin-top: 15px;">La implementación de inteligencia artificial reduce significativamente la carga operativa, mientras que los portales especializados garantizan una experiencia de usuario óptima tanto para administradores como para transportistas.</p>
+                </div>
+
+                <div class="success-box">
+                    <h4>🎯 Beneficios Clave del Sistema:</h4>
+                    <ul class="feature-list" style="color: white;">
+                        <li><strong>Eficiencia Operativa:</strong> Reducción del 80% en tiempo de procesamiento manual</li>
+                        <li><strong>Precisión Automática:</strong> Clasificación IA con 95% de efectividad</li>
+                        <li><strong>Trazabilidad Completa:</strong> Auditoría integral de todos los procesos</li>
+                        <li><strong>Experiencia Mobile:</strong> Portal optimizado para dispositivos móviles</li>
+                        <li><strong>Escalabilidad:</strong> Arquitectura preparada para crecimiento exponencial</li>
+                    </ul>
+                </div>
+            </section>
+        </div>
+
+        <footer class="footer">
+            <p><em>Manual actualizado para la versión actual del microservicio. Para cambios o actualizaciones, consultar la documentación técnica del proyecto.</em></p>
+            <p style="margin-top: 10px; font-size: 0.9em;">🚀 Sistema desarrollado con tecnología de vanguardia para la industria logística</p>
+        </footer>
+    </div>
+
+    <button class="back-to-top" onclick="window.scrollTo({top: 0, behavior: 'smooth'})" title="Volver arriba">
+        ↑
+    </button>
+
+    <script>
+        // Smooth scroll para los enlaces del índice
+        document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+            anchor.addEventListener('click', function (e) {
+                e.preventDefault();
+                const target = document.querySelector(this.getAttribute('href'));
+                if (target) {
+                    target.scrollIntoView({
+                        behavior: 'smooth',
+                        block: 'start'
+                    });
+                }
+            });
+        });
+
+        // Mostrar/ocultar botón "volver arriba"
+        window.addEventListener('scroll', function() {
+            const backToTop = document.querySelector('.back-to-top');
+            if (window.pageYOffset > 300) {
+                backToTop.style.opacity = '1';
+            } else {
+                backToTop.style.opacity = '0';
+            }
+        });
+
+        // Efecto de hover en las tarjetas
+        document.querySelectorAll('.feature-card').forEach(card => {
+            card.addEventListener('mouseenter', function() {
+                this.style.transform = 'translateY(-5px) scale(1.02)';
+            });
+            
+            card.addEventListener('mouseleave', function() {
+                this.style.transform = 'translateY(0) scale(1)';
+            });
+        });
+
+        // Animación de carga progresiva
+        const observerOptions = {
+            threshold: 0.1,
+            rootMargin: '0px 0px -50px 0px'
+        };
+
+        const observer = new IntersectionObserver((entries) => {
+            entries.forEach(entry => {
+                if (entry.isIntersecting) {
+                    entry.target.style.opacity = '1';
+                    entry.target.style.transform = 'translateY(0)';
+                }
+            });
+        }, observerOptions);
+
+        // Aplicar observador a elementos animables
+        document.querySelectorAll('.feature-card, .tab-content, .use-case').forEach(el => {
+            el.style.opacity = '0';
+            el.style.transform = 'translateY(20px)';
+            el.style.transition = 'opacity 0.6s ease, transform 0.6s ease';
+            observer.observe(el);
+        });
+    </script>
+</body>
+</html>

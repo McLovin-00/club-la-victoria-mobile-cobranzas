@@ -1,0 +1,155 @@
+{
+  "nginx_proxy_manager": {
+    "host": "10.3.0.237:81",
+    "credentials": {
+      "username": "admin@example.com",
+      "password": "changeme"
+    }
+  },
+  "server": {
+    "ip": "10.3.0.244"
+  },
+  "proxy_hosts": [
+    {
+      "domain": "doc.microsyst.com.ar",
+      "description": "Documentos Microservice",
+      "forward_host": "10.3.0.244",
+      "forward_port": 4802,
+      "ssl_enabled": true,
+      "websockets": true,
+      "block_exploits": true,
+      "advanced_config": [
+        "# Headers para microservicio Documentos",
+        "proxy_set_header Host $host;",
+        "proxy_set_header X-Real-IP $remote_addr;",
+        "proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;",
+        "proxy_set_header X-Forwarded-Proto $scheme;",
+        "proxy_set_header X-Forwarded-Host $host;",
+        "",
+        "# Configuración para uploads grandes",
+        "client_max_body_size 50M;",
+        "proxy_read_timeout 300s;",
+        "proxy_connect_timeout 75s;",
+        "proxy_send_timeout 300s;",
+        "",
+        "# Buffer settings",
+        "proxy_buffering off;",
+        "proxy_request_buffering off;",
+        "",
+        "# Headers de seguridad",
+        "add_header X-Frame-Options SAMEORIGIN;",
+        "add_header X-Content-Type-Options nosniff;",
+        "add_header X-XSS-Protection \"1; mode=block\";",
+        "add_header Referrer-Policy strict-origin-when-cross-origin;"
+      ]
+    },
+    {
+      "domain": "buck.microsyst.com.ar",
+      "description": "MinIO Storage",
+      "forward_host": "10.3.0.244",
+      "forward_port": 9000,
+      "ssl_enabled": true,
+      "websockets": false,
+      "block_exploits": false,
+      "advanced_config": [
+        "# Headers específicos para MinIO",
+        "proxy_set_header Host $host;",
+        "proxy_set_header X-Real-IP $remote_addr;",
+        "proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;",
+        "proxy_set_header X-Forwarded-Proto $scheme;",
+        "proxy_set_header X-Forwarded-Host $host;",
+        "proxy_set_header X-Forwarded-Server $host;",
+        "",
+        "# Configuración para archivos grandes",
+        "client_max_body_size 100M;",
+        "proxy_read_timeout 300s;",
+        "proxy_connect_timeout 75s;",
+        "proxy_send_timeout 300s;",
+        "",
+        "# Desactivar buffering para streaming",
+        "proxy_buffering off;",
+        "proxy_request_buffering off;",
+        "",
+        "# Headers mínimos de seguridad para MinIO",
+        "add_header X-Frame-Options SAMEORIGIN;",
+        "add_header X-Content-Type-Options nosniff;"
+      ]
+    },
+    {
+      "domain": "bca.microsyst.com.ar",
+      "description": "Frontend Application",
+      "forward_host": "10.3.0.244",
+      "forward_port": 8550,
+      "ssl_enabled": true,
+      "websockets": true,
+      "block_exploits": true,
+      "advanced_config": [
+        "# Headers para aplicación frontend",
+        "proxy_set_header Host $host;",
+        "proxy_set_header X-Real-IP $remote_addr;",
+        "proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;",
+        "proxy_set_header X-Forwarded-Proto $scheme;",
+        "",
+        "# Configuración para aplicación React/Vue",
+        "proxy_read_timeout 60s;",
+        "proxy_connect_timeout 10s;",
+        "proxy_send_timeout 60s;",
+        "",
+        "# Headers de seguridad",
+        "add_header X-Frame-Options SAMEORIGIN;",
+        "add_header X-Content-Type-Options nosniff;",
+        "add_header X-XSS-Protection \"1; mode=block\";"
+      ]
+    },
+    {
+      "domain": "bac-bca.microsyst.com.ar",
+      "description": "Calidad Microservice",
+      "forward_host": "10.3.0.244",
+      "forward_port": 4815,
+      "ssl_enabled": true,
+      "websockets": true,
+      "block_exploits": true,
+      "advanced_config": [
+        "# Headers para microservicio Calidad",
+        "proxy_set_header Host $host;",
+        "proxy_set_header X-Real-IP $remote_addr;",
+        "proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;",
+        "proxy_set_header X-Forwarded-Proto $scheme;",
+        "",
+        "# Timeouts estándar para API",
+        "proxy_read_timeout 60s;",
+        "proxy_connect_timeout 10s;",
+        "proxy_send_timeout 60s;",
+        "",
+        "# Headers de seguridad",
+        "add_header X-Frame-Options DENY;",
+        "add_header X-Content-Type-Options nosniff;",
+        "add_header X-XSS-Protection \"1; mode=block\";"
+      ]
+    }
+  ],
+  "verification_endpoints": [
+    {
+      "name": "Documentos Health",
+      "url": "https://doc.microsyst.com.ar/health/ready",
+      "expected_status": 200
+    },
+    {
+      "name": "Documentos Preview (sin auth)",
+      "url": "https://doc.microsyst.com.ar/api/docs/documents/508/preview",
+      "expected_status": 401,
+      "note": "Debe ser 401 (no 404) para confirmar que el proxy funciona"
+    },
+    {
+      "name": "MinIO Root",
+      "url": "https://buck.microsyst.com.ar/",
+      "expected_status": 200
+    },
+    {
+      "name": "Calidad Health",
+      "url": "https://bac-bca.microsyst.com.ar/health",
+      "expected_status": 200,
+      "note": "Solo si ENABLE_CALIDAD=true"
+    }
+  ]
+}

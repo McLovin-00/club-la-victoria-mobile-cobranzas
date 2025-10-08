@@ -1,0 +1,16 @@
+'area:frontend':
+  - 'apps/frontend/**'
+'area:backend':
+  - 'apps/backend/**'
+'area:documentos':
+  - 'apps/documentos/**'
+'area:calidad':
+  - 'apps/calidad/**'
+'area:infra':
+  - '.github/**'
+  - 'deploy/**'
+  - 'scripts/**'
+'type:docs':
+  - 'docs/**'
+
+

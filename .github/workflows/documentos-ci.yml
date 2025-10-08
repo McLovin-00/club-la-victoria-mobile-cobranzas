@@ -1,0 +1,54 @@
+name: Documentos CI
+
+on:
+  push:
+    paths:
+      - 'apps/documentos/**'
+      - '.github/workflows/documentos-ci.yml'
+  pull_request:
+    paths:
+      - 'apps/documentos/**'
+
+jobs:
+  lint-build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+      - run: npm ci
+      - name: Generate Prisma client (documentos)
+        run: npx prisma generate --schema=apps/documentos/src/prisma/schema.prisma
+      - name: Lint documentos
+        run: |
+          cd apps/documentos
+          npm run lint
+      - name: Build documentos
+        run: |
+          cd apps/documentos
+          npm run build
+        env:
+          TURBO_DISABLE: 'true'
+      - name: Test documentos
+        run: |
+          cd apps/documentos
+          npm test -- --coverage --coverageReporters=text-summary --coverageReporters=lcov
+      - name: Build Docker image
+        run: |
+          docker build -t documentos:ci ./apps/documentos
+      - name: Push Docker image (optional)
+        if: github.ref == 'refs/heads/main'
+        env:
+          REGISTRY: ghcr.io
+          IMAGE_NAME: documentos
+        run: |
+          echo "Skipping actual push (credentials not provided). Configure GHCR/registry credentials to enable."
+      - name: Validate OpenAPI
+        run: |
+          npx @redocly/cli lint apps/documentos/openapi.yaml || echo "OpenAPI lint warnings"
+      - name: Build OpenAPI bundle
+        run: |
+          cd apps/documentos
+          npx @redocly/cli bundle openapi.yaml -o openapi.json

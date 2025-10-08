@@ -1,0 +1,635 @@
+import { Response } from 'express';
+import multer from 'multer';
+import { AuthRequest } from '../middlewares/auth.middleware';
+import { db } from '../config/database';
+import { minioService } from '../services/minio.service';
+import { DocumentService } from '../services/document.service';
+import { queueService } from '../services/queue.service';
+import { webSocketService } from '../services/websocket.service';
+import { AppLogger } from '../config/logger';
+import { createError } from '../middlewares/error.middleware';
+import { MediaService, type MediaInput } from '../services/media.service';
+
+/**
+ * Controlador de Documentos - El Corazón del Sistema
+ */
+export class DocumentsController {
+  
+  /**
+   * POST /api/docs/documents/upload - Subir documento
+   */
+  static async uploadDocument(req: AuthRequest, res: Response): Promise<void> {
+    try {
+      const { templateId, entityType, entityId, dadorCargaId } = req.body as any;
+      // Multer fields() coloca archivos en req.files por nombre de campo.
+      // Normalizamos a un único array 'files' desde 'documents' y 'document'.
+      const anyReq: any = req as any;
+      const docsA: Express.Multer.File[] = Array.isArray(anyReq.files?.documents) ? anyReq.files.documents : [];
+      const docsB: Express.Multer.File[] = Array.isArray(anyReq.files?.document) ? anyReq.files.document : (anyReq.file ? [anyReq.file] : []);
+      const files: Express.Multer.File[] = [...docsA, ...docsB];
+      const base64InputsRaw = (req.body as any).documentsBase64;
+
+      // Normalizar base64: puede venir como string o array
+      const base64Inputs: string[] = Array.isArray(base64InputsRaw)
+        ? base64InputsRaw
+        : (typeof base64InputsRaw === 'string' && base64InputsRaw ? [base64InputsRaw] : []);
+
+      if ((!files || files.length === 0) && base64Inputs.length === 0) {
+        throw createError('Se requiere al menos una imagen o PDF', 400, 'FILE_REQUIRED');
+      }
+
+      // Validaciones usando DocumentService
+      const dadorIdNum = parseInt(dadorCargaId);
+      const templateIdNum = parseInt(templateId);
+
+      // Superadmin puede omitir validación de habilitación
+      // Eliminada validación por empresa
+
+      // Superadmin puede omitir validación de template habilitado para la empresa
+      // Eliminada validación por empresa/template
+
+      // Obtener template para información adicional
+      const template = await db.getClient().documentTemplate.findUnique({
+        where: { id: templateIdNum },
+      });
+
+      if (!template || (template.active === false)) {
+        throw createError('Plantilla no encontrada o inactiva', 404, 'TEMPLATE_NOT_FOUND');
+      }
+
+      // Antivirus opcional (ClamAV) por cada buffer
+      const { getEnvironment } = await import('../config/environment');
+      const env = getEnvironment();
+      const inputs: MediaInput[] = [];
+      // Archivos recibidos
+      for (const f of files) {
+        inputs.push({ buffer: f.buffer, mimeType: f.mimetype, fileName: f.originalname });
+      }
+      // Base64 recibidos
+      for (const b64 of base64Inputs) {
+        try {
+          const decoded = MediaService.decodeDataUrl(b64);
+          inputs.push(decoded);
+        } catch {
+          throw createError('documentsBase64 inválido', 400, 'INVALID_BASE64');
+        }
+      }
+
+      if (env.CLAMAV_HOST && env.CLAMAV_PORT && inputs.length > 0) {
+        try {
+          const mod = await import('clamscan');
+          const NodeClam: any = (mod as any).default || (mod as any);
+          const clamscan = await new NodeClam().init({
+            clamdscan: { host: env.CLAMAV_HOST, port: env.CLAMAV_PORT, timeout: 60000 },
+          });
+          for (const item of inputs) {
+            const { isInfected } = await clamscan.scanBuffer(item.buffer);
+            if (isInfected) {
+              throw createError('Archivo infectado', 400, 'FILE_INFECTED');
+            }
+          }
+        } catch (_e) {
+          AppLogger.warn('⚠️ Antivirus no disponible o error de escaneo; continuando por configuración');
+        }
+      }
+
+      // Reglas de combinación: si hay más de un input, todos deben ser imágenes; si es un único input puede ser PDF o imagen
+      const hasPdf = inputs.some((i) => /^application\/pdf$/i.test(i.mimeType));
+      if (inputs.length > 1 && hasPdf) {
+        throw createError('No mezclar PDF con imágenes en el mismo documento', 400, 'MIXED_INPUT_UNSUPPORTED');
+      }
+
+      // Preparar buffer final PDF y nombre
+      let finalBuffer: Buffer;
+      let finalFileName: string;
+      const finalMime = 'application/pdf';
+
+      if (inputs.length === 1 && /^application\/pdf$/i.test(inputs[0].mimeType)) {
+        // Caso PDF único: almacenar tal cual (ya es PDF)
+        finalBuffer = inputs[0].buffer;
+        // Renombrar según convención: TIPO_ENTIDAD_ID.pdf
+        const buildFileName = (tpl: string, entType: string, entId: number) => {
+          const norm = (s: string) => s
+            .normalize('NFD')
+            .replace(/[\u0300-\u036f]/g, '')
+            .toUpperCase()
+            .replace(/[^A-Z0-9]+/g, '_')
+            .replace(/^_+|_+$/g, '');
+          return `${norm(tpl)}_${norm(entType)}_${entId}.pdf`;
+        };
+        finalFileName = buildFileName(template.name, entityType, parseInt(entityId));
+      } else {
+        // Caso 1..N imágenes: componer PDF
+        const images = inputs.filter((i) => MediaService.isImage(i.mimeType));
+        if (images.length === 0) {
+          throw createError('Solo se admiten imágenes o un único PDF', 415, 'UNSUPPORTED_MEDIA_TYPE');
+        }
+        finalBuffer = await MediaService.composePdfFromImages(images);
+        const buildFileName = (tpl: string, entType: string, entId: number) => {
+          const norm = (s: string) => s
+            .normalize('NFD')
+            .replace(/[\u0300-\u036f]/g, '')
+            .toUpperCase()
+            .replace(/[^A-Z0-9]+/g, '_')
+            .replace(/^_+|_+$/g, '');
+          return `${norm(tpl)}_${norm(entType)}_${entId}.pdf`;
+        };
+        finalFileName = buildFileName(template.name, entityType, parseInt(entityId));
+      }
+
+      // Subir PDF a MinIO
+      const uploadResult = await minioService.uploadDocument(
+        req.tenantId!,
+        entityType,
+        parseInt(entityId),
+        template.name,
+        finalFileName,
+        finalBuffer,
+        finalMime
+      );
+
+      // Crear registro en base de datos con campos de archivo embebidos
+      const document = await db.getClient().document.create({
+        data: {
+          templateId: templateIdNum,
+          entityType,
+          entityId: parseInt(entityId),
+          dadorCargaId: dadorIdNum,
+          tenantEmpresaId: req.tenantId!,
+          status: 'PENDIENTE',
+          fileName: finalFileName,
+          mimeType: finalMime,
+          fileSize: finalBuffer.length,
+          filePath: `${uploadResult.bucketName}/${uploadResult.objectPath}`,
+        },
+        select: {
+          id: true,
+          templateId: true,
+          entityType: true,
+          entityId: true,
+          dadorCargaId: true,
+          status: true,
+          uploadedAt: true,
+          fileName: true,
+          fileSize: true,
+          mimeType: true,
+          filePath: true,
+          template: {
+            select: {
+              name: true,
+              entityType: true,
+            },
+          },
+        },
+      });
+
+      // Notificar nuevo documento via WebSocket
+      webSocketService.notifyNewDocument({
+        documentId: document.id,
+        empresaId: document.dadorCargaId,
+        entityType: document.entityType,
+        templateName: document.template.name,
+        fileName: document.fileName,
+        uploadedBy: req.user?.email || 'Usuario',
+      });
+
+      // Iniciar procesamiento asíncrono
+      await DocumentService.processDocument(document.id);
+
+      AppLogger.info('📄 Documento subido exitosamente', {
+        documentId: document.id,
+        templateName: template.name,
+        entityType,
+        entityId,
+        dadorCargaId,
+        fileName: finalFileName,
+        fileSize: finalBuffer.length,
+        userId: req.user?.userId,
+      });
+
+      res.status(201).json(document);
+    } catch (error) {
+      AppLogger.error('💥 Error al subir documento:', error);
+      if (error instanceof Error && 'code' in error) {
+        throw error;
+      }
+      throw createError('Error al subir documento', 500, 'UPLOAD_DOCUMENT_ERROR');
+    }
+  }
+
+  /**
+   * GET /api/docs/documents/status - Obtener estado de documentos (Lista con semáforos)
+   */
+  static async getDocumentsByEmpresa(req: AuthRequest, res: Response): Promise<void> {
+    try {
+      const empresaId = parseInt((req.params as any).dadorId || (req.params as any).empresaId);
+      const { status } = req.query as any;
+
+      // Seguridad: si no es superadmin, forzar empresa del usuario
+      if (req.user?.role !== 'SUPERADMIN' && req.user?.empresaId !== empresaId) {
+        throw createError('Acceso denegado a empresa', 403, 'FORBIDDEN');
+      }
+
+      const where: any = { tenantEmpresaId: req.tenantId!, dadorCargaId: empresaId };
+      if (status) where.status = status;
+
+      const documents = await db.getClient().document.findMany({
+        where,
+        include: {
+          template: true,
+        },
+        orderBy: [
+          { uploadedAt: 'desc' },
+          { id: 'desc' },
+        ],
+      });
+
+      res.json(documents);
+    } catch (error) {
+      AppLogger.error('💥 Error obteniendo documentos por empresa:', error);
+      throw createError('Error interno', 500, 'GET_DOCUMENTS_DADOR_ERROR');
+    }
+  }
+
+  static async getDocumentStatus(req: AuthRequest, res: Response): Promise<void> {
+    try {
+      const { empresaId, entityType, entityId, status, page, limit } = req.query as any;
+      const offset = (parseInt(page) - 1) * parseInt(limit);
+
+      // Construir filtros
+      const where: any = {};
+      
+      if (empresaId) where.dadorCargaId = parseInt(empresaId);
+      where.tenantEmpresaId = req.tenantId!;
+      if (entityType) where.entityType = entityType;
+      if (entityId) where.entityId = parseInt(entityId);
+      if (status) where.status = status;
+
+      // Si no es superadmin, filtrar por empresa del usuario
+      if (req.user?.role !== 'SUPERADMIN' && req.user?.empresaId) {
+        where.dadorCargaId = req.user.empresaId;
+      }
+
+      // Obtener documentos con paginación
+      const [documents, total] = await Promise.all([
+        db.getClient().document.findMany({
+          where,
+          select: {
+            id: true,
+            templateId: true,
+            entityType: true,
+            entityId: true,
+            dadorCargaId: true,
+            fileName: true,
+            fileSize: true,
+            mimeType: true,
+            status: true,
+            expiresAt: true,
+            uploadedAt: true,
+            validatedAt: true,
+            template: {
+              select: {
+                name: true,
+                entityType: true,
+              },
+            },
+          },
+          orderBy: [
+            { uploadedAt: 'desc' },
+          ],
+          take: parseInt(limit),
+          skip: offset,
+        }),
+        db.getClient().document.count({ where }),
+      ]);
+
+      // Calcular estadísticas rápidas
+      const stats = {
+        pendiente: await db.getClient().document.count({ 
+          where: { ...where, status: 'PENDIENTE' } 
+        }),
+        validando: await db.getClient().document.count({ 
+          where: { ...where, status: 'VALIDANDO' } 
+        }),
+        aprobado: await db.getClient().document.count({ 
+          where: { ...where, status: 'APROBADO' } 
+        }),
+        rechazado: await db.getClient().document.count({ 
+          where: { ...where, status: 'RECHAZADO' } 
+        }),
+        vencido: await db.getClient().document.count({ 
+          where: { ...where, status: 'VENCIDO' } 
+        }),
+      };
+
+      AppLogger.debug(`📊 Consulta de estado de documentos: ${documents.length} encontrados`, {
+        filters: where,
+        total,
+        page: parseInt(page),
+        limit: parseInt(limit),
+        userId: req.user?.userId,
+      });
+
+      res.json({
+        success: true,
+        data: documents,
+        pagination: {
+          page: parseInt(page),
+          limit: parseInt(limit),
+          total,
+          pages: Math.ceil(total / parseInt(limit)),
+        },
+        stats,
+      });
+    } catch (error) {
+      AppLogger.error('💥 Error al obtener estado de documentos:', error);
+      throw createError('Error al obtener documentos', 500, 'GET_DOCUMENT_STATUS_ERROR');
+    }
+  }
+
+  /**
+   * GET /api/docs/documents/:id/preview - Obtener URL de preview
+   */
+  static async getDocumentPreview(req: AuthRequest, res: Response): Promise<void> {
+    try {
+      const { id } = req.params;
+
+      const document = await db.getClient().document.findUnique({
+        where: { id: parseInt(id) },
+        select: {
+          id: true,
+          filePath: true,
+          fileName: true,
+          mimeType: true,
+          dadorCargaId: true,
+          tenantEmpresaId: true,
+          entityType: true,
+          entityId: true,
+          template: {
+            select: {
+              name: true,
+            },
+          },
+        },
+      });
+
+      if (!document) {
+        throw createError('Documento no encontrado', 404, 'DOCUMENT_NOT_FOUND');
+      }
+
+      // Verificar permisos de acceso
+      if (req.user?.role !== 'SUPERADMIN') {
+        if (req.user?.empresaId !== document.dadorCargaId) {
+          throw createError('Acceso denegado al documento', 403, 'DOCUMENT_ACCESS_DENIED');
+        }
+      }
+
+      // Extraer bucket y path del filePath
+      const [_bucketName, ..._pathParts] = document.filePath.split('/');
+      const _objectPath = _pathParts.join('/');
+
+      // Asegurar que el bucket exista para este tenant (auto-init en entornos vacíos)
+      if (document.tenantEmpresaId) {
+        try {
+          await minioService.ensureBucketExists(document.tenantEmpresaId);
+        } catch (_e) {
+          // Ignorar para no ocultar errores originales; getSignedUrl reportará con claridad
+        }
+      }
+
+      // Para evitar problemas de proxy/firmas en visores embebidos, usar el stream del backend
+      // como URL de preview (inline). Esto funciona igual desde dentro/afuera.
+      const backendPreviewUrl = `${req.protocol}://${req.get('host')}/api/docs/documents/${document.id}/download?inline=1`;
+
+      AppLogger.debug('🔗 URL de preview generada', {
+        documentId: document.id,
+        fileName: document.fileName,
+        userId: req.user?.userId,
+      });
+
+      res.json({
+        success: true,
+        data: {
+          id: document.id,
+          fileName: document.fileName,
+          mimeType: document.mimeType,
+          templateName: document.template.name,
+          previewUrl: backendPreviewUrl,
+          expiresIn: 3600, // segundos
+        },
+      });
+    } catch (error) {
+      AppLogger.error('💥 Error al generar preview de documento:', error);
+      if (error instanceof Error && 'code' in error) {
+        throw error;
+      }
+      throw createError('Error al generar preview', 500, 'DOCUMENT_PREVIEW_ERROR');
+    }
+  }
+
+  /**
+   * GET /api/docs/documents/:id/download - Descargar documento
+   */
+  static async downloadDocument(req: AuthRequest, res: Response): Promise<void> {
+    try {
+      const { id } = req.params;
+
+      const document = await db.getClient().document.findUnique({
+        where: { id: parseInt(id) },
+        select: {
+          id: true,
+          filePath: true,
+          fileName: true,
+          mimeType: true,
+          dadorCargaId: true,
+          tenantEmpresaId: true,
+          entityType: true,
+          entityId: true,
+          template: {
+            select: {
+              name: true,
+            },
+          },
+        },
+      });
+
+      if (!document) {
+        throw createError('Documento no encontrado', 404, 'DOCUMENT_NOT_FOUND');
+      }
+
+      // Verificar permisos de acceso
+      if (req.user?.role !== 'SUPERADMIN') {
+        if (req.user?.empresaId !== document.dadorCargaId) {
+          throw createError('Acceso denegado al documento', 403, 'DOCUMENT_ACCESS_DENIED');
+        }
+      }
+
+      // Extraer bucket y path del filePath
+      const [bucketName, ...pathParts] = document.filePath.split('/');
+      const objectPath = pathParts.join('/');
+
+      // Asegurar bucket para el tenant antes de intentar obtener el objeto
+      if (document.tenantEmpresaId) {
+        try {
+          await minioService.ensureBucketExists(document.tenantEmpresaId);
+        } catch (_) {}
+      }
+
+      // Obtener el archivo de MinIO como stream
+      const fileStream = await minioService.getObject(bucketName, objectPath);
+
+      // Configurar headers según el parámetro inline
+      const isInline = req.query.inline === '1';
+      res.setHeader('Content-Type', document.mimeType);
+      
+      if (isInline) {
+        // Para vista previa: inline con headers que permiten embedding
+        res.setHeader('Content-Disposition', `inline; filename="${document.fileName}"`);
+        res.setHeader('X-Frame-Options', 'SAMEORIGIN');
+        res.setHeader('Content-Security-Policy', 'frame-ancestors \'self\' https://bca.microsyst.com.ar https://doc.microsyst.com.ar');
+      } else {
+        // Para descarga: attachment
+        res.setHeader('Content-Disposition', `attachment; filename="${document.fileName}"`);
+      }
+      
+      res.setHeader('Cache-Control', 'no-cache');
+
+      AppLogger.debug('📥 Descarga iniciada', {
+        documentId: document.id,
+        fileName: document.fileName,
+        userId: req.user?.userId,
+      });
+
+      // Enviar el stream directamente como respuesta
+      fileStream.pipe(res);
+
+      fileStream.on('end', () => {
+        AppLogger.info('✅ Descarga completada', {
+          documentId: document.id,
+          fileName: document.fileName,
+          userId: req.user?.userId,
+        });
+      });
+
+      fileStream.on('error', (error) => {
+        AppLogger.error('💥 Error durante descarga:', error);
+        if (!res.headersSent) {
+          res.status(500).json({ error: 'Error al descargar archivo' });
+        }
+      });
+
+    } catch (error) {
+      AppLogger.error('💥 Error al iniciar descarga de documento:', error);
+      if (error instanceof Error && 'code' in error) {
+        throw error;
+      }
+      throw createError('Error al descargar documento', 500, 'DOCUMENT_DOWNLOAD_ERROR');
+    }
+  }
+
+  /**
+   * DELETE /api/docs/documents/:id - Eliminar documento
+   */
+  static async deleteDocument(req: AuthRequest, res: Response): Promise<void> {
+    try {
+      const { id } = req.params;
+
+      const document = await db.getClient().document.findUnique({
+        where: { id: parseInt(id) },
+        select: {
+          id: true,
+          filePath: true,
+          fileName: true,
+          dadorCargaId: true,
+          entityType: true,
+          entityId: true,
+          template: {
+            select: {
+              name: true,
+            },
+          },
+        },
+      });
+
+      if (!document) {
+        throw createError('Documento no encontrado', 404, 'DOCUMENT_NOT_FOUND');
+      }
+
+      // Verificar permisos de eliminación
+      if (req.user?.role !== 'SUPERADMIN') {
+        if (req.user?.empresaId !== (document as any).dadorCargaId) {
+          throw createError('Acceso denegado para eliminar documento', 403, 'DELETE_ACCESS_DENIED');
+        }
+      }
+
+      // Extraer bucket y path del filePath
+      const [bucketName, ...pathParts] = document.filePath.split('/');
+      const objectPath = pathParts.join('/');
+
+      // Cancelar jobs de validación pendientes para este documento
+      await queueService.cancelDocumentValidationJobs(parseInt(id));
+
+      // Eliminar de MinIO
+      await minioService.deleteDocument(bucketName, objectPath);
+
+      // Eliminar registro de base de datos
+      await db.getClient().document.delete({
+        where: { id: parseInt(id) },
+      });
+
+      AppLogger.info('🗑️ Documento eliminado completamente', {
+        documentId: document.id,
+        fileName: document.fileName,
+        templateName: document.template.name,
+        userId: req.user?.userId,
+      });
+
+      res.json({
+        success: true,
+        message: 'Documento eliminado exitosamente',
+      });
+    } catch (error) {
+      AppLogger.error('💥 Error al eliminar documento:', error);
+      if (error instanceof Error && 'code' in error) {
+        throw error;
+      }
+      throw createError('Error al eliminar documento', 500, 'DELETE_DOCUMENT_ERROR');
+    }
+  }
+}
+
+/**
+ * Configuración de Multer para upload de archivos
+ */
+export const uploadMiddleware = multer({
+  storage: multer.memoryStorage(),
+  limits: {
+    fileSize: 10 * 1024 * 1024, // 10MB máximo
+    files: 25, // Permitir múltiples imágenes por documento
+  },
+  fileFilter: (req, file, cb) => {
+    // Tipos de archivo permitidos
+    const allowedMimes = [
+      'application/pdf',
+      'image/jpeg',
+      'image/jpg', 
+      'image/png',
+      'image/webp',
+      'application/msword',
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    ];
+
+    // Sanitizar nombre de archivo
+    const original = file.originalname || '';
+    const safeName = original.replace(/[^a-zA-Z0-9._-]/g, '_').slice(0, 128);
+    (file as any).originalname = safeName || 'upload.bin';
+
+    if (allowedMimes.includes(file.mimetype)) {
+      cb(null, true);
+    } else {
+      const err: any = new Error('Tipo de archivo no permitido. Solo PDF, JPG, PNG, WEBP, DOC, DOCX.');
+      err.code = 'INVALID_FILE_TYPE';
+      cb(err);
+    }
+  },
+});

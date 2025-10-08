@@ -1,0 +1,22 @@
+# CODEOWNERS — Define revisores obligatorios por área
+# Formato: <pattern>  <owners>
+
+# Global
+*       @microsyst/tech-leads
+
+# Backend
+/apps/backend/**      @microsyst/backend @microsyst/tech-leads
+
+# Frontend
+/apps/frontend/**     @microsyst/frontend @microsyst/tech-leads
+
+# Documentos (microservicio)
+/apps/documentos/**   @microsyst/documentos @microsyst/tech-leads
+
+# Infra/CI
+/.github/**           @microsyst/infra @microsyst/tech-leads
+/deploy/**            @microsyst/infra @microsyst/tech-leads
+/scripts/**           @microsyst/infra @microsyst/tech-leads
+
+# Documentación
+/docs/**              @microsyst/tech-leads

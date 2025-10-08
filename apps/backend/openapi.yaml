@@ -1,0 +1,36 @@
+openapi: 3.0.3
+info:
+  title: Backend API
+  version: 1.0.0
+servers:
+  - url: /api
+paths:
+  /platform/auth/login:
+    post:
+      summary: Login plataforma
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                email:
+                  type: string
+                  format: email
+                password:
+                  type: string
+              required: [email, password]
+      responses:
+        '200': { description: OK }
+  /empresas:
+    get:
+      summary: Listar empresas
+      responses:
+        '200': { description: OK }
+  /services:
+    get:
+      summary: Listar servicios
+      responses:
+        '200': { description: OK }
+
