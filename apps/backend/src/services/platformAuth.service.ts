@@ -293,9 +293,12 @@ export class PlatformAuthService {
 
   private static determineFinalEmpresaId(role: UserRole | undefined, requestedEmpresaId: number | null | undefined, createdBy: PlatformUserProfile): number | null {
     if (createdBy.role === 'SUPERADMIN') {
-      return requestedEmpresaId || null;
+      // Si el superadmin NO especifica empresaId, usar su propia empresa como contexto
+      // Esto permite crear usuarios asociados a la empresa que el superadmin está gestionando
+      return requestedEmpresaId !== undefined ? requestedEmpresaId : (createdBy.empresaId || null);
     }
 
+    // Para ADMIN, siempre usar su propia empresa
     return createdBy.empresaId || null;
   }
 } 

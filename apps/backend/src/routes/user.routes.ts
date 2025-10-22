@@ -45,4 +45,16 @@ router.put(
   PlatformUserController.updateEmpresa
 );
 
+/**
+ * POST /api/usuarios/update-empresa
+ * Actualizar la empresa del usuario autenticado (solo superadmin)
+ * Compatibilidad con el perfil del frontend
+ */
+router.post(
+  '/update-empresa',
+  authorizeRoles(['SUPERADMIN']),
+  logAction('USER_UPDATE_OWN_EMPRESA'),
+  PlatformUserController.updateOwnEmpresa
+);
+
 export default router;

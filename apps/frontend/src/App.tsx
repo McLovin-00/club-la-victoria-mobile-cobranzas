@@ -74,6 +74,10 @@ function App() {
               <Route element={<RequireAuth allowedRoles={['SUPERADMIN']} />}>
                 {/* Eliminado: Calidad (QMS) */}
                 <Route path='/empresas' element={<EmpresasPageLazy />} />
+              </Route>
+
+              {/* Rutas de Documentos para SUPERADMIN, ADMIN y OPERATOR */}
+              <Route element={<RequireAuth allowedRoles={['SUPERADMIN', 'ADMIN', 'OPERATOR']} />}>
                 <Route path='/documentos' element={
                   <ProtectedServiceRoute service="documentos">
                     <DocumentosMainPage />

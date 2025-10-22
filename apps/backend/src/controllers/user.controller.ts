@@ -274,10 +274,95 @@ export class PlatformUserController {
   }
 
   /**
-   * Actualizar empresa del usuario actual (solo para superadmin)
-   * POST /api/usuarios/update-empresa
+   * Actualizar empresa de un usuario específico (solo para superadmin)
+   * PUT /api/usuarios/:id/empresa
    */
   static async updateEmpresa(req: AuthRequest, res: Response): Promise<void> {
+    try {
+      const errors = validationResult(req);
+      if (!errors.isEmpty()) {
+        res.status(400).json({
+          success: false,
+          message: 'Datos de entrada inválidos',
+          errors: errors.array(),
+        });
+        return;
+      }
+
+      const user = req.user!;
+      const targetUserId = parseInt(req.params.id);
+      const { empresaId } = req.body;
+
+      AppLogger.info('🏢 Actualizando empresa de usuario', {
+        actorUserId: user.userId,
+        targetUserId,
+        newEmpresaId: empresaId,
+      });
+
+      // Validar que la empresa existe si se proporciona
+      if (empresaId !== null && empresaId !== undefined) {
+        const empresa = await prisma.empresa.findUnique({
+          where: { id: empresaId },
+          select: { id: true, nombre: true },
+        });
+
+        if (!empresa) {
+          AppLogger.warn('⚠️ Empresa no encontrada', {
+            empresaId,
+            userId: user.userId,
+          });
+          
+          res.status(404).json({
+            success: false,
+            message: 'Empresa no encontrada',
+          });
+          return;
+        }
+      }
+
+      // Actualizar usuario en la base de datos
+      const updatedUser = await prisma.user.update({
+        where: { id: targetUserId },
+        data: { empresaId: empresaId || null },
+      });
+
+      AppLogger.info('✅ Empresa de usuario actualizada exitosamente', {
+        actorUserId: user.userId,
+        targetUserId,
+        newEmpresaId: updatedUser.empresaId,
+      });
+
+      res.status(200).json({
+        success: true,
+        message: 'Empresa actualizada exitosamente',
+        data: {
+          id: updatedUser.id,
+          email: updatedUser.email,
+          role: updatedUser.role,
+          empresaId: updatedUser.empresaId,
+        },
+      });
+
+    } catch (_error) {
+      AppLogger.error('💥 Error actualizando empresa de usuario:', {
+        error: _error instanceof Error ? _error.message : 'Error desconocido',
+        stack: _error instanceof Error ? _error.stack : undefined,
+        userId: req.user?.userId,
+        targetUserId: req.params.id,
+      });
+      
+      res.status(500).json({
+        success: false,
+        message: 'Error interno del servidor al actualizar empresa',
+      });
+    }
+  }
+
+  /**
+   * Actualizar empresa del usuario autenticado (solo para superadmin)
+   * POST /api/usuarios/update-empresa
+   */
+  static async updateOwnEmpresa(req: AuthRequest, res: Response): Promise<void> {
     try {
       const errors = validationResult(req);
       if (!errors.isEmpty()) {
