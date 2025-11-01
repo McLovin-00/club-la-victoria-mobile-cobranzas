@@ -57,6 +57,12 @@ const ChoferesPage: React.FC = () => {
   const [deleteChofer] = useDeleteChoferMutation();
   const [confirmDeleteId, setConfirmDeleteId] = useState<number | null>(null);
 
+  // Estado de edición inline
+  const [editingId, setEditingId] = useState<number | null>(null);
+  const [editDni, setEditDni] = useState('');
+  const [editNombre, setEditNombre] = useState('');
+  const [editApellido, setEditApellido] = useState('');
+
   const [dni, setDni] = useState('');
   const [nombre, setNombre] = useState('');
   const [apellido, setApellido] = useState('');
@@ -150,10 +156,32 @@ const ChoferesPage: React.FC = () => {
                   <span className='text-sm text-muted-foreground'>{c.apellido ?? ''} {c.nombre ?? ''} · ID {c.id}</span>
                 </div>
                 <div className='flex gap-2'>
+                  <Button variant='outline' onClick={() => { setEditingId(c.id); setEditDni(c.dni); setEditNombre(c.nombre || ''); setEditApellido(c.apellido || ''); }}>Editar</Button>
                   <Button variant='outline' onClick={() => updateChofer({ id: c.id, activo: !c.activo })}>{c.activo ? 'Desactivar' : 'Activar'}</Button>
                   <Button variant='destructive' onClick={() => setConfirmDeleteId(c.id)}>Borrar</Button>
                 </div>
               </div>
+              {editingId === c.id && (
+                <div className='mt-2 grid grid-cols-1 md:grid-cols-6 gap-2 items-end'>
+                  <Input className='md:col-span-2' placeholder='DNI' value={editDni} onChange={(e)=> setEditDni(e.target.value.replace(/\D+/g,''))} />
+                  <Input className='md:col-span-2' placeholder='Nombre' value={editNombre} onChange={(e)=> setEditNombre(e.target.value)} />
+                  <Input className='md:col-span-2' placeholder='Apellido' value={editApellido} onChange={(e)=> setEditApellido(e.target.value)} />
+                  <div className='md:col-span-6 flex gap-2'>
+                    <Button variant='outline' onClick={()=> { setEditingId(null); }}>Cancelar</Button>
+                    <Button onClick={async ()=> {
+                      if (editDni.length < 6) { show('DNI inválido', 'error'); return; }
+                      try {
+                        await updateChofer({ id: c.id, dni: editDni, nombre: editNombre || undefined, apellido: editApellido || undefined }).unwrap();
+                        show('Chofer actualizado', 'success');
+                        setEditingId(null);
+                      } catch (e: any) {
+                        const msg = (e?.data?.message || e?.error || 'No se pudo actualizar el chofer').toString();
+                        show(msg, 'error');
+                      }
+                    }}>Guardar</Button>
+                  </div>
+                </div>
+              )}
               {/* Detalle inline con teléfonos */}
               <div className='mt-2 pl-1'>
                 <span className='text-sm font-medium'>Teléfonos (WhatsApp):</span>

@@ -21,8 +21,8 @@ export const ConsultaPage: React.FC = () => {
   const clients = clientsResp?.list ?? (Array.isArray(clientsResp) ? clientsResp : []);
   const empresaIdFromAuth = useSelector((s: RootState) => s.auth?.user?.empresaId) as number | undefined;
   const { data: defaults } = useGetDefaultsQuery();
-  // Para búsqueda, si hay default de dador lo usamos; de lo contrario no filtramos por dador
-  const dadorIdForSearch = defaults?.defaultDadorId ?? undefined;
+  // Para búsqueda, usar default del dador si existe; si no, caer al empresaId del usuario
+  const dadorIdForSearch = (defaults?.defaultDadorId ?? empresaIdFromAuth ?? undefined);
   const authToken = useSelector((s: RootState) => s.auth?.token) || (typeof localStorage !== 'undefined' ? (localStorage.getItem('token') || '') : '');
   const [dni, setDni] = useState('');
   const [truckPlate, setTruckPlate] = useState('');

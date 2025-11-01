@@ -378,8 +378,12 @@ export class DocumentsController {
       }
 
       // Verificar permisos de acceso
+      // Nota: para usuarios no SUPERADMIN, el token trae empresaId del tenant.
+      // El documento pertenece a un tenant (tenantEmpresaId) y a un dador específico (dadorCargaId).
+      // El acceso de ADMIN/OPERATOR debe validarse por tenant, no por dador.
       if (req.user?.role !== 'SUPERADMIN') {
-        if (req.user?.empresaId !== document.dadorCargaId) {
+        const userTenantId = (req.user as any).empresaId;
+        if (userTenantId !== document.tenantEmpresaId) {
           throw createError('Acceso denegado al documento', 403, 'DOCUMENT_ACCESS_DENIED');
         }
       }
@@ -457,9 +461,10 @@ export class DocumentsController {
         throw createError('Documento no encontrado', 404, 'DOCUMENT_NOT_FOUND');
       }
 
-      // Verificar permisos de acceso
+      // Verificar permisos de acceso (mismo criterio que preview)
       if (req.user?.role !== 'SUPERADMIN') {
-        if (req.user?.empresaId !== document.dadorCargaId) {
+        const userTenantId = (req.user as any).empresaId;
+        if (userTenantId !== document.tenantEmpresaId) {
           throw createError('Acceso denegado al documento', 403, 'DOCUMENT_ACCESS_DENIED');
         }
       }

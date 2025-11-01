@@ -156,8 +156,9 @@ export const MaestrosService = {
         where: { id: existing.id },
         data: {
           dadorCargaId: data.dadorCargaId,
-          marca: existing.marca,
-          modelo: existing.modelo,
+          // Si se envían marca/modelo en la creación, priorizarlos; caso contrario conservar existentes
+          marca: data.marca ?? existing.marca,
+          modelo: data.modelo ?? existing.modelo,
           activo: data.activo ?? existing.activo,
         },
       });
@@ -169,8 +170,8 @@ export const MaestrosService = {
         dadorCargaId: data.dadorCargaId,
         patente: data.patente,
         patenteNorm,
-        marca: undefined,
-        modelo: undefined,
+        marca: data.marca,
+        modelo: data.modelo,
         activo: data.activo ?? true,
       },
     });
@@ -190,8 +191,8 @@ export const MaestrosService = {
         tenantEmpresaId,
         patente: data.patente,
         patenteNorm: data.patente === undefined ? undefined : normalizePlate(data.patente),
-        marca: undefined,
-        modelo: undefined,
+        marca: data.marca,
+        modelo: data.modelo,
         activo: data.activo,
       },
     });
@@ -235,7 +236,7 @@ export const MaestrosService = {
         where: { id: existing.id },
         data: {
           dadorCargaId: data.dadorCargaId,
-          tipo: existing.tipo,
+          tipo: data.tipo ?? existing.tipo,
           activo: data.activo ?? existing.activo,
         },
       });
@@ -247,7 +248,7 @@ export const MaestrosService = {
         dadorCargaId: data.dadorCargaId,
         patente: data.patente,
         patenteNorm,
-        tipo: undefined,
+        tipo: data.tipo,
         activo: data.activo ?? true,
       },
     });
@@ -267,7 +268,7 @@ export const MaestrosService = {
         tenantEmpresaId,
         patente: data.patente,
         patenteNorm: data.patente === undefined ? undefined : normalizePlate(data.patente),
-        tipo: undefined,
+        tipo: data.tipo,
         activo: data.activo,
       },
     });

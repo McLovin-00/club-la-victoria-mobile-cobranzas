@@ -565,7 +565,7 @@ export const EquiposPage: React.FC = () => {
                 <div className='font-medium flex items-center gap-2'>
                   <span>Equipo #{eq.id}</span>
                   <span className='text-xs px-2 py-0.5 rounded-full border bg-gray-50 dark:bg-slate-800/60 text-muted-foreground'>
-                    {eq.estado || 'activa'}
+                    {(eq.estado === 'finalizada') ? 'inactivo' : 'activo'}
                   </span>
                 </div>
                 <div className='text-sm text-muted-foreground'>
@@ -657,6 +657,25 @@ export const EquiposPage: React.FC = () => {
                 <Button variant='outline' size='sm' onClick={()=> navigate(`/documentos/equipos/${eq.id}/estado`)}>Ver estado</Button>
                 <Button variant='outline' size='sm' onClick={()=> openManage(eq.id)}>Gestionar componentes</Button>
                 <Button variant='outline' size='sm' onClick={()=> setHistoryEquipoId(eq.id)}>Historial</Button>
+                <Button
+                  variant='outline'
+                  size='sm'
+                  onClick={async ()=>{
+                    const current = (eq as any).estado || 'activa';
+                    const target = current === 'finalizada' ? 'activa' : 'finalizada';
+                    if (target === 'finalizada') {
+                      const ok = await confirm({
+                        title: 'Desactivar equipo',
+                        message: `¿Desactivar equipo #${(eq as any).id}?`,
+                        confirmText: 'Desactivar',
+                        variant: 'danger',
+                      });
+                      if (!ok) return;
+                    }
+                    await updateEquipo({ id: (eq as any).id, estado: target as any });
+                    show(target === 'finalizada' ? 'Equipo desactivado' : 'Equipo activado', 'success');
+                  }}
+                >{(eq as any).estado === 'finalizada' ? 'Activar' : 'Desactivar'}</Button>
                 <Button variant='destructive' size='sm' onClick={async ()=>{
                   const ok = await confirm({ title: 'Eliminar equipo', message: `¿Eliminar equipo #${eq.id}? Esta acción es irreversible.`, confirmText: 'Eliminar', variant: 'danger' });
                   if (!ok) return;

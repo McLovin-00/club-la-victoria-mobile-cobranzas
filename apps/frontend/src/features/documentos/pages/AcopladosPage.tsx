@@ -30,6 +30,7 @@ const AcopladosPage: React.FC = () => {
   const [deleteAcoplado] = useDeleteAcopladoMutation();
 
   const [patente, setPatente] = useState('');
+  const [tipo, setTipo] = useState('');
   const [confirmDeleteId, setConfirmDeleteId] = useState<number | null>(null);
   // Por ahora no se carga tipo
 
@@ -62,16 +63,16 @@ const AcopladosPage: React.FC = () => {
         </div>
       </div>
 
-      <div className='mb-4 grid grid-cols-1 md:grid-cols-6 gap-2 items-end'>
-        <div className='md:col-span-4' />
-        <div className='flex gap-2 md:col-span-2'>
-          <Input className='flex-1' placeholder='Patente' value={patente} onChange={(e) => setPatente(e.target.value.toUpperCase())} />
+      <div className='mb-4 grid grid-cols-1 md:grid-cols-8 gap-2 items-end'>
+        <Input className='md:col-span-3' placeholder='Patente' value={patente} onChange={(e) => setPatente(e.target.value.toUpperCase())} />
+        <Input className='md:col-span-3' placeholder='Tipo (opcional)' value={tipo} onChange={(e)=> setTipo(e.target.value)} />
+        <div className='md:col-span-2 flex justify-end'>
           <Button disabled={!dadorId || !patente} onClick={async () => {
             if (!dadorId || !patente) return;
             try {
-              await createAcoplado({ dadorCargaId: dadorId, patente }).unwrap();
+              await createAcoplado({ dadorCargaId: dadorId, patente, tipo: tipo || undefined }).unwrap();
               show('Semirremolque creado', 'success');
-              setPatente('');
+              setPatente(''); setTipo('');
             } catch (error: any) {
               console.error('Error creating acoplado:', error);
               const rawMsg = (error?.data?.message || error?.data?.error || error?.error || '') as string;
@@ -96,15 +97,12 @@ const AcopladosPage: React.FC = () => {
       <Card className='p-4 bg-card'>
         <div className='grid gap-3'>
           {acoplados.map((v) => (
-            <div key={v.id} className='flex items-center justify-between'>
+            <div key={v.id} className='flex flex-col border-b pb-3'>
               <div className='flex flex-col'>
                 <span className='font-medium'>Patente {v.patente}</span>
-                <span className='text-sm text-muted-foreground'>{v.tipo ?? ''} · ID {v.id}</span>
+                <span className='text-sm text-muted-foreground'>{(v as any).tipo ? `${(v as any).tipo} · ` : ''}ID {v.id}</span>
               </div>
-              <div className='flex gap-2'>
-                <Button variant='outline' onClick={async () => { await updateAcoplado({ id: v.id, activo: !v.activo }); show(v.activo ? 'Semirremolque desactivado' : 'Semirremolque activado', 'success'); }}>{v.activo ? 'Desactivar' : 'Activar'}</Button>
-                <Button variant='destructive' onClick={() => setConfirmDeleteId(v.id)}>Borrar</Button>
-              </div>
+              <AcopladoEditInline acoplado={v} onSave={async (payload)=> { await updateAcoplado({ id: v.id, ...payload }).unwrap(); show('Semirremolque actualizado', 'success'); }} onToggleActivo={async ()=> { await updateAcoplado({ id: v.id, activo: !v.activo }); show(v.activo ? 'Semirremolque desactivado' : 'Semirremolque activado', 'success'); }} onDelete={()=> setConfirmDeleteId(v.id)} />
             </div>
           ))}
           {acoplados.length === 0 && <div className='text-sm text-muted-foreground'>Sin acoplados</div>}
@@ -132,6 +130,33 @@ const AcopladosPage: React.FC = () => {
 };
 
 export default AcopladosPage;
+
+// Editor inline para un acoplado (patente y tipo + acciones)
+const AcopladoEditInline: React.FC<{ acoplado: Acoplado; onSave: (p: { patente?: string; tipo?: string })=>Promise<void>; onToggleActivo: ()=>Promise<void>; onDelete: ()=>void }>=({ acoplado, onSave, onToggleActivo, onDelete })=>{
+  const [editing, setEditing] = useState(false);
+  const [patente, setPatente] = useState(acoplado.patente || '');
+  const [tipo, setTipo] = useState((acoplado as any).tipo || '');
+  return (
+    <div className='mt-2 grid grid-cols-1 md:grid-cols-8 gap-2 items-end'>
+      {editing ? (
+        <>
+          <Input className='md:col-span-3' placeholder='Patente' value={patente} onChange={(e)=> setPatente(e.target.value.toUpperCase())} />
+          <Input className='md:col-span-3' placeholder='Tipo' value={tipo} onChange={(e)=> setTipo(e.target.value)} />
+          <div className='md:col-span-8 flex gap-2 justify-end'>
+            <Button variant='outline' onClick={()=> { setEditing(false); setPatente(acoplado.patente || ''); setTipo((acoplado as any).tipo || ''); }}>Cancelar</Button>
+            <Button onClick={async ()=> { await onSave({ patente, tipo: tipo || undefined }); setEditing(false); }}>Guardar</Button>
+          </div>
+        </>
+      ) : (
+        <div className='md:col-span-8 flex gap-2 justify-end'>
+          <Button variant='outline' onClick={()=> setEditing(true)}>Editar</Button>
+          <Button variant='outline' onClick={onToggleActivo}>{(acoplado as any).activo ? 'Desactivar' : 'Activar'}</Button>
+          <Button variant='destructive' onClick={onDelete}>Borrar</Button>
+        </div>
+      )}
+    </div>
+  );
+};
 
 
 

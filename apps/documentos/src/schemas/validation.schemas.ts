@@ -326,6 +326,8 @@ export const createCamionSchema = z.object({
   body: z.object({
     dadorCargaId: z.union([z.string(), z.number()]).transform((v) => Number(v)).refine((v) => v > 0),
     patente: z.string().min(5),
+    marca: z.string().max(100).optional(),
+    modelo: z.string().max(100).optional(),
     activo: z.boolean().optional(),
   }),
 });
@@ -334,6 +336,8 @@ export const updateCamionSchema = z.object({
   params: z.object({ id: z.string().transform((v) => Number(v)) }),
   body: z.object({
     patente: z.string().min(5).optional(),
+    marca: z.string().max(100).optional(),
+    modelo: z.string().max(100).optional(),
     activo: z.boolean().optional(),
   }),
 });
@@ -357,6 +361,7 @@ export const createAcopladoSchema = z.object({
   body: z.object({
     dadorCargaId: z.union([z.string(), z.number()]).transform((v) => Number(v)).refine((v) => v > 0),
     patente: z.string().min(5),
+    tipo: z.string().max(120).optional(),
     activo: z.boolean().optional(),
   }),
 });
@@ -365,6 +370,7 @@ export const updateAcopladoSchema = z.object({
   params: z.object({ id: z.string().transform((v) => Number(v)) }),
   body: z.object({
     patente: z.string().min(5).optional(),
+    tipo: z.string().max(120).optional(),
     activo: z.boolean().optional(),
   }),
 });

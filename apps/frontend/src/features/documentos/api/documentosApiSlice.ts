@@ -300,7 +300,7 @@ export const documentosApiSlice = createApi({
       transformResponse: (r: any) => ({ data: r?.data ?? [], pagination: r?.pagination }),
       providesTags: ['Maestros'],
     }),
-    createCamion: builder.mutation<any, { dadorCargaId: number; patente: string }>({
+    createCamion: builder.mutation<any, { dadorCargaId: number; patente: string; marca?: string; modelo?: string }>({
       query: (body) => ({ url: '/maestros/camiones', method: 'POST', body: { ...body, empresaId: undefined } }),
       transformResponse: (r: any) => r?.data,
       invalidatesTags: ['Maestros'],
@@ -326,7 +326,7 @@ export const documentosApiSlice = createApi({
       transformResponse: (r: any) => ({ data: r?.data ?? [], pagination: r?.pagination }),
       providesTags: ['Maestros'],
     }),
-    createAcoplado: builder.mutation<any, { dadorCargaId: number; patente: string }>({
+    createAcoplado: builder.mutation<any, { dadorCargaId: number; patente: string; tipo?: string }>({
       query: (body) => ({ url: '/maestros/acoplados', method: 'POST', body: { ...body, empresaId: undefined } }),
       transformResponse: (r: any) => r?.data,
       invalidatesTags: ['Maestros'],
