@@ -121,29 +121,15 @@ const DadoresPage: React.FC = () => {
           )}
           {dadores.map((d) => (
             <div key={d.id} className='flex flex-col border-b pb-3'>
-              <div className='flex items-center justify-between'>
-                <div className='flex flex-col'>
-                  <span className='font-medium'>
-                    {d.razonSocial} {defaults && defaults.defaultDadorId === d.id && (
-                      <span className='text-xs text-blue-600'>(por defecto)</span>
-                    )}
-                  </span>
-                  <span className='text-sm text-muted-foreground'>CUIT {d.cuit} · ID {d.id}</span>
-                </div>
-                <div className='flex gap-4 items-center'>
-                  <label className='flex items-center gap-2 text-sm'>
-                    <input type='checkbox' checked={Boolean(defaults && defaults.defaultDadorId === d.id)} onChange={async (e)=>{
-                      const val = e.target.checked ? d.id : null;
-                      await updateDefaults({ defaultDadorId: val });
-                    }} />
-                    Dador por defecto
-                  </label>
-                  <div className='flex gap-2'>
-                  <Button variant='outline' onClick={() => updateDador({ id: d.id, activo: !d.activo })}>{d.activo ? 'Desactivar' : 'Activar'}</Button>
-                  <Button variant='destructive' onClick={() => setConfirmDeleteId(d.id)}>Borrar</Button>
-                  </div>
-                </div>
-              </div>
+              <DadorEditInline 
+                dador={d} 
+                isDefault={Boolean(defaults && defaults.defaultDadorId === d.id)}
+                onSave={async (payload)=> { await updateDador({ id: d.id, ...payload }).unwrap(); show('Dador actualizado', 'success'); }} 
+                onToggleDefault={async (checked)=> { await updateDefaults({ defaultDadorId: checked ? d.id : null }); }}
+                onToggleActivo={async ()=> { await updateDador({ id: d.id, activo: !d.activo }); show(d.activo ? 'Dador desactivado' : 'Dador activado', 'success'); }}
+                onDelete={()=> setConfirmDeleteId(d.id)}
+                authHeaders={authHeaders}
+              />
               {/* Detalle inline con teléfonos */}
               <div className='mt-2 pl-1'>
                 <span className='text-sm font-medium'>Teléfonos (WhatsApp):</span>
@@ -182,6 +168,64 @@ const DadoresPage: React.FC = () => {
   );
 };
 
+// Editor inline para un dador (razonSocial, CUIT + acciones)
+const DadorEditInline: React.FC<{ 
+  dador: DadorCarga; 
+  isDefault: boolean;
+  onSave: (p: { razonSocial?: string; cuit?: string })=>Promise<void>; 
+  onToggleDefault: (checked: boolean)=>Promise<void>;
+  onToggleActivo: ()=>Promise<void>; 
+  onDelete: ()=>void;
+  authHeaders: HeadersInit;
+}>=({ dador, isDefault, onSave, onToggleDefault, onToggleActivo, onDelete, authHeaders })=>{
+  const [editing, setEditing] = useState(false);
+  const [razonSocial, setRazonSocial] = useState(dador.razonSocial || '');
+  const [cuit, setCuit] = useState(dador.cuit || '');
+  
+  return (
+    <div className='flex flex-col gap-2'>
+      {editing ? (
+        <>
+          <div className='grid grid-cols-1 md:grid-cols-2 gap-2'>
+            <Input placeholder='Razón social' value={razonSocial} onChange={(e)=> setRazonSocial(e.target.value)} />
+            <Input placeholder='CUIT (11 dígitos)' value={cuit} onChange={(e)=> setCuit(e.target.value.replace(/\D+/g,''))} />
+          </div>
+          <div className='flex gap-2 justify-end'>
+            <Button variant='outline' onClick={()=> { setEditing(false); setRazonSocial(dador.razonSocial || ''); setCuit(dador.cuit || ''); }}>Cancelar</Button>
+            <Button onClick={async ()=> { 
+              if (!razonSocial || cuit.length !== 11) return;
+              await onSave({ razonSocial, cuit }); 
+              setEditing(false); 
+            }}>Guardar</Button>
+          </div>
+        </>
+      ) : (
+        <>
+          <div className='flex items-center justify-between'>
+            <div className='flex flex-col'>
+              <span className='font-medium'>
+                {dador.razonSocial} {isDefault && (
+                  <span className='text-xs text-blue-600 font-semibold'>(por defecto)</span>
+                )}
+              </span>
+              <span className='text-sm text-muted-foreground'>CUIT {dador.cuit} · ID {dador.id}</span>
+            </div>
+            <div className='flex gap-4 items-center'>
+              <label className='flex items-center gap-2 text-sm'>
+                <input type='checkbox' checked={isDefault} onChange={async (e)=>{ await onToggleDefault(e.target.checked); }} />
+                Dador por defecto
+              </label>
+              <div className='flex gap-2'>
+                <Button variant='outline' size='sm' onClick={()=> setEditing(true)}>Editar</Button>
+                <Button variant='outline' size='sm' onClick={onToggleActivo}>{dador.activo ? 'Desactivar' : 'Activar'}</Button>
+                <Button variant='destructive' size='sm' onClick={onDelete}>Borrar</Button>
+              </div>
+            </div>
+          </div>
+        </>
+      )}
+    </div>
+  );
+};
+
 export default DadoresPage;
-
-
