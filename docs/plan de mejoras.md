@@ -125,4 +125,71 @@ Elevar calidad, seguridad y mantenibilidad siguiendo el checklist de revisión d
 - 0 vulnerabilidades críticas/altas abiertas; 0 endpoints sin validación.
 - Logs sin PII; rate‑limit activo; RBAC y tenant verificados por tests.
 
+---
+
+## 5) Hallazgos adicionales de excelencia (revisión transversal del código)
+
+### 5.1. Consistencia de versiones y dependencias
+- Unificar Express (apps/documentos usa 5.x; apps/backend 4.x) para evitar divergencias semánticas.
+- Unificar Multer (documentos 1.x LTS vs backend 2.x) y ajustar middleware de uploads de forma consistente.
+- Alinear Zod a una versión común en frontend/backend para evitar diferencias de validación.
+
+### 5.2. Tipado estricto y eliminación de `any` en frontend
+- Varias páginas de Documentos emplean `as any` para sortear tipos (e.g., edición inline en Choferes/Camiones/Acoplados/Equipos). Acción:
+  - Definir tipos compartidos en `@workspace/types` y refactorizar componentes para tipado estricto (props, hooks RTK Query, payloads de mutación).
+  - Crear selectores/transformers tipados en RTK Query para normalizar respuestas.
+
+### 5.3. Normalizadores y utilidades comunes
+- Centralizar `normalizeDni`, `normalizePlate`, formateo de fechas (UTC) y render de plantillas de notificaciones en `packages/utils`.
+- Reemplazar duplicaciones locales por utilidades probadas (con tests unitarios).
+
+### 5.4. Manejo de errores unificado
+- Backend documentos ya expone `errorHandler`; estandarizar shape `{ success:false, code, message }` en todos los controladores.
+- Mapear errores Prisma (P2002, etc.) a 409/422 con mensajes consistentes; evitar filtrar stack en prod.
+
+### 5.5. Seguridad inbound
+- Añadir Zod a endpoints faltantes (notificaciones config/test) y a cualquier ruta que actualmente reciba body sin validación explícita.
+- Validar IDs en params con transform a número y `refine(v>0)` (consistente en todo el árbol).
+
+### 5.6. Seguridad sesión/token
+- Confirmar RS256/JWKS en verificación de JWT y claims estrictas; documentar skew.
+- Evaluar migración a cookies httpOnly + SameSite=strict en prod (o CSP estricta si se mantiene localStorage).
+
+### 5.7. CORS/Helmet/Headers
+- Asegurar allowlist por entorno; agregar Helmet con HSTS, X-Frame-Options, X-Content-Type-Options. Planificar CSP para frontend.
+
+### 5.8. Rate‑limit granular
+- Añadir rate‑limit específico en `/api/docs/notifications/*` (config/test) y por MSISDN, además de la deduplicación diaria.
+
+### 5.9. WebSocket
+- Validar JWT en handshake y origin permitido. Cerrar conexiones inválidas; emitir métricas por canal/evento.
+
+### 5.10. Scheduler y concurrencia
+- Evitar ejecuciones duplicadas entre réplicas: lock distribuido (Redis/DB advisory locks) para tareas `checkExpirations`/`checkMissingDocs`.
+- Exponer `GET /notifications/jobs/status` y `POST /notifications/jobs/run` (ADMIN) con validación y rate‑limit.
+
+### 5.11. Notificaciones (robustez y DX)
+- Healthcheck Evolution (startup + cada 5 min) y reintentos con backoff (3 intentos) clasificando errores reintables.
+- Vista previa de plantillas (backend) y UI de preview antes de enviar.
+- Métricas: `notifications_sent/failed/deduped_total{type,audience,tenant}`, latencias y estado del proveedor.
+
+### 5.12. Uploads
+- Homologar límites de tamaño/MIME; integrar antivirus (clamscan) en puntos de entrada que lo requieran por cumplimiento.
+
+### 5.13. Observabilidad
+- Añadir correlación de requests (requestId) en logs y propagar a llamadas internas; registrar contexto mínimo no sensible.
+- Completar métricas de negocio (vencimientos próximos, faltantes por dador/cliente) y técnicas (latencias p95/p99 por endpoint).
+
+### 5.14. Internacionalización y UX
+- Externalizar textos hardcodeados (ES) a utilidades de i18n para futura localización.
+- Consistencia en mensajes de error/éxito en frontend; capa de toasts centralizada con códigos de error legibles.
+
+### 5.15. CI/CD y calidad continua
+- Añadir jobs: `npm audit`, SAST (CodeQL/Semgrep), type‑check, build, tests, lint/format como gates obligatorios.
+- Reportes de cobertura mínimos por paquete (documentos: servicios y validadores críticos).
+
+### 5.16. ADRs y documentación
+- Crear ADRs para: (1) estrategia de sesión (cookies vs localStorage), (2) unificación de versiones, (3) política de rate‑limit/dedupe, (4) CSP/Helmet.
+- README con enlaces a planes (`PORTAL_*_PLAN.md`, `NOTIFICACIONES_PLAN.md`, `SECURITY_AUDIT.md`) y a ADRs.
+
 
