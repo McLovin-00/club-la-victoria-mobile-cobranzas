@@ -231,8 +231,8 @@ router.get(
   '/clients/:clienteId/requirements',
   authenticateUser,
   authorizeRoles(['OPERATOR', 'ADMIN', 'SUPERADMIN']),
-  async (_req: Request, res: Response) => {
-    const _clienteId = Number(req.params.clienteId);
+  async (req: Request, res: Response) => {
+    const clienteId = Number(req.params.clienteId);
     const list = clientRequirements[clienteId] || [];
     return res.json({ success: true, data: list, timestamp: new Date().toISOString() });
   }

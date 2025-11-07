@@ -1,0 +1,26 @@
+FROM node:20-alpine AS build
+WORKDIR /app
+COPY package*.json ./
+COPY . .
+# Instalar dependencias de todos los workspaces (incluye apps/frontend y Vite)
+RUN --mount=type=cache,target=/root/.npm sh -c "if [ -f package-lock.json ]; then npm ci --workspaces; else npm install --workspaces; fi"
+# Pasar variables de build de Vite
+ARG VITE_API_URL
+ARG VITE_API_BASE_URL
+ARG VITE_DOCUMENTOS_API_URL
+ARG VITE_DOCUMENTOS_WS_URL
+ARG VITE_APP_TITLE
+ENV VITE_API_URL=$VITE_API_URL \
+    VITE_API_BASE_URL=$VITE_API_BASE_URL \
+    VITE_DOCUMENTOS_API_URL=$VITE_DOCUMENTOS_API_URL \
+    VITE_DOCUMENTOS_WS_URL=$VITE_DOCUMENTOS_WS_URL \
+    VITE_APP_TITLE=$VITE_APP_TITLE
+RUN npm run -w apps/frontend build
+
+FROM pierrezemb/gostatic:latest
+COPY --from=build /app/apps/frontend/dist /srv/http
+EXPOSE 8550
+# Flags válidas en goStatic
+CMD ["-port","8550","-enable-health"]
+
+

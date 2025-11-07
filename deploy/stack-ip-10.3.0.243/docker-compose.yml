@@ -1,0 +1,382 @@
+networks:
+  core_net:
+    driver: bridge
+  edge_net:
+    driver: bridge
+
+volumes:
+  postgres_data:
+  redis_data:
+  minio_data:
+  flowise_data:
+
+services:
+  postgres:
+    image: postgres:16
+    container_name: bca_postgres
+    environment:
+      POSTGRES_USER: evo
+      POSTGRES_PASSWORD: phoenix
+      POSTGRES_DB: monorepo-bca
+      # Optimizaciones de rendimiento
+      POSTGRES_SHARED_BUFFERS: 4GB
+      POSTGRES_EFFECTIVE_CACHE_SIZE: 12GB
+      POSTGRES_WORK_MEM: 256MB
+      POSTGRES_MAINTENANCE_WORK_MEM: 1GB
+      POSTGRES_MAX_CONNECTIONS: 200
+      POSTGRES_RANDOM_PAGE_COST: 1.1
+      POSTGRES_EFFECTIVE_IO_CONCURRENCY: 200
+    command: [
+      "postgres",
+      "-c", "listen_addresses=*",
+      "-c", "shared_buffers=4GB",
+      "-c", "effective_cache_size=12GB", 
+      "-c", "work_mem=256MB",
+      "-c", "maintenance_work_mem=1GB",
+      "-c", "max_connections=200",
+      "-c", "random_page_cost=1.1",
+      "-c", "effective_io_concurrency=200",
+      "-c", "wal_buffers=64MB",
+      "-c", "checkpoint_completion_target=0.9",
+      "-c", "default_statistics_target=100",
+      "-c", "log_min_duration_statement=1000",
+      "-c", "log_statement=mod"
+    ]
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./postgres/init:/docker-entrypoint-initdb.d:ro
+    deploy:
+      resources:
+        reservations:
+          cpus: "0.5"
+          memory: "16G"
+        limits:
+          cpus: "1.0"
+          memory: "16G"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U evo -d monorepo-bca"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - core_net
+
+  redis:
+    image: redis:7-alpine
+    container_name: bca_redis
+    command: [
+      "redis-server",
+      "--appendonly", "yes",
+      "--maxmemory", "2560mb",
+      "--maxmemory-policy", "allkeys-lru",
+      "--tcp-keepalive", "60",
+      "--timeout", "300",
+      "--save", "900 1",
+      "--save", "300 10", 
+      "--save", "60 10000"
+    ]
+    volumes:
+      - redis_data:/data
+    ports:
+      - "127.0.0.1:6379:6379"
+    deploy:
+      resources:
+        reservations:
+          cpus: "0.1"
+          memory: "3G"
+        limits:
+          cpus: "0.5"
+          memory: "3G"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+    networks:
+      - core_net
+
+  minio:
+    image: minio/minio:latest
+    container_name: bca_minio
+    command: [
+      "server", "/data",
+      "--address", ":9000",
+      "--console-address", ":9001"
+    ]
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin
+      # Optimizaciones de performance
+      MINIO_SERVER_POOL_HOST: "0.0.0.0"
+      MINIO_API_REQUESTS_MAX: 1000
+      MINIO_API_REQUESTS_DEADLINE: "10s"
+      MINIO_API_CLUSTER_DEADLINE: "10s"
+      MINIO_API_CORS_ALLOW_ORIGIN: "*"
+      MINIO_CACHE_DRIVES: "/tmp/cache"
+      MINIO_CACHE_EXCLUDE: "*.pdf,*.mp4"
+      MINIO_CACHE_QUOTA: 80
+      MINIO_CACHE_AFTER: 3
+      MINIO_CACHE_WATERMARK_LOW: 70
+      MINIO_CACHE_WATERMARK_HIGH: 95
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    volumes:
+      - minio_data:/data
+      - /tmp/minio-cache:/tmp/cache
+    deploy:
+      resources:
+        reservations:
+          cpus: "0.3"
+          memory: "4G"
+        limits:
+          cpus: "1.0"
+          memory: "6G"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+    networks:
+      - core_net
+      - edge_net
+
+  backend:
+    build:
+      context: ../..
+      dockerfile: ./deploy/stack-ip-10.3.0.243/Dockerfile.backend
+    image: bca/backend:latest
+    container_name: bca_backend
+    command: [
+      "node",
+      "--max-old-space-size=3072",
+      "apps/backend/dist/src/server.js"
+    ]
+    environment:
+      NODE_ENV: production
+      # split users siempre habilitado en código (no requiere env)
+      BACKEND_PORT: 4800
+      # Optimizaciones Node.js
+      NODE_OPTIONS: "--max-old-space-size=3072"
+      UV_THREADPOOL_SIZE: 16
+      # Database
+      DATABASE_URL: postgresql://evo:phoenix@postgres:5432/monorepo-bca?schema=platform
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_NAME: monorepo-bca
+      DB_USER: evo
+      DB_PASSWORD: phoenix
+      DB_ADMIN_DATABASE: monorepo-bca
+      DB_SCHEMA: platform
+      # JWT
+      JWT_PRIVATE_KEY_PATH: /run/secrets/jwt_private.pem
+      JWT_PUBLIC_KEY_PATH: /run/secrets/jwt_public.pem
+      # CORS
+      FRONTEND_URLS: http://10.3.0.243:8550
+      CORS_ORIGIN: http://10.3.0.243:8550
+      # Features
+      ENABLE_BACKEND: "true"
+      ENABLE_FRONTEND: "true"
+      ENABLE_DOCUMENTOS: "true"
+    ports:
+      - "4800:4800"
+    volumes:
+      - ./keys/jwt_private.pem:/run/secrets/jwt_private.pem:ro
+      - ./keys/jwt_public.pem:/run/secrets/jwt_public.pem:ro
+    depends_on:
+      - postgres
+      - redis
+    deploy:
+      resources:
+        reservations:
+          cpus: "0.3"
+          memory: "4G"
+        limits:
+          cpus: "0.8"
+          memory: "4G"
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:4800/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    networks:
+      - core_net
+      - edge_net
+
+  documentos:
+    build:
+      context: ../../apps/documentos
+      dockerfile: Dockerfile
+    image: bca/documentos:latest
+    container_name: bca_documentos
+    environment:
+      NODE_ENV: production
+      ENABLE_DOCUMENTOS: "true"
+      DOCUMENTOS_PORT: 4802
+      # Optimizaciones Node.js para procesamiento intensivo
+      NODE_OPTIONS: "--max-old-space-size=6144"
+      UV_THREADPOOL_SIZE: 20
+      # Database
+      DOCUMENTOS_DATABASE_URL: postgresql://evo:phoenix@postgres:5432/monorepo-bca?schema=documentos
+      DEFAULT_TENANT_ID: "1"
+      # MinIO
+      MINIO_ENDPOINT: 10.3.0.243:9000
+      MINIO_ACCESS_KEY: minioadmin
+      MINIO_SECRET_KEY: minioadmin
+      MINIO_USE_SSL: "false"
+      MINIO_REGION: us-east-1
+      MINIO_BUCKET_PREFIX: documentos-empresa
+      MINIO_PUBLIC_BASE_URL: http://10.3.0.243:9000
+      MINIO_INTERNAL_BASE_URL: http://10.3.0.243:9000
+      # Redis
+      REDIS_URL: redis://redis:6379
+      SEED: "true"
+      # CORS Configuration
+      FRONTEND_URLS: "http://10.3.0.243:8550,http://localhost:8550"
+      # Flowise
+      FLOWISE_ENDPOINT: http://10.3.0.243:3005/api/v1/extract
+      FLOWISE_API_KEY: ""
+      # Rasterización PDF - Optimizado para más concurrencia
+      PDF_RASTERIZE_ENABLED: "true"
+      PDF_RASTERIZE_DPI: "300"
+      PDF_RASTERIZE_MAX_CONCURRENCY: "8"
+      PDF_RASTERIZE_TIMEOUT_MS: "120000"
+      PDF_RASTERIZE_MEMORY_LIMIT: "2048"
+      # Document processing optimizations
+      DOCS_MAX_DEPRECATED_VERSIONS: "5"
+      DOCS_DUE_SOON_DAYS: "30"
+      DOCS_BATCH_SIZE: "50"
+      DOCS_CONCURRENT_UPLOADS: "10"
+      # WebSocket optimizations
+      WS_MAX_CONNECTIONS: "500"
+      WS_PING_INTERVAL: "25000"
+      WS_PING_TIMEOUT: "5000"
+      # JWT
+      JWT_PUBLIC_KEY_PATH: /keys/jwt_public.pem
+      JWT_PRIVATE_KEY_PATH: /keys/jwt_private.pem
+    volumes:
+      - ./keys:/keys:ro
+      - /tmp/documentos-processing:/tmp/processing
+    ports:
+      - "4802:4802"
+    depends_on:
+      - postgres
+      - minio
+      - redis
+    deploy:
+      resources:
+        reservations:
+          cpus: "0.5"
+          memory: "8G"
+        limits:
+          cpus: "1.2"
+          memory: "8G"
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:4802/health"]
+      interval: 30s
+      timeout: 10s
+      start_period: 20s
+      retries: 3
+    networks:
+      - core_net
+      - edge_net
+
+  flowise:
+    image: flowiseai/flowise:latest
+    container_name: bca_flowise
+    environment:
+      PORT: 3005
+      # Opcional: proteger UI de Flowise
+      FLOWISE_USERNAME: admin
+      FLOWISE_PASSWORD: change-me
+      # Database connection (usando el PostgreSQL compartido)
+      OVERRIDE_DATABASE: "true"
+      DATABASE_TYPE: postgres
+      DATABASE_HOST: postgres
+      DATABASE_PORT: 5432
+      DATABASE_USER: evo
+      DATABASE_PASSWORD: phoenix
+      DATABASE_NAME: monorepo-bca
+      DATABASE_SCHEMA: flowise
+      # Performance optimizations
+      NODE_ENV: production
+      NODE_OPTIONS: "--max-old-space-size=4096"
+      # AI model optimizations
+      LANGCHAIN_TRACING_V2: "false"
+      LANGCHAIN_ENDPOINT: ""
+      LANGCHAIN_API_KEY: ""
+      # Memory management
+      FLOWISE_MAX_REQUEST_SIZE: "50mb"
+      FLOWISE_MAX_UPLOAD_SIZE: "50mb"
+      # Security
+      FLOWISE_SECRETKEY_OVERWRITE: flowise-secret-key-2025
+      CORS_ORIGINS: "*"
+    volumes:
+      - flowise_data:/root/.flowise
+      - /tmp/flowise-uploads:/root/.flowise/uploads
+    ports:
+      - "3005:3005"
+    depends_on:
+      - postgres
+    deploy:
+      resources:
+        reservations:
+          cpus: "0.3"
+          memory: "6G"
+        limits:
+          cpus: "0.8"
+          memory: "6G"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3005/api/v1/ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    networks:
+      - core_net
+      - edge_net
+
+  frontend:
+    build:
+      context: ../..
+      dockerfile: ./deploy/stack-ip-10.3.0.243/Dockerfile.frontend
+      args:
+        VITE_API_URL: http://10.3.0.243:4800
+        VITE_API_BASE_URL: http://10.3.0.243:4800
+        VITE_DOCUMENTOS_API_URL: http://10.3.0.243:4802
+        VITE_DOCUMENTOS_WS_URL: http://10.3.0.243:4802
+        VITE_APP_TITLE: Empresa Management System
+    image: bca/frontend:latest
+    container_name: bca_frontend
+    command: ["-port","8550","-enable-health"]
+    environment:
+      SERVER_PORT: 8550
+      SERVER_ROOT: /public
+      SERVER_CORS: "true"
+      # Performance optimizations for static serving
+      GOSTATIC_ENABLE_GZIP: "true"
+      GOSTATIC_CACHE_CONTROL: "public, max-age=31536000"
+      GOSTATIC_CORS_ORIGIN: "*"
+    ports:
+      - "8550:8550"
+    depends_on:
+      - backend
+      - documentos
+    deploy:
+      resources:
+        reservations:
+          cpus: "0.1"
+          memory: "1G"
+        limits:
+          cpus: "0.5"
+          memory: "1G"
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8550/"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+    networks:
+      - edge_net
+
+
