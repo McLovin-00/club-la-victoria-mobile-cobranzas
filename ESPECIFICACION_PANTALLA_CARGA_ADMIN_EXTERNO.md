@@ -1,74 +1,184 @@
-# Especificación: Pantalla de Carga para Admin Externos
+# Especificación: Pantalla de Carga de Equipos
 
 ## 📋 Contexto
 
 **Origen**: Replicar funcionalidad del formulario "QUEBRACHO BLANCO S.R.L. - BASE DE DATOS PROSIL S.A."
 
-**Usuarios**: `admin_externo` y `operador_externo` (Fase 1 enfocada en `admin_externo`)
+**Usuarios**: Sistema multi-rol para gestión de equipos de transporte
 
-**Objetivo**: Permitir que empresas transportistas carguen su documentación de forma autónoma a través de una interfaz web moderna, sin depender de Google Forms.
+**Objetivo**: Permitir la carga y gestión de equipos (empresa transportista + chofer + camión + acoplado) con documentación completa, asignables a múltiples clientes.
 
 ---
 
-## 👥 Nuevos Roles de Usuario
+## 🏗️ Modelo de Negocio
 
-### Roles a Implementar
+```
+CLIENTES (Ej: PROSIL S.A.)
+  ↓ contratan viajes a
+GRUPO BCA / QUEBRACHO BLANCO (Dueño de la plataforma)
+  ↓ coordina equipos con
+DADORES DE CARGA (Intermediarios: Ej: Leandro Castro, o QB actuando como dador)
+  ↓ que proveen equipos de
+EMPRESAS TRANSPORTISTAS (Tienen flota + choferes)
+  ↓ conforman
+EQUIPOS = Empresa + Chofer + Camión + Acoplado
+  ↓ asignados a
+CLIENTES (múltiples clientes por equipo)
+```
+
+### Identificadores Únicos:
+```typescript
+EmpresaTransportista → CUIT (único)
+Chofer → DNI (único)
+Camion → Patente (única, normalizada)
+Acoplado → Patente (única, normalizada)
+Equipo → Combinación única de los 4
+```
+
+---
+
+## 👥 Roles de Usuario
+
+### Roles del Sistema
 
 ```typescript
 enum UserRole {
   SUPERADMIN,
   ADMIN,
-  ADMIN_INTERNO,      // ← Nuevo
-  ADMIN_EXTERNO,      // ← Nuevo (Prioridad 1)
-  OPERADOR_INTERNO,   // ← Nuevo
-  OPERADOR_EXTERNO,   // ← Nuevo
+  ADMIN_INTERNO,      // Personal Quebracho/Microsyst
+  DADOR_DE_CARGA,     // Intermediario (coordina múltiples transportistas)
+  TRANSPORTISTA,      // Empresa Transportista (gestiona su flota)
+  CHOFER,             // Conductor (administra sus datos + su equipo)
+  OPERADOR_INTERNO,   // Personal operativo interno
+  CLIENTE,            // Solo consulta equipos asignados
   USER,
 }
 ```
 
-### Matriz de Permisos
+### Matriz de Permisos Completa
 
-| Acción | ADMIN_INTERNO | ADMIN_EXTERNO | OPERADOR_INTERNO | OPERADOR_EXTERNO |
-|--------|---------------|---------------|------------------|------------------|
-| **Acceso a Microservicio Documentos** | ✅ Total | ✅ Solo su empresa | ✅ Total | ✅ Solo su empresa |
-| **Ver pantalla de carga** | ✅ | ✅ | ✅ | ✅ |
-| **Cargar documentos propios** | ✅ | ✅ | ⬜ | ⬜ |
-| **Editar documentos propios** | ✅ | ✅ | ⬜ | ⬜ |
-| **Ver estado de documentos** | ✅ Todos | ✅ Propios | ✅ Todos | ✅ Propios |
-| **Aprobar documentos** | ✅ | ❌ | ❌ | ❌ |
-| **Rechazar documentos** | ✅ | ❌ | ❌ | ❌ |
-| **Ver documentos de otras empresas** | ✅ | ❌ | ✅ Solo lectura | ❌ |
-| **Descargar documentos propios** | ✅ | ✅ | ✅ | ✅ |
-| **Eliminar documentos** | ✅ | ❌ | ❌ | ❌ |
+| Acción | ADMIN_INTERNO | DADOR_DE_CARGA | TRANSPORTISTA | CHOFER | CLIENTE |
+|--------|---------------|----------------|---------------|---------|---------|
+| **Seleccionar dador al cargar** | ✅ | ❌ | ❌ | ❌ | ❌ |
+| **Ver todos los equipos** | ✅ | ❌ | ❌ | ❌ | ❌ |
+| **Ver equipos de su dador** | ✅ | ✅ | ❌ | ❌ | ❌ |
+| **Ver equipos de su empresa** | ✅ | ✅ | ✅ | ❌ | ❌ |
+| **Ver solo su equipo** | ✅ | ✅ | ✅ | ✅ | ❌ |
+| **Ver equipos asignados a él** | ✅ | ❌ | ❌ | ❌ | ✅ |
+| **Cargar múltiples empresas transp.** | ✅ | ✅ | ❌ | ❌ | ❌ |
+| **Cargar solo su empresa** | ✅ | ✅ | ✅ | ❌ | ❌ |
+| **Agregar/editar choferes** | ✅ | ✅ | ✅ | ❌ | ❌ |
+| **Agregar/editar unidades** | ✅ | ✅ | ✅ | ❌ | ❌ |
+| **Crear equipos** | ✅ | ✅ | ✅ | ❌ | ❌ |
+| **Seleccionar clientes para equipo** | ✅ | ✅ | ✅ | ❌ | ❌ |
+| **Editar sus propios datos** | ✅ | ✅ | ✅ | ✅ | ❌ |
+| **Editar docs propios (DNI, licencia)** | ✅ | ✅ | ✅ | ✅ | ❌ |
+| **Editar datos del camión de su equipo** | ✅ | ✅ | ✅ | ✅ | ❌ |
+| **Editar docs del camión de su equipo** | ✅ | ✅ | ✅ | ✅ | ❌ |
+| **Editar datos del acoplado de su equipo** | ✅ | ✅ | ✅ | ✅ | ❌ |
+| **Editar docs del acoplado de su equipo** | ✅ | ✅ | ✅ | ✅ | ❌ |
+| **Cambiar chofer de equipo** | ✅ | ✅ | ✅ | ❌ | ❌ |
+| **Aprobar documentos** | ✅ | ❌ | ❌ | ❌ | ❌ |
+| **Rechazar documentos** | ✅ | ❌ | ❌ | ❌ | ❌ |
+
+### Reglas de Negocio
+
+1. **Un chofer solo puede estar en 1 equipo a la vez**
+2. **Un equipo puede trabajar para múltiples clientes simultáneamente**
+3. **El chofer NO puede auto-asignarse a otro equipo** (solo TRANSPORTISTA/DADOR/ADMIN)
+4. **Cada entidad se identifica por clave única** (CUIT, DNI, Patentes)
 
 ---
 
 ## 🎨 Diseño de la Pantalla de Carga
 
-### Layout General
+### Layout General según Rol
+
+#### Vista: ADMIN_INTERNO
 
 ```
-┌─────────────────────────────────────────────────────────┐
-│ 🏢 Portal de Carga - [NOMBRE EMPRESA TRANSPORTISTA]    │
-│                                        [Usuario] [Salir] │
-├─────────────────────────────────────────────────────────┤
-│                                                          │
-│  📊 Progreso General                                     │
-│  ████████░░░░░░░░░░░░░░░░░░░░░░░░░░ 23/30 campos (77%) │
-│                                                          │
-│  ┌────────────────────────────────────────────────────┐ │
-│  │  [1. Datos de la Empresa] ✅ Completo               │ │
-│  └────────────────────────────────────────────────────┘ │
-│  ┌────────────────────────────────────────────────────┐ │
-│  │  [2. Chofer] ⚠️  Falta 1 documento                  │ │
-│  └────────────────────────────────────────────────────┘ │
-│  ┌────────────────────────────────────────────────────┐ │
-│  │  [3. Unidades (Tractor + Semi)] ❌ Incompleto       │ │
-│  └────────────────────────────────────────────────────┘ │
-│                                                          │
-│  [+ Agregar Nuevo Chofer]  [+ Agregar Nueva Unidad]     │
-│                                                          │
-└─────────────────────────────────────────────────────────┘
+┌──────────────────────────────────────────────────────────┐
+│ 🚛 Gestión de Equipos                  [Usuario] [Salir] │
+├──────────────────────────────────────────────────────────┤
+│                                                           │
+│  Dador de Carga *                                        │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │ [Seleccionar dador] ▼                           │    │
+│  │  - Leandro Castro                               │    │
+│  │  - Quebracho Blanco (como dador)                │    │
+│  │  - Otros dadores...                             │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                           │
+│  Cliente(s) para quien trabajará este equipo *           │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │ [☑] PROSIL S.A.                                 │    │
+│  │ [☐] Cliente 2                                   │    │
+│  │ [☐] Cliente 3                                   │    │
+│  │ [☐] Otros...                                    │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                           │
+│  📊 Progreso: ████████░░░░░░ 23/30 campos (77%)          │
+│                                                           │
+│  ┌──────────────────────────────────────────────────┐   │
+│  │  [1. Empresa Transportista] ✅ Completo          │   │
+│  └──────────────────────────────────────────────────┘   │
+│  ┌──────────────────────────────────────────────────┐   │
+│  │  [2. Chofer] ⚠️  Falta 1 documento               │   │
+│  └──────────────────────────────────────────────────┘   │
+│  ┌──────────────────────────────────────────────────┐   │
+│  │  [3. Unidades (Tractor + Semi)] ❌ Incompleto    │   │
+│  └──────────────────────────────────────────────────┘   │
+│                                                           │
+│  [Guardar Equipo]                                         │
+│                                                           │
+└──────────────────────────────────────────────────────────┘
+```
+
+#### Vista: DADOR_DE_CARGA / TRANSPORTISTA
+
+```
+┌──────────────────────────────────────────────────────────┐
+│ 🚛 Gestión de Equipos                  [Usuario] [Salir] │
+├──────────────────────────────────────────────────────────┤
+│                                                           │
+│  Cliente(s) para quien trabajará este equipo *           │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │ [☑] PROSIL S.A.                                 │    │
+│  │ [☐] Cliente 2                                   │    │
+│  │ [☐] Cliente 3                                   │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                           │
+│  📊 Progreso: ████████░░░░░░ 23/30 campos (77%)          │
+│                                                           │
+│  [Secciones de carga...]                                  │
+│                                                           │
+└──────────────────────────────────────────────────────────┘
+```
+
+#### Vista: CHOFER (Solo Edición de su Equipo)
+
+```
+┌──────────────────────────────────────────────────────────┐
+│ 👤 Mi Equipo                           [Usuario] [Salir] │
+├──────────────────────────────────────────────────────────┤
+│                                                           │
+│  Equipo asignado:                                         │
+│  🏢 Transportes Pérez S.A.                               │
+│  🚜 Tractor: AB123CD  +  🚛 Semi: XY789ZW                │
+│  📋 Clientes: PROSIL S.A., Cliente 2                     │
+│                                                           │
+│  ┌──────────────────────────────────────────────────┐   │
+│  │  [1. Mis Datos] ✅ Completo               [Editar]│   │
+│  └──────────────────────────────────────────────────┘   │
+│  ┌──────────────────────────────────────────────────┐   │
+│  │  [2. Tractor AB123CD] ⚠️ RTO vence en 15 días    │   │
+│  │                                           [Editar]│   │
+│  └──────────────────────────────────────────────────┘   │
+│  ┌──────────────────────────────────────────────────┐   │
+│  │  [3. Semi XY789ZW] ✅ Completo            [Editar]│   │
+│  └──────────────────────────────────────────────────┘   │
+│                                                           │
+└──────────────────────────────────────────────────────────┘
 ```
 
 ### Sección 1: Datos de la Empresa (Accordion Expandible)
@@ -367,71 +477,222 @@ apps/frontend/src/features/carga-externa/
 ### Backend: Endpoints Nuevos
 
 ```typescript
-// apps/documentos/src/routes/carga-externa.routes.ts
+// apps/documentos/src/routes/equipos.routes.ts
 
-// EMPRESA
-GET    /api/docs/carga-externa/empresa           // Obtener datos empresa
-POST   /api/docs/carga-externa/empresa/documentos // Subir doc empresa
-DELETE /api/docs/carga-externa/empresa/documentos/:id // Eliminar doc
+// DADORES (solo ADMIN_INTERNO)
+GET    /api/docs/equipos/dadores                 // Listar todos los dadores
+
+// CLIENTES (para selector)
+GET    /api/docs/equipos/clientes                // Listar clientes disponibles
+
+// EMPRESA TRANSPORTISTA
+GET    /api/docs/equipos/empresas                // Listar empresas (filtradas por rol)
+POST   /api/docs/equipos/empresas                // Crear empresa transportista
+PUT    /api/docs/equipos/empresas/:id            // Actualizar empresa
+GET    /api/docs/equipos/empresas/:id            // Obtener empresa por ID
+POST   /api/docs/equipos/empresas/:id/documentos // Subir doc empresa
+DELETE /api/docs/equipos/empresas/:id/documentos/:docId // Eliminar doc
 
 // CHOFERES
-GET    /api/docs/carga-externa/choferes          // Listar choferes
-POST   /api/docs/carga-externa/choferes          // Crear chofer
-PUT    /api/docs/carga-externa/choferes/:id      // Actualizar chofer
-DELETE /api/docs/carga-externa/choferes/:id      // Eliminar chofer
-POST   /api/docs/carga-externa/choferes/:id/documentos // Subir doc chofer
-DELETE /api/docs/carga-externa/choferes/:id/documentos/:docId // Eliminar
+GET    /api/docs/equipos/choferes                // Listar choferes (filtrados por rol)
+POST   /api/docs/equipos/choferes                // Crear chofer
+PUT    /api/docs/equipos/choferes/:id            // Actualizar chofer (también CHOFER)
+GET    /api/docs/equipos/choferes/:id            // Obtener chofer por ID
+DELETE /api/docs/equipos/choferes/:id            // Eliminar chofer
+POST   /api/docs/equipos/choferes/:id/documentos // Subir doc chofer (también CHOFER)
+DELETE /api/docs/equipos/choferes/:id/documentos/:docId // Eliminar doc
 
-// UNIDADES
-GET    /api/docs/carga-externa/unidades          // Listar unidades
-POST   /api/docs/carga-externa/unidades          // Crear unidad (tractor+semi)
-PUT    /api/docs/carga-externa/unidades/:id      // Actualizar unidad
-DELETE /api/docs/carga-externa/unidades/:id      // Eliminar unidad
-POST   /api/docs/carga-externa/unidades/:id/tractor/documentos // Doc tractor
-POST   /api/docs/carga-externa/unidades/:id/semi/documentos // Doc semi
-DELETE /api/docs/carga-externa/unidades/:id/documentos/:docId // Eliminar
+// CAMIONES
+GET    /api/docs/equipos/camiones                // Listar camiones (filtrados por rol)
+POST   /api/docs/equipos/camiones                // Crear camión
+PUT    /api/docs/equipos/camiones/:id            // Actualizar camión (también CHOFER de ese equipo)
+GET    /api/docs/equipos/camiones/:id            // Obtener camión por ID
+DELETE /api/docs/equipos/camiones/:id            // Eliminar camión
+POST   /api/docs/equipos/camiones/:id/documentos // Subir doc camión (también CHOFER)
+DELETE /api/docs/equipos/camiones/:id/documentos/:docId // Eliminar doc
 
-// RESUMEN
-GET    /api/docs/carga-externa/resumen           // Estado general de carga
-GET    /api/docs/carga-externa/historial/:docId  // Historial de un documento
+// ACOPLADOS
+GET    /api/docs/equipos/acoplados               // Listar acoplados (filtrados por rol)
+POST   /api/docs/equipos/acoplados               // Crear acoplado
+PUT    /api/docs/equipos/acoplados/:id           // Actualizar acoplado (también CHOFER de ese equipo)
+GET    /api/docs/equipos/acoplados/:id           // Obtener acoplado por ID
+DELETE /api/docs/equipos/acoplados/:id           // Eliminar acoplado
+POST   /api/docs/equipos/acoplados/:id/documentos // Subir doc acoplado (también CHOFER)
+DELETE /api/docs/equipos/acoplados/:id/documentos/:docId // Eliminar doc
+
+// EQUIPOS
+GET    /api/docs/equipos                         // Listar equipos (filtrados por rol)
+POST   /api/docs/equipos                         // Crear equipo completo
+PUT    /api/docs/equipos/:id                     // Actualizar equipo
+GET    /api/docs/equipos/:id                     // Obtener equipo por ID
+DELETE /api/docs/equipos/:id                     // Eliminar equipo
+POST   /api/docs/equipos/:id/clientes            // Asignar/actualizar clientes del equipo
+GET    /api/docs/equipos/:id/clientes            // Obtener clientes del equipo
+
+// CHOFER (endpoints específicos para su equipo)
+GET    /api/docs/equipos/mi-equipo               // Obtener equipo del chofer autenticado
+PUT    /api/docs/equipos/mi-equipo/mis-datos     // Actualizar sus propios datos
+PUT    /api/docs/equipos/mi-equipo/camion        // Actualizar datos del camión
+PUT    /api/docs/equipos/mi-equipo/acoplado      // Actualizar datos del acoplado
+
+// RESUMEN Y ESTADO
+GET    /api/docs/equipos/resumen                 // Estado general de carga
+GET    /api/docs/equipos/:id/completitud         // Completitud de un equipo específico
+GET    /api/docs/equipos/documentos/:docId/historial // Historial de un documento
 ```
 
 ### Middleware de Autorización
 
 ```typescript
-// apps/documentos/src/middlewares/external-auth.middleware.ts
+// apps/documentos/src/middlewares/equipos-auth.middleware.ts
 
-export const authorizeExternalAdmin = async (
+export const resolveUserScope = async (
   req: AuthRequest,
   res: Response,
   next: NextFunction
 ) => {
   const user = req.user;
   
-  // Verificar rol
-  if (![UserRole.ADMIN_EXTERNO, UserRole.ADMIN_INTERNO, UserRole.ADMIN, UserRole.SUPERADMIN].includes(user.role)) {
-    return res.status(403).json({ 
-      message: 'No tienes permisos para acceder a esta funcionalidad' 
-    });
-  }
-  
-  // Si es admin externo, resolver su empresaTransportistaId
-  if (user.role === UserRole.ADMIN_EXTERNO) {
-    const empresaId = user.metadata?.empresaTransportistaId;
-    
-    if (!empresaId) {
-      return res.status(400).json({ 
-        message: 'Usuario externo sin empresa asignada' 
-      });
-    }
-    
-    req.empresaTransportistaId = empresaId;
-    
-    // Scope: solo puede acceder a su propia empresa
-    req.scopeFilter = { empresaTransportistaId: empresaId };
+  switch (user.role) {
+    case UserRole.ADMIN:
+    case UserRole.SUPERADMIN:
+    case UserRole.ADMIN_INTERNO:
+      // Acceso total, sin filtros
+      req.userScope = { type: 'ADMIN', filter: {} };
+      break;
+      
+    case UserRole.DADOR_DE_CARGA:
+      const dadorId = user.metadata?.dadorCargaId;
+      if (!dadorId) {
+        return res.status(400).json({ message: 'Usuario sin dador asignado' });
+      }
+      req.userScope = { 
+        type: 'DADOR', 
+        dadorCargaId: dadorId,
+        filter: { dadorCargaId: dadorId } 
+      };
+      break;
+      
+    case UserRole.TRANSPORTISTA:
+      const empresaId = user.metadata?.empresaTransportistaId;
+      if (!empresaId) {
+        return res.status(400).json({ message: 'Usuario sin empresa asignada' });
+      }
+      req.userScope = { 
+        type: 'TRANSPORTISTA', 
+        empresaTransportistaId: empresaId,
+        filter: { empresaTransportistaId: empresaId } 
+      };
+      break;
+      
+    case UserRole.CHOFER:
+      const choferId = user.metadata?.choferId;
+      const equipoId = user.metadata?.equipoId;
+      if (!choferId || !equipoId) {
+        return res.status(400).json({ message: 'Chofer sin equipo asignado' });
+      }
+      req.userScope = { 
+        type: 'CHOFER', 
+        choferId: choferId,
+        equipoId: equipoId,
+        filter: { id: equipoId } 
+      };
+      break;
+      
+    case UserRole.CLIENTE:
+      const clienteId = user.metadata?.clienteId;
+      if (!clienteId) {
+        return res.status(400).json({ message: 'Usuario sin cliente asignado' });
+      }
+      req.userScope = { 
+        type: 'CLIENTE', 
+        clienteId: clienteId,
+        filter: { 
+          clientes: { 
+            some: { clienteId: clienteId, activo: true } 
+          } 
+        } 
+      };
+      break;
+      
+    default:
+      return res.status(403).json({ message: 'Rol no autorizado' });
   }
   
   next();
+};
+
+// Middleware para verificar que el usuario puede acceder a un recurso específico
+export const canAccessResource = (resourceType: 'empresa' | 'chofer' | 'camion' | 'acoplado' | 'equipo') => {
+  return async (req: AuthRequest, res: Response, next: NextFunction) => {
+    const { userScope } = req;
+    const resourceId = Number(req.params.id);
+    
+    // Admin siempre puede
+    if (userScope.type === 'ADMIN') {
+      return next();
+    }
+    
+    // Verificar ownership según tipo de recurso
+    const resource = await prisma[resourceType].findUnique({
+      where: { id: resourceId },
+      include: resourceType === 'equipo' ? { clientes: true } : undefined,
+    });
+    
+    if (!resource) {
+      return res.status(404).json({ message: 'Recurso no encontrado' });
+    }
+    
+    // Verificar permisos según rol
+    switch (userScope.type) {
+      case 'DADOR':
+        if (resource.dadorCargaId !== userScope.dadorCargaId) {
+          return res.status(403).json({ message: 'No tienes acceso a este recurso' });
+        }
+        break;
+        
+      case 'TRANSPORTISTA':
+        if (resource.empresaTransportistaId !== userScope.empresaTransportistaId) {
+          return res.status(403).json({ message: 'No tienes acceso a este recurso' });
+        }
+        break;
+        
+      case 'CHOFER':
+        if (resourceType === 'chofer' && resource.id !== userScope.choferId) {
+          return res.status(403).json({ message: 'Solo puedes editar tus propios datos' });
+        }
+        if (resourceType === 'equipo' && resource.id !== userScope.equipoId) {
+          return res.status(403).json({ message: 'Solo puedes editar tu equipo' });
+        }
+        if (['camion', 'acoplado'].includes(resourceType)) {
+          // Verificar que el camión/acoplado pertenece a su equipo
+          const equipo = await prisma.equipo.findUnique({
+            where: { id: userScope.equipoId },
+          });
+          if (!equipo || 
+              (resourceType === 'camion' && equipo.camionId !== resourceId) ||
+              (resourceType === 'acoplado' && equipo.acoplado !== resourceId)) {
+            return res.status(403).json({ message: 'Este recurso no pertenece a tu equipo' });
+          }
+        }
+        break;
+        
+      case 'CLIENTE':
+        if (resourceType === 'equipo') {
+          const hasAccess = resource.clientes?.some(
+            (ec: any) => ec.clienteId === userScope.clienteId && ec.activo
+          );
+          if (!hasAccess) {
+            return res.status(403).json({ message: 'Este equipo no está asignado a tu empresa' });
+          }
+        } else {
+          return res.status(403).json({ message: 'Los clientes solo pueden ver equipos' });
+        }
+        break;
+    }
+    
+    next();
+  };
 };
 ```
 
@@ -440,23 +701,54 @@ export const authorizeExternalAdmin = async (
 ```prisma
 // apps/documentos/src/prisma/schema.prisma
 
-// Agregar a User
+// Actualizar User
 model User {
   id          Int      @id @default(autoincrement())
   email       String   @unique
   role        UserRole
-  metadata    Json?    // { empresaTransportistaId: number }
+  metadata    Json?    // Ver estructura según rol abajo
   // ... otros campos
 }
 
 enum UserRole {
   SUPERADMIN
   ADMIN
-  ADMIN_INTERNO
-  ADMIN_EXTERNO
-  OPERADOR_INTERNO
-  OPERADOR_EXTERNO
+  ADMIN_INTERNO      // metadata: null
+  DADOR_DE_CARGA     // metadata: { dadorCargaId: number }
+  TRANSPORTISTA      // metadata: { empresaTransportistaId: number }
+  CHOFER             // metadata: { choferId: number, equipoId: number }
+  OPERADOR_INTERNO   // metadata: null
+  CLIENTE            // metadata: { clienteId: number }
   USER
+}
+
+// Estructura metadata según rol:
+// DADOR_DE_CARGA: { dadorCargaId: 1 }
+// TRANSPORTISTA: { empresaTransportistaId: 5 }
+// CHOFER: { choferId: 10, equipoId: 3 }
+// CLIENTE: { clienteId: 2 }
+
+// Tabla para relación Equipo-Cliente (muchos a muchos)
+model EquipoCliente {
+  id                Int      @id @default(autoincrement())
+  equipoId          Int
+  clienteId         Int      // FK a DadorCarga (los clientes son dadores en el modelo actual)
+  fechaAsignacion   DateTime @default(now())
+  activo            Boolean  @default(true)
+  
+  equipo            Equipo   @relation(fields: [equipoId], references: [id], onDelete: Cascade)
+  cliente           DadorCarga @relation(fields: [clienteId], references: [id])
+  
+  @@unique([equipoId, clienteId])
+  @@index([equipoId])
+  @@index([clienteId])
+}
+
+// Actualizar modelo Equipo para incluir relación con clientes
+model Equipo {
+  // ... campos existentes
+  
+  clientes          EquipoCliente[]  // Relación con clientes
 }
 
 // Tabla para tracking de estado de carga
