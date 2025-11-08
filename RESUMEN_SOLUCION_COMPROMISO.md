@@ -52,7 +52,12 @@ CLIENTES (múltiples clientes por equipo)
 ### 3. **DADOR_DE_CARGA** (Intermediarios como Leandro Castro)
    - Coordina múltiples empresas transportistas
    - Carga equipos para su propio scope
-   - **Aprueba/rechaza documentos** cargados por transportistas/choferes
+   - **Puede cargar documentos** (nuevos o renovaciones) para cualquier entidad de su scope:
+     - ✅ Empresas transportistas que coordina
+     - ✅ Choferes de esas empresas
+     - ✅ Unidades (camiones y acoplados)
+   - **Documentos que él carga** → También pasan por aprobación (ADMIN_INTERNO puede aprobar)
+   - **Aprueba/rechaza documentos** cargados por TRANSPORTISTAS/CHOFERES
    - Ve listado de sus equipos con semáforo
    - Quebracho Blanco puede operar como dador
 
@@ -61,16 +66,22 @@ CLIENTES (múltiples clientes por equipo)
    - Carga/edita choferes de su empresa
    - Carga/edita unidades (camiones/acoplados)
    - Crea equipos con sus recursos
+   - **Puede cargar documentos** (nuevos o renovaciones) para:
+     - ✅ Su empresa (constancia ARCA, ingresos brutos, F931, recibos, boleta sindical)
+     - ✅ Sus choferes
+     - ✅ Sus camiones y acoplados
+   - **Todos los documentos cargados** → Estado `PENDIENTE_APROBACION` (🔵 azul)
+   - **Esperan aprobación** del DADOR_DE_CARGA
    - Ve listado de sus equipos con semáforo
-   - NO aprueba documentos (solo DADOR_DE_CARGA)
+   - NO aprueba documentos (solo DADOR_DE_CARGA puede aprobar)
 
 ### 5. **CHOFER** (Conductor)
    - **Puede cargar documentos** (nuevos o renovaciones) para:
      - ✅ Sus propios documentos personales (DNI, licencia, carnet salud, curso traslado, seguro vida, ART)
      - ✅ Documentos del camión de su equipo (cédula verde, RTO, póliza, certificado GNC)
      - ✅ Documentos del acoplado de su equipo (cédula verde, RTO, póliza, SENASA)
-   - **Documentos cargados** → Estado `PENDIENTE_APROBACION` (🔵 azul)
-   - **Esperan aprobación** del DADOR_DE_CARGA o TRANSPORTISTA
+   - **Todos los documentos cargados** → Estado `PENDIENTE_APROBACION` (🔵 azul)
+   - **Esperan aprobación** del DADOR_DE_CARGA
    - NO puede cambiar de equipo (solo TRANSPORTISTA/DADOR)
    - Ve solo su equipo
    - Ve documentos rechazados con motivo y comentario
@@ -219,12 +230,22 @@ CLIENTES (múltiples clientes por equipo)
 ### Flujo Completo:
 
 ```
-1. CHOFER/TRANSPORTISTA carga documento (NUEVO o RENOVACIÓN)
+1. DADOR_DE_CARGA / TRANSPORTISTA / CHOFER carga documento (NUEVO o RENOVACIÓN)
    ↓
-   Documentos que puede cargar el CHOFER:
+   Documentos que puede cargar cada rol:
+   
+   DADOR_DE_CARGA:
+   - Cualquier documento de empresas/choferes/unidades de su scope
+   
+   TRANSPORTISTA:
+   - Documentos de su empresa (ARCA, ingresos brutos, F931, recibos, boleta sindical)
+   - Documentos de sus choferes
+   - Documentos de sus camiones y acoplados
+   
+   CHOFER:
    - Sus propios: DNI, licencia, carnet salud, curso traslado, seguro vida, ART
-   - Camión: cédula verde, RTO, póliza, certificado GNC
-   - Acoplado: cédula verde, RTO, póliza, SENASA
+   - Camión de su equipo: cédula verde, RTO, póliza, certificado GNC
+   - Acoplado de su equipo: cédula verde, RTO, póliza, SENASA
    ↓
 2. Documento queda con estado: PENDIENTE_APROBACION (🔵)
    - Si es documento nuevo → 🔵 azul
@@ -233,8 +254,9 @@ CLIENTES (múltiples clientes por equipo)
 3. Equipo muestra indicador 🔵 azul en listado
    ↓
 4. DADOR_DE_CARGA ve equipos con pendientes
+   (Si el DADOR cargó el doc, ADMIN_INTERNO debe aprobar)
    ↓
-5. DADOR entra a revisar documentos:
+5. DADOR (o ADMIN_INTERNO) entra a revisar documentos:
    
    Opción A: APROBAR
    ↓
@@ -274,13 +296,15 @@ CLIENTES (múltiples clientes por equipo)
 
 ### Carga de Documentos: Nuevo vs Renovación
 
+> **Aplicable para**: DADOR_DE_CARGA, TRANSPORTISTA y CHOFER
+
 #### Documento Nuevo (Primera Carga):
 ```typescript
-// El CHOFER carga por primera vez un documento
+// Cualquier usuario autorizado carga por primera vez un documento
 POST /api/documentos/upload
 {
   tipoDocumento: 'dni',
-  choferId: 123,
+  choferId: 123,              // O empresaId, camionId, acopladoId según corresponda
   file: <archivo>,
   fechaVencimiento: '2030-01-01',
 }
@@ -288,12 +312,14 @@ POST /api/documentos/upload
 Resultado:
 - Se crea documento con estadoAprobacion: PENDIENTE_APROBACION
 - Equipo muestra indicador 🔵 azul
-- DADOR debe aprobar antes de que cuente como válido
+- Requiere aprobación antes de que cuente como válido:
+  * Si cargó CHOFER o TRANSPORTISTA → DADOR_DE_CARGA debe aprobar
+  * Si cargó DADOR_DE_CARGA → ADMIN_INTERNO debe aprobar
 ```
 
 #### Renovación (Actualización de Documento Existente):
 ```typescript
-// El CHOFER carga una nueva versión de un documento
+// Cualquier usuario autorizado carga una nueva versión de un documento
 POST /api/documentos/:id/renovar
 {
   file: <archivo_nuevo>,
@@ -307,22 +333,24 @@ Resultado:
 - Documento anterior se mantiene (historial)
 - Nuevo documento: estadoAprobacion: PENDIENTE_APROBACION
 - Equipo muestra indicador 🔵 azul
-- DADOR debe aprobar la renovación
+- Requiere aprobación:
+  * Si cargó CHOFER o TRANSPORTISTA → DADOR_DE_CARGA debe aprobar
+  * Si cargó DADOR_DE_CARGA → ADMIN_INTERNO debe aprobar
 
-// Versionado
+// Versionado (cadena de versiones)
 Document 1 (original) ← documentoAnteriorId
   └─→ Document 2 (renovación 1) ← documentoAnteriorId
         └─→ Document 3 (renovación 2)
 ```
 
-#### Flujo de Renovación Completo:
+#### Flujo de Renovación Completo (Ejemplo):
 
 ```
 1. DNI actual: Doc #100 (APROBADO 🟢, vence 15/01/2026)
    ↓
 2. Hoy: 10/11/2025 (falta 66 días para vencer)
    ↓
-3. CHOFER carga DNI renovado (vence 15/01/2031)
+3. Usuario autorizado (CHOFER/TRANSPORTISTA/DADOR) carga DNI renovado (vence 15/01/2031)
    ↓
 4. Sistema crea Doc #101:
    - estadoAprobacion: PENDIENTE_APROBACION
@@ -333,7 +361,9 @@ Document 1 (original) ← documentoAnteriorId
    - Indicador 🔵 azul (hay doc pendiente)
    - En detalle: DNI con 🔵 (Doc #101 pendiente)
    ↓
-6. DADOR revisa y APRUEBA Doc #101
+6. Aprobador revisa y APRUEBA Doc #101:
+   - Si cargó CHOFER/TRANSPORTISTA → DADOR_DE_CARGA aprueba
+   - Si cargó DADOR_DE_CARGA → ADMIN_INTERNO aprueba
    ↓
 7. Doc #101 pasa a APROBADO
    - Doc #100 queda como historial (no se elimina)
@@ -348,7 +378,37 @@ Document 1 (original) ← documentoAnteriorId
 - Campo `documentoAnterior` crea cadena de versiones
 - Se puede ver historial completo: Doc #100 → Doc #101 → Doc #102
 - Si se rechaza Doc #101, Doc #100 sigue siendo el válido
-- NO hay rollback automático, solo manual por el CHOFER recargando
+- NO hay rollback automático
+- El usuario que cargó puede volver a cargar (manual)
+
+### Matriz de Carga y Aprobación:
+
+| Rol que CARGA | ¿Puede cargar docs nuevos/renovaciones? | ¿Quién APRUEBA? | Estado inicial |
+|---------------|----------------------------------------|-----------------|----------------|
+| **ADMIN_INTERNO** | ✅ Cualquier documento | Auto-aprobado o no requiere | `APROBADO` o `APROBADO_AUTOMATICO` |
+| **DADOR_DE_CARGA** | ✅ Docs de su scope (empresas/choferes/unidades) | ADMIN_INTERNO | `PENDIENTE_APROBACION` 🔵 |
+| **TRANSPORTISTA** | ✅ Docs de su empresa, sus choferes, sus unidades | DADOR_DE_CARGA | `PENDIENTE_APROBACION` 🔵 |
+| **CHOFER** | ✅ Docs propios, de su camión, de su acoplado | DADOR_DE_CARGA | `PENDIENTE_APROBACION` 🔵 |
+| **CLIENTE** | ❌ No puede cargar | N/A | N/A |
+
+#### Reglas de Aprobación:
+
+1. **CHOFER carga** → DADOR_DE_CARGA debe aprobar
+2. **TRANSPORTISTA carga** → DADOR_DE_CARGA debe aprobar
+3. **DADOR_DE_CARGA carga** → ADMIN_INTERNO debe aprobar
+4. **ADMIN_INTERNO carga** → Auto-aprobado o no requiere aprobación
+
+#### Ejemplo de Flujo Jerárquico:
+
+```
+ADMIN_INTERNO
+    ↓ (puede aprobar)
+DADOR_DE_CARGA (carga docs)
+    ↓ (puede aprobar)
+TRANSPORTISTA (carga docs)
+    ↓ (NO puede aprobar)
+CHOFER (carga docs)
+```
 
 ### Modelo de Datos:
 
