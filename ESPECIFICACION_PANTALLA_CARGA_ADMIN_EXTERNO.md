@@ -445,6 +445,172 @@ interface SeccionEstado {
 └─────────────────────────────────────────────────┘
 ```
 
+### 6. **Vista Previa de Documentos**
+
+Todos los roles pueden ver una vista previa de los documentos cargados para verificar que los datos ingresados coincidan con el archivo.
+
+#### Componente de Vista Previa
+
+```
+┌──────────────────────────────────────────────────────────────┐
+│ Vista Previa: DNI Juan Pérez                          [❌]   │
+├──────────────────────────────────────────────────────────────┤
+│                                                               │
+│ ┌───────────────────────┬───────────────────────────────┐   │
+│ │ DATOS INGRESADOS      │ DOCUMENTO CARGADO             │   │
+│ ├───────────────────────┼───────────────────────────────┤   │
+│ │                       │                               │   │
+│ │ Tipo: DNI             │  ┌─────────────────────────┐ │   │
+│ │ Número: 12.345.678    │  │                         │ │   │
+│ │ Nombre: Juan Pérez    │  │   [Imagen del DNI]      │ │   │
+│ │ Fecha Nac: 15/03/1985 │  │                         │ │   │
+│ │ Vencimiento:          │  │   Frente y Dorso        │ │   │
+│ │   01/01/2030          │  │                         │ │   │
+│ │                       │  └─────────────────────────┘ │   │
+│ │                       │                               │   │
+│ │                       │  [🔍 Zoom +] [🔍 Zoom -]      │   │
+│ │                       │  [⬇️ Descargar] [🖨️ Imprimir] │   │
+│ │                       │                               │   │
+│ │                       │  Páginas: [◀️] 1 / 2 [▶️]      │   │
+│ │                       │                               │   │
+│ └───────────────────────┴───────────────────────────────┘   │
+│                                                               │
+│ Estado: ✅ Aprobado                                          │
+│ Subido: 05/11/2025 10:30 por Transportes Pérez              │
+│ Aprobado: 05/11/2025 14:45 por Admin Interno                │
+│                                                               │
+│ [Solo ADMIN_INTERNO puede ver:]                              │
+│ Clasificación IA:                                            │
+│ - Tipo documento: DNI ✅ (Confianza: 98%)                    │
+│ - DNI detectado: 12345678 ✅                                 │
+│ - Nombre detectado: Juan Pérez ✅                            │
+│ - Vencimiento detectado: 01/01/2030 ✅                       │
+│                                                               │
+│          [Cerrar]  [Rechazar]  [Aprobar]                     │
+│                                                               │
+└──────────────────────────────────────────────────────────────┘
+```
+
+#### Matriz de Permisos para Vista Previa
+
+| Acción | ADMIN_INTERNO | DADOR_DE_CARGA | TRANSPORTISTA | CHOFER | CLIENTE |
+|--------|---------------|----------------|---------------|---------|---------|
+| **Ver documentos de empresa propios** | ✅ | ✅ | ✅ | ❌ | ❌ |
+| **Ver documentos de chofer propio** | ✅ | ✅ | ✅ | ✅ | ❌ |
+| **Ver documentos de camión propio** | ✅ | ✅ | ✅ | ✅ | ❌ |
+| **Ver documentos de acoplado propio** | ✅ | ✅ | ✅ | ✅ | ❌ |
+| **Ver documentos de equipos asignados** | ✅ | ❌ | ❌ | ❌ | ✅ |
+| **Ver clasificación IA** | ✅ | ❌ | ❌ | ❌ | ❌ |
+| **Descargar documento** | ✅ | ✅ | ✅ | ✅ | ✅ |
+| **Imprimir documento** | ✅ | ✅ | ✅ | ✅ | ✅ |
+| **Aprobar/Rechazar desde vista previa** | ✅ | ❌ | ❌ | ❌ | ❌ |
+
+#### Tipos de Archivo Soportados
+
+```typescript
+type SupportedFileTypes = {
+  'application/pdf': {
+    extensions: ['.pdf'],
+    preview: 'pdf-viewer',  // Renderizar con PDF.js
+    maxSize: 10 * 1024 * 1024, // 10 MB
+  },
+  'image/jpeg': {
+    extensions: ['.jpg', '.jpeg'],
+    preview: 'image-viewer',
+    maxSize: 5 * 1024 * 1024, // 5 MB
+  },
+  'image/png': {
+    extensions: ['.png'],
+    preview: 'image-viewer',
+    maxSize: 5 * 1024 * 1024, // 5 MB
+  },
+  'image/webp': {
+    extensions: ['.webp'],
+    preview: 'image-viewer',
+    maxSize: 5 * 1024 * 1024, // 5 MB
+  },
+};
+```
+
+#### Funcionalidades del Visor
+
+1. **Navegación**
+   - Anterior/Siguiente página (para PDFs multipágina)
+   - Scroll vertical/horizontal
+   - Thumbnails de páginas (sidebar opcional)
+
+2. **Zoom**
+   - Zoom in/out con botones
+   - Zoom con rueda del mouse
+   - Ajustar a ancho
+   - Ajustar a alto
+   - Tamaño original (100%)
+   - Niveles: 50%, 75%, 100%, 125%, 150%, 200%
+
+3. **Acciones**
+   - Descargar original
+   - Imprimir (abre diálogo del navegador)
+   - Rotar (para imágenes mal orientadas)
+   - Pantalla completa
+
+4. **Comparación Lado a Lado**
+   - Panel izquierdo: Datos ingresados (siempre visible)
+   - Panel derecho: Documento (con scroll independiente)
+   - Resaltado de campos que coinciden/no coinciden (solo ADMIN)
+
+5. **Validación Visual**
+   - ✅ Verde: Campo coincide con documento
+   - ⚠️ Amarillo: No se pudo verificar automáticamente
+   - ❌ Rojo: Campo NO coincide con documento
+   - ⬜ Gris: Campo no verificable
+
+#### Vista Previa en Listado (Thumbnail)
+
+```
+┌────────────────────────────────────────────────────┐
+│ Documentos del Chofer: Juan Pérez                  │
+├────────────────────────────────────────────────────┤
+│                                                     │
+│ ┌─────────────┬─────────────┬─────────────────┐   │
+│ │ [Thumbnail] │ [Thumbnail] │ [Thumbnail]     │   │
+│ │    DNI      │  Licencia   │ Alta ARCA       │   │
+│ │ ✅ Aprobado │ ⚠️ Pendiente │ ✅ Aprobado     │   │
+│ │ Vence:      │ Vence:      │ -               │   │
+│ │ 01/01/2030  │ 15/06/2026  │                 │   │
+│ │ [👁️ Ver]    │ [👁️ Ver]    │ [👁️ Ver]        │   │
+│ └─────────────┴─────────────┴─────────────────┘   │
+│                                                     │
+│ ┌─────────────┬─────────────┬─────────────────┐   │
+│ │ [Thumbnail] │ [Thumbnail] │                 │   │
+│ │  Póliza ART │ Seguro Vida │                 │   │
+│ │ ✅ Aprobado │ 🔴 Vencido  │                 │   │
+│ │ Vence:      │ Venció:     │                 │   │
+│ │ 30/12/2025  │ 01/11/2025  │                 │   │
+│ │ [👁️ Ver]    │ [👁️ Ver]    │                 │   │
+│ └─────────────┴─────────────┴─────────────────┘   │
+│                                                     │
+└────────────────────────────────────────────────────┘
+```
+
+#### Vista Previa Rápida (Quick Preview)
+
+Al pasar el mouse sobre el nombre del documento o thumbnail:
+
+```
+┌────────────────────────────────┐
+│ Vista Rápida                   │
+├────────────────────────────────┤
+│ [Mini preview del documento]   │
+│                                │
+│ DNI: 12.345.678                │
+│ Estado: ✅ Aprobado            │
+│ Tamaño: 1.2 MB                 │
+│ Fecha: 05/11/2025              │
+│                                │
+│ [Clic para ver completo]       │
+└────────────────────────────────┘
+```
+
 ---
 
 ## 🏗️ Arquitectura Técnica
@@ -452,9 +618,10 @@ interface SeccionEstado {
 ### Frontend: Componentes React
 
 ```
-apps/frontend/src/features/carga-externa/
+apps/frontend/src/features/equipos/
 ├── pages/
-│   └── CargaExternaPage.tsx              // Página principal
+│   ├── GestionEquiposPage.tsx            // Página principal carga
+│   └── MiEquipoPage.tsx                  // Página para CHOFER
 ├── components/
 │   ├── SeccionEmpresa.tsx                // Acordeón datos empresa
 │   ├── SeccionChoferes.tsx               // Lista de choferes
@@ -464,14 +631,29 @@ apps/frontend/src/features/carga-externa/
 │   ├── DocumentUploader.tsx              // Componente subida archivo
 │   ├── DocumentCard.tsx                  // Card estado documento
 │   ├── ProgressIndicator.tsx             // Barra progreso
-│   └── DatePicker.tsx                    // Selector de fechas
+│   ├── DatePicker.tsx                    // Selector de fechas
+│   ├── DocumentPreview/                  // ← NUEVO: Vista previa docs
+│   │   ├── DocumentPreviewModal.tsx      // Modal principal vista previa
+│   │   ├── PDFViewer.tsx                 // Visor PDF (usa PDF.js)
+│   │   ├── ImageViewer.tsx               // Visor imágenes
+│   │   ├── ComparisonPanel.tsx           // Panel comparación datos/archivo
+│   │   ├── DocumentThumbnail.tsx         // Thumbnail de documento
+│   │   ├── QuickPreview.tsx              // Popover vista rápida
+│   │   ├── ZoomControls.tsx              // Controles de zoom
+│   │   ├── PageNavigator.tsx             // Navegación entre páginas
+│   │   └── DocumentActions.tsx           // Acciones (descargar, imprimir, etc)
+│   └── DocumentList.tsx                  // Lista docs con thumbnails
 ├── hooks/
 │   ├── useCargaEmpresa.ts               // Hook datos empresa
 │   ├── useCargaChoferes.ts              // Hook choferes
 │   ├── useCargaUnidades.ts              // Hook unidades
-│   └── useDocumentUpload.ts             // Hook subida docs
+│   ├── useDocumentUpload.ts             // Hook subida docs
+│   ├── useDocumentPreview.ts            // ← NUEVO: Hook vista previa
+│   ├── usePDFViewer.ts                  // ← NUEVO: Hook visor PDF
+│   └── useImageViewer.ts                // ← NUEVO: Hook visor imágenes
 └── types/
-    └── carga-externa.types.ts           // Types TypeScript
+    ├── equipos.types.ts                 // Types equipos
+    └── document-preview.types.ts        // ← NUEVO: Types vista previa
 ```
 
 ### Backend: Endpoints Nuevos
@@ -539,6 +721,14 @@ PUT    /api/docs/equipos/mi-equipo/acoplado      // Actualizar datos del acoplad
 GET    /api/docs/equipos/resumen                 // Estado general de carga
 GET    /api/docs/equipos/:id/completitud         // Completitud de un equipo específico
 GET    /api/docs/equipos/documentos/:docId/historial // Historial de un documento
+
+// VISTA PREVIA DE DOCUMENTOS
+GET    /api/docs/equipos/documentos/:docId/preview // Obtener URL firmada para preview
+GET    /api/docs/equipos/documentos/:docId/thumbnail // Obtener thumbnail del documento
+GET    /api/docs/equipos/documentos/:docId/metadata // Obtener metadata completa
+GET    /api/docs/equipos/documentos/:docId/download // Descargar documento original
+GET    /api/docs/equipos/documentos/:docId/pages/:pageNum // Obtener página específica (PDF)
+POST   /api/docs/equipos/documentos/:docId/rotate  // Rotar imagen (guarda nueva versión)
 ```
 
 ### Middleware de Autorización
@@ -925,6 +1115,300 @@ model DocumentHistorial {
 
 ---
 
+## 🖼️ Implementación Técnica: Vista Previa
+
+### Generación de Thumbnails
+
+```typescript
+// apps/documentos/src/services/thumbnail.service.ts
+
+import sharp from 'sharp';
+import { PDFDocument } from 'pdf-lib';
+import { fromPath } from 'pdf2pic';
+
+export class ThumbnailService {
+  // Generar thumbnail de imagen
+  async generateImageThumbnail(
+    filePath: string,
+    outputPath: string,
+    options = { width: 200, height: 200 }
+  ): Promise<string> {
+    await sharp(filePath)
+      .resize(options.width, options.height, {
+        fit: 'cover',
+        position: 'center',
+      })
+      .jpeg({ quality: 80 })
+      .toFile(outputPath);
+    
+    return outputPath;
+  }
+  
+  // Generar thumbnail de PDF (primera página)
+  async generatePDFThumbnail(
+    filePath: string,
+    outputPath: string,
+    options = { width: 200, height: 200 }
+  ): Promise<string> {
+    const converter = fromPath(filePath, {
+      density: 100,
+      saveFilename: 'thumbnail',
+      savePath: path.dirname(outputPath),
+      format: 'jpg',
+      width: options.width,
+      height: options.height,
+    });
+    
+    const result = await converter(1); // Primera página
+    return result.path;
+  }
+  
+  // Obtener número de páginas de un PDF
+  async getPDFPageCount(filePath: string): Promise<number> {
+    const dataBuffer = fs.readFileSync(filePath);
+    const pdfDoc = await PDFDocument.load(dataBuffer);
+    return pdfDoc.getPageCount();
+  }
+}
+```
+
+### URLs Firmadas para Seguridad
+
+```typescript
+// apps/documentos/src/services/signed-url.service.ts
+
+import crypto from 'crypto';
+
+export class SignedURLService {
+  private secret: string = process.env.SIGNED_URL_SECRET!;
+  private ttl: number = 3600; // 1 hora
+  
+  // Generar URL firmada
+  generateSignedURL(documentId: number, userId: number): string {
+    const expiry = Date.now() + (this.ttl * 1000);
+    const data = `${documentId}:${userId}:${expiry}`;
+    const signature = crypto
+      .createHmac('sha256', this.secret)
+      .update(data)
+      .digest('hex');
+    
+    return `/api/docs/equipos/documentos/${documentId}/view?userId=${userId}&expiry=${expiry}&signature=${signature}`;
+  }
+  
+  // Verificar URL firmada
+  verifySignedURL(
+    documentId: number,
+    userId: number,
+    expiry: number,
+    signature: string
+  ): boolean {
+    // Verificar expiración
+    if (Date.now() > expiry) {
+      return false;
+    }
+    
+    // Verificar firma
+    const data = `${documentId}:${userId}:${expiry}`;
+    const expectedSignature = crypto
+      .createHmac('sha256', this.secret)
+      .update(data)
+      .digest('hex');
+    
+    return signature === expectedSignature;
+  }
+}
+```
+
+### Servicio de Preview (Backend)
+
+```typescript
+// apps/documentos/src/services/document-preview.service.ts
+
+export class DocumentPreviewService {
+  constructor(
+    private thumbnailService: ThumbnailService,
+    private signedUrlService: SignedURLService
+  ) {}
+  
+  async getPreviewData(documentId: number, userId: number) {
+    const document = await prisma.document.findUnique({
+      where: { id: documentId },
+      include: {
+        chofer: true,
+        camion: true,
+        acoplado: true,
+        empresaTransportista: true,
+      },
+    });
+    
+    if (!document) {
+      throw new Error('Documento no encontrado');
+    }
+    
+    // Generar URL firmada
+    const viewUrl = this.signedUrlService.generateSignedURL(documentId, userId);
+    const downloadUrl = this.signedUrlService.generateSignedURL(documentId, userId);
+    
+    // Obtener metadata
+    const metadata = {
+      fileName: document.fileName,
+      fileSize: document.fileSize,
+      mimeType: document.mimeType,
+      uploadedAt: document.createdAt,
+      uploadedBy: document.uploadedBy,
+      status: document.status,
+      pageCount: document.mimeType === 'application/pdf' 
+        ? await this.thumbnailService.getPDFPageCount(document.filePath)
+        : 1,
+    };
+    
+    // Datos ingresados según tipo de documento
+    const comparisonData = this.buildComparisonData(document);
+    
+    return {
+      document: {
+        id: document.id,
+        type: document.tipoDocumento,
+        ...metadata,
+      },
+      urls: {
+        view: viewUrl,
+        download: downloadUrl,
+        thumbnail: `/api/docs/equipos/documentos/${documentId}/thumbnail`,
+      },
+      comparison: comparisonData,
+      aiClassification: document.aiClassification, // Solo para ADMIN
+    };
+  }
+  
+  private buildComparisonData(document: any) {
+    const type = document.tipoDocumento;
+    
+    switch (type) {
+      case 'DNI':
+        return {
+          fields: [
+            { label: 'Número DNI', value: document.chofer?.dni },
+            { label: 'Nombre', value: document.chofer?.nombre },
+            { label: 'Apellido', value: document.chofer?.apellido },
+            { label: 'Vencimiento', value: document.fechaVencimiento },
+          ],
+        };
+        
+      case 'LICENCIA':
+        return {
+          fields: [
+            { label: 'Número Licencia', value: document.numeroLicencia },
+            { label: 'Chofer', value: document.chofer?.nombreCompleto },
+            { label: 'Categoría', value: document.categoria },
+            { label: 'Vencimiento', value: document.fechaVencimiento },
+          ],
+        };
+        
+      case 'RTO_CAMION':
+        return {
+          fields: [
+            { label: 'Patente', value: document.camion?.patente },
+            { label: 'Empresa', value: document.empresaTransportista?.nombre },
+            { label: 'Vencimiento', value: document.fechaVencimiento },
+          ],
+        };
+        
+      // ... más tipos de documentos
+      
+      default:
+        return { fields: [] };
+    }
+  }
+}
+```
+
+### Hook React para Vista Previa
+
+```typescript
+// apps/frontend/src/features/equipos/hooks/useDocumentPreview.ts
+
+export const useDocumentPreview = (documentId: number | null) => {
+  const [previewData, setPreviewData] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
+  const [zoom, setZoom] = useState(100);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [rotation, setRotation] = useState(0);
+  
+  const loadPreview = async () => {
+    if (!documentId) return;
+    
+    setLoading(true);
+    try {
+      const response = await api.get(`/api/docs/equipos/documentos/${documentId}/preview`);
+      setPreviewData(response.data);
+    } catch (err) {
+      setError(err);
+    } finally {
+      setLoading(false);
+    }
+  };
+  
+  const zoomIn = () => setZoom(prev => Math.min(prev + 25, 200));
+  const zoomOut = () => setZoom(prev => Math.max(prev - 25, 50));
+  const resetZoom = () => setZoom(100);
+  
+  const nextPage = () => {
+    if (previewData && currentPage < previewData.document.pageCount) {
+      setCurrentPage(prev => prev + 1);
+    }
+  };
+  
+  const prevPage = () => {
+    if (currentPage > 1) {
+      setCurrentPage(prev => prev - 1);
+    }
+  };
+  
+  const rotateClockwise = () => setRotation(prev => (prev + 90) % 360);
+  const rotateCounterClockwise = () => setRotation(prev => (prev - 90 + 360) % 360);
+  
+  const download = async () => {
+    const response = await api.get(
+      `/api/docs/equipos/documentos/${documentId}/download`,
+      { responseType: 'blob' }
+    );
+    
+    const url = window.URL.createObjectURL(new Blob([response.data]));
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = previewData.document.fileName;
+    link.click();
+  };
+  
+  useEffect(() => {
+    loadPreview();
+  }, [documentId]);
+  
+  return {
+    previewData,
+    loading,
+    error,
+    zoom,
+    currentPage,
+    rotation,
+    actions: {
+      zoomIn,
+      zoomOut,
+      resetZoom,
+      nextPage,
+      prevPage,
+      rotateClockwise,
+      rotateCounterClockwise,
+      download,
+    },
+  };
+};
+```
+
+---
+
 ## 🔒 Consideraciones de Seguridad
 
 ### 1. Autenticación y Autorización
@@ -936,17 +1420,20 @@ model DocumentHistorial {
 
 ### 2. Validación de Archivos
 - ✅ Tamaño máximo: 10 MB por archivo
-- ✅ Formatos permitidos: PDF, JPG, PNG
+- ✅ Formatos permitidos: PDF, JPG, PNG, WEBP
 - ✅ Escaneo de virus (ClamAV)
 - ✅ Nombres de archivo sanitizados
 - ✅ Almacenamiento en ubicaciones seguras
+- ✅ Generación de thumbnails en proceso separado
 
 ### 3. Protección de Datos
 - ✅ Cifrado en tránsito (HTTPS)
 - ✅ Cifrado en reposo (archivos sensibles)
 - ✅ No exponer paths absolutos al frontend
-- ✅ URLs firmadas para descarga de documentos
-- ✅ TTL en URLs de descarga (1h)
+- ✅ **URLs firmadas con TTL de 1h** para vista previa
+- ✅ Verificación de permisos antes de servir archivos
+- ✅ Thumbnails cacheados con headers apropiados
+- ✅ No permitir descarga directa sin autenticación
 
 ### 4. Control de Acceso
 ```typescript
