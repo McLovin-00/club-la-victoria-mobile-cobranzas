@@ -65,14 +65,16 @@ CLIENTES (múltiples clientes por equipo)
    - NO aprueba documentos (solo DADOR_DE_CARGA)
 
 ### 5. **CHOFER** (Conductor)
-   - Solo puede editar:
-     - Sus propios datos personales y documentos (DNI, licencia, etc.)
-     - Datos del camión de su equipo
-     - Datos del acoplado de su equipo
+   - **Puede cargar documentos** (nuevos o renovaciones) para:
+     - ✅ Sus propios documentos personales (DNI, licencia, carnet salud, curso traslado, seguro vida, ART)
+     - ✅ Documentos del camión de su equipo (cédula verde, RTO, póliza, certificado GNC)
+     - ✅ Documentos del acoplado de su equipo (cédula verde, RTO, póliza, SENASA)
+   - **Documentos cargados** → Estado `PENDIENTE_APROBACION` (🔵 azul)
+   - **Esperan aprobación** del DADOR_DE_CARGA o TRANSPORTISTA
    - NO puede cambiar de equipo (solo TRANSPORTISTA/DADOR)
    - Ve solo su equipo
    - Ve documentos rechazados con motivo y comentario
-   - Puede re-cargar documentos rechazados
+   - Puede re-cargar documentos rechazados (quedan nuevamente en azul)
 
 ### 6. **OPERADOR_INTERNO**
    - Personal operativo interno
@@ -108,12 +110,12 @@ CLIENTES (múltiples clientes por equipo)
 | Cambiar chofer de equipo | ✅ | ✅ | ✅ | ❌ | ❌ |
 | **DOCUMENTOS PROPIOS** |
 | Editar sus propios datos | ✅ | ✅ | ✅ | ✅ | ❌ |
-| Editar docs propios | ✅ | ✅ | ✅ | ✅ | ❌ |
+| Cargar/actualizar docs propios | ✅ | ✅ | ✅ | ✅ | ❌ |
 | **DOCUMENTOS DEL EQUIPO DEL CHOFER** |
 | Editar datos camión equipo | ✅ | ✅ | ✅ | ✅ | ❌ |
-| Editar docs camión equipo | ✅ | ✅ | ✅ | ✅ | ❌ |
+| Cargar/actualizar docs camión | ✅ | ✅ | ✅ | ✅ | ❌ |
 | Editar datos acoplado equipo | ✅ | ✅ | ✅ | ✅ | ❌ |
-| Editar docs acoplado equipo | ✅ | ✅ | ✅ | ✅ | ❌ |
+| Cargar/actualizar docs acoplado | ✅ | ✅ | ✅ | ✅ | ❌ |
 | **APROBACIÓN** |
 | Aprobar documentos | ✅ | ❌ | ❌ | ❌ | ❌ |
 | Rechazar documentos | ✅ | ❌ | ❌ | ❌ | ❌ |
@@ -217,9 +219,16 @@ CLIENTES (múltiples clientes por equipo)
 ### Flujo Completo:
 
 ```
-1. CHOFER/TRANSPORTISTA carga documento
+1. CHOFER/TRANSPORTISTA carga documento (NUEVO o RENOVACIÓN)
+   ↓
+   Documentos que puede cargar el CHOFER:
+   - Sus propios: DNI, licencia, carnet salud, curso traslado, seguro vida, ART
+   - Camión: cédula verde, RTO, póliza, certificado GNC
+   - Acoplado: cédula verde, RTO, póliza, SENASA
    ↓
 2. Documento queda con estado: PENDIENTE_APROBACION (🔵)
+   - Si es documento nuevo → 🔵 azul
+   - Si es renovación → 🔵 azul (reemplaza al anterior)
    ↓
 3. Equipo muestra indicador 🔵 azul en listado
    ↓
@@ -262,6 +271,84 @@ CLIENTES (múltiples clientes por equipo)
 - **Notificación automática** al chofer por rechazo
 - **Aprobación masiva**: Botón "Aprobar todos los pendientes" por equipo
 - **Historial**: Tabla `DocumentHistorial` con todas las acciones
+
+### Carga de Documentos: Nuevo vs Renovación
+
+#### Documento Nuevo (Primera Carga):
+```typescript
+// El CHOFER carga por primera vez un documento
+POST /api/documentos/upload
+{
+  tipoDocumento: 'dni',
+  choferId: 123,
+  file: <archivo>,
+  fechaVencimiento: '2030-01-01',
+}
+
+Resultado:
+- Se crea documento con estadoAprobacion: PENDIENTE_APROBACION
+- Equipo muestra indicador 🔵 azul
+- DADOR debe aprobar antes de que cuente como válido
+```
+
+#### Renovación (Actualización de Documento Existente):
+```typescript
+// El CHOFER carga una nueva versión de un documento
+POST /api/documentos/:id/renovar
+{
+  file: <archivo_nuevo>,
+  fechaVencimiento: '2031-01-01',
+}
+
+Resultado:
+- Se crea NUEVO documento vinculado al anterior
+- Campo esActualizacion: true
+- Campo documentoAnteriorId: <id del documento anterior>
+- Documento anterior se mantiene (historial)
+- Nuevo documento: estadoAprobacion: PENDIENTE_APROBACION
+- Equipo muestra indicador 🔵 azul
+- DADOR debe aprobar la renovación
+
+// Versionado
+Document 1 (original) ← documentoAnteriorId
+  └─→ Document 2 (renovación 1) ← documentoAnteriorId
+        └─→ Document 3 (renovación 2)
+```
+
+#### Flujo de Renovación Completo:
+
+```
+1. DNI actual: Doc #100 (APROBADO 🟢, vence 15/01/2026)
+   ↓
+2. Hoy: 10/11/2025 (falta 66 días para vencer)
+   ↓
+3. CHOFER carga DNI renovado (vence 15/01/2031)
+   ↓
+4. Sistema crea Doc #101:
+   - estadoAprobacion: PENDIENTE_APROBACION
+   - documentoAnteriorId: 100
+   - esActualizacion: true
+   ↓
+5. Equipo muestra:
+   - Indicador 🔵 azul (hay doc pendiente)
+   - En detalle: DNI con 🔵 (Doc #101 pendiente)
+   ↓
+6. DADOR revisa y APRUEBA Doc #101
+   ↓
+7. Doc #101 pasa a APROBADO
+   - Doc #100 queda como historial (no se elimina)
+   - Ahora el DNI "activo" es Doc #101
+   - Indicador 🔵 desaparece
+   - Equipo vuelve a 🟢 verde (si todo OK)
+```
+
+### Versionado y Rollback:
+
+- **Todos los documentos históricos se mantienen**
+- Campo `documentoAnterior` crea cadena de versiones
+- Se puede ver historial completo: Doc #100 → Doc #101 → Doc #102
+- Si se rechaza Doc #101, Doc #100 sigue siendo el válido
+- NO hay rollback automático, solo manual por el CHOFER recargando
 
 ### Modelo de Datos:
 
