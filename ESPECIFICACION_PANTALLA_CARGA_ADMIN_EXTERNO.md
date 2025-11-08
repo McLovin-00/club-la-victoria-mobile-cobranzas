@@ -80,6 +80,11 @@ enum UserRole {
 | **Cambiar chofer de equipo** | ✅ | ✅ | ✅ | ❌ | ❌ |
 | **Aprobar documentos** | ✅ | ❌ | ❌ | ❌ | ❌ |
 | **Rechazar documentos** | ✅ | ❌ | ❌ | ❌ | ❌ |
+| **Ver equipos asignados (solo lectura)** | ❌ | ❌ | ❌ | ❌ | ✅ |
+| **Descargar documentos individuales** | ❌ | ❌ | ❌ | ❌ | ✅ |
+| **Descargar ZIP con filtros temporales** | ❌ | ❌ | ❌ | ❌ | ✅ |
+| **Búsqueda por patentes** | ❌ | ❌ | ❌ | ❌ | ✅ |
+| **Ver resumen de estados** | ❌ | ❌ | ❌ | ❌ | ✅ |
 
 ### Reglas de Negocio
 
@@ -87,6 +92,1081 @@ enum UserRole {
 2. **Un equipo puede trabajar para múltiples clientes simultáneamente**
 3. **El chofer NO puede auto-asignarse a otro equipo** (solo TRANSPORTISTA/DADOR/ADMIN)
 4. **Cada entidad se identifica por clave única** (CUIT, DNI, Patentes)
+5. **Los clientes tienen acceso de SOLO LECTURA a equipos asignados**
+6. **Los clientes pueden descargar documentación en ZIP con filtros temporales**
+
+---
+
+## 👁️ Portal del Cliente - Consulta de Equipos
+
+### Vista: Listado de Equipos del Cliente (Solo Lectura)
+
+```
+┌──────────────────────────────────────────────────────────────────────┐
+│ 📋 Mis Equipos - PROSIL S.A.                       [Usuario] [Salir] │
+├──────────────────────────────────────────────────────────────────────┤
+│                                                                       │
+│  [🔍 Buscar por patente...]  [📋 Cargar listado patentes] [Filtros ▼]│
+│                                                                       │
+│  ┌────────────────────────────────────────────────────────────────┐ │
+│  │ 🔍 Búsqueda por Patentes                           [Limpiar]   │ │
+│  │                                                                 │ │
+│  │ Pegue o escriba patentes (una por línea):                      │ │
+│  │ ┌─────────────────────────────────────────────────────────────┐│ │
+│  │ │ AB123CD                                                     ││ │
+│  │ │ EF456GH                                                     ││ │
+│  │ │ MN345OP                                                     ││ │
+│  │ │                                                             ││ │
+│  │ └─────────────────────────────────────────────────────────────┘│ │
+│  │                                                                 │ │
+│  │ O cargar archivo: [📎 Subir CSV/TXT]                           │ │
+│  │                                                                 │ │
+│  │ [🔍 Buscar]  [📥 Descargar ZIP] ▼                              │ │
+│  │                                                                 │ │
+│  │ Opciones de descarga:                                          │ │
+│  │  ○ Toda la documentación                                       │ │
+│  │  ○ Solo docs renovados en última semana                        │ │
+│  │  ○ Solo docs renovados en última quincena                      │ │
+│  │  ○ Solo docs renovados en último mes                           │ │
+│  │  ○ Solo docs renovados en último año                           │ │
+│  └────────────────────────────────────────────────────────────────┘ │
+│                                                                       │
+│  Mostrando 3 de 45 equipos asignados                                 │
+│                                                                       │
+│  ┌────────────────────────────────────────────────────────────────┐ │
+│  │ 🟢  Equipo #1                          [👁️ Ver Documentación] │ │
+│  │     🏢 Transportes Pérez S.A.                                  │ │
+│  │     👤 Juan Pérez (DNI: 12.345.678)                            │ │
+│  │     🚜 AB123CD + 🚛 XY789ZW                                    │ │
+│  │     ✅ Todos los documentos al día                             │ │
+│  │     [📥 Descargar Docs] [📄 Ver Historial]                     │ │
+│  └────────────────────────────────────────────────────────────────┘ │
+│                                                                       │
+│  ┌────────────────────────────────────────────────────────────────┐ │
+│  │ 🟡  Equipo #2                          [👁️ Ver Documentación] │ │
+│  │     🏢 Transportes Pérez S.A.                                  │ │
+│  │     👤 María López (DNI: 87.654.321)                           │ │
+│  │     🚜 EF456GH + 🚛 IJ012KL                                    │ │
+│  │     ⚠️  2 documentos vencen en menos de 7 días                 │ │
+│  │         • RTO Camión (vence 10/11/2025)                        │ │
+│  │         • Licencia Chofer (vence 12/11/2025)                   │ │
+│  │     [📥 Descargar Docs] [📄 Ver Historial]                     │ │
+│  └────────────────────────────────────────────────────────────────┘ │
+│                                                                       │
+│  ┌────────────────────────────────────────────────────────────────┐ │
+│  │ 🔴  Equipo #3                          [👁️ Ver Documentación] │ │
+│  │     🏢 Transportes Gómez S.R.L.                                │ │
+│  │     👤 Pedro Ruiz (DNI: 11.222.333)                            │ │
+│  │     🚜 MN345OP + 🚛 QR678ST                                    │ │
+│  │     ❌ 3 documentos vencidos - EQUIPO NO APTO                   │ │
+│  │         • Seguro de Vida Chofer (venció 01/11/2025)            │ │
+│  │         • RTO Semi (venció 28/10/2025)                         │ │
+│  │         • Póliza Camión (venció 15/10/2025)                    │ │
+│  │     [📥 Descargar Docs] [📄 Ver Historial]                     │ │
+│  └────────────────────────────────────────────────────────────────┘ │
+│                                                                       │
+│  ┌────────────────────────────────────────────────────────────────┐ │
+│  │ 📊 Resumen de Equipos                                          │ │
+│  │                                                                 │ │
+│  │  🟢 Aptos: 28 equipos (62%)                                    │ │
+│  │  🟡 Por vencer: 12 equipos (27%)                               │ │
+│  │  🔴 No aptos: 5 equipos (11%)                                  │ │
+│  │                                                                 │ │
+│  │  Total equipos asignados: 45                                   │ │
+│  └────────────────────────────────────────────────────────────────┘ │
+│                                                                       │
+│  [1] 2 3 4 5 [Siguiente >]                                           │
+│                                                                       │
+└──────────────────────────────────────────────────────────────────────┘
+```
+
+### Vista Detalle de Equipo (Cliente - Solo Lectura)
+
+Al clickear "Ver Documentación":
+
+```
+┌──────────────────────────────────────────────────────────────────┐
+│ 📋 Documentación - Equipo #2                       [❌ Cerrar]   │
+├──────────────────────────────────────────────────────────────────┤
+│                                                                   │
+│  🟡 Estado General: 2 documentos por vencer                      │
+│                                                                   │
+│  🏢 Transportes Pérez S.A.                                       │
+│  👤 María López (DNI: 87.654.321)                                │
+│  🚜 EF456GH + 🚛 IJ012KL                                         │
+│  📋 Cliente: PROSIL S.A.                                         │
+│                                                                   │
+│  ⚠️ Modo Solo Lectura - No puede editar documentos               │
+│                                                                   │
+│  ┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓  │
+│  ┃ 🏢 EMPRESA TRANSPORTISTA                               [▼] ┃  │
+│  ┣━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┫  │
+│  ┃                                                             ┃  │
+│  ┃ 🟢 Constancia ARCA             ✅ Al día (vence 30/12/26) ┃  │
+│  ┃    [👁️ Ver] [📥 Descargar]                                  ┃  │
+│  ┃                                                             ┃  │
+│  ┃ 🟢 Constancia Ingresos Brutos  ✅ Al día (vence 15/03/26) ┃  │
+│  ┃    [👁️ Ver] [📥 Descargar]                                  ┃  │
+│  ┃                                                             ┃  │
+│  ┃ 🟢 Formulario 931               ✅ Al día                   ┃  │
+│  ┃    [👁️ Ver] [📥 Descargar]                                  ┃  │
+│  ┃                                                             ┃  │
+│  ┃ 🟢 Recibos de Sueldo            ✅ Al día (actualizado)    ┃  │
+│  ┃    [👁️ Ver] [📥 Descargar]                                  ┃  │
+│  ┃                                                             ┃  │
+│  ┃ 🟢 Boleta Sindical              ✅ Al día (actualizado)    ┃  │
+│  ┃    [👁️ Ver] [📥 Descargar]                                  ┃  │
+│  ┃                                                             ┃  │
+│  ┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛  │
+│                                                                   │
+│  ┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓  │
+│  ┃ 👤 CHOFER: María López                                 [▼] ┃  │
+│  ┣━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┫  │
+│  ┃                                                             ┃  │
+│  ┃ 🟢 DNI                          ✅ Al día (vence 01/01/30) ┃  │
+│  ┃    Aprobado: 05/11/2025 por Transportes Pérez             ┃  │
+│  ┃    [👁️ Ver] [📥 Descargar]                                  ┃  │
+│  ┃                                                             ┃  │
+│  ┃ 🟡 Licencia de Conducir         ⚠️  Vence en 5 días       ┃  │
+│  ┃    (12/11/2025)                                            ┃  │
+│  ┃    Aprobado: 01/10/2025 por Transportes Pérez             ┃  │
+│  ┃    [👁️ Ver] [📥 Descargar]                                  ┃  │
+│  ┃                                                             ┃  │
+│  ┃ ... (todos los documentos)                                 ┃  │
+│  ┃                                                             ┃  │
+│  ┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛  │
+│                                                                   │
+│  [📥 Descargar Todos los Documentos] [📄 Ver Historial Completo]│
+│                                       [Cerrar]                    │
+│                                                                   │
+└──────────────────────────────────────────────────────────────────┘
+```
+
+### Modal de Descarga Masiva por Patentes
+
+```
+┌──────────────────────────────────────────────────────┐
+│ 📥 Descargar Documentación - 3 Equipos      [❌]    │
+├──────────────────────────────────────────────────────┤
+│                                                       │
+│ Equipos seleccionados:                               │
+│  • AB123CD + XY789ZW (Juan Pérez)                   │
+│  • EF456GH + IJ012KL (María López)                  │
+│  • MN345OP + QR678ST (Pedro Ruiz)                   │
+│                                                       │
+│ Opciones de descarga *                               │
+│ ┌───────────────────────────────────────────────────┐│
+│ │ ○ Toda la documentación (230 archivos, ~45 MB)   ││
+│ │ ○ Solo documentos renovados en última semana     ││
+│ │   (12 archivos, ~3 MB)                           ││
+│ │ ○ Solo documentos renovados en última quincena   ││
+│ │   (18 archivos, ~5 MB)                           ││
+│ │ ● Solo documentos renovados en último mes        ││
+│ │   (25 archivos, ~7 MB)                           ││
+│ │ ○ Solo documentos renovados en último año        ││
+│ │   (89 archivos, ~22 MB)                          ││
+│ └───────────────────────────────────────────────────┘│
+│                                                       │
+│ Estructura del ZIP:                                  │
+│ ┌───────────────────────────────────────────────────┐│
+│ │ PROSIL_SA_Documentacion_07-11-2025/              ││
+│ │ ├── Equipo_AB123CD_XY789ZW/                      ││
+│ │ │   ├── Empresa/                                 ││
+│ │ │   ├── Chofer/                                  ││
+│ │ │   ├── Tractor/                                 ││
+│ │ │   └── Semi/                                    ││
+│ │ ├── Equipo_EF456GH_IJ012KL/                      ││
+│ │ │   └── ...                                      ││
+│ │ └── Resumen.xlsx                                 ││
+│ └───────────────────────────────────────────────────┘│
+│                                                       │
+│ ☑️ Incluir resumen Excel con vencimientos            │
+│ ☑️ Incluir solo documentos aprobados                 │
+│ ☐ Incluir historial de aprobaciones                 │
+│                                                       │
+│ Tiempo estimado de generación: ~30 segundos          │
+│                                                       │
+│              [Cancelar]  [📥 Generar y Descargar]    │
+│                                                       │
+└──────────────────────────────────────────────────────┘
+```
+
+---
+
+## 🔧 Implementación Técnica del Portal del Cliente
+
+### Backend - Modelos de Datos
+
+#### Relación `EquipoCliente` (ya definida)
+
+```prisma
+// apps/backend/prisma/schema.prisma
+
+model EquipoCliente {
+  id        Int      @id @default(autoincrement())
+  equipoId  Int
+  clienteId Int
+  createdAt DateTime @default(now())
+  
+  equipo   Equipo @relation(fields: [equipoId], references: [id])
+  cliente  User   @relation("ClienteEquipos", fields: [clienteId], references: [id])
+  
+  @@unique([equipoId, clienteId])
+  @@index([clienteId])
+  @@index([equipoId])
+}
+```
+
+### Backend - Servicios
+
+#### `ClientePortalService` - Consulta de Equipos
+
+```typescript
+// apps/backend/src/services/ClientePortalService.ts
+
+import { PrismaClient } from '@prisma/client';
+import { EquipoEstadoService } from './EquipoEstadoService';
+
+export class ClientePortalService {
+  constructor(
+    private prisma: PrismaClient,
+    private equipoEstadoService: EquipoEstadoService
+  ) {}
+
+  /**
+   * Obtiene todos los equipos asignados a un cliente con su estado
+   */
+  async listarEquiposCliente(clienteId: number, patentes?: string[]) {
+    const whereClause: any = {
+      equiposClientes: {
+        some: { clienteId },
+      },
+    };
+
+    // Filtrar por patentes si se proporcionan
+    if (patentes && patentes.length > 0) {
+      const patentesNormalizadas = patentes.map(p => this.normalizarPatente(p));
+      whereClause.OR = [
+        { camion: { patente: { in: patentesNormalizadas } } },
+        { acoplado: { patente: { in: patentesNormalizadas } } },
+      ];
+    }
+
+    const equipos = await this.prisma.equipo.findMany({
+      where: whereClause,
+      include: {
+        transportista: {
+          select: {
+            id: true,
+            nombre: true,
+            cuit: true,
+          },
+        },
+        chofer: {
+          select: {
+            id: true,
+            nombre: true,
+            apellido: true,
+            dni: true,
+          },
+        },
+        camion: {
+          select: {
+            id: true,
+            patente: true,
+            marca: true,
+            modelo: true,
+          },
+        },
+        acoplado: {
+          select: {
+            id: true,
+            patente: true,
+            marca: true,
+            modelo: true,
+          },
+        },
+        documentos: {
+          where: { isDeleted: false },
+          select: {
+            id: true,
+            tipoDocumento: true,
+            fechaVencimiento: true,
+            estadoAprobacion: true,
+            createdAt: true,
+            updatedAt: true,
+          },
+        },
+      },
+    });
+
+    // Calcular estado de cada equipo
+    const equiposConEstado = await Promise.all(
+      equipos.map(async (equipo) => {
+        const estado = await this.equipoEstadoService.calcularEstado(equipo.id);
+        
+        return {
+          id: equipo.id,
+          transportista: equipo.transportista,
+          chofer: equipo.chofer,
+          camion: equipo.camion,
+          acoplado: equipo.acoplado,
+          estado: estado.estado,
+          detalleEstado: estado.detalle,
+          documentos: equipo.documentos,
+        };
+      })
+    );
+
+    // Calcular resumen
+    const resumen = this.calcularResumen(equiposConEstado);
+
+    return {
+      equipos: equiposConEstado,
+      resumen,
+      total: equiposConEstado.length,
+    };
+  }
+
+  /**
+   * Obtiene un equipo específico con todos sus documentos (solo lectura)
+   */
+  async obtenerEquipoDetalle(equipoId: number, clienteId: number) {
+    // Verificar que el cliente tiene acceso a este equipo
+    const acceso = await this.prisma.equipoCliente.findUnique({
+      where: {
+        equipoId_clienteId: {
+          equipoId,
+          clienteId,
+        },
+      },
+    });
+
+    if (!acceso) {
+      throw new Error('No tiene acceso a este equipo');
+    }
+
+    const equipo = await this.prisma.equipo.findUnique({
+      where: { id: equipoId },
+      include: {
+        transportista: true,
+        chofer: true,
+        camion: true,
+        acoplado: true,
+        documentos: {
+          where: { isDeleted: false },
+          include: {
+            aprobadoPor: {
+              select: {
+                id: true,
+                name: true,
+                email: true,
+              },
+            },
+          },
+          orderBy: { createdAt: 'desc' },
+        },
+      },
+    });
+
+    if (!equipo) {
+      throw new Error('Equipo no encontrado');
+    }
+
+    // Calcular estado de cada documento
+    const documentosConEstado = equipo.documentos.map((doc) => ({
+      ...doc,
+      estado: this.equipoEstadoService.calcularEstadoDocumento(doc),
+    }));
+
+    const estado = await this.equipoEstadoService.calcularEstado(equipoId);
+
+    return {
+      ...equipo,
+      documentos: documentosConEstado,
+      estado: estado.estado,
+      detalleEstado: estado.detalle,
+    };
+  }
+
+  /**
+   * Calcula resumen de estados de equipos
+   */
+  private calcularResumen(equipos: any[]) {
+    const resumen = {
+      aptos: 0,      // 🟢 verde
+      porVencer: 0,  // 🟡 amarillo
+      noAptos: 0,    // 🔴 rojo
+      incompletos: 0, // ⚪ gris
+      pendientes: 0, // 🔵 azul
+    };
+
+    equipos.forEach((equipo) => {
+      switch (equipo.estado) {
+        case 'verde':
+          resumen.aptos++;
+          break;
+        case 'amarillo':
+          resumen.porVencer++;
+          break;
+        case 'rojo':
+        case 'rojo_azul':
+          resumen.noAptos++;
+          break;
+        case 'gris':
+          resumen.incompletos++;
+          break;
+        case 'azul':
+          resumen.pendientes++;
+          break;
+      }
+    });
+
+    return resumen;
+  }
+
+  private normalizarPatente(patente: string): string {
+    return patente.toUpperCase().replace(/[^A-Z0-9]/g, '');
+  }
+}
+```
+
+#### `DocumentZipService` - Generación de ZIP con Documentos
+
+```typescript
+// apps/backend/src/services/DocumentZipService.ts
+
+import archiver from 'archiver';
+import { PrismaClient } from '@prisma/client';
+import { Readable } from 'stream';
+import ExcelJS from 'exceljs';
+import path from 'path';
+import fs from 'fs';
+
+export interface ZipOptions {
+  incluirTodo: boolean;
+  filtroTemporal?: 'semana' | 'quincena' | 'mes' | 'anio';
+  incluirResumenExcel: boolean;
+  soloAprobados: boolean;
+  incluirHistorial: boolean;
+}
+
+export class DocumentZipService {
+  constructor(
+    private prisma: PrismaClient,
+    private uploadDir: string // Directorio donde están los archivos
+  ) {}
+
+  /**
+   * Genera un ZIP con documentación de múltiples equipos
+   */
+  async generarZipEquipos(
+    equipoIds: number[],
+    clienteNombre: string,
+    options: ZipOptions
+  ): Promise<{ stream: Readable; filename: string; size: number }> {
+    const archive = archiver('zip', {
+      zlib: { level: 9 }, // Máxima compresión
+    });
+
+    const fecha = new Date().toISOString().split('T')[0];
+    const filename = `${this.sanitizeFilename(clienteNombre)}_Documentacion_${fecha}.zip`;
+
+    // Calcular filtro temporal
+    const fechaLimite = this.calcularFechaLimite(options.filtroTemporal);
+
+    // Obtener equipos con documentos
+    const equipos = await this.prisma.equipo.findMany({
+      where: { id: { in: equipoIds } },
+      include: {
+        transportista: true,
+        chofer: true,
+        camion: true,
+        acoplado: true,
+        documentos: {
+          where: {
+            isDeleted: false,
+            ...(options.soloAprobados && {
+              estadoAprobacion: 'APROBADO',
+            }),
+            ...(fechaLimite && {
+              updatedAt: { gte: fechaLimite },
+            }),
+          },
+          include: {
+            aprobadoPor: {
+              select: { name: true },
+            },
+          },
+        },
+      },
+    });
+
+    let totalSize = 0;
+
+    // Agregar documentos de cada equipo
+    for (const equipo of equipos) {
+      const equipoDir = `Equipo_${equipo.camion.patente}_${equipo.acoplado.patente}`;
+
+      // Agrupar documentos por categoría
+      const docsPorCategoria = this.agruparDocumentosPorCategoria(equipo.documentos);
+
+      for (const [categoria, docs] of Object.entries(docsPorCategoria)) {
+        for (const doc of docs) {
+          const filePath = path.join(this.uploadDir, doc.filePath);
+          
+          if (fs.existsSync(filePath)) {
+            const stats = fs.statSync(filePath);
+            totalSize += stats.size;
+
+            const ext = path.extname(doc.fileName);
+            const archivoNombre = `${doc.tipoDocumento}${ext}`;
+            const zipPath = `${equipoDir}/${categoria}/${archivoNombre}`;
+
+            archive.file(filePath, { name: zipPath });
+          }
+        }
+      }
+    }
+
+    // Generar resumen Excel si se solicitó
+    if (options.incluirResumenExcel) {
+      const excelBuffer = await this.generarResumenExcel(equipos);
+      archive.append(excelBuffer, { name: 'Resumen.xlsx' });
+    }
+
+    // Finalizar archivo
+    archive.finalize();
+
+    return {
+      stream: archive,
+      filename,
+      size: totalSize,
+    };
+  }
+
+  /**
+   * Agrupa documentos por categoría (Empresa, Chofer, Tractor, Semi)
+   */
+  private agruparDocumentosPorCategoria(documentos: any[]) {
+    const categorias: Record<string, any[]> = {
+      Empresa: [],
+      Chofer: [],
+      Tractor: [],
+      Semi: [],
+    };
+
+    const DOCS_EMPRESA = [
+      'constancia_arca',
+      'constancia_ingresos_brutos',
+      'formulario_931',
+      'recibos_sueldo',
+      'boleta_sindical',
+    ];
+
+    const DOCS_CHOFER = [
+      'dni',
+      'licencia_conducir',
+      'carnet_salud',
+      'curso_traslado',
+      'seguro_vida',
+      'art',
+    ];
+
+    const DOCS_TRACTOR = [
+      'cedula_verde_tractor',
+      'rto_tractor',
+      'poliza_tractor',
+      'certificado_gnc_tractor',
+    ];
+
+    const DOCS_SEMI = [
+      'cedula_verde_semi',
+      'rto_semi',
+      'poliza_semi',
+      'senasa',
+    ];
+
+    for (const doc of documentos) {
+      if (DOCS_EMPRESA.includes(doc.tipoDocumento)) {
+        categorias.Empresa.push(doc);
+      } else if (DOCS_CHOFER.includes(doc.tipoDocumento)) {
+        categorias.Chofer.push(doc);
+      } else if (DOCS_TRACTOR.includes(doc.tipoDocumento)) {
+        categorias.Tractor.push(doc);
+      } else if (DOCS_SEMI.includes(doc.tipoDocumento)) {
+        categorias.Semi.push(doc);
+      }
+    }
+
+    return categorias;
+  }
+
+  /**
+   * Genera un Excel con resumen de vencimientos
+   */
+  private async generarResumenExcel(equipos: any[]): Promise<Buffer> {
+    const workbook = new ExcelJS.Workbook();
+    const sheet = workbook.addWorksheet('Resumen de Documentación');
+
+    // Encabezados
+    sheet.columns = [
+      { header: 'Equipo', key: 'equipo', width: 25 },
+      { header: 'Transportista', key: 'transportista', width: 30 },
+      { header: 'Chofer', key: 'chofer', width: 30 },
+      { header: 'DNI Chofer', key: 'dni', width: 15 },
+      { header: 'Documento', key: 'documento', width: 30 },
+      { header: 'Fecha Vencimiento', key: 'vencimiento', width: 18 },
+      { header: 'Estado', key: 'estado', width: 15 },
+      { header: 'Aprobado Por', key: 'aprobadoPor', width: 25 },
+    ];
+
+    // Estilo del encabezado
+    sheet.getRow(1).font = { bold: true };
+    sheet.getRow(1).fill = {
+      type: 'pattern',
+      pattern: 'solid',
+      fgColor: { argb: 'FF4472C4' },
+    };
+
+    // Agregar datos
+    for (const equipo of equipos) {
+      const equipoLabel = `${equipo.camion.patente} + ${equipo.acoplado.patente}`;
+      
+      for (const doc of equipo.documentos) {
+        const row = sheet.addRow({
+          equipo: equipoLabel,
+          transportista: equipo.transportista.nombre,
+          chofer: `${equipo.chofer.nombre} ${equipo.chofer.apellido}`,
+          dni: equipo.chofer.dni,
+          documento: doc.tipoDocumento,
+          vencimiento: doc.fechaVencimiento || 'N/A',
+          estado: doc.estadoAprobacion,
+          aprobadoPor: doc.aprobadoPor?.name || 'Pendiente',
+        });
+
+        // Colorear según estado
+        if (doc.fechaVencimiento) {
+          const diasRestantes = this.calcularDiasRestantes(doc.fechaVencimiento);
+          if (diasRestantes < 0) {
+            row.getCell('vencimiento').fill = {
+              type: 'pattern',
+              pattern: 'solid',
+              fgColor: { argb: 'FFFF0000' }, // Rojo
+            };
+          } else if (diasRestantes < 7) {
+            row.getCell('vencimiento').fill = {
+              type: 'pattern',
+              pattern: 'solid',
+              fgColor: { argb: 'FFFFFF00' }, // Amarillo
+            };
+          }
+        }
+      }
+    }
+
+    const buffer = await workbook.xlsx.writeBuffer();
+    return Buffer.from(buffer);
+  }
+
+  private calcularFechaLimite(filtro?: string): Date | undefined {
+    if (!filtro) return undefined;
+
+    const ahora = new Date();
+    switch (filtro) {
+      case 'semana':
+        return new Date(ahora.getTime() - 7 * 24 * 60 * 60 * 1000);
+      case 'quincena':
+        return new Date(ahora.getTime() - 15 * 24 * 60 * 60 * 1000);
+      case 'mes':
+        return new Date(ahora.getTime() - 30 * 24 * 60 * 60 * 1000);
+      case 'anio':
+        return new Date(ahora.getTime() - 365 * 24 * 60 * 60 * 1000);
+      default:
+        return undefined;
+    }
+  }
+
+  private calcularDiasRestantes(fechaVencimiento: Date): number {
+    const ahora = new Date();
+    const vencimiento = new Date(fechaVencimiento);
+    const diff = vencimiento.getTime() - ahora.getTime();
+    return Math.ceil(diff / (1000 * 60 * 60 * 24));
+  }
+
+  private sanitizeFilename(name: string): string {
+    return name.replace(/[^a-zA-Z0-9_-]/g, '_');
+  }
+}
+```
+
+### Backend - Controladores
+
+#### `ClientePortalController`
+
+```typescript
+// apps/backend/src/controllers/ClientePortalController.ts
+
+import { Response } from 'express';
+import { AuthRequest } from '../middleware/auth';
+import { ClientePortalService } from '../services/ClientePortalService';
+import { DocumentZipService } from '../services/DocumentZipService';
+
+export class ClientePortalController {
+  constructor(
+    private clientePortalService: ClientePortalService,
+    private documentZipService: DocumentZipService
+  ) {}
+
+  /**
+   * GET /api/cliente/equipos
+   * Lista equipos asignados al cliente
+   */
+  async listarEquipos(req: AuthRequest, res: Response) {
+    try {
+      const userId = req.user!.id;
+      const patentes = req.query.patentes
+        ? (req.query.patentes as string).split(',')
+        : undefined;
+
+      const resultado = await this.clientePortalService.listarEquiposCliente(
+        userId,
+        patentes
+      );
+
+      res.json(resultado);
+    } catch (error) {
+      console.error('Error al listar equipos del cliente:', error);
+      res.status(500).json({ error: 'Error al obtener equipos' });
+    }
+  }
+
+  /**
+   * GET /api/cliente/equipos/:id
+   * Obtiene detalle de un equipo (solo lectura)
+   */
+  async obtenerEquipoDetalle(req: AuthRequest, res: Response) {
+    try {
+      const userId = req.user!.id;
+      const equipoId = parseInt(req.params.id);
+
+      const equipo = await this.clientePortalService.obtenerEquipoDetalle(
+        equipoId,
+        userId
+      );
+
+      res.json(equipo);
+    } catch (error: any) {
+      console.error('Error al obtener detalle del equipo:', error);
+      
+      if (error.message === 'No tiene acceso a este equipo') {
+        res.status(403).json({ error: error.message });
+      } else {
+        res.status(500).json({ error: 'Error al obtener equipo' });
+      }
+    }
+  }
+
+  /**
+   * POST /api/cliente/descargar-zip
+   * Genera y descarga un ZIP con documentación de equipos seleccionados
+   */
+  async descargarZip(req: AuthRequest, res: Response) {
+    try {
+      const userId = req.user!.id;
+      const { equipoIds, options } = req.body;
+
+      if (!equipoIds || equipoIds.length === 0) {
+        return res.status(400).json({ error: 'Debe seleccionar al menos un equipo' });
+      }
+
+      // Verificar que el cliente tiene acceso a todos los equipos
+      for (const equipoId of equipoIds) {
+        const acceso = await this.prisma.equipoCliente.findUnique({
+          where: {
+            equipoId_clienteId: { equipoId, clienteId: userId },
+          },
+        });
+
+        if (!acceso) {
+          return res.status(403).json({
+            error: `No tiene acceso al equipo ${equipoId}`,
+          });
+        }
+      }
+
+      // Obtener nombre del cliente
+      const cliente = await this.prisma.user.findUnique({
+        where: { id: userId },
+        select: { name: true },
+      });
+
+      // Generar ZIP
+      const { stream, filename, size } = await this.documentZipService.generarZipEquipos(
+        equipoIds,
+        cliente?.name || 'Cliente',
+        options
+      );
+
+      // Configurar headers para descarga
+      res.setHeader('Content-Type', 'application/zip');
+      res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+      res.setHeader('Content-Length', size);
+
+      // Enviar stream
+      stream.pipe(res);
+    } catch (error) {
+      console.error('Error al generar ZIP:', error);
+      res.status(500).json({ error: 'Error al generar archivo ZIP' });
+    }
+  }
+}
+```
+
+### Backend - Rutas
+
+```typescript
+// apps/backend/src/routes/clientePortal.routes.ts
+
+import { Router } from 'express';
+import { authenticate, authorize } from '../middleware/auth';
+import { ClientePortalController } from '../controllers/ClientePortalController';
+
+const router = Router();
+const controller = new ClientePortalController(/* dependencies */);
+
+// Solo acceso para rol CLIENTE
+router.use(authenticate);
+router.use(authorize(['CLIENTE']));
+
+// Listar equipos asignados
+router.get('/equipos', controller.listarEquipos.bind(controller));
+
+// Obtener detalle de equipo
+router.get('/equipos/:id', controller.obtenerEquipoDetalle.bind(controller));
+
+// Descargar ZIP con documentación
+router.post('/descargar-zip', controller.descargarZip.bind(controller));
+
+export default router;
+```
+
+### Frontend - Componentes
+
+#### `ClienteEquiposList.tsx`
+
+```typescript
+// apps/frontend/src/pages/ClienteEquiposList.tsx
+
+import React, { useState, useEffect } from 'react';
+import { Alert, Button, Card, Input, Select, Spin, Upload } from 'antd';
+import {
+  DownloadOutlined,
+  SearchOutlined,
+  EyeOutlined,
+  FileTextOutlined,
+} from '@ant-design/icons';
+
+interface Equipo {
+  id: number;
+  transportista: { nombre: string };
+  chofer: { nombre: string; apellido: string; dni: string };
+  camion: { patente: string };
+  acoplado: { patente: string };
+  estado: 'verde' | 'amarillo' | 'rojo' | 'gris' | 'azul' | 'rojo_azul';
+  detalleEstado: string;
+}
+
+export const ClienteEquiposList: React.FC = () => {
+  const [equipos, setEquipos] = useState<Equipo[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [patentes, setPatentes] = useState<string>('');
+  const [equiposSeleccionados, setEquiposSeleccionados] = useState<number[]>([]);
+  const [filtroTemporal, setFiltroTemporal] = useState<string>('mes');
+  const [resumen, setResumen] = useState<any>(null);
+
+  useEffect(() => {
+    cargarEquipos();
+  }, []);
+
+  const cargarEquipos = async (patentesArray?: string[]) => {
+    setLoading(true);
+    try {
+      const params = patentesArray ? `?patentes=${patentesArray.join(',')}` : '';
+      const response = await fetch(`/api/cliente/equipos${params}`);
+      const data = await response.json();
+      
+      setEquipos(data.equipos);
+      setResumen(data.resumen);
+    } catch (error) {
+      console.error('Error al cargar equipos:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const buscarPorPatentes = () => {
+    const patentesArray = patentes
+      .split('\n')
+      .map(p => p.trim())
+      .filter(p => p.length > 0);
+    
+    if (patentesArray.length > 0) {
+      cargarEquipos(patentesArray);
+    }
+  };
+
+  const descargarZip = async () => {
+    try {
+      const response = await fetch('/api/cliente/descargar-zip', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          equipoIds: equiposSeleccionados,
+          options: {
+            incluirTodo: filtroTemporal === 'todo',
+            filtroTemporal: filtroTemporal !== 'todo' ? filtroTemporal : undefined,
+            incluirResumenExcel: true,
+            soloAprobados: true,
+            incluirHistorial: false,
+          },
+        }),
+      });
+
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = response.headers.get('Content-Disposition')?.split('filename=')[1] || 'documentos.zip';
+      a.click();
+    } catch (error) {
+      console.error('Error al descargar ZIP:', error);
+    }
+  };
+
+  const getEstadoIcon = (estado: string) => {
+    switch (estado) {
+      case 'verde': return '🟢';
+      case 'amarillo': return '🟡';
+      case 'rojo': return '🔴';
+      case 'azul': return '🔵';
+      case 'gris': return '⚪';
+      case 'rojo_azul': return '🔴🔵';
+      default: return '⚪';
+    }
+  };
+
+  return (
+    <div className="cliente-equipos-list">
+      <h1>📋 Mis Equipos Asignados</h1>
+
+      {/* Panel de búsqueda */}
+      <Card title="🔍 Buscar por Patentes" style={{ marginBottom: 20 }}>
+        <Input.TextArea
+          rows={4}
+          placeholder="Ingrese patentes (una por línea)&#10;AB123CD&#10;EF456GH"
+          value={patentes}
+          onChange={(e) => setPatentes(e.target.value)}
+        />
+        <div style={{ marginTop: 10, display: 'flex', gap: 10 }}>
+          <Button icon={<SearchOutlined />} onClick={buscarPorPatentes}>
+            Buscar
+          </Button>
+          <Button onClick={() => { setPatentes(''); cargarEquipos(); }}>
+            Limpiar
+          </Button>
+          
+          {equiposSeleccionados.length > 0 && (
+            <>
+              <Select
+                value={filtroTemporal}
+                onChange={setFiltroTemporal}
+                style={{ width: 250 }}
+              >
+                <Select.Option value="todo">Toda la documentación</Select.Option>
+                <Select.Option value="semana">Última semana</Select.Option>
+                <Select.Option value="quincena">Última quincena</Select.Option>
+                <Select.Option value="mes">Último mes</Select.Option>
+                <Select.Option value="anio">Último año</Select.Option>
+              </Select>
+              <Button
+                type="primary"
+                icon={<DownloadOutlined />}
+                onClick={descargarZip}
+              >
+                Descargar ZIP ({equiposSeleccionados.length} equipos)
+              </Button>
+            </>
+          )}
+        </div>
+      </Card>
+
+      {/* Resumen */}
+      {resumen && (
+        <Card title="📊 Resumen de Equipos" style={{ marginBottom: 20 }}>
+          <div>🟢 Aptos: {resumen.aptos}</div>
+          <div>🟡 Por vencer: {resumen.porVencer}</div>
+          <div>🔴 No aptos: {resumen.noAptos}</div>
+          <div>⚪ Incompletos: {resumen.incompletos}</div>
+        </Card>
+      )}
+
+      {/* Lista de equipos */}
+      {loading ? (
+        <Spin />
+      ) : (
+        equipos.map((equipo) => (
+          <Card
+            key={equipo.id}
+            style={{ marginBottom: 15 }}
+            actions={[
+              <Button
+                icon={<EyeOutlined />}
+                href={`/cliente/equipos/${equipo.id}`}
+              >
+                Ver Documentación
+              </Button>,
+              <Button
+                icon={<DownloadOutlined />}
+                onClick={() => setEquiposSeleccionados([equipo.id])}
+              >
+                Descargar Docs
+              </Button>,
+            ]}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              <span style={{ fontSize: 24 }}>{getEstadoIcon(equipo.estado)}</span>
+              <div>
+                <h3>
+                  🏢 {equipo.transportista.nombre}
+                </h3>
+                <div>👤 {equipo.chofer.nombre} {equipo.chofer.apellido} (DNI: {equipo.chofer.dni})</div>
+                <div>🚜 {equipo.camion.patente} + 🚛 {equipo.acoplado.patente}</div>
+                <div>{equipo.detalleEstado}</div>
+              </div>
+            </div>
+          </Card>
+        ))
+      )}
+    </div>
+  );
+};
+```
+
+### Dependencias Adicionales
+
+```json
+// apps/backend/package.json
+{
+  "dependencies": {
+    "archiver": "^6.0.1",
+    "exceljs": "^4.4.0"
+  },
+  "devDependencies": {
+    "@types/archiver": "^6.0.2"
+  }
+}
+```
 
 ---
 
