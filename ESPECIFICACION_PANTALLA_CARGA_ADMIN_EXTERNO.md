@@ -239,20 +239,59 @@ enum UserRole {
 │  │         • y 5 más...                                           │ │
 │  └────────────────────────────────────────────────────────────────┘ │
 │                                                                       │
-│  Mostrando 4 de 12 equipos                          [1] 2 3 [Sig >] │
+│  ┌────────────────────────────────────────────────────────────────┐ │
+│  │ 🔵  Equipo #5                                    [▶ Ver detalle]│ │
+│  │     🏢 Transportes Rodríguez                                   │ │
+│  │     👤 Ana Martínez (DNI: 33.444.555)                          │ │
+│  │     🚜 ST456UV + 🚛 WX789YZ                                    │ │
+│  │     📋 Clientes: PROSIL S.A.                                   │ │
+│  │     🔵 3 documentos nuevos pendientes de aprobación            │ │
+│  │         • DNI Chofer (cargado hoy a las 09:30)                 │ │
+│  │         • RTO Camión (actualizado hoy a las 10:15)             │ │
+│  │         • Póliza Seguro Semi (actualizado hoy a las 11:00)     │ │
+│  └────────────────────────────────────────────────────────────────┘ │
+│                                                                       │
+│  ┌────────────────────────────────────────────────────────────────┐ │
+│  │ 🔴🔵  Equipo #6                                  [▶ Ver detalle]│ │
+│  │     🏢 Transportes López                                       │ │
+│  │     👤 Jorge Díaz (DNI: 22.333.444)                            │ │
+│  │     🚜 AB890CD + 🚛 EF123GH                                    │ │
+│  │     📋 Clientes: Cliente 2, Cliente 3                          │ │
+│  │     🔴 1 documento rechazado + 🔵 pendiente de recarga          │ │
+│  │         • Licencia Chofer (rechazada - foto borrosa)           │ │
+│  │     🔴 2 documentos vencidos                                    │ │
+│  │         • RTO Semi (venció 02/11/2025)                         │ │
+│  │         • Seguro Vida (venció 05/11/2025)                      │ │
+│  └────────────────────────────────────────────────────────────────┘ │
+│                                                                       │
+│  Mostrando 6 de 12 equipos                          [1] 2 3 [Sig >] │
 │                                                                       │
 └──────────────────────────────────────────────────────────────────────┘
 ```
+
+**Nota**: El indicador 🔵 (azul) aparece cuando hay documentos pendientes de aprobación. El indicador 🔴🔵 (rojo + azul) indica documentos rechazados que necesitan recarga.
 
 ### Lógica del Sistema de Semáforo
 
 ```typescript
 // Estado del equipo según documentación
 enum EquipoEstado {
-  COMPLETO_AL_DIA = 'verde',      // 🟢 Todos los docs obligatorios + ninguno vencido/por vencer
-  POR_VENCER = 'amarillo',         // 🟡 Docs obligatorios completos + alguno vence en < 7 días
-  VENCIDO = 'rojo',                // 🔴 Al menos un documento vencido
-  INCOMPLETO = 'gris',             // ⚪ Faltan documentos obligatorios
+  COMPLETO_AL_DIA = 'verde',           // 🟢 Todos los docs obligatorios + ninguno vencido/por vencer
+  POR_VENCER = 'amarillo',             // 🟡 Docs obligatorios completos + alguno vence en < 7 días
+  VENCIDO = 'rojo',                    // 🔴 Al menos un documento vencido
+  INCOMPLETO = 'gris',                 // ⚪ Faltan documentos obligatorios
+  PENDIENTE_APROBACION = 'azul',       // 🔵 Hay documentos nuevos/actualizados pendientes de aprobación
+  RECHAZADO_Y_PENDIENTE = 'rojo_azul', // 🔴🔵 Tiene docs rechazados que necesitan resubir
+}
+
+// Estado de cada documento individual
+enum DocumentoEstado {
+  NO_CARGADO = 'gris',              // ⚪ No se ha cargado aún
+  PENDIENTE_APROBACION = 'azul',    // 🔵 Cargado/actualizado, esperando aprobación del dador
+  APROBADO = 'verde',               // 🟢 Aprobado por el dador, válido
+  RECHAZADO = 'rojo_azul',          // 🔴🔵 Rechazado por el dador, necesita recargar
+  VENCIDO = 'rojo',                 // 🔴 Vencido (fecha de vencimiento pasada)
+  POR_VENCER = 'amarillo',          // 🟡 Por vencer (< 7 días)
 }
 
 interface DocumentoEstado {
@@ -442,6 +481,167 @@ Al clickear en un equipo desde el listado:
 │  ⚠️  Advertencia: 2 documentos vencen en menos de 7 días        │
 │                                                                   │
 │                                       [Cancelar]  [Guardar]       │
+│                                                                   │
+└──────────────────────────────────────────────────────────────────┘
+```
+
+### Pantalla con Documentos Pendientes de Aprobación (Vista Dador)
+
+Al clickear en un equipo con indicador 🔵:
+
+```
+┌──────────────────────────────────────────────────────────────────┐
+│ 🚛 Equipo #5 - REVISIÓN DE DOCUMENTOS            [❌ Cerrar]     │
+├──────────────────────────────────────────────────────────────────┤
+│                                                                   │
+│  Estado General: 🔵 3 documentos pendientes de aprobación        │
+│                                                                   │
+│  🏢 Transportes Rodríguez                                        │
+│  👤 Ana Martínez (DNI: 33.444.555)                               │
+│  🚜 ST456UV + 🚛 WX789YZ                                         │
+│                                                                   │
+│  ┌─────────────────────────────────────────────────────────────┐│
+│  │ 📋 DOCUMENTOS PENDIENTES DE APROBACIÓN                      ││
+│  └─────────────────────────────────────────────────────────────┘│
+│                                                                   │
+│  ┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓  │
+│  ┃ 👤 CHOFER: Ana Martínez                                [▼] ┃  │
+│  ┣━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┫  │
+│  ┃                                                             ┃  │
+│  ┃ 🟢 Alta ARCA                    ✅ Aprobado                ┃  │
+│  ┃                                                             ┃  │
+│  ┃ 🔵 DNI (frente y dorso)         🆕 NUEVO - Pendiente       ┃  │
+│  ┃    Cargado: 07/11/2025 09:30 por Chofer Ana Martínez      ┃  │
+│  ┃    Vencimiento: 15/03/2035                                 ┃  │
+│  ┃    [👁️ Ver Documento] [✅ Aprobar] [❌ Rechazar]            ┃  │
+│  ┃                                                             ┃  │
+│  ┃ 🟢 Licencia de Conducir         ✅ Aprobado                ┃  │
+│  ┃ 🟢 Póliza ART                   ✅ Aprobado                ┃  │
+│  ┃ 🟢 Seguro de Vida               ✅ Aprobado                ┃  │
+│  ┃                                                             ┃  │
+│  ┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛  │
+│                                                                   │
+│  ┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓  │
+│  ┃ 🚜 TRACTOR: ST456UV                                    [▼] ┃  │
+│  ┣━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┫  │
+│  ┃                                                             ┃  │
+│  ┃ 🟢 Título / Contrato Alquiler   ✅ Aprobado                ┃  │
+│  ┃ 🟢 Cédula                        ✅ Aprobado                ┃  │
+│  ┃                                                             ┃  │
+│  ┃ 🔵 RTO                           🔄 ACTUALIZADO - Pendiente┃  │
+│  ┃    Anterior: rto_anterior.pdf (10/05/2025)                 ┃  │
+│  ┃    Nuevo: rto_nuevo.pdf (07/11/2025 10:15)                ┃  │
+│  ┃    Vencimiento: 10/11/2026                                 ┃  │
+│  ┃    [👁️ Ver Anterior] [👁️ Ver Nuevo] [✅ Aprobar] [❌ Rechazar]┃  │
+│  ┃                                                             ┃  │
+│  ┃ 🟢 Póliza de Seguro              ✅ Aprobado                ┃  │
+│  ┃ 🟢 Certificado Libre Deuda       ✅ Aprobado                ┃  │
+│  ┃                                                             ┃  │
+│  ┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛  │
+│                                                                   │
+│  ┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓  │
+│  ┃ 🚛 SEMI: WX789YZ                                       [▼] ┃  │
+│  ┣━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┫  │
+│  ┃                                                             ┃  │
+│  ┃ 🟢 Título / Contrato Alquiler   ✅ Aprobado                ┃  │
+│  ┃ 🟢 Cédula                        ✅ Aprobado                ┃  │
+│  ┃ 🟢 RTO                           ✅ Aprobado                ┃  │
+│  ┃                                                             ┃  │
+│  ┃ 🔵 Póliza de Seguro              🔄 ACTUALIZADO - Pendiente┃  │
+│  ┃    Anterior: poliza_anterior.pdf (vence 15/12/2025)        ┃  │
+│  ┃    Nuevo: poliza_nueva.pdf (07/11/2025 11:00)             ┃  │
+│  ┃    Vencimiento: 15/12/2026                                 ┃  │
+│  ┃    [👁️ Ver Anterior] [👁️ Ver Nuevo] [✅ Aprobar] [❌ Rechazar]┃  │
+│  ┃                                                             ┃  │
+│  ┃ 🟢 Certificado Libre Deuda       ✅ Aprobado                ┃  │
+│  ┃                                                             ┃  │
+│  ┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛  │
+│                                                                   │
+│  💡 Puede aprobar/rechazar documentos individualmente o todos    │
+│     a la vez.                                                     │
+│                                                                   │
+│  [Rechazar Todos]  [Aprobar Todos Pendientes]  [Cerrar]         │
+│                                                                   │
+└──────────────────────────────────────────────────────────────────┘
+```
+
+### Modal de Rechazo de Documento
+
+Cuando el dador clickea "❌ Rechazar":
+
+```
+┌──────────────────────────────────────────────────┐
+│ Rechazar Documento                        [❌]   │
+├──────────────────────────────────────────────────┤
+│                                                   │
+│ Documento: DNI (frente y dorso)                  │
+│ Chofer: Ana Martínez                             │
+│                                                   │
+│ Motivo del rechazo *                             │
+│ ┌───────────────────────────────────────────────┐│
+│ │ [Seleccione un motivo] ▼                      ││
+│ │  - Foto borrosa o ilegible                    ││
+│ │  - Documento incompleto                       ││
+│ │  - Datos no coinciden                         ││
+│ │  - Documento vencido                          ││
+│ │  - Formato de archivo incorrecto              ││
+│ │  - Otro (especificar)                         ││
+│ └───────────────────────────────────────────────┘│
+│                                                   │
+│ Comentarios adicionales (opcional)               │
+│ ┌───────────────────────────────────────────────┐│
+│ │ Por favor, vuelva a subir el documento con   ││
+│ │ mejor iluminación. La foto del dorso está    ││
+│ │ muy oscura.                                   ││
+│ │                                               ││
+│ └───────────────────────────────────────────────┘│
+│                                                   │
+│ ☑️ Notificar al chofer por email                 │
+│ ☑️ Notificar al chofer por WhatsApp (si está     │
+│    configurado)                                   │
+│                                                   │
+│              [Cancelar]  [Rechazar Documento]     │
+│                                                   │
+└──────────────────────────────────────────────────┘
+```
+
+### Pantalla con Documento Rechazado (Vista Chofer)
+
+```
+┌──────────────────────────────────────────────────────────────────┐
+│ 👤 Mi Equipo                           [Usuario] [Salir]         │
+├──────────────────────────────────────────────────────────────────┤
+│                                                                   │
+│  Equipo asignado:                                                 │
+│  🏢 Transportes Rodríguez                                        │
+│  🚜 ST456UV + 🚛 WX789YZ                                         │
+│                                                                   │
+│  Estado: 🔴🔵 1 documento rechazado que necesita recarga          │
+│                                                                   │
+│  ┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓  │
+│  ┃ 👤 MIS DATOS                                            [▼] ┃  │
+│  ┣━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┫  │
+│  ┃                                                             ┃  │
+│  ┃ ┌─────────────────────────────────────────────────────────┐┃  │
+│  ┃ │ 🔴🔵 DNI (frente y dorso) - RECHAZADO                   │┃  │
+│  ┃ │                                                          │┃  │
+│  ┃ │ ❌ Rechazado por: Transportes Rodríguez                 │┃  │
+│  ┃ │    Fecha: 07/11/2025 14:30                              │┃  │
+│  ┃ │                                                          │┃  │
+│  ┃ │ Motivo: Foto borrosa o ilegible                         │┃  │
+│  ┃ │ Comentario: "Por favor, vuelva a subir el documento    │┃  │
+│  ┃ │ con mejor iluminación. La foto del dorso está muy      │┃  │
+│  ┃ │ oscura."                                                │┃  │
+│  ┃ │                                                          │┃  │
+│  ┃ │ [👁️ Ver Documento Rechazado] [📎 Subir Nuevo Documento]│┃  │
+│  ┃ └─────────────────────────────────────────────────────────┘┃  │
+│  ┃                                                             ┃  │
+│  ┃ 🟢 Licencia de Conducir         ✅ Aprobado                ┃  │
+│  ┃ 🟢 Alta ARCA                    ✅ Aprobado                ┃  │
+│  ┃ 🟢 Póliza ART                   ✅ Aprobado                ┃  │
+│  ┃ 🟢 Seguro de Vida               ✅ Aprobado                ┃  │
+│  ┃                                                             ┃  │
+│  ┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛  │
 │                                                                   │
 └──────────────────────────────────────────────────────────────────┘
 ```
@@ -1369,6 +1569,14 @@ GET    /api/docs/equipos/documentos/:docId/metadata // Obtener metadata completa
 GET    /api/docs/equipos/documentos/:docId/download // Descargar documento original
 GET    /api/docs/equipos/documentos/:docId/pages/:pageNum // Obtener página específica (PDF)
 POST   /api/docs/equipos/documentos/:docId/rotate  // Rotar imagen (guarda nueva versión)
+
+// APROBACIÓN Y RECHAZO DE DOCUMENTOS
+GET    /api/docs/equipos/:id/documentos-pendientes // Listar docs pendientes de aprobación
+POST   /api/docs/equipos/documentos/:docId/aprobar // Aprobar un documento
+POST   /api/docs/equipos/documentos/:docId/rechazar // Rechazar un documento
+POST   /api/docs/equipos/:id/aprobar-todos        // Aprobar todos los docs pendientes
+GET    /api/docs/equipos/documentos/:docId/historial-aprobacion // Historial de aprobaciones
+GET    /api/docs/equipos/listado-con-pendientes   // Listado de equipos con indicadores azules
 ```
 
 ### Middleware de Autorización
@@ -1597,19 +1805,53 @@ model CargaExternaEstado {
   @@index([empresaTransportistaId])
 }
 
+// Actualizar modelo Document para incluir estado de aprobación
+model Document {
+  // ... campos existentes
+  
+  estadoAprobacion    EstadoAprobacion @default(PENDIENTE_APROBACION)
+  aprobadoPorId       Int?
+  aprobadoPor         User?            @relation("AprobadoPor", fields: [aprobadoPorId], references: [id])
+  fechaAprobacion     DateTime?
+  rechazadoPorId      Int?
+  rechazadoPor        User?            @relation("RechazadoPor", fields: [rechazadoPorId], references: [id])
+  fechaRechazo        DateTime?
+  motivoRechazo       String?
+  comentarioRechazo   String?
+  notificarChofer     Boolean          @default(true)
+  
+  // Tracking de cambios
+  esActualizacion     Boolean          @default(false)
+  documentoAnteriorId Int?
+  documentoAnterior   Document?        @relation("VersionAnterior", fields: [documentoAnteriorId], references: [id])
+  versiones           Document[]       @relation("VersionAnterior")
+  
+  historial           DocumentHistorial[]
+}
+
+enum EstadoAprobacion {
+  PENDIENTE_APROBACION  // Recién cargado, esperando revisión del dador
+  APROBADO              // Aprobado por el dador, documento válido
+  RECHAZADO             // Rechazado por el dador, necesita recarga
+  APROBADO_AUTOMATICO   // Aprobado automáticamente (ej: por ADMIN_INTERNO)
+}
+
 // Tabla para historial de documentos
 model DocumentHistorial {
-  id         Int      @id @default(autoincrement())
-  documentId Int
-  accion     String   // 'subido' | 'aprobado' | 'rechazado' | 'reemplazado' | 'eliminado'
-  userId     Int
-  motivo     String?  // Razón de rechazo
-  createdAt  DateTime @default(now())
+  id                Int      @id @default(autoincrement())
+  documentId        Int
+  accion            String   // 'subido' | 'aprobado' | 'rechazado' | 'reemplazado' | 'actualizado'
+  userId            Int
+  motivoRechazo     String?  // Razón de rechazo
+  comentarioRechazo String?  // Comentario adicional del rechazo
+  metadata          Json?    // Información adicional
+  createdAt         DateTime @default(now())
   
   document   Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
   user       User     @relation(fields: [userId], references: [id])
   
   @@index([documentId])
+  @@index([documentId, createdAt])
 }
 ```
 
@@ -1752,6 +1994,530 @@ model DocumentHistorial {
 | **TOTAL** | **14-18 días** | |
 
 **Recursos**: 1 desarrollador full-stack
+
+---
+
+## ✅ Implementación Técnica: Workflow de Aprobación
+
+### Servicio de Aprobación de Documentos
+
+```typescript
+// apps/documentos/src/services/documento-aprobacion.service.ts
+
+export class DocumentoAprobacionService {
+  
+  // Aprobar un documento
+  async aprobarDocumento(
+    documentoId: number, 
+    userId: number
+  ): Promise<AprobacionResult> {
+    const documento = await prisma.document.findUnique({
+      where: { id: documentoId },
+      include: {
+        chofer: true,
+        camion: true,
+        acoplado: true,
+      },
+    });
+    
+    if (!documento) {
+      throw new Error('Documento no encontrado');
+    }
+    
+    // Actualizar estado a APROBADO
+    const updated = await prisma.document.update({
+      where: { id: documentoId },
+      data: {
+        estadoAprobacion: 'APROBADO',
+        aprobadoPorId: userId,
+        fechaAprobacion: new Date(),
+        motivoRechazo: null,      // Limpiar rechazo anterior si existía
+        comentarioRechazo: null,
+        rechazadoPorId: null,
+        fechaRechazo: null,
+      },
+    });
+    
+    // Registrar en historial
+    await prisma.documentHistorial.create({
+      data: {
+        documentId: documentoId,
+        userId: userId,
+        accion: 'aprobado',
+      },
+    });
+    
+    return {
+      success: true,
+      message: 'Documento aprobado exitosamente',
+      documento: updated,
+    };
+  }
+  
+  // Rechazar un documento
+  async rechazarDocumento(
+    documentoId: number,
+    userId: number,
+    motivo: string,
+    comentario?: string,
+    notificarChofer: boolean = true
+  ): Promise<RechazoResult> {
+    const documento = await prisma.document.findUnique({
+      where: { id: documentoId },
+      include: {
+        chofer: {
+          include: { user: true }, // Para obtener email/teléfono del chofer
+        },
+        camion: true,
+        acoplado: true,
+        empresaTransportista: true,
+      },
+    });
+    
+    if (!documento) {
+      throw new Error('Documento no encontrado');
+    }
+    
+    // Actualizar estado a RECHAZADO
+    const updated = await prisma.document.update({
+      where: { id: documentoId },
+      data: {
+        estadoAprobacion: 'RECHAZADO',
+        rechazadoPorId: userId,
+        fechaRechazo: new Date(),
+        motivoRechazo: motivo,
+        comentarioRechazo: comentario,
+        notificarChofer: notificarChofer,
+      },
+    });
+    
+    // Registrar en historial
+    await prisma.documentHistorial.create({
+      data: {
+        documentId: documentoId,
+        userId: userId,
+        accion: 'rechazado',
+        motivoRechazo: motivo,
+        comentarioRechazo: comentario,
+      },
+    });
+    
+    // Notificar al chofer si está habilitado
+    if (notificarChofer && documento.chofer?.user) {
+      await this.notificationService.notificarRechazo({
+        chofer: documento.chofer,
+        documento: documento,
+        motivo: motivo,
+        comentario: comentario,
+        rechazadoPor: await prisma.user.findUnique({ where: { id: userId } }),
+      });
+    }
+    
+    return {
+      success: true,
+      message: 'Documento rechazado',
+      documento: updated,
+      notificado: notificarChofer,
+    };
+  }
+  
+  // Aprobar todos los documentos pendientes de un equipo
+  async aprobarTodosPendientes(
+    equipoId: number,
+    userId: number
+  ): Promise<AprobacionMasivaResult> {
+    const equipo = await prisma.equipo.findUnique({
+      where: { id: equipoId },
+      include: {
+        empresaTransportista: { include: { documentos: true } },
+        chofer: { include: { documentos: true } },
+        camion: { include: { documentos: true } },
+        acoplado: { include: { documentos: true } },
+      },
+    });
+    
+    if (!equipo) {
+      throw new Error('Equipo no encontrado');
+    }
+    
+    // Obtener todos los documentos pendientes
+    const todosDocs = [
+      ...equipo.empresaTransportista.documentos,
+      ...equipo.chofer.documentos,
+      ...equipo.camion.documentos,
+      ...equipo.acoplado.documentos,
+    ];
+    
+    const pendientes = todosDocs.filter(
+      d => d.estadoAprobacion === 'PENDIENTE_APROBACION'
+    );
+    
+    // Aprobar todos
+    const resultados = await Promise.all(
+      pendientes.map(doc => this.aprobarDocumento(doc.id, userId))
+    );
+    
+    return {
+      success: true,
+      message: `${pendientes.length} documentos aprobados`,
+      cantidadAprobada: pendientes.length,
+      documentos: resultados.map(r => r.documento),
+    };
+  }
+  
+  // Listar documentos pendientes de un equipo
+  async listarDocumentosPendientes(equipoId: number) {
+    const equipo = await prisma.equipo.findUnique({
+      where: { id: equipoId },
+      include: {
+        empresaTransportista: {
+          include: {
+            documentos: {
+              where: {
+                estadoAprobacion: {
+                  in: ['PENDIENTE_APROBACION', 'RECHAZADO'],
+                },
+              },
+              orderBy: { createdAt: 'desc' },
+            },
+          },
+        },
+        chofer: {
+          include: {
+            documentos: {
+              where: {
+                estadoAprobacion: {
+                  in: ['PENDIENTE_APROBACION', 'RECHAZADO'],
+                },
+              },
+              orderBy: { createdAt: 'desc' },
+            },
+          },
+        },
+        camion: {
+          include: {
+            documentos: {
+              where: {
+                estadoAprobacion: {
+                  in: ['PENDIENTE_APROBACION', 'RECHAZADO'],
+                },
+              },
+              orderBy: { createdAt: 'desc' },
+            },
+          },
+        },
+        acoplado: {
+          include: {
+            documentos: {
+              where: {
+                estadoAprobacion: {
+                  in: ['PENDIENTE_APROBACION', 'RECHAZADO'],
+                },
+              },
+              orderBy: { createdAt: 'desc' },
+            },
+          },
+        },
+      },
+    });
+    
+    if (!equipo) {
+      throw new Error('Equipo no encontrado');
+    }
+    
+    return {
+      empresa: equipo.empresaTransportista.documentos,
+      chofer: equipo.chofer.documentos,
+      camion: equipo.camion.documentos,
+      acoplado: equipo.acoplado.documentos,
+    };
+  }
+  
+  // Obtener historial de aprobaciones/rechazos de un documento
+  async obtenerHistorialAprobacion(documentoId: number) {
+    return await prisma.documentHistorial.findMany({
+      where: {
+        documentId: documentoId,
+        accion: {
+          in: ['aprobado', 'rechazado', 'actualizado'],
+        },
+      },
+      include: {
+        user: {
+          select: {
+            id: true,
+            email: true,
+            nombre: true,
+            role: true,
+          },
+        },
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+  }
+}
+```
+
+### Controller de Aprobación
+
+```typescript
+// apps/documentos/src/controllers/aprobacion.controller.ts
+
+export class AprobacionController {
+  
+  // POST /api/docs/equipos/documentos/:docId/aprobar
+  async aprobarDocumento(req: AuthRequest, res: Response) {
+    const documentoId = Number(req.params.docId);
+    const userId = req.user!.id;
+    
+    try {
+      // Verificar permisos (solo DADOR_DE_CARGA, TRANSPORTISTA, ADMIN_INTERNO)
+      await this.verificarPermisoAprobacion(req, documentoId);
+      
+      const resultado = await documentoAprobacionService.aprobarDocumento(
+        documentoId,
+        userId
+      );
+      
+      return res.json(resultado);
+    } catch (error: any) {
+      return res.status(400).json({
+        success: false,
+        message: error.message,
+      });
+    }
+  }
+  
+  // POST /api/docs/equipos/documentos/:docId/rechazar
+  async rechazarDocumento(req: AuthRequest, res: Response) {
+    const documentoId = Number(req.params.docId);
+    const userId = req.user!.id;
+    const { motivo, comentario, notificarChofer = true } = req.body;
+    
+    if (!motivo) {
+      return res.status(400).json({
+        success: false,
+        message: 'El motivo del rechazo es obligatorio',
+      });
+    }
+    
+    try {
+      // Verificar permisos
+      await this.verificarPermisoAprobacion(req, documentoId);
+      
+      const resultado = await documentoAprobacionService.rechazarDocumento(
+        documentoId,
+        userId,
+        motivo,
+        comentario,
+        notificarChofer
+      );
+      
+      return res.json(resultado);
+    } catch (error: any) {
+      return res.status(400).json({
+        success: false,
+        message: error.message,
+      });
+    }
+  }
+  
+  // POST /api/docs/equipos/:id/aprobar-todos
+  async aprobarTodosPendientes(req: AuthRequest, res: Response) {
+    const equipoId = Number(req.params.id);
+    const userId = req.user!.id;
+    
+    try {
+      // Verificar permisos sobre el equipo
+      await this.verificarPermisoSobreEquipo(req, equipoId);
+      
+      const resultado = await documentoAprobacionService.aprobarTodosPendientes(
+        equipoId,
+        userId
+      );
+      
+      return res.json(resultado);
+    } catch (error: any) {
+      return res.status(400).json({
+        success: false,
+        message: error.message,
+      });
+    }
+  }
+  
+  // GET /api/docs/equipos/:id/documentos-pendientes
+  async listarDocumentosPendientes(req: AuthRequest, res: Response) {
+    const equipoId = Number(req.params.id);
+    
+    try {
+      // Verificar permisos
+      await this.verificarPermisoSobreEquipo(req, equipoId);
+      
+      const documentos = await documentoAprobacionService.listarDocumentosPendientes(
+        equipoId
+      );
+      
+      return res.json({
+        success: true,
+        data: documentos,
+      });
+    } catch (error: any) {
+      return res.status(400).json({
+        success: false,
+        message: error.message,
+      });
+    }
+  }
+  
+  // GET /api/docs/equipos/listado-con-pendientes
+  async listarEquiposConPendientes(req: AuthRequest, res: Response) {
+    const { userScope } = req;
+    
+    // Aplicar filtros según rol
+    const whereClause = this.buildWhereClause(userScope);
+    
+    const equipos = await prisma.equipo.findMany({
+      where: whereClause,
+      include: {
+        empresaTransportista: {
+          include: {
+            documentos: {
+              where: {
+                estadoAprobacion: {
+                  in: ['PENDIENTE_APROBACION', 'RECHAZADO'],
+                },
+              },
+            },
+          },
+        },
+        chofer: {
+          include: {
+            documentos: {
+              where: {
+                estadoAprobacion: {
+                  in: ['PENDIENTE_APROBACION', 'RECHAZADO'],
+                },
+              },
+            },
+          },
+        },
+        camion: {
+          include: {
+            documentos: {
+              where: {
+                estadoAprobacion: {
+                  in: ['PENDIENTE_APROBACION', 'RECHAZADO'],
+                },
+              },
+            },
+          },
+        },
+        acoplado: {
+          include: {
+            documentos: {
+              where: {
+                estadoAprobacion: {
+                  in: ['PENDIENTE_APROBACION', 'RECHAZADO'],
+                },
+              },
+            },
+          },
+        },
+        clientes: {
+          include: {
+            cliente: true,
+          },
+        },
+      },
+    });
+    
+    // Calcular indicadores azules
+    const equiposConIndicadores = equipos.map(equipo => {
+      const todosDocs = [
+        ...equipo.empresaTransportista.documentos,
+        ...equipo.chofer.documentos,
+        ...equipo.camion.documentos,
+        ...equipo.acoplado.documentos,
+      ];
+      
+      const pendientes = todosDocs.filter(
+        d => d.estadoAprobacion === 'PENDIENTE_APROBACION'
+      );
+      
+      const rechazados = todosDocs.filter(
+        d => d.estadoAprobacion === 'RECHAZADO'
+      );
+      
+      return {
+        ...equipo,
+        tienePendientes: pendientes.length > 0,
+        tieneRechazados: rechazados.length > 0,
+        cantidadPendientes: pendientes.length,
+        cantidadRechazados: rechazados.length,
+        documentosPendientes: pendientes,
+        documentosRechazados: rechazados,
+      };
+    });
+    
+    return res.json({
+      success: true,
+      data: equiposConIndicadores,
+    });
+  }
+  
+  private async verificarPermisoAprobacion(req: AuthRequest, documentoId: number) {
+    const { userScope } = req;
+    
+    // ADMIN_INTERNO siempre puede
+    if (userScope.type === 'ADMIN') {
+      return true;
+    }
+    
+    // Obtener el documento y verificar ownership
+    const documento = await prisma.document.findUnique({
+      where: { id: documentoId },
+      include: {
+        empresaTransportista: true,
+        chofer: true,
+        camion: { include: { equipo: true } },
+        acoplado: { include: { equipo: true } },
+      },
+    });
+    
+    if (!documento) {
+      throw new Error('Documento no encontrado');
+    }
+    
+    // DADOR_DE_CARGA o TRANSPORTISTA deben ser dueños
+    if (userScope.type === 'DADOR') {
+      const dadorCargaId = documento.empresaTransportista?.dadorCargaId ||
+                           documento.chofer?.dadorCargaId ||
+                           documento.camion?.equipo?.dadorCargaId ||
+                           documento.acoplado?.equipo?.dadorCargaId;
+      
+      if (dadorCargaId !== userScope.dadorCargaId) {
+        throw new Error('No tienes permisos para aprobar este documento');
+      }
+    }
+    
+    if (userScope.type === 'TRANSPORTISTA') {
+      const empresaId = documento.empresaTransportista?.id ||
+                        documento.chofer?.empresaTransportistaId;
+      
+      if (empresaId !== userScope.empresaTransportistaId) {
+        throw new Error('No tienes permisos para aprobar este documento');
+      }
+    }
+    
+    // CHOFER NO puede aprobar (solo carga/actualiza)
+    if (userScope.type === 'CHOFER') {
+      throw new Error('Los choferes no pueden aprobar documentos');
+    }
+    
+    return true;
+  }
+}
+```
 
 ---
 
