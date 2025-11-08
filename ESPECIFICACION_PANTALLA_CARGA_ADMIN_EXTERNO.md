@@ -181,6 +181,646 @@ enum UserRole {
 └──────────────────────────────────────────────────────────┘
 ```
 
+---
+
+## 📋 Listado de Equipos con Sistema de Semáforo
+
+### Vista: Listado Principal de Equipos
+
+```
+┌──────────────────────────────────────────────────────────────────────┐
+│ 🚛 Mis Equipos                                  [Usuario] [Salir]    │
+├──────────────────────────────────────────────────────────────────────┤
+│                                                                       │
+│  [🔍 Buscar...] [Filtros ▼] [+ Nuevo Equipo]                        │
+│                                                                       │
+│  ┌────────────────────────────────────────────────────────────────┐ │
+│  │ 🟢  Equipo #1                                    [▶ Ver detalle]│ │
+│  │     🏢 Transportes Pérez S.A.                                  │ │
+│  │     👤 Juan Pérez (DNI: 12.345.678)                            │ │
+│  │     🚜 AB123CD + 🚛 XY789ZW                                    │ │
+│  │     📋 Clientes: PROSIL S.A., Cliente 2                        │ │
+│  │     ✅ Todos los documentos al día                             │ │
+│  └────────────────────────────────────────────────────────────────┘ │
+│                                                                       │
+│  ┌────────────────────────────────────────────────────────────────┐ │
+│  │ 🟡  Equipo #2                                    [▶ Ver detalle]│ │
+│  │     🏢 Transportes Pérez S.A.                                  │ │
+│  │     👤 María López (DNI: 87.654.321)                           │ │
+│  │     🚜 EF456GH + 🚛 IJ012KL                                    │ │
+│  │     📋 Clientes: PROSIL S.A.                                   │ │
+│  │     ⚠️  2 documentos vencen en menos de 7 días                 │ │
+│  │         • RTO Camión (vence 10/11/2025)                        │ │
+│  │         • Licencia Chofer (vence 12/11/2025)                   │ │
+│  └────────────────────────────────────────────────────────────────┘ │
+│                                                                       │
+│  ┌────────────────────────────────────────────────────────────────┐ │
+│  │ 🔴  Equipo #3                                    [▶ Ver detalle]│ │
+│  │     🏢 Transportes Gómez S.R.L.                                │ │
+│  │     👤 Pedro Ruiz (DNI: 11.222.333)                            │ │
+│  │     🚜 MN345OP + 🚛 QR678ST                                    │ │
+│  │     📋 Clientes: Cliente 3                                     │ │
+│  │     ❌ 3 documentos vencidos                                    │ │
+│  │         • Seguro de Vida Chofer (venció 01/11/2025)            │ │
+│  │         • RTO Semi (venció 28/10/2025)                         │ │
+│  │         • Póliza Camión (venció 15/10/2025)                    │ │
+│  └────────────────────────────────────────────────────────────────┘ │
+│                                                                       │
+│  ┌────────────────────────────────────────────────────────────────┐ │
+│  │ ⚪  Equipo #4 - INCOMPLETO                       [▶ Completar] │ │
+│  │     🏢 Transportes Pérez S.A.                                  │ │
+│  │     👤 Carlos Fernández (DNI: 44.555.666)                      │ │
+│  │     🚜 PQ789RS + 🚛 TU012VW                                    │ │
+│  │     📋 Clientes: (sin asignar)                                 │ │
+│  │     ⬜ Faltan 8 documentos obligatorios                         │ │
+│  │         • DNI Chofer                                           │ │
+│  │         • Licencia de Conducir                                 │ │
+│  │         • RTO Camión                                           │ │
+│  │         • y 5 más...                                           │ │
+│  └────────────────────────────────────────────────────────────────┘ │
+│                                                                       │
+│  Mostrando 4 de 12 equipos                          [1] 2 3 [Sig >] │
+│                                                                       │
+└──────────────────────────────────────────────────────────────────────┘
+```
+
+### Lógica del Sistema de Semáforo
+
+```typescript
+// Estado del equipo según documentación
+enum EquipoEstado {
+  COMPLETO_AL_DIA = 'verde',      // 🟢 Todos los docs obligatorios + ninguno vencido/por vencer
+  POR_VENCER = 'amarillo',         // 🟡 Docs obligatorios completos + alguno vence en < 7 días
+  VENCIDO = 'rojo',                // 🔴 Al menos un documento vencido
+  INCOMPLETO = 'gris',             // ⚪ Faltan documentos obligatorios
+}
+
+interface DocumentoEstado {
+  id: number;
+  tipo: string;
+  nombre: string;
+  obligatorio: boolean;
+  cargado: boolean;
+  estado: 'verde' | 'amarillo' | 'rojo' | 'gris';
+  fechaVencimiento?: Date;
+  diasParaVencer?: number;
+}
+
+interface EquipoConEstado {
+  id: number;
+  empresa: string;
+  chofer: string;
+  camion: string;
+  acoplado: string;
+  clientes: string[];
+  
+  // Estado general
+  estadoGeneral: EquipoEstado;
+  
+  // Contadores
+  documentosObligatorios: number;
+  documentosCargados: number;
+  documentosFaltantes: number;
+  documentosVencidos: number;
+  documentosPorVencer: number;  // < 7 días
+  
+  // Detalle de problemas
+  documentosConProblema: DocumentoEstado[];
+}
+```
+
+### Cálculo de Estado
+
+```typescript
+// apps/documentos/src/services/equipo-estado.service.ts
+
+export class EquipoEstadoService {
+  
+  calcularEstadoEquipo(equipo: Equipo): EquipoConEstado {
+    const documentos = this.obtenerTodosLosDocumentos(equipo);
+    const obligatorios = documentos.filter(d => d.obligatorio);
+    
+    // 1. Verificar documentos obligatorios faltantes
+    const faltantes = obligatorios.filter(d => !d.cargado);
+    
+    if (faltantes.length > 0) {
+      return {
+        ...equipo,
+        estadoGeneral: EquipoEstado.INCOMPLETO,
+        documentosFaltantes: faltantes.length,
+        documentosConProblema: faltantes,
+      };
+    }
+    
+    // 2. Verificar documentos vencidos
+    const vencidos = documentos.filter(d => 
+      d.cargado && d.fechaVencimiento && d.fechaVencimiento < new Date()
+    );
+    
+    if (vencidos.length > 0) {
+      return {
+        ...equipo,
+        estadoGeneral: EquipoEstado.VENCIDO,
+        documentosVencidos: vencidos.length,
+        documentosConProblema: vencidos,
+      };
+    }
+    
+    // 3. Verificar documentos por vencer (< 7 días)
+    const porVencer = documentos.filter(d => {
+      if (!d.cargado || !d.fechaVencimiento) return false;
+      
+      const diasParaVencer = this.calcularDiasParaVencer(d.fechaVencimiento);
+      return diasParaVencer >= 0 && diasParaVencer <= 7;
+    });
+    
+    if (porVencer.length > 0) {
+      return {
+        ...equipo,
+        estadoGeneral: EquipoEstado.POR_VENCER,
+        documentosPorVencer: porVencer.length,
+        documentosConProblema: porVencer.map(d => ({
+          ...d,
+          diasParaVencer: this.calcularDiasParaVencer(d.fechaVencimiento!),
+        })),
+      };
+    }
+    
+    // 4. Todo OK
+    return {
+      ...equipo,
+      estadoGeneral: EquipoEstado.COMPLETO_AL_DIA,
+      documentosConProblema: [],
+    };
+  }
+  
+  private calcularDiasParaVencer(fechaVencimiento: Date): number {
+    const hoy = new Date();
+    const diff = fechaVencimiento.getTime() - hoy.getTime();
+    return Math.ceil(diff / (1000 * 60 * 60 * 24));
+  }
+  
+  private obtenerTodosLosDocumentos(equipo: Equipo): DocumentoEstado[] {
+    // Documentos de la empresa
+    const docsEmpresa = this.getDocumentosEmpresa(equipo.empresaTransportista);
+    
+    // Documentos del chofer
+    const docsChofer = this.getDocumentosChofer(equipo.chofer);
+    
+    // Documentos del camión
+    const docsCamion = this.getDocumentosCamion(equipo.camion);
+    
+    // Documentos del acoplado
+    const docsAcoplado = this.getDocumentosAcoplado(equipo.acoplado);
+    
+    return [...docsEmpresa, ...docsChofer, ...docsCamion, ...docsAcoplado];
+  }
+}
+```
+
+### Pantalla de Carga con Semáforos por Documento
+
+Al clickear en un equipo desde el listado:
+
+```
+┌──────────────────────────────────────────────────────────────────┐
+│ 🚛 Equipo #2 - Edición                              [❌ Cerrar]  │
+├──────────────────────────────────────────────────────────────────┤
+│                                                                   │
+│  Estado General: 🟡 2 documentos por vencer                      │
+│                                                                   │
+│  ┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓  │
+│  ┃ 🏢 EMPRESA TRANSPORTISTA                               [▼] ┃  │
+│  ┣━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┫  │
+│  ┃                                                             ┃  │
+│  ┃ 🟢 Constancia ARCA             ✅ Al día (vence 30/12/26) ┃  │
+│  ┃ 🟢 Constancia Ingresos Brutos  ✅ Al día (vence 15/03/26) ┃  │
+│  ┃ 🟢 Formulario 931               ✅ Al día (sin vencimiento)┃  │
+│  ┃ 🟢 Recibos de Sueldo            ✅ Al día (actualizado)    ┃  │
+│  ┃ 🟢 Boleta Sindical              ✅ Al día (actualizado)    ┃  │
+│  ┃                                                             ┃  │
+│  ┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛  │
+│                                                                   │
+│  ┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓  │
+│  ┃ 👤 CHOFER: María López                                 [▼] ┃  │
+│  ┣━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┫  │
+│  ┃                                                             ┃  │
+│  ┃ 🟢 DNI                          ✅ Al día (vence 01/01/30) ┃  │
+│  ┃ 🟡 Licencia de Conducir         ⚠️  Vence en 5 días       ┃  │
+│  ┃                                    (12/11/2025)            ┃  │
+│  ┃ 🟢 Alta ARCA                    ✅ Al día                  ┃  │
+│  ┃ 🟢 Póliza ART                   ✅ Al día (vence 30/12/25)┃  │
+│  ┃ 🟢 Seguro de Vida               ✅ Al día (vence 15/02/26)┃  │
+│  ┃                                                             ┃  │
+│  ┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛  │
+│                                                                   │
+│  ┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓  │
+│  ┃ 🚜 TRACTOR: EF456GH                                    [▼] ┃  │
+│  ┣━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┫  │
+│  ┃                                                             ┃  │
+│  ┃ 🟢 Título / Contrato Alquiler   ✅ Al día                  ┃  │
+│  ┃ 🟢 Cédula                        ✅ Al día (vence 20/05/26)┃  │
+│  ┃ 🟡 RTO                           ⚠️  Vence en 3 días       ┃  │
+│  ┃                                    (10/11/2025)            ┃  │
+│  ┃ 🟢 Póliza de Seguro              ✅ Al día (vence 25/01/26)┃  │
+│  ┃ 🟢 Certificado Libre Deuda       ✅ Al día (actualizado)   ┃  │
+│  ┃                                                             ┃  │
+│  ┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛  │
+│                                                                   │
+│  ┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓  │
+│  ┃ 🚛 SEMI: IJ012KL                                       [▼] ┃  │
+│  ┣━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┫  │
+│  ┃                                                             ┃  │
+│  ┃ 🟢 Título / Contrato Alquiler   ✅ Al día                  ┃  │
+│  ┃ 🟢 Cédula                        ✅ Al día (vence 18/04/26)┃  │
+│  ┃ 🟢 RTO                           ✅ Al día (vence 22/03/26)┃  │
+│  ┃ 🟢 Póliza de Seguro              ✅ Al día (vence 28/12/25)┃  │
+│  ┃ 🟢 Certificado Libre Deuda       ✅ Al día (actualizado)   ┃  │
+│  ┃                                                             ┃  │
+│  ┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛  │
+│                                                                   │
+│  ⚠️  Advertencia: 2 documentos vencen en menos de 7 días        │
+│                                                                   │
+│                                       [Cancelar]  [Guardar]       │
+│                                                                   │
+└──────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+## 🚫 Validación de Documentos Obligatorios
+
+### Regla Crítica: No se puede guardar sin documentos obligatorios
+
+```typescript
+// Lista de documentos obligatorios por entidad
+
+const DOCUMENTOS_OBLIGATORIOS = {
+  empresaTransportista: [
+    'CONSTANCIA_ARCA',
+    'CONSTANCIA_INGRESOS_BRUTOS',
+    'FORMULARIO_931',
+    'RECIBOS_SUELDO',
+    'BOLETA_SINDICAL',
+  ],
+  chofer: [
+    'DNI',
+    'LICENCIA_CONDUCIR',
+    'ALTA_ARCA',
+    'POLIZA_ART',
+    'SEGURO_VIDA',
+  ],
+  camion: [
+    'TITULO_O_CONTRATO',
+    'CEDULA',
+    'RTO',
+    'POLIZA_SEGURO',
+    'CERTIFICADO_LIBRE_DEUDA',
+  ],
+  acoplado: [
+    'TITULO_O_CONTRATO',
+    'CEDULA',
+    'RTO',
+    'POLIZA_SEGURO',
+    'CERTIFICADO_LIBRE_DEUDA',
+  ],
+};
+```
+
+### Pantalla con Documentos Faltantes (Botón Guardar Deshabilitado)
+
+```
+┌──────────────────────────────────────────────────────────────────┐
+│ 🚛 Equipo #4 - INCOMPLETO                       [❌ Cerrar]      │
+├──────────────────────────────────────────────────────────────────┤
+│                                                                   │
+│  Estado General: ⚪ Faltan 8 documentos obligatorios             │
+│                                                                   │
+│  ┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓  │
+│  ┃ 🏢 EMPRESA TRANSPORTISTA                               [▼] ┃  │
+│  ┣━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┫  │
+│  ┃                                                             ┃  │
+│  ┃ 🟢 Constancia ARCA             ✅ Al día                   ┃  │
+│  ┃ ⚪ Constancia Ingresos Brutos  ❌ FALTA (OBLIGATORIO) *    ┃  │
+│  ┃ 🟢 Formulario 931               ✅ Al día                   ┃  │
+│  ┃ ⚪ Recibos de Sueldo            ❌ FALTA (OBLIGATORIO) *    ┃  │
+│  ┃ 🟢 Boleta Sindical              ✅ Al día                   ┃  │
+│  ┃                                                             ┃  │
+│  ┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛  │
+│                                                                   │
+│  ┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓  │
+│  ┃ 👤 CHOFER: Carlos Fernández                            [▼] ┃  │
+│  ┣━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┫  │
+│  ┃                                                             ┃  │
+│  ┃ ⚪ DNI                          ❌ FALTA (OBLIGATORIO) *    ┃  │
+│  ┃ ⚪ Licencia de Conducir         ❌ FALTA (OBLIGATORIO) *    ┃  │
+│  ┃ ⚪ Alta ARCA                    ❌ FALTA (OBLIGATORIO) *    ┃  │
+│  ┃ ⚪ Póliza ART                   ❌ FALTA (OBLIGATORIO) *    ┃  │
+│  ┃ ⚪ Seguro de Vida               ❌ FALTA (OBLIGATORIO) *    ┃  │
+│  ┃                                                             ┃  │
+│  ┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛  │
+│                                                                   │
+│  ┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓  │
+│  ┃ 🚜 TRACTOR: PQ789RS                                    [▼] ┃  │
+│  ┣━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┫  │
+│  ┃                                                             ┃  │
+│  ┃ 🟢 Título / Contrato Alquiler   ✅ Al día                  ┃  │
+│  ┃ ⚪ Cédula                        ❌ FALTA (OBLIGATORIO) *   ┃  │
+│  ┃ 🟢 RTO                           ✅ Al día                  ┃  │
+│  ┃ 🟢 Póliza de Seguro              ✅ Al día                  ┃  │
+│  ┃ 🟢 Certificado Libre Deuda       ✅ Al día                  ┃  │
+│  ┃                                                             ┃  │
+│  ┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛  │
+│                                                                   │
+│  ┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓  │
+│  ┃ 🚛 SEMI: TU012VW                                       [▼] ┃  │
+│  ┣━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┫  │
+│  ┃                                                             ┃  │
+│  ┃ 🟢 Título / Contrato Alquiler   ✅ Al día                  ┃  │
+│  ┃ 🟢 Cédula                        ✅ Al día                  ┃  │
+│  ┃ 🟢 RTO                           ✅ Al día                  ┃  │
+│  ┃ 🟢 Póliza de Seguro              ✅ Al día                  ┃  │
+│  ┃ 🟢 Certificado Libre Deuda       ✅ Al día                  ┃  │
+│  ┃                                                             ┃  │
+│  ┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛  │
+│                                                                   │
+│  ┌─────────────────────────────────────────────────────────┐   │
+│  │ ❌ ERROR: No se puede guardar el equipo                 │   │
+│  │                                                          │   │
+│  │ Faltan los siguientes documentos obligatorios:          │   │
+│  │  • Constancia Ingresos Brutos (Empresa)                 │   │
+│  │  • Recibos de Sueldo (Empresa)                          │   │
+│  │  • DNI (Chofer)                                         │   │
+│  │  • Licencia de Conducir (Chofer)                        │   │
+│  │  • Alta ARCA (Chofer)                                   │   │
+│  │  • Póliza ART (Chofer)                                  │   │
+│  │  • Seguro de Vida (Chofer)                              │   │
+│  │  • Cédula (Tractor)                                     │   │
+│  │                                                          │   │
+│  │ Por favor, cargue todos los documentos marcados con     │   │
+│  │ (*) para poder guardar el equipo.                       │   │
+│  └─────────────────────────────────────────────────────────┘   │
+│                                                                   │
+│                     [Cancelar]  [Guardar] (deshabilitado)        │
+│                                                                   │
+└──────────────────────────────────────────────────────────────────┘
+```
+
+### Validación en Backend
+
+```typescript
+// apps/documentos/src/services/equipo-validation.service.ts
+
+export class EquipoValidationService {
+  
+  async validateEquipoCompleto(equipoId: number): Promise<ValidationResult> {
+    const equipo = await prisma.equipo.findUnique({
+      where: { id: equipoId },
+      include: {
+        empresaTransportista: {
+          include: { documentos: true },
+        },
+        chofer: {
+          include: { documentos: true },
+        },
+        camion: {
+          include: { documentos: true },
+        },
+        acoplado: {
+          include: { documentos: true },
+        },
+      },
+    });
+    
+    if (!equipo) {
+      throw new Error('Equipo no encontrado');
+    }
+    
+    const errors: string[] = [];
+    
+    // Validar documentos de empresa
+    const docsEmpresaFaltantes = this.validarDocumentosObligatorios(
+      equipo.empresaTransportista.documentos,
+      DOCUMENTOS_OBLIGATORIOS.empresaTransportista,
+      'Empresa Transportista'
+    );
+    errors.push(...docsEmpresaFaltantes);
+    
+    // Validar documentos de chofer
+    const docsChoferFaltantes = this.validarDocumentosObligatorios(
+      equipo.chofer.documentos,
+      DOCUMENTOS_OBLIGATORIOS.chofer,
+      'Chofer'
+    );
+    errors.push(...docsChoferFaltantes);
+    
+    // Validar documentos de camión
+    const docsCamionFaltantes = this.validarDocumentosObligatorios(
+      equipo.camion.documentos,
+      DOCUMENTOS_OBLIGATORIOS.camion,
+      'Camión'
+    );
+    errors.push(...docsCamionFaltantes);
+    
+    // Validar documentos de acoplado
+    const docsAcopladoFaltantes = this.validarDocumentosObligatorios(
+      equipo.acoplado.documentos,
+      DOCUMENTOS_OBLIGATORIOS.acoplado,
+      'Acoplado'
+    );
+    errors.push(...docsAcopladoFaltantes);
+    
+    return {
+      valid: errors.length === 0,
+      errors: errors,
+      documentosFaltantes: errors.length,
+    };
+  }
+  
+  private validarDocumentosObligatorios(
+    documentosCargados: Document[],
+    documentosRequeridos: string[],
+    entidad: string
+  ): string[] {
+    const errors: string[] = [];
+    
+    const tiposCargados = documentosCargados.map(d => d.tipoDocumento);
+    
+    for (const tipoRequerido of documentosRequeridos) {
+      if (!tiposCargados.includes(tipoRequerido)) {
+        const nombreDocumento = this.getNombreAmigable(tipoRequerido);
+        errors.push(`${nombreDocumento} (${entidad})`);
+      }
+    }
+    
+    return errors;
+  }
+  
+  private getNombreAmigable(tipoDocumento: string): string {
+    const nombres: Record<string, string> = {
+      'CONSTANCIA_ARCA': 'Constancia de Inscripción en ARCA',
+      'CONSTANCIA_INGRESOS_BRUTOS': 'Constancia de Ingresos Brutos',
+      'FORMULARIO_931': 'Formulario 931',
+      'RECIBOS_SUELDO': 'Recibos de Sueldo',
+      'BOLETA_SINDICAL': 'Boleta Sindical',
+      'DNI': 'DNI',
+      'LICENCIA_CONDUCIR': 'Licencia de Conducir',
+      'ALTA_ARCA': 'Alta Temprana en ARCA',
+      'POLIZA_ART': 'Póliza de ART',
+      'SEGURO_VIDA': 'Seguro de Vida Obligatorio',
+      'TITULO_O_CONTRATO': 'Título o Contrato de Alquiler',
+      'CEDULA': 'Cédula',
+      'RTO': 'Revisión Técnica Obligatoria (RTO)',
+      'POLIZA_SEGURO': 'Póliza de Seguro',
+      'CERTIFICADO_LIBRE_DEUDA': 'Certificado de Libre Deuda',
+    };
+    
+    return nombres[tipoDocumento] || tipoDocumento;
+  }
+}
+```
+
+### Endpoint de Validación
+
+```typescript
+// apps/documentos/src/routes/equipos.routes.ts
+
+// Validar si un equipo está completo antes de guardar
+POST   /api/docs/equipos/:id/validar-completo    // Validar documentos obligatorios
+
+// Controller
+export class EquiposController {
+  async validarEquipoCompleto(req: AuthRequest, res: Response) {
+    const equipoId = Number(req.params.id);
+    
+    const validation = await equipoValidationService.validateEquipoCompleto(equipoId);
+    
+    if (!validation.valid) {
+      return res.status(400).json({
+        success: false,
+        message: 'El equipo no está completo',
+        errors: validation.errors,
+        documentosFaltantes: validation.documentosFaltantes,
+      });
+    }
+    
+    return res.json({
+      success: true,
+      message: 'El equipo está completo y puede ser guardado',
+    });
+  }
+}
+```
+
+### Validación en Frontend (React)
+
+```typescript
+// apps/frontend/src/features/equipos/hooks/useEquipoValidation.ts
+
+export const useEquipoValidation = (equipoId: number) => {
+  const [isValid, setIsValid] = useState(false);
+  const [errors, setErrors] = useState<string[]>([]);
+  const [loading, setLoading] = useState(false);
+  
+  const validate = async () => {
+    setLoading(true);
+    try {
+      const response = await api.post(`/api/docs/equipos/${equipoId}/validar-completo`);
+      
+      if (response.data.success) {
+        setIsValid(true);
+        setErrors([]);
+      } else {
+        setIsValid(false);
+        setErrors(response.data.errors || []);
+      }
+    } catch (error: any) {
+      setIsValid(false);
+      setErrors(error.response?.data?.errors || ['Error al validar el equipo']);
+    } finally {
+      setLoading(false);
+    }
+  };
+  
+  useEffect(() => {
+    validate();
+  }, [equipoId]);
+  
+  return {
+    isValid,
+    errors,
+    loading,
+    validate,  // Para re-validar después de cargar un documento
+  };
+};
+
+// Uso en el componente
+export const GestionEquiposPage = () => {
+  const { equipoId } = useParams();
+  const { isValid, errors, validate } = useEquipoValidation(equipoId);
+  
+  const handleGuardar = async () => {
+    if (!isValid) {
+      toast.error('El equipo no está completo. Por favor, cargue todos los documentos obligatorios.');
+      return;
+    }
+    
+    // Proceder con el guardado
+    await api.put(`/api/docs/equipos/${equipoId}`, data);
+    toast.success('Equipo guardado exitosamente');
+  };
+  
+  return (
+    <div>
+      {/* ... formulario ... */}
+      
+      {errors.length > 0 && (
+        <Alert severity="error">
+          <AlertTitle>No se puede guardar el equipo</AlertTitle>
+          <p>Faltan los siguientes documentos obligatorios:</p>
+          <ul>
+            {errors.map((error, index) => (
+              <li key={index}>{error}</li>
+            ))}
+          </ul>
+        </Alert>
+      )}
+      
+      <Button
+        onClick={handleGuardar}
+        disabled={!isValid}  // ← Deshabilitar si no es válido
+        variant="contained"
+      >
+        Guardar
+      </Button>
+    </div>
+  );
+};
+```
+
+### Mensajes de Error Claros
+
+```typescript
+// Mensajes específicos según contexto
+
+const ERROR_MESSAGES = {
+  equipoIncompleto: (cantidadFaltante: number) =>
+    `Faltan ${cantidadFaltante} documentos obligatorios. Complete la carga para poder guardar.`,
+  
+  documentoEmpresaFaltante: (nombre: string) =>
+    `Falta el documento "${nombre}" de la Empresa Transportista (obligatorio)`,
+  
+  documentoChoferFaltante: (nombre: string) =>
+    `Falta el documento "${nombre}" del Chofer (obligatorio)`,
+  
+  documentoCamionFaltante: (nombre: string) =>
+    `Falta el documento "${nombre}" del Camión (obligatorio)`,
+  
+  documentoAcopladoFaltante: (nombre: string) =>
+    `Falta el documento "${nombre}" del Acoplado (obligatorio)`,
+};
+```
+
 ### Sección 1: Datos de la Empresa (Accordion Expandible)
 
 ```
