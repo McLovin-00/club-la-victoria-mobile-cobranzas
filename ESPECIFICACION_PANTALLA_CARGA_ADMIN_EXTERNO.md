@@ -250,9 +250,9 @@ Al clickear "Ver Documentación":
 ├──────────────────────────────────────────────────────┤
 │                                                       │
 │ Equipos seleccionados:                               │
-│  • AB123CD + XY789ZW (Juan Pérez)                   │
-│  • EF456GH + IJ012KL (María López)                  │
-│  • MN345OP + QR678ST (Pedro Ruiz)                   │
+│  • AB123CD (Juan Pérez)                             │
+│  • EF456GH (María López)                            │
+│  • MN345OP (Pedro Ruiz)                             │
 │                                                       │
 │ Opciones de descarga *                               │
 │ ┌───────────────────────────────────────────────────┐│
@@ -270,12 +270,12 @@ Al clickear "Ver Documentación":
 │ Estructura del ZIP:                                  │
 │ ┌───────────────────────────────────────────────────┐│
 │ │ PROSIL_SA_Documentacion_07-11-2025/              ││
-│ │ ├── Equipo_AB123CD_XY789ZW/                      ││
+│ │ ├── Equipo_AB123CD/                              ││
 │ │ │   ├── Empresa/                                 ││
 │ │ │   ├── Chofer/                                  ││
 │ │ │   ├── Tractor/                                 ││
 │ │ │   └── Semi/                                    ││
-│ │ ├── Equipo_EF456GH_IJ012KL/                      ││
+│ │ ├── Equipo_EF456GH/                              ││
 │ │ │   └── ...                                      ││
 │ │ └── Resumen.xlsx                                 ││
 │ └───────────────────────────────────────────────────┘│
@@ -606,7 +606,7 @@ export class DocumentZipService {
 
     // Agregar documentos de cada equipo
     for (const equipo of equipos) {
-      const equipoDir = `Equipo_${equipo.camion.patente}_${equipo.acoplado.patente}`;
+      const equipoDir = `Equipo_${equipo.camion.patente}`;
 
       // Agrupar documentos por categoría
       const docsPorCategoria = this.agruparDocumentosPorCategoria(equipo.documentos);
@@ -731,7 +731,7 @@ export class DocumentZipService {
 
     // Agregar datos
     for (const equipo of equipos) {
-      const equipoLabel = `${equipo.camion.patente} + ${equipo.acoplado.patente}`;
+      const equipoLabel = equipo.camion.patente;
       
       for (const doc of equipo.documentos) {
         const row = sheet.addRow({
