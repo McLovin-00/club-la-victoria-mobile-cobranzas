@@ -72,11 +72,11 @@ enum UserRole {
 | **Crear equipos** | ✅ | ✅ | ✅ | ❌ | ❌ |
 | **Seleccionar clientes para equipo** | ✅ | ✅ | ✅ | ❌ | ❌ |
 | **Editar sus propios datos** | ✅ | ✅ | ✅ | ✅ | ❌ |
-| **Editar docs propios (DNI, licencia)** | ✅ | ✅ | ✅ | ✅ | ❌ |
+| **Cargar/actualizar docs propios (DNI, licencia, etc)** | ✅ | ✅ | ✅ | ✅ | ❌ |
 | **Editar datos del camión de su equipo** | ✅ | ✅ | ✅ | ✅ | ❌ |
-| **Editar docs del camión de su equipo** | ✅ | ✅ | ✅ | ✅ | ❌ |
+| **Cargar/actualizar docs del camión** | ✅ | ✅ | ✅ | ✅ | ❌ |
 | **Editar datos del acoplado de su equipo** | ✅ | ✅ | ✅ | ✅ | ❌ |
-| **Editar docs del acoplado de su equipo** | ✅ | ✅ | ✅ | ✅ | ❌ |
+| **Cargar/actualizar docs del acoplado** | ✅ | ✅ | ✅ | ✅ | ❌ |
 | **Cambiar chofer de equipo** | ✅ | ✅ | ✅ | ❌ | ❌ |
 | **Aprobar documentos** | ✅ | ❌ | ❌ | ❌ | ❌ |
 | **Rechazar documentos** | ✅ | ❌ | ❌ | ❌ | ❌ |
