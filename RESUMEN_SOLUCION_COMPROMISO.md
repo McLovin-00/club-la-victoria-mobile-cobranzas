@@ -56,7 +56,7 @@ CLIENTES (múltiples clientes por equipo)
      - ✅ Empresas transportistas que coordina
      - ✅ Choferes de esas empresas
      - ✅ Unidades (camiones y acoplados)
-   - **Documentos que él carga** → También pasan por aprobación (ADMIN_INTERNO puede aprobar)
+   - **Puede aprobar sus propios documentos** (auto-aprobación)
    - **Aprueba/rechaza documentos** cargados por TRANSPORTISTAS/CHOFERES
    - Ve listado de sus equipos con semáforo
    - Quebracho Blanco puede operar como dador
@@ -254,9 +254,8 @@ CLIENTES (múltiples clientes por equipo)
 3. Equipo muestra indicador 🔵 azul en listado
    ↓
 4. DADOR_DE_CARGA ve equipos con pendientes
-   (Si el DADOR cargó el doc, ADMIN_INTERNO debe aprobar)
    ↓
-5. DADOR (o ADMIN_INTERNO) entra a revisar documentos:
+5. DADOR_DE_CARGA entra a revisar documentos:
    
    Opción A: APROBAR
    ↓
@@ -314,7 +313,7 @@ Resultado:
 - Equipo muestra indicador 🔵 azul
 - Requiere aprobación antes de que cuente como válido:
   * Si cargó CHOFER o TRANSPORTISTA → DADOR_DE_CARGA debe aprobar
-  * Si cargó DADOR_DE_CARGA → ADMIN_INTERNO debe aprobar
+  * Si cargó DADOR_DE_CARGA → Puede auto-aprobar sus propios documentos
 ```
 
 #### Renovación (Actualización de Documento Existente):
@@ -335,7 +334,7 @@ Resultado:
 - Equipo muestra indicador 🔵 azul
 - Requiere aprobación:
   * Si cargó CHOFER o TRANSPORTISTA → DADOR_DE_CARGA debe aprobar
-  * Si cargó DADOR_DE_CARGA → ADMIN_INTERNO debe aprobar
+  * Si cargó DADOR_DE_CARGA → Puede auto-aprobar
 
 // Versionado (cadena de versiones)
 Document 1 (original) ← documentoAnteriorId
@@ -363,7 +362,7 @@ Document 1 (original) ← documentoAnteriorId
    ↓
 6. Aprobador revisa y APRUEBA Doc #101:
    - Si cargó CHOFER/TRANSPORTISTA → DADOR_DE_CARGA aprueba
-   - Si cargó DADOR_DE_CARGA → ADMIN_INTERNO aprueba
+   - Si cargó DADOR_DE_CARGA → Puede auto-aprobar
    ↓
 7. Doc #101 pasa a APROBADO
    - Doc #100 queda como historial (no se elimina)
@@ -386,7 +385,7 @@ Document 1 (original) ← documentoAnteriorId
 | Rol que CARGA | ¿Puede cargar docs nuevos/renovaciones? | ¿Quién APRUEBA? | Estado inicial |
 |---------------|----------------------------------------|-----------------|----------------|
 | **ADMIN_INTERNO** | ✅ Cualquier documento | Auto-aprobado o no requiere | `APROBADO` o `APROBADO_AUTOMATICO` |
-| **DADOR_DE_CARGA** | ✅ Docs de su scope (empresas/choferes/unidades) | ADMIN_INTERNO | `PENDIENTE_APROBACION` 🔵 |
+| **DADOR_DE_CARGA** | ✅ Docs de su scope (empresas/choferes/unidades) | **Puede auto-aprobar** | `PENDIENTE_APROBACION` 🔵 |
 | **TRANSPORTISTA** | ✅ Docs de su empresa, sus choferes, sus unidades | DADOR_DE_CARGA | `PENDIENTE_APROBACION` 🔵 |
 | **CHOFER** | ✅ Docs propios, de su camión, de su acoplado | DADOR_DE_CARGA | `PENDIENTE_APROBACION` 🔵 |
 | **CLIENTE** | ❌ No puede cargar | N/A | N/A |
@@ -395,19 +394,24 @@ Document 1 (original) ← documentoAnteriorId
 
 1. **CHOFER carga** → DADOR_DE_CARGA debe aprobar
 2. **TRANSPORTISTA carga** → DADOR_DE_CARGA debe aprobar
-3. **DADOR_DE_CARGA carga** → ADMIN_INTERNO debe aprobar
+3. **DADOR_DE_CARGA carga** → Puede auto-aprobar sus propios documentos
 4. **ADMIN_INTERNO carga** → Auto-aprobado o no requiere aprobación
 
 #### Ejemplo de Flujo Jerárquico:
 
 ```
-ADMIN_INTERNO
-    ↓ (puede aprobar)
+ADMIN_INTERNO (carga docs)
+    ↓ (auto-aprobado)
+    
 DADOR_DE_CARGA (carga docs)
-    ↓ (puede aprobar)
+    ↓ (puede auto-aprobar)
+    ↓ (puede aprobar docs de ⬇️)
+    
 TRANSPORTISTA (carga docs)
-    ↓ (NO puede aprobar)
+    ↓ (NO puede aprobar, requiere aprobación del DADOR ⬆️)
+    
 CHOFER (carga docs)
+    ↓ (NO puede aprobar, requiere aprobación del DADOR ⬆️)
 ```
 
 ### Modelo de Datos:
