@@ -1254,71 +1254,736 @@ POST   /api/unidades/acoplados            // Crear acoplado
 
 ---
 
-## ❓ POSIBLES FUNCIONALIDADES FALTANTES
+## ✅ FUNCIONALIDADES CONFIRMADAS (Respuestas del Cliente)
 
-### A confirmar con el usuario:
+### 1. ✅ **Gestión de Usuarios**
+**Decisión**: Los ADMIN_INTERNO utilizarán el **sistema de gestión de usuarios existente** en el monorepo.
+- No se crea pantalla nueva de administración
+- Los admins crean usuarios con los roles necesarios (DADOR_DE_CARGA, TRANSPORTISTA, CHOFER, CLIENTE)
+- NO hay auto-registro
 
-1. **Gestión de Usuarios**:
-   - ¿Hay pantalla de administración de usuarios?
-   - ¿Cómo se crean cuentas de DADOR_DE_CARGA, TRANSPORTISTA, CHOFER, CLIENTE?
-   - ¿Hay auto-registro o solo admin crea?
+### 2. ✅ **Sistema de Notificaciones** (A IMPLEMENTAR)
+**Decisión**: Preparar sistema de notificaciones **no bloqueante**.
 
-2. **Notificaciones**:
-   - ¿Se implementan notificaciones automáticas por vencimiento?
-   - ¿Email o WhatsApp?
-   - ¿Configurables por usuario?
+#### Características:
+- **Email**: Si el usuario tiene email configurado
+- **WhatsApp**: Si el usuario tiene teléfono + opt-in
+- **No bloqueante**: Si faltan datos, el sistema sigue funcionando
+- **Eventos a notificar**:
+  - Documento rechazado (al CHOFER)
+  - Documento por vencer en 7 días (al CHOFER + TRANSPORTISTA + DADOR)
+  - Documento vencido (al CHOFER + TRANSPORTISTA + DADOR)
+  - Documento aprobado (al CHOFER)
+  - Equipo completo y apto (al DADOR + CLIENTE)
 
-3. **Historial de Equipos**:
-   - ¿Se guarda historial de cambios de chofer en un equipo?
-   - ¿Se puede ver equipos anteriores de un chofer?
+#### Implementación:
+```typescript
+// Servicio de notificaciones
+interface NotificationService {
+  // Email
+  sendEmail(to: string, subject: string, body: string): Promise<void>;
+  
+  // WhatsApp (usando API de Twilio o similar)
+  sendWhatsApp(to: string, message: string): Promise<void>;
+  
+  // Método genérico
+  notifyUser(userId: number, event: NotificationEvent, data: any): Promise<void>;
+}
 
-4. **Reportes**:
-   - ¿Hay reportes/estadísticas más allá del resumen?
-   - ¿Dashboard con gráficos?
+// Eventos
+enum NotificationEvent {
+  DOCUMENTO_RECHAZADO = 'documento_rechazado',
+  DOCUMENTO_POR_VENCER = 'documento_por_vencer',
+  DOCUMENTO_VENCIDO = 'documento_vencido',
+  DOCUMENTO_APROBADO = 'documento_aprobado',
+  EQUIPO_COMPLETO = 'equipo_completo',
+}
 
-5. **Integraciones**:
-   - ¿Integración con AFIP/ANSES para validación?
-   - ¿API para sistemas externos?
+// Modelo para preferencias
+model UserNotificationPreferences {
+  id              Int     @id @default(autoincrement())
+  userId          Int     @unique
+  user            User    @relation(...)
+  
+  emailEnabled    Boolean @default(true)
+  whatsappEnabled Boolean @default(false)
+  whatsappNumber  String?
+  whatsappOptIn   Boolean @default(false)
+  
+  notifyVencimiento      Boolean @default(true)
+  notifyAprobacion       Boolean @default(true)
+  notifyRechazo          Boolean @default(true)
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+```
 
-6. **Auditoría**:
-   - ¿Nivel de detalle de audit log?
-   - ¿Quién puede ver el historial completo?
+#### Cron Job para alertas automáticas:
+```typescript
+// Ejecutar diariamente a las 8 AM
+cron.schedule('0 8 * * *', async () => {
+  // Buscar documentos que vencen en 7 días
+  const documentosPorVencer = await prisma.document.findMany({
+    where: {
+      fechaVencimiento: {
+        gte: new Date(),
+        lte: add(new Date(), { days: 7 }),
+      },
+      estadoAprobacion: 'APROBADO',
+    },
+    include: { 
+      chofer: true, 
+      empresa: { include: { transportista: true, dadorDeCarga: true } }
+    },
+  });
+  
+  // Notificar a cada chofer/transportista/dador
+  for (const doc of documentosPorVencer) {
+    await notificationService.notifyUser(
+      doc.chofer.userId,
+      NotificationEvent.DOCUMENTO_POR_VENCER,
+      doc
+    );
+  }
+});
+```
 
-7. **Configuración**:
-   - ¿Hay pantalla de configuración del sistema?
-   - ¿Se pueden personalizar documentos obligatorios por cliente?
-   - ¿Días de alerta de vencimiento configurables?
+### 3. ❌ **Historial de Equipos**
+**Decisión**: NO se implementa historial de equipos anteriores por chofer.
+- No se rastrean cambios de equipo del chofer
+- No se puede ver equipos anteriores
 
-8. **Flujo de Onboarding**:
-   - ¿Cómo se da de alta un transportista nuevo?
-   - ¿Wizard o formulario libre?
+### 4. ❌ **Reportes/Dashboard Adicionales**
+**Decisión**: NO se implementan reportes ni dashboards con gráficos.
+- Solo el resumen básico de estados en listado
+- Sin gráficos estadísticos
 
-9. **Permisos Granulares**:
-   - ¿Hay sub-roles o permisos adicionales?
-   - ¿Un TRANSPORTISTA puede tener múltiples usuarios?
+### 5. ❌ **Integraciones Externas**
+**Decisión**: NO se integran APIs externas (AFIP, ANSES, etc.)
+- Validación manual de CUIT/DNI
+- Sin consulta automática a organismos
 
-10. **Backup/Recovery**:
-    - ¿Política de respaldos de documentos?
-    - ¿Soft delete permanente o temporal?
+### 6. ✅ **Sistema de Auditoría Completo** (A IMPLEMENTAR)
+**Decisión**: **LOGS COMPLETOS de todas las acciones**.
+
+#### Acciones a loggear:
+- ✅ Carga de documento
+- ✅ Descarga de documento
+- ✅ Actualización/reemplazo de documento
+- ✅ Eliminación de documento
+- ✅ Aprobación de documento
+- ✅ Rechazo de documento
+- ✅ Creación de equipo
+- ✅ Actualización de equipo
+- ✅ Eliminación de equipo
+- ✅ Asignación de equipo a cliente
+- ✅ Desasignación de equipo de cliente
+- ✅ Descarga de ZIP por cliente
+- ✅ Cambio de chofer en equipo
+- ✅ Login/logout de usuario
+
+#### Implementación:
+```prisma
+// Modelo genérico de audit log
+model AuditLog {
+  id           Int      @id @default(autoincrement())
+  
+  // Quién
+  userId       Int
+  user         User     @relation(...)
+  userRole     UserRole
+  userEmail    String
+  
+  // Qué
+  action       String   // 'CREATE' | 'UPDATE' | 'DELETE' | 'APPROVE' | 'REJECT' | 'DOWNLOAD' | 'UPLOAD'
+  entityType   String   // 'Document' | 'Equipo' | 'EmpresaTransportista' | 'Chofer' | 'Camion' | 'Acoplado'
+  entityId     Int?
+  
+  // Cómo/Detalles
+  changes      Json?    // Cambios específicos (antes/después)
+  metadata     Json?    // Información adicional
+  
+  // Contexto
+  ipAddress    String?
+  userAgent    String?
+  
+  // Cuándo
+  createdAt    DateTime @default(now())
+  
+  @@index([userId])
+  @@index([entityType, entityId])
+  @@index([action])
+  @@index([createdAt])
+}
+```
+
+#### Servicio de Auditoría:
+```typescript
+export class AuditService {
+  async log(params: {
+    userId: number;
+    action: AuditAction;
+    entityType: string;
+    entityId?: number;
+    changes?: any;
+    metadata?: any;
+    req?: Request;
+  }): Promise<void> {
+    const user = await prisma.user.findUnique({
+      where: { id: params.userId },
+      select: { role: true, email: true },
+    });
+    
+    await prisma.auditLog.create({
+      data: {
+        userId: params.userId,
+        userRole: user.role,
+        userEmail: user.email,
+        action: params.action,
+        entityType: params.entityType,
+        entityId: params.entityId,
+        changes: params.changes,
+        metadata: params.metadata,
+        ipAddress: params.req?.ip,
+        userAgent: params.req?.headers['user-agent'],
+      },
+    });
+  }
+  
+  // Consultar logs
+  async getLogs(filters: {
+    userId?: number;
+    entityType?: string;
+    entityId?: number;
+    action?: string;
+    dateFrom?: Date;
+    dateTo?: Date;
+    page?: number;
+    pageSize?: number;
+  }) {
+    return prisma.auditLog.findMany({
+      where: {
+        userId: filters.userId,
+        entityType: filters.entityType,
+        entityId: filters.entityId,
+        action: filters.action,
+        createdAt: {
+          gte: filters.dateFrom,
+          lte: filters.dateTo,
+        },
+      },
+      orderBy: { createdAt: 'desc' },
+      skip: (filters.page || 0) * (filters.pageSize || 50),
+      take: filters.pageSize || 50,
+      include: {
+        user: {
+          select: { name: true, email: true, role: true },
+        },
+      },
+    });
+  }
+}
+```
+
+#### Middleware de Auditoría:
+```typescript
+// Middleware que se aplica a todos los endpoints
+export const auditMiddleware = (action: AuditAction, entityType: string) => {
+  return async (req: AuthRequest, res: Response, next: NextFunction) => {
+    const originalJson = res.json.bind(res);
+    
+    res.json = (body: any) => {
+      // Log después de respuesta exitosa
+      if (res.statusCode < 400) {
+        auditService.log({
+          userId: req.user!.id,
+          action,
+          entityType,
+          entityId: req.params.id ? parseInt(req.params.id) : undefined,
+          changes: req.body,
+          metadata: { params: req.params, query: req.query },
+          req,
+        }).catch(err => console.error('Audit log error:', err));
+      }
+      
+      return originalJson(body);
+    };
+    
+    next();
+  };
+};
+
+// Uso en rutas
+router.post(
+  '/equipos',
+  authenticate,
+  authorize(['ADMIN_INTERNO', 'DADOR_DE_CARGA', 'TRANSPORTISTA']),
+  auditMiddleware('CREATE', 'Equipo'),
+  equipoController.create
+);
+
+router.put(
+  '/equipos/:id',
+  authenticate,
+  authorize(['ADMIN_INTERNO', 'DADOR_DE_CARGA', 'TRANSPORTISTA']),
+  auditMiddleware('UPDATE', 'Equipo'),
+  equipoController.update
+);
+```
+
+#### Endpoints de Auditoría:
+```
+GET /api/audit/logs                  // Listar todos (solo ADMIN)
+GET /api/audit/logs/entity/:type/:id // Logs de una entidad específica
+GET /api/audit/logs/user/:userId     // Logs de un usuario
+GET /api/audit/logs/export           // Exportar CSV
+```
+
+### 7. ✅ **Documentos Obligatorios**
+**Decisión**: Los documentos obligatorios son **FIJOS**, los mismos que aparecen en el formulario original.
+
+#### Lista Final de Documentos Obligatorios (19):
+
+**🏢 Empresa Transportista (5)**:
+1. Constancia ARCA
+2. Constancia Ingresos Brutos
+3. Formulario 931
+4. Recibos de Sueldo (último mes)
+5. Boleta Sindical
+
+**👤 Chofer (6)**:
+1. DNI
+2. Licencia de Conducir
+3. Carnet de Salud
+4. Curso de Traslado de Sustancias Alimenticias
+5. Seguro de Vida
+6. ART (Aseguradora de Riesgos del Trabajo)
+
+**🚜 Tractor/Camión (4)**:
+1. Cédula Verde
+2. RTO (Revisión Técnica Obligatoria)
+3. Póliza de Seguro
+4. Certificado GNC (si aplica)
+
+**🚛 Semi/Acoplado (4)**:
+1. Cédula Verde
+2. RTO
+3. Póliza de Seguro
+4. SENASA
+
+**NO configurable por cliente** - Todos los clientes requieren los mismos 19 documentos.
+
+### 8. ❌ **Wizard de Onboarding**
+**Decisión**: NO se implementa wizard de onboarding.
+- Formulario libre estándar
+- Sin pasos guiados
+
+### 9. ❌ **Permisos Granulares Adicionales**
+**Decisión**: NO se agregan sub-roles ni permisos adicionales.
+- Los 8 roles definidos son suficientes
+- Un TRANSPORTISTA = 1 usuario (no múltiples usuarios por empresa)
+
+### 10. ✅ **Política de Backup y Recovery** (PROPUESTA)
+
+#### 🔄 Propuesta de Backup/Recovery:
+
+##### **A. Backup de Base de Datos**
+
+**Estrategia 3-2-1**:
+- **3 copias** de los datos
+- **2 tipos de almacenamiento** diferentes
+- **1 copia offsite** (fuera del servidor)
+
+**Frecuencia**:
+```
+├── Backup Completo (Full)
+│   └── Diario a las 2 AM
+│   └── Retención: 30 días
+│
+├── Backup Incremental
+│   └── Cada 6 horas (6 AM, 12 PM, 6 PM, 12 AM)
+│   └── Retención: 7 días
+│
+└── Backup Snapshot (antes de operaciones críticas)
+    └── Manual o automático antes de migraciones
+    └── Retención: Indefinida (hasta confirmar éxito)
+```
+
+**Implementación**:
+```bash
+#!/bin/bash
+# Script de backup diario (crontab: 0 2 * * *)
+
+TIMESTAMP=$(date +%Y%m%d_%H%M%S)
+BACKUP_DIR="/backups/postgres"
+DB_NAME="monorepo_bca"
+S3_BUCKET="s3://bca-backups"
+
+# 1. Dump de PostgreSQL
+pg_dump -Fc -f "$BACKUP_DIR/backup_$TIMESTAMP.dump" $DB_NAME
+
+# 2. Comprimir
+gzip "$BACKUP_DIR/backup_$TIMESTAMP.dump"
+
+# 3. Upload a S3 (offsite)
+aws s3 cp "$BACKUP_DIR/backup_$TIMESTAMP.dump.gz" "$S3_BUCKET/postgres/"
+
+# 4. Limpiar backups antiguos (> 30 días)
+find $BACKUP_DIR -name "*.dump.gz" -mtime +30 -delete
+
+# 5. Verificar integridad
+pg_restore --list "$BACKUP_DIR/backup_$TIMESTAMP.dump.gz" > /dev/null 2>&1
+if [ $? -eq 0 ]; then
+  echo "✅ Backup exitoso: $TIMESTAMP"
+else
+  echo "❌ Backup FALLÓ: $TIMESTAMP" | mail -s "ALERTA: Backup Falló" admin@example.com
+fi
+```
+
+##### **B. Backup de Documentos (Archivos)**
+
+**Estrategia**:
+- Documentos en filesystem o S3
+- Sincronización automática a bucket de respaldo
+- Versionado habilitado en S3
+
+**Opciones**:
+
+**Opción 1: Filesystem Local**
+```bash
+#!/bin/bash
+# Backup de archivos (crontab: 0 3 * * *)
+
+DOCS_DIR="/var/www/monorepo-bca/uploads"
+BACKUP_DIR="/backups/documentos"
+TIMESTAMP=$(date +%Y%m%d)
+S3_BUCKET="s3://bca-backups/documentos"
+
+# Rsync incremental
+rsync -av --delete \
+  "$DOCS_DIR/" \
+  "$BACKUP_DIR/$TIMESTAMP/"
+
+# Sync a S3
+aws s3 sync "$DOCS_DIR" "$S3_BUCKET" --delete
+
+# Limpiar backups locales > 7 días
+find $BACKUP_DIR -type d -mtime +7 -exec rm -rf {} +
+```
+
+**Opción 2: S3 con Versionado** (RECOMENDADO)
+```typescript
+// Configurar bucket S3 con versionado
+const s3Config = {
+  bucket: 'bca-documentos',
+  region: 'us-east-1',
+  versioning: true,              // ✅ Versionado automático
+  lifecycleRules: [
+    {
+      // Mover versiones antiguas a Glacier después de 90 días
+      transitions: [
+        { days: 90, storageClass: 'GLACIER' },
+      ],
+      // Eliminar versiones > 1 año
+      expiration: { days: 365 },
+    },
+  ],
+  replication: {
+    // Replicar a otra región
+    destinationBucket: 'bca-documentos-replica',
+    destinationRegion: 'us-west-2',
+  },
+};
+```
+
+##### **C. Soft Delete de Documentos**
+
+**Decisión**: Soft delete **temporal** con purga automática.
+
+```prisma
+model Document {
+  // ... campos existentes
+  
+  isDeleted   Boolean   @default(false)
+  deletedAt   DateTime?
+  deletedById Int?
+  deletedBy   User?     @relation("DeletedBy", ...)
+  
+  // Auto-purga después de 90 días
+  purgeAt     DateTime? // Calculado como deletedAt + 90 días
+}
+```
+
+**Lógica**:
+```typescript
+// Soft delete
+async deleteDocument(id: number, userId: number) {
+  const purgeDate = add(new Date(), { days: 90 });
+  
+  await prisma.document.update({
+    where: { id },
+    data: {
+      isDeleted: true,
+      deletedAt: new Date(),
+      deletedById: userId,
+      purgeAt: purgeDate,
+    },
+  });
+  
+  // Audit log
+  await auditService.log({
+    userId,
+    action: 'DELETE',
+    entityType: 'Document',
+    entityId: id,
+    metadata: { softDelete: true, purgeAt: purgeDate },
+  });
+}
+
+// Cron job para purga automática (diario)
+cron.schedule('0 4 * * *', async () => {
+  const documentosPorPurgar = await prisma.document.findMany({
+    where: {
+      isDeleted: true,
+      purgeAt: { lte: new Date() },
+    },
+  });
+  
+  for (const doc of documentosPorPurgar) {
+    // Eliminar archivo físico
+    await fs.unlink(doc.filePath);
+    
+    // Hard delete de BD
+    await prisma.document.delete({ where: { id: doc.id } });
+    
+    console.log(`Purgado documento ${doc.id} después de 90 días`);
+  }
+});
+```
+
+**Recuperación** (dentro de 90 días):
+```typescript
+async restoreDocument(id: number, userId: number) {
+  await prisma.document.update({
+    where: { id },
+    data: {
+      isDeleted: false,
+      deletedAt: null,
+      deletedById: null,
+      purgeAt: null,
+    },
+  });
+  
+  await auditService.log({
+    userId,
+    action: 'RESTORE',
+    entityType: 'Document',
+    entityId: id,
+  });
+}
+```
+
+##### **D. Disaster Recovery Plan**
+
+**RTO (Recovery Time Objective)**: 4 horas
+**RPO (Recovery Point Objective)**: 6 horas (último backup incremental)
+
+**Procedimiento de Recuperación**:
+
+1. **Restaurar Base de Datos**:
+```bash
+# 1. Descargar último backup
+aws s3 cp s3://bca-backups/postgres/backup_latest.dump.gz /tmp/
+
+# 2. Descomprimir
+gunzip /tmp/backup_latest.dump.gz
+
+# 3. Restaurar
+pg_restore -d monorepo_bca_recovered /tmp/backup_latest.dump
+
+# 4. Verificar
+psql -d monorepo_bca_recovered -c "SELECT COUNT(*) FROM \"Document\";"
+```
+
+2. **Restaurar Documentos**:
+```bash
+# Desde S3
+aws s3 sync s3://bca-backups/documentos /var/www/monorepo-bca/uploads
+```
+
+3. **Verificar Integridad**:
+```typescript
+// Script de verificación
+async function verifyIntegrity() {
+  const documents = await prisma.document.findMany({
+    where: { isDeleted: false },
+  });
+  
+  let missing = 0;
+  for (const doc of documents) {
+    if (!fs.existsSync(doc.filePath)) {
+      console.error(`❌ Archivo faltante: ${doc.id} - ${doc.filePath}`);
+      missing++;
+    }
+  }
+  
+  console.log(`✅ Verificados: ${documents.length - missing}`);
+  console.log(`❌ Faltantes: ${missing}`);
+}
+```
+
+##### **E. Monitoreo de Backups**
+
+**Alertas**:
+- ❌ Backup falló → Email + SMS a admin
+- ⚠️ Backup tardó más de 2 horas → Email
+- ✅ Backup exitoso → Log silencioso
+
+**Dashboard**:
+- Último backup exitoso
+- Tamaño de backups
+- Tiempo de ejecución
+- Espacio disponible en disco/S3
+
+**Healthcheck**:
+```typescript
+// Endpoint para monitoreo
+app.get('/api/health/backups', async (req, res) => {
+  const lastBackup = await getLastBackupInfo();
+  const horasSinBackup = (Date.now() - lastBackup.timestamp) / (1000 * 60 * 60);
+  
+  if (horasSinBackup > 24) {
+    return res.status(500).json({
+      status: 'error',
+      message: 'Sin backup en las últimas 24 horas',
+      lastBackup,
+    });
+  }
+  
+  res.json({
+    status: 'ok',
+    lastBackup,
+  });
+});
+```
+
+##### **F. Costos Estimados**
+
+**S3 Standard** (documentos activos):
+- 100 GB × $0.023/GB = $2.30/mes
+
+**S3 Glacier** (backups antiguos):
+- 500 GB × $0.004/GB = $2.00/mes
+
+**Total estimado**: ~$5-10/mes (depende del volumen)
+
+##### **G. Recomendación Final**
+
+**Configuración Recomendada**:
+```yaml
+backup:
+  database:
+    full: "0 2 * * *"           # Diario 2 AM
+    incremental: "0 */6 * * *"  # Cada 6 horas
+    retention: 30               # días
+    
+  documents:
+    strategy: "s3-versioned"    # S3 con versionado
+    replication: true           # Replicar a otra región
+    retention:
+      versions: 365             # días
+      deleted: 90               # días (soft delete)
+      
+  monitoring:
+    alerts:
+      email: "admin@grupobbca.com"
+      slack: "#ops-alerts"
+      
+  recovery:
+    rto: 4                      # horas
+    rpo: 6                      # horas
+```
 
 ---
 
-## 📝 CONCLUSIÓN
+---
 
-Esta especificación cubre un **sistema completo de gestión de equipos de transporte** con:
+## 📝 CONCLUSIÓN FINAL
 
+Esta especificación cubre un **sistema completo de gestión de equipos de transporte** con **TODAS las funcionalidades confirmadas y definidas**:
+
+### ✅ Funcionalidades Core:
 - ✅ **8 roles diferentes** con permisos granulares
-- ✅ **Sistema de estados con 6 indicadores** (semáforo)
-- ✅ **Validación estricta** de 19 documentos obligatorios
-- ✅ **Workflow de aprobación** completo con indicadores azules
-- ✅ **Portal del cliente** con descarga masiva y filtros
-- ✅ **Vista previa** de documentos PDF/imágenes
+- ✅ **Sistema de estados con 6 indicadores** (semáforo 🟢🟡🔴⚪🔵🔴🔵)
+- ✅ **Validación estricta** de 19 documentos obligatorios (FIJOS)
+- ✅ **Workflow de aprobación** completo con indicadores azules persistentes
+- ✅ **Portal del cliente** con descarga masiva y filtros temporales
+- ✅ **Vista previa** de documentos PDF/imágenes con thumbnails
 - ✅ **Seguridad robusta** con JWT, RBAC, URLs firmadas
-- ✅ **Arquitectura escalable** Backend + Frontend + BD
 
-La solución está **lista para implementar** en 25-30 días hábiles.
+### ✅ Funcionalidades Adicionales Confirmadas:
+- ✅ **Sistema de Notificaciones** (Email + WhatsApp, no bloqueante)
+  - Alertas de vencimiento (7 días antes)
+  - Notificación de rechazo
+  - Notificación de aprobación
+  - Cron job diario a las 8 AM
+  
+- ✅ **Sistema de Auditoría Completo** (14 acciones loggeadas)
+  - Carga, descarga, actualización, eliminación
+  - Aprobación, rechazo de documentos
+  - Creación, actualización de equipos
+  - Login/logout de usuarios
+  - IP, User-Agent, cambios antes/después
+  
+- ✅ **Política de Backup y Recovery**
+  - Backup BD: Diario (full) + Cada 6h (incremental)
+  - Backup Docs: S3 con versionado + replicación
+  - Soft delete temporal (90 días)
+  - RTO: 4 horas, RPO: 6 horas
+  - Monitoreo con alertas
+
+### ✅ Integraciones:
+- ✅ **Gestión de usuarios**: Sistema existente en monorepo (no crear nuevo)
+- ✅ **Twilio**: WhatsApp notifications (opcional)
+- ✅ **AWS S3**: Almacenamiento de documentos con versionado
+- ✅ **ExcelJS**: Generación de Excel con colores automáticos
+- ✅ **Archiver**: Generación de ZIP con estructura organizada
+
+### 📊 Alcance Total:
+- **20 funcionalidades** completamente especificadas
+- **3 funcionalidades adicionales** agregadas (notificaciones, auditoría, backup)
+- **10 preguntas** respondidas y resueltas
+- **8 roles** con matriz de permisos completa
+- **19 documentos obligatorios** fijos
+- **15 endpoints API** backend
+- **8 servicios** backend + **4 controllers**
+- **15 componentes** frontend + **4 hooks**
+- **6 modelos Prisma** nuevos/actualizados
+
+### ⏱️ Estimación Actualizada:
+- **Fase 1-5**: Setup, CRUD, Semáforo (16 días)
+- **Fase 6**: Workflow Aprobación (4 días)
+- **Fase 7**: Vista Previa (3 días)
+- **Fase 8**: Portal Cliente (4 días)
+- **Fase 9**: **NUEVO** - Notificaciones (2 días)
+- **Fase 10**: **NUEVO** - Auditoría (2 días)
+- **Fase 11**: **NUEVO** - Backup (2 días)
+- **Fase 12**: Tests y Pulido (2 días)
+
+**Total: 35-40 días hábiles** (~7-8 semanas) con las funcionalidades adicionales
+
+### 🎯 Estado:
+- ✅ **Todas las funcionalidades están definidas**
+- ✅ **Todas las preguntas fueron respondidas**
+- ✅ **Propuesta de backup aprobada**
+- ✅ **Arquitectura completa especificada**
+- ✅ **Plan de implementación actualizado**
+
+### 🚀 Próximo Paso:
+**EMPEZAR LA IMPLEMENTACIÓN** - Fase 1: Setup y Roles
 
 ---
 
-**¿Falta algo? ¿Hay alguna funcionalidad que deberíamos agregar antes de empezar?**
+**La especificación está COMPLETA y LISTA PARA IMPLEMENTAR** 🎉
 
