@@ -210,4 +210,100 @@ export class DocumentService {
       return false;
     }
   }
+
+  /**
+   * Renovar documento: crea una nueva versión basada en el documento existente.
+   * - Copia metadata y archivo para permitir revisión/aprobación independiente.
+   * - Marca el nuevo como PENDIENTE_APROBACION y depreca el anterior.
+   * - Guarda traza mínima en validationData (renewOf, renewedAt).
+   */
+  static async renew(documentId: number, opts: { expiresAt?: Date; requestedBy?: number } = {}): Promise<any> {
+    const existing = await db.getClient().document.findUnique({
+      where: { id: documentId },
+      select: {
+        id: true,
+        tenantEmpresaId: true,
+        dadorCargaId: true,
+        templateId: true,
+        entityType: true,
+        entityId: true,
+        fileName: true,
+        filePath: true,
+        fileSize: true,
+        mimeType: true,
+      },
+    });
+    if (!existing) throw new Error('Documento no encontrado');
+
+    const now = new Date();
+    // Crear nueva versión con misma referencia de archivo (opción simple); el flujo de upload puede reemplazar el archivo luego
+    const created = await db.getClient().document.create({
+      data: {
+        tenantEmpresaId: existing.tenantEmpresaId as number,
+        dadorCargaId: existing.dadorCargaId as number,
+        templateId: existing.templateId as number,
+        entityType: existing.entityType as any,
+        entityId: existing.entityId as number,
+        status: 'PENDIENTE_APROBACION' as DocumentStatus,
+        uploadedAt: now,
+        fileName: existing.fileName,
+        filePath: existing.filePath,
+        fileSize: existing.fileSize,
+        mimeType: existing.mimeType,
+        expiresAt: opts.expiresAt || null,
+        validationData: {
+          ...(existing as any).validationData,
+          renewOf: existing.id,
+          renewedAt: now.toISOString(),
+          requestedBy: opts.requestedBy ?? null,
+        } as any,
+      },
+      include: { template: true },
+    });
+
+    // Marcar el anterior como DEPRECADO (mantener retención de acuerdo a políticas, se puede limpiar luego)
+    await db.getClient().document.update({
+      where: { id: existing.id },
+      data: {
+        status: 'DEPRECADO' as DocumentStatus,
+        validationData: {
+          ...(existing as any).validationData,
+          replacedBy: created.id,
+          replacedAt: now.toISOString(),
+        } as any,
+      },
+    });
+
+    AppLogger.info(`♻️ Renovación creada para documento ${documentId} -> nueva versión ${created.id}`);
+    return created;
+  }
+
+  /**
+   * Obtener historial de versiones del documento (por entidad + template)
+   */
+  static async getHistory(documentId: number): Promise<any[]> {
+    const base = await db.getClient().document.findUnique({
+      where: { id: documentId },
+      select: { tenantEmpresaId: true, entityType: true, entityId: true, templateId: true },
+    });
+    if (!base) throw new Error('Documento no encontrado');
+    return db.getClient().document.findMany({
+      where: {
+        tenantEmpresaId: base.tenantEmpresaId as number,
+        entityType: base.entityType as any,
+        entityId: base.entityId as number,
+        templateId: base.templateId as number,
+      },
+      select: {
+        id: true,
+        status: true,
+        uploadedAt: true,
+        validatedAt: true,
+        expiresAt: true,
+        fileName: true,
+        validationData: true,
+      },
+      orderBy: [{ uploadedAt: 'desc' }, { id: 'desc' }],
+    });
+  }
 }

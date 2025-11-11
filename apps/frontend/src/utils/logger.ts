@@ -35,22 +35,18 @@ function formatMessage(level: string, message?: unknown, ...args: unknown[]) {
 export const logger = {
   debug(message?: unknown, ...args: unknown[]) {
     if (!shouldLog('debug')) return;
-    // eslint-disable-next-line no-console
     console.debug(...formatMessage('debug', message, ...args));
   },
   info(message?: unknown, ...args: unknown[]) {
     if (!shouldLog('info')) return;
-    // eslint-disable-next-line no-console
     console.info(...formatMessage('info', message, ...args));
   },
   warn(message?: unknown, ...args: unknown[]) {
     if (!shouldLog('warn')) return;
-    // eslint-disable-next-line no-console
     console.warn(...formatMessage('warn', message, ...args));
   },
   error(message?: unknown, ...args: unknown[]) {
     if (!shouldLog('error')) return;
-    // eslint-disable-next-line no-console
     console.error(...formatMessage('error', message, ...args));
   },
 };

@@ -1,6 +1,6 @@
-const { NotificationService } = require('../dist/services/notification.service');
+const { NotificationService } = require('../src/services/notification.service');
 
-jest.mock('../dist/services/system-config.service', () => ({
+jest.mock('../src/services/system-config.service', () => ({
   SystemConfigService: {
     getConfig: jest.fn().mockImplementation(async (k) => {
       if (k.endsWith('notifications.enabled')) return 'true';

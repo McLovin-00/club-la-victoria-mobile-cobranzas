@@ -2,7 +2,6 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Card } from '../../../components/ui/card';
 import { Button } from '../../../components/ui/button';
-import { useToast } from '../../../components/ui/toast';
 import { Input } from '../../../components/ui/input';
 import { ArrowLeftIcon } from '@heroicons/react/24/outline';
 import { useCreateDadorMutation, useDeleteDadorMutation, useGetDadoresQuery, useUpdateDadorMutation, useGetDefaultsQuery, useUpdateDefaultsMutation } from '../api/documentosApiSlice';
@@ -17,7 +16,7 @@ const DadorPhonesInline: React.FC<{ dadorId: number; initial: string[]; onSave: 
   const [saving, setSaving] = React.useState(false);
   const canAdd = phones.length < 5;
   const valid = phones.filter(Boolean).every(p=>phoneRegex.test(p)) && phones.filter(Boolean).length>=1;
-  const { show } = useToast();
+  const show = (msg: string) => { try { alert(msg); } catch { console.log(msg); } };
   const authToken = useSelector((s: RootState) => s.auth?.token);
   const empresaId = useSelector((s: RootState) => s.auth?.user?.empresaId);
   const authHeaders: HeadersInit = {
@@ -54,7 +53,7 @@ const DadoresPage: React.FC = () => {
   const [createDador] = useCreateDadorMutation();
   const [updateDador] = useUpdateDadorMutation();
   const [deleteDador] = useDeleteDadorMutation();
-  const { show } = useToast();
+  const show = (msg: string) => { try { alert(msg); } catch { console.log(msg); } };
   const authToken = useSelector((s: RootState) => s.auth?.token);
   const empresaId = useSelector((s: RootState) => s.auth?.user?.empresaId);
   const authHeaders: HeadersInit = {

@@ -1,0 +1,36 @@
+## Sprint 6 — Auditoría, métricas y health
+
+- Objetivo: trazabilidad completa de acciones críticas, métricas operativas útiles y health checks sólidos.
+- Duración: 1 semana.
+- Documentos base: OBSERVABILIDAD_METRICAS_SLI_THREAT_MODEL.me, MIGRACIONES_FLAGS_RIESGOS_DOR_DOD.me.
+
+## Entregables del sprint
+
+- AuditLog en microservicio Documentos y middleware de auditoría.
+- /metrics enriquecido (Prometheus) y /health con checks reales.
+- Dashboards/alertas mínimas (si procede).
+
+## Checklist — Modelo y servicios
+
+- [ ] Modelo AuditLog en Documentos (actor, rol, recurso, acción, old/new, ip, ua, ts).
+- [ ] AuditService: `log(action, entity, id, userId, changes, metadata)`.
+- [ ] Middleware: registrar acciones de upload/approve/reject/renew/zip/config.
+
+## Checklist — Endpoints y métricas
+
+- [ ] /metrics: latencias por endpoint, errores por tipo, colas, notificaciones, ZIP size promedio.
+- [ ] /health: DB, MinIO, jobs/scheduler, dependencias externas.
+- [ ] (Opcional) GET /api/docs/audit (consulta con filtros y paginado).
+
+## Checklist — Testing
+
+- [ ] Unit: logging de auditoría; formateo; no PII.
+- [ ] Integración: auditoría en flows críticos.
+- [ ] Contract: /audit (si publicado).
+
+## Checklist — Seguridad y aceptación
+
+- [ ] Auditoría sin PII; retención definida; acceso restringido a logs.
+- [ ] Aceptación: acciones críticas dejan registro; health y metrics reflejan estado real.
+
+

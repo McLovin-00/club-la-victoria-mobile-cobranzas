@@ -7,6 +7,7 @@ import { createEquipoSchema, equipoClienteAssocSchema, equipoListQuerySchema, up
 import { z } from 'zod';
 import { prisma } from '../config/database';
 import { AppLogger } from '../config/logger';
+import { AuditService } from '../services/audit.service';
 
 const router = Router();
 
@@ -73,17 +74,54 @@ router.post('/:equipoId/request-missing', authorize(['ADMIN' as any, 'SUPERADMIN
   res.json({ success: true, data: { faltantes, sent } });
 });
 
+// Estado de equipo (semaforo y breakdown)
+router.get('/:id/estado', async (req, res) => {
+  const equipoId = Number(req.params.id);
+  const clienteId = req.query.clienteId ? Number(req.query.clienteId) : undefined;
+  const { EquipoEstadoService } = await import('../services/equipo-estado.service');
+  const data = await EquipoEstadoService.calculateEquipoEstado(equipoId, clienteId);
+  return res.json({ success: true, data });
+});
+
 // Asociar / Desasociar componentes del equipo
 router.post('/:id/attach', authorize(['ADMIN' as any, 'SUPERADMIN' as any]), validate(equipoAttachSchema), async (req: any, res) => {
   const { EquipoService } = await import('../services/equipo.service');
   const result = await EquipoService.attachComponents(req.tenantId!, Number(req.params.id), req.body);
-  return res.json({ success: true, data: result });
+  const response = { success: true, data: result };
+  // Audit best-effort
+  void AuditService.log({
+    tenantEmpresaId: req.tenantId,
+    userId: req.user?.userId ?? req.user?.id,
+    userRole: req.user?.role,
+    method: req.method,
+    path: req.originalUrl || req.path,
+    statusCode: 200,
+    action: 'EQUIPO_ATTACH',
+    entityType: 'EQUIPO',
+    entityId: Number(req.params.id),
+    details: req.body,
+  });
+  return res.json(response);
 });
 
 router.post('/:id/detach', authorize(['ADMIN' as any, 'SUPERADMIN' as any]), validate(equipoDetachSchema), async (req: any, res) => {
   const { EquipoService } = await import('../services/equipo.service');
   const result = await EquipoService.detachComponents(req.tenantId!, Number(req.params.id), req.body);
-  return res.json({ success: true, data: result });
+  const response = { success: true, data: result };
+  // Audit best-effort
+  void AuditService.log({
+    tenantEmpresaId: req.tenantId,
+    userId: req.user?.userId ?? req.user?.id,
+    userRole: req.user?.role,
+    method: req.method,
+    path: req.originalUrl || req.path,
+    statusCode: 200,
+    action: 'EQUIPO_DETACH',
+    entityType: 'EQUIPO',
+    entityId: Number(req.params.id),
+    details: req.body,
+  });
+  return res.json(response);
 });
 
 // ==============================
@@ -183,6 +221,18 @@ router.post('/download/vigentes', authorize(['ADMIN' as any, 'SUPERADMIN' as any
     return;
   }
   archive.finalize();
+  // Audit (best-effort)
+  void AuditService.log({
+    tenantEmpresaId: req.tenantId,
+    userId: req.user?.userId ?? req.user?.id,
+    userRole: req.user?.role,
+    method: req.method,
+    path: req.originalUrl || req.path,
+    statusCode: 200,
+    action: 'ZIP_VIGENTES_DOWNLOAD',
+    entityType: 'ZIP_STREAM',
+    details: { equipos: equipoIds.length, generatedAt: now.toISOString() },
+  });
 });
 
 export default router;

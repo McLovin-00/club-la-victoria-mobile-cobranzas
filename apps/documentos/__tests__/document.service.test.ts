@@ -1,6 +1,6 @@
-const { DocumentService } = require('../dist/services/document.service');
+const { DocumentService } = require('../src/services/document.service');
 
-jest.mock('../dist/config/database', () => {
+jest.mock('../src/config/database', () => {
   return {
     db: {
       getClient: () => ({
@@ -21,11 +21,11 @@ jest.mock('../dist/config/database', () => {
   };
 });
 
-jest.mock('../dist/services/queue.service', () => ({
+jest.mock('../src/services/queue.service', () => ({
   queueService: { addDocumentValidation: jest.fn().mockResolvedValue(undefined) },
 }));
 
-jest.mock('../dist/services/minio.service', () => ({
+jest.mock('../src/services/minio.service', () => ({
   minioService: { deleteDocument: jest.fn().mockResolvedValue(undefined) },
 }));
 

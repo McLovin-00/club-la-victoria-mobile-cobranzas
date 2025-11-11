@@ -1,6 +1,6 @@
-const { TemplatesController } = require('../dist/controllers/templates.controller');
+const { TemplatesController } = require('../src/controllers/templates.controller');
 
-jest.mock('../dist/config/database', () => ({
+jest.mock('../src/config/database', () => ({
   db: {
     getClient: () => ({
       documentTemplate: {

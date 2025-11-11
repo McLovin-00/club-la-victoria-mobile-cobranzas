@@ -1,0 +1,59 @@
+## Sprint 2 — Workflow documental y versionado
+
+- Objetivo: completar el flujo de aprobación/rechazo/renovación con versionado, validación de 19 documentos y media segura.
+- Duración: 1 semana.
+- Documentos base: PLAN_EJECUCION_SISTEMA_GESTION_EQUIPOS.me, RBAC_Y_CONTRATOS_CRITICOS.me.
+
+## Entregables del sprint
+
+- Aprobación/rechazo con motivos estandarizados y notas (batch e individual).
+- Renovación y versionado con historial consultable.
+- Validación de 19 documentos (lista fija), con mensajes claros.
+- Thumbnails y política de tipos/tamaños de archivo.
+
+## Checklist — Modelo y migraciones
+
+- [ ] Agregar campos de versionado en `Document` (referencia a versión previa, flags mínimos).
+- [ ] (Opcional) `DocumentHistorial` para trazabilidad de acciones relevantes.
+- [ ] Catálogo de motivos de rechazo (enum o tabla) y referencia en acciones.
+- [ ] Migraciones pequeñas, con backfill cuando aplique; plan de reversión.
+
+## Checklist — Servicios
+
+- [ ] ApprovalService: extender aprobar/rechazar (motivos, reviewedBy, notas, batch robusto).
+- [ ] DocumentService: `renew`, `getHistory`, `getLatestByTemplate`.
+- [ ] EquipoValidation: validar 19 documentos requeridos; manejar acoplado opcional.
+- [ ] Media/MinIO: thumbnails (PDF/imagen), expiración configurable de URLs.
+
+## Checklist — Endpoints
+
+- [ ] POST /api/docs/approval/pending/:id/approve
+- [ ] POST /api/docs/approval/pending/:id/reject
+- [ ] POST /api/docs/documents/:id/renew
+- [ ] GET  /api/docs/documents/:id/history
+- [ ] GET  /api/docs/documents/:id/thumbnail
+
+## Checklist — Frontend
+
+- [ ] ApprovalQueue/Detail: UI para motivos de rechazo y notas; feedback batch.
+- [ ] Indicadores de versión e historial (vista compacta).
+- [ ] Previsualización con thumbnails y fallback seguro.
+
+## Checklist — Testing
+
+- [ ] Unit: aprobar/rechazar/renovar; resolución de “latest” y deprecados.
+- [ ] Contract: approve/reject/renew/history/thumbnail (códigos y shapes).
+- [ ] Integración: subir → clasificar → aprobar → renovar → consultar historial.
+
+## Checklist — Seguridad y límites
+
+- [ ] Whitelist de mime-types; tamaño máximo por tipo; sanitización básica.
+- [ ] Rate-limit en renovar y batch approve; idempotencia opcional por token.
+- [ ] Auditoría para acciones de approve/reject/renew.
+
+## Checklist — CI/CD y aceptación
+
+- [ ] CI: lint/typecheck/unit/contract en verde; cobertura mínima por módulo.
+- [ ] Aceptación: versionado visible, motivos de rechazo operativos, validación 19 docs.
+
+

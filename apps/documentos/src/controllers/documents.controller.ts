@@ -42,8 +42,15 @@ export class DocumentsController {
       const dadorIdNum = parseInt(dadorCargaId);
       const templateIdNum = parseInt(templateId);
 
-      // Superadmin puede omitir validación de habilitación
-      // Eliminada validación por empresa
+      // Validación de permisos por empresa (más estricta para roles de campo):
+      // - SUPERADMIN: sin restricción
+      // - DADOR_DE_CARGA / TRANSPORTISTA / CLIENTE: solo su empresa
+      if (req.user?.role === 'DADOR_DE_CARGA' || req.user?.role === 'TRANSPORTISTA' || req.user?.role === 'CLIENTE') {
+        const userEmpresaId = (req.user as any)?.empresaId;
+        if (!userEmpresaId || userEmpresaId !== dadorIdNum) {
+          throw createError('Acceso denegado a empresa', 403, 'DOCUMENT_UPLOAD_FORBIDDEN');
+        }
+      }
 
       // Superadmin puede omitir validación de template habilitado para la empresa
       // Eliminada validación por empresa/template
@@ -55,6 +62,37 @@ export class DocumentsController {
 
       if (!template || (template.active === false)) {
         throw createError('Plantilla no encontrada o inactiva', 404, 'TEMPLATE_NOT_FOUND');
+      }
+
+      // Inferir escenario por existencia de historial previo
+      const last = await db.getClient().document.findFirst({
+        where: {
+          templateId: templateIdNum,
+          entityType,
+          entityId: parseInt(entityId),
+          dadorCargaId: dadorIdNum,
+        },
+        orderBy: { uploadedAt: 'desc' },
+        select: { id: true, status: true },
+      });
+      const isInitialAttempt = !last;
+
+      if (isInitialAttempt) {
+        // Para alta inicial exigimos planilla completa con todos los documentos obligatorios (carga masiva).
+        // Este endpoint sube 1 documento; rechazamos para evitar crear equipos incompletos.
+        throw createError(
+          'Alta inicial rechazada: debe cargar todos los documentos obligatorios desde la planilla completa.',
+          400,
+          'INITIAL_UPLOAD_REQUIRES_BATCH'
+        );
+      } else {
+        // Renovación o nueva versión:
+        // - Si está VENCIDO, permitir (renovación)
+        // - Si NO está VENCIDO, requerir confirmación explícita de nueva versión
+        const confirmNewVersion = String((req.body as any).confirmNewVersion ?? '') === 'true' || (req.body as any).confirmNewVersion === true;
+        if (last && last.status !== 'VENCIDO' && !confirmNewVersion) {
+          throw createError('El documento previo no está vencido. Confirme si es una nueva versión.', 409, 'CONFIRM_NEW_VERSION_REQUIRED');
+        }
       }
 
       // Antivirus opcional (ClamAV) por cada buffer
@@ -183,6 +221,27 @@ export class DocumentsController {
         },
       });
 
+      // Si se confirmó nueva versión y había un documento previo NO vencido,
+      // marcar el anterior como DEPRECADO y dejar traza de reemplazo.
+      try {
+        const confirmNewVersion = String((req.body as any).confirmNewVersion ?? '') === 'true' || (req.body as any).confirmNewVersion === true;
+        if (last && last.status !== 'VENCIDO' && confirmNewVersion) {
+          await db.getClient().document.update({
+            where: { id: (last as any).id as number },
+            data: {
+              status: 'DEPRECADO',
+              validationData: {
+                ...(last as any).validationData,
+                replacedBy: document.id,
+                replacedAt: new Date().toISOString(),
+              } as any,
+            },
+          });
+        }
+      } catch (_e) {
+        AppLogger.warn('⚠️ No se pudo marcar versión anterior como DEPRECADO (continuando).');
+      }
+
       // Notificar nuevo documento via WebSocket
       webSocketService.notifyNewDocument({
         documentId: document.id,
@@ -207,6 +266,24 @@ export class DocumentsController {
         userId: req.user?.userId,
       });
 
+      // Audit
+      try {
+        await AuditService.log({
+          tenantEmpresaId: req.tenantId,
+          userId: req.user?.userId,
+          userRole: req.user?.role,
+          method: req.method,
+          path: req.originalUrl || req.path,
+          statusCode: 201,
+          action: 'DOCUMENT_UPLOAD',
+          entityType: 'DOCUMENT',
+          entityId: document.id,
+          details: { templateId: (document as any).templateId, entityType: document.entityType, entityId: document.entityId, fileName: document.fileName, fileSize: document.fileSize },
+        });
+      } catch {}
+      // Refrescar vista materializada (best-effort)
+      try { (await import('../services/performance.service')).performanceService.refreshMaterializedView(); } catch {}
+
       res.status(201).json(document);
     } catch (error) {
       AppLogger.error('💥 Error al subir documento:', error);
@@ -223,7 +300,10 @@ export class DocumentsController {
   static async getDocumentsByEmpresa(req: AuthRequest, res: Response): Promise<void> {
     try {
       const empresaId = parseInt((req.params as any).dadorId || (req.params as any).empresaId);
-      const { status } = req.query as any;
+      const { status, page = '1', limit = '50' } = req.query as any;
+      const pageNum = parseInt(String(page), 10) || 1;
+      const limitNum = Math.min(parseInt(String(limit), 10) || 50, 100);
+      const skip = (pageNum - 1) * limitNum;
 
       // Seguridad: si no es superadmin, forzar empresa del usuario
       if (req.user?.role !== 'SUPERADMIN' && req.user?.empresaId !== empresaId) {
@@ -242,6 +322,8 @@ export class DocumentsController {
           { uploadedAt: 'desc' },
           { id: 'desc' },
         ],
+        take: limitNum,
+        skip,
       });
 
       res.json(documents);
@@ -533,6 +615,68 @@ export class DocumentsController {
   }
 
   /**
+   * GET /api/docs/documents/:id/thumbnail - Obtener thumbnail (URL firmada)
+   */
+  static async getDocumentThumbnail(req: AuthRequest, res: Response): Promise<void> {
+    try {
+      const { id } = req.params;
+      const document = await db.getClient().document.findUnique({
+        where: { id: parseInt(id) },
+        select: { id: true, tenantEmpresaId: true, dadorCargaId: true, mimeType: true },
+      });
+      if (!document) throw createError('Documento no encontrado', 404, 'DOCUMENT_NOT_FOUND');
+      if (req.user?.role !== 'SUPERADMIN') {
+        const userTenantId = (req.user as any).empresaId;
+        if (userTenantId !== document.tenantEmpresaId) {
+          throw createError('Acceso denegado al documento', 403, 'DOCUMENT_ACCESS_DENIED');
+        }
+      }
+      const { ThumbnailService } = await import('../services/thumbnail.service');
+      const url = await ThumbnailService.getSignedUrl(parseInt(id));
+      res.json({ success: true, data: { url, mimeType: 'image/jpeg', expiresIn: 3600 } });
+    } catch (error) {
+      AppLogger.error('💥 Error al generar thumbnail de documento:', error);
+      if (error instanceof Error && 'code' in error) {
+        throw error;
+      }
+      throw createError('Error al generar thumbnail', 500, 'DOCUMENT_THUMBNAIL_ERROR');
+    }
+  }
+
+  /**
+   * POST /api/docs/documents/:id/renew - Renovar documento (nueva versión)
+   */
+  static async renewDocument(req: AuthRequest, res: Response): Promise<void> {
+    try {
+      const id = parseInt((req.params as any).id);
+      const { expiresAt } = (req.body || {}) as any;
+      const next = await DocumentService.renew(id, {
+        expiresAt: expiresAt ? new Date(expiresAt) : undefined,
+        requestedBy: (req.user as any)?.userId,
+      });
+      res.status(201).json({ success: true, data: next });
+      try { (await import('../services/performance.service')).performanceService.refreshMaterializedView(); } catch {}
+    } catch (error) {
+      AppLogger.error('💥 Error renovando documento:', error);
+      throw createError('Error al renovar documento', 500, 'DOCUMENT_RENEW_ERROR');
+    }
+  }
+
+  /**
+   * GET /api/docs/documents/:id/history - Historial de versiones
+   */
+  static async getDocumentHistory(req: AuthRequest, res: Response): Promise<void> {
+    try {
+      const id = parseInt((req.params as any).id);
+      const rows = await DocumentService.getHistory(id);
+      res.json({ success: true, data: rows });
+    } catch (error) {
+      AppLogger.error('💥 Error obteniendo historial de documento:', error);
+      throw createError('Error al obtener historial', 500, 'DOCUMENT_HISTORY_ERROR');
+    }
+  }
+
+  /**
    * DELETE /api/docs/documents/:id - Eliminar documento
    */
   static async deleteDocument(req: AuthRequest, res: Response): Promise<void> {
@@ -588,6 +732,21 @@ export class DocumentsController {
         templateName: document.template.name,
         userId: req.user?.userId,
       });
+
+      // Audit
+      void AuditService.log({
+        tenantEmpresaId: (req as any).tenantId,
+        userId: req.user?.userId,
+        userRole: req.user?.role,
+        method: req.method,
+        path: req.originalUrl || req.path,
+        statusCode: 200,
+        action: 'DOCUMENT_DELETE',
+        entityType: 'DOCUMENT',
+        entityId: document.id,
+        details: { fileName: document.fileName, templateName: document.template.name },
+      });
+      try { (await import('../services/performance.service')).performanceService.refreshMaterializedView(); } catch {}
 
       res.json({
         success: true,

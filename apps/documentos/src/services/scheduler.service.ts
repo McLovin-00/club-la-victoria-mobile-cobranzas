@@ -35,6 +35,7 @@ export class SchedulerService {
       this.scheduleQueueCleanup();
       this.schedulePerformanceOptimization();
       this.scheduleNotifications();
+      this.scheduleAuditRetention();
       
       AppLogger.info('✅ Todas las tareas programadas iniciadas');
     } catch (error) {
@@ -63,6 +64,33 @@ export class SchedulerService {
     task.start();
     
     AppLogger.info('⏰ Tarea programada: Verificación de vencimientos (cada hora)');
+  }
+
+  /**
+   * Retención de logs de auditoría - limpieza diaria a las 02:00
+   * Default: 180 días (configurable vía SystemConfig: 'audit.retention.days')
+   */
+  private scheduleAuditRetention(): void {
+    try {
+      const task = cron.schedule('0 2 * * *', async () => {
+        try {
+          const { SystemConfigService } = await import('./system-config.service');
+          const daysStr = await SystemConfigService.getConfig('audit.retention.days');
+          const days = daysStr ? parseInt(daysStr, 10) : 180;
+          const cutoff = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
+          const { prisma } = await import('../config/database');
+          const res = await (prisma as any).auditLog?.deleteMany
+            ? (prisma as any).auditLog.deleteMany({ where: { createdAt: { lt: cutoff } } })
+            : null;
+          AppLogger.info('🧹 Audit retention ejecutada', { deleted: (res?.count ?? 0), days });
+        } catch (err) {
+          AppLogger.error('💥 Error en audit retention task:', err);
+        }
+      });
+      this.tasks.set('audit-retention', task);
+    } catch (error) {
+      AppLogger.error('💥 Error programando audit retention:', error);
+    }
   }
 
   /**
@@ -236,6 +264,23 @@ export class SchedulerService {
           break;
         case 'performance-optimization':
           await performanceService.refreshMaterializedView();
+          break;
+        case 'audit-retention':
+          // Ejecutar la lógica una vez
+          try {
+            const { SystemConfigService } = await import('./system-config.service');
+            const daysStr = await SystemConfigService.getConfig('audit.retention.days');
+            const days = daysStr ? parseInt(daysStr, 10) : 180;
+            const cutoff = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
+            const { prisma } = await import('../config/database');
+            const res = await (prisma as any).auditLog?.deleteMany
+              ? (prisma as any).auditLog.deleteMany({ where: { createdAt: { lt: cutoff } } })
+              : null;
+            AppLogger.info('🧹 Audit retention ejecutada manualmente', { deleted: (res?.count ?? 0), days });
+          } catch (err) {
+            AppLogger.error('💥 Error ejecutando audit retention manual:', err);
+            throw err;
+          }
           break;
         default:
           throw new Error(`Tarea desconocida: ${taskName}`);

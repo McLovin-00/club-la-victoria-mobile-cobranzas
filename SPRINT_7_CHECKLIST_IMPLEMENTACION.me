@@ -1,0 +1,43 @@
+## Sprint 7 — Backup/Recovery + Hardening final
+
+- Objetivo: asegurar continuidad del negocio (backups/restores verificados) y endurecer seguridad operativa para producción.
+- Duración: 1 semana.
+- Documentos base: MIGRACIONES_FLAGS_RIESGOS_DOR_DOD.me, OBSERVABILIDAD_METRICAS_SLI_THREAT_MODEL.me.
+
+## Entregables del sprint
+
+- Backups DB (full diaria + incremental 6h) y prueba de restauración documentada.
+- Versionado S3 y políticas de retención/lifecycle.
+- Hardening: headers de seguridad, CORS final, rate‑limits definitivos, revisión de secretos.
+
+## Checklist — Backups y restore
+
+- [ ] Scripts de backup para DB (full + incremental) y verificación de integridad.
+- [ ] Procedimiento de restore: simulacro en entorno aislado; tiempos RPO/RTO medidos.
+- [ ] Reporte de estado de backups y alertas por fallo/capacidad.
+
+## Checklist — S3/MinIO
+
+- [ ] Versioning habilitado; lifecycle para transición/expurgo.
+- [ ] Procedimiento de restauración de objetos; pruebas con documentos representativos.
+
+## Checklist — Hardening de seguridad
+
+- [ ] Headers: HSTS, X-Content-Type-Options, X-Frame-Options/Frame-ancestors, CSP razonable.
+- [ ] CORS: whitelist por entorno; no comodines en prod.
+- [ ] Secrets/llaves: rotación verificada; mínimos privilegios; inventario actualizado.
+- [ ] Rate-limits finales por endpoint/rol; límites de payload/ZIP revisados.
+
+## Checklist — Documentación y runbooks
+
+- [ ] Runbook de incidentes (pérdida de datos, caídas parciales, claves comprometidas).
+- [ ] Manual de operación (tareas rutinarias, monitoreo, escalamiento).
+- [ ] CHANGELOG y ADRs actualizados (decisiones de seguridad/operación).
+
+## Checklist — Aceptación
+
+- [ ] Restore exitoso y reproducible; evidencias y tiempos.
+- [ ] Controles de seguridad activos y verificados.
+- [ ] Operación documentada y conocida por el equipo.
+
+

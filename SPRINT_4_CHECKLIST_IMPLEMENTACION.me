@@ -1,0 +1,51 @@
+## Sprint 4 — Portales (Cliente, Dador, Transportistas/Choferes)
+
+- Objetivo: habilitar funcionalidades clave de los portales con filtros y permisos correctos, UX simple y mobile‑first.
+- Duración: 1 semana.
+- Documentos base: RBAC_Y_CONTRATOS_CRITICOS.me, PLAN_EJECUCION_SISTEMA_GESTION_EQUIPOS.me.
+
+## Entregables del sprint
+
+- Cliente: búsqueda masiva por patentes, ZIP estructurado + Excel, maestros readonly.
+- Dador: autofiltro, aprobaciones acotadas (si flag), búsquedas y maestros scoped.
+- Transportistas/Choferes: “mis equipos”, búsquedas limitadas, descargas propias.
+
+## Checklist — Backend
+
+- [ ] Endpoints:
+  - [ ] POST /api/docs/clients/bulk-search
+  - [ ] POST /api/docs/clients/bulk-zip (202 + jobs)
+  - [ ] (Dador) búsquedas scoped y aprobaciones (flag `aprobacionDador`)
+  - [ ] (Transportistas) GET /api/docs/transportistas/mis-equipos y búsquedas limitadas
+- [ ] Filtros:
+  - [ ] `autoFilterByDador` en todas las rutas del dador.
+  - [ ] `authorizeTransportista` en rutas de transportistas/choferes.
+- [ ] ZIP y Excel:
+  - [ ] DocumentZipService con estructura exacta; límites de tamaño/lotes; streaming.
+  - [ ] ExcelJS con resumen por equipo/documento/estado/vence.
+
+## Checklist — Frontend
+
+- [ ] Cliente:
+  - [ ] Textarea multi‑patentes + normalización + validación; feedback de errores.
+  - [ ] Botón ZIP masivo (jobs con progreso); descarga segura.
+  - [ ] Maestro readonly (tabs sencillos).
+- [ ] Dador:
+  - [ ] Acciones de aprobación acotada si flag; listados propios.
+  - [ ] Cargas masivas con feedback y resultados.
+- [ ] Transportistas/Choferes:
+  - [ ] Mis equipos + estado; búsquedas propias; descargas propias.
+  - [ ] Mobile‑first; accesibilidad (focus/ARIA).
+
+## Checklist — Testing
+
+- [ ] Contract: bulk-search/zip (202 + polling), mis-equipos, maestros readonly.
+- [ ] E2E por rol: flujo completo de cada portal (básico).
+- [ ] Performance: prueba de ZIP con lotes controlados; medir p95 y errores.
+
+## Checklist — Seguridad y aceptación
+
+- [ ] Enforzar límites por rol (lote ≤ 50; ZIP por lotes).
+- [ ] Aceptación: flows funcionales, UX clara, sin accesos cruzados.
+
+

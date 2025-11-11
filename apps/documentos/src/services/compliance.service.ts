@@ -1,5 +1,5 @@
 import { prisma } from '../config/database';
-import type { EntityType } from '.prisma/documentos';
+import type { DocumentStatus, EntityType } from '.prisma/documentos';
 
 export type ComplianceState = 'OK' | 'PROXIMO' | 'FALTANTE';
 
@@ -13,11 +13,49 @@ export interface RequirementResult {
   expiresAt?: Date | null;
 }
 
+// Estados detallados para sprint 3
+export type ComplianceStateDetailed = 'VIGENTE' | 'PROXIMO' | 'VENCIDO' | 'PENDIENTE' | 'RECHAZADO' | 'FALTANTE';
+
+export interface RequirementResultDetailed {
+  templateId: number;
+  entityType: EntityType;
+  obligatorio: boolean;
+  diasAnticipacion: number;
+  state: ComplianceStateDetailed;
+  documentId?: number;
+  documentStatus?: DocumentStatus;
+  expiresAt?: Date | null;
+}
+
 export class ComplianceService {
+  // Método legado (usado por rutas existentes)
   static async evaluateEquipoCliente(equipoId: number, clienteId: number) {
+    const detailed = await this.evaluateEquipoClienteDetailed(equipoId, clienteId);
+    // Mapear a estados simples
+    const simple: RequirementResult[] = detailed.map((r) => {
+      let state: ComplianceState = 'OK';
+      if (r.state === 'FALTANTE') state = 'FALTANTE';
+      else if (r.state === 'PROXIMO') state = 'PROXIMO';
+      else if (r.state === 'VENCIDO' || r.state === 'PENDIENTE' || r.state === 'RECHAZADO') state = 'FALTANTE';
+      else state = 'OK';
+      return {
+        templateId: r.templateId,
+        entityType: r.entityType,
+        obligatorio: r.obligatorio,
+        diasAnticipacion: r.diasAnticipacion,
+        state,
+        documentId: r.documentId,
+        expiresAt: r.expiresAt ?? null,
+      };
+    });
+    return simple;
+  }
+
+  // Nuevo método detallado
+  static async evaluateEquipoClienteDetailed(equipoId: number, clienteId: number): Promise<RequirementResultDetailed[]> {
     // Cargar equipo
     const equipo = await prisma.equipo.findUnique({ where: { id: equipoId } });
-    if (!equipo) return [] as RequirementResult[];
+    if (!equipo) return [] as RequirementResultDetailed[];
 
     // Cargar requisitos del cliente por entidad
     const requisitos = await prisma.clienteDocumentRequirement.findMany({
@@ -31,17 +69,14 @@ export class ComplianceService {
       },
     });
 
-    // Resolver documentos más recientes aprobados por entidad
-    const results: RequirementResult[] = [];
-
+    const results: RequirementResultDetailed[] = [];
     for (const r of requisitos) {
       const entityId =
-        r.entityType === 'CHOFER' ? equipo.driverId :
-        r.entityType === 'CAMION' ? equipo.truckId :
-        r.entityType === 'ACOPLADO' ? equipo.trailerId ?? 0 : 0;
+        r.entityType === 'CHOFER' ? (equipo as any).driverId :
+        r.entityType === 'CAMION' ? (equipo as any).truckId :
+        r.entityType === 'ACOPLADO' ? ((equipo as any).trailerId ?? 0) : 0;
 
-      if (r.entityType === 'ACOPLADO' && !equipo.trailerId) {
-        // Cliente exige acoplado pero el equipo no tiene → faltante
+      if (r.entityType === 'ACOPLADO' && !(equipo as any).trailerId) {
         results.push({
           templateId: r.templateId,
           entityType: r.entityType as any,
@@ -52,6 +87,7 @@ export class ComplianceService {
         continue;
       }
 
+      // Buscar último documento (cualquier estado)
       const doc = await prisma.document.findFirst({
         where: {
           templateId: r.templateId,
@@ -59,7 +95,6 @@ export class ComplianceService {
           entityId,
           tenantEmpresaId: (equipo as any).tenantEmpresaId,
           dadorCargaId: (equipo as any).dadorCargaId,
-          status: 'APROBADO' as any,
         },
         orderBy: { uploadedAt: 'desc' },
       });
@@ -75,13 +110,25 @@ export class ComplianceService {
         continue;
       }
 
+      // Determinar estado detallado
       const expiresAt = doc.expiresAt ? new Date(doc.expiresAt) : null;
-      let state: ComplianceState = 'OK';
-      if (expiresAt) {
-        const msLeft = expiresAt.getTime() - Date.now();
-        const daysLeft = Math.floor(msLeft / (1000 * 60 * 60 * 24));
-        if (daysLeft < 0) state = 'FALTANTE';
-        else if (daysLeft <= r.diasAnticipacion) state = 'PROXIMO';
+      const now = Date.now();
+      let state: ComplianceStateDetailed = 'VIGENTE';
+      if (doc.status === 'RECHAZADO') state = 'RECHAZADO';
+      else if (doc.status === 'PENDIENTE' || doc.status === 'VALIDANDO' || doc.status === 'CLASIFICANDO' || doc.status === 'PENDIENTE_APROBACION') state = 'PENDIENTE';
+      else if (doc.status === 'APROBADO') {
+        if (expiresAt && expiresAt.getTime() < now) state = 'VENCIDO';
+        else if (expiresAt) {
+          const daysLeft = Math.floor((expiresAt.getTime() - now) / (1000 * 60 * 60 * 24));
+          state = daysLeft <= r.diasAnticipacion ? 'PROXIMO' : 'VIGENTE';
+        } else {
+          state = 'VIGENTE';
+        }
+      } else if (doc.status === 'VENCIDO') {
+        state = 'VENCIDO';
+      } else {
+        // Cualquier otro caso desconocido: considerar pendiente
+        state = 'PENDIENTE';
       }
 
       results.push({
@@ -90,11 +137,11 @@ export class ComplianceService {
         obligatorio: r.obligatorio,
         diasAnticipacion: r.diasAnticipacion,
         state,
-        documentId: doc.id,
-        expiresAt: doc.expiresAt,
+        documentId: (doc as any).id,
+        documentStatus: (doc as any).status,
+        expiresAt: (doc as any).expiresAt ?? null,
       });
     }
-
     return results;
   }
 }

@@ -1,6 +1,6 @@
-const { StatusService } = require('../dist/services/status.service');
+const { StatusService } = require('../src/services/status.service');
 
-jest.mock('../dist/config/database', () => ({
+jest.mock('../src/config/database', () => ({
   db: {
     getClient: () => ({
       document: {

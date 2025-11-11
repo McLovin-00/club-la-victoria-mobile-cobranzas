@@ -1,0 +1,38 @@
+## Sprint 5 — Notificaciones (no bloqueantes)
+
+- Objetivo: habilitar notificaciones confiables (WhatsApp y Email), deduplicación, templates y scheduling de vencimientos.
+- Duración: 1 semana.
+- Documentos base: OBSERVABILIDAD_METRICAS_SLI_THREAT_MODEL.me, RBAC_Y_CONTRATOS_CRITICOS.me.
+
+## Entregables del sprint
+
+- Provider Email (SMTP/configurable) junto a WhatsApp existente.
+- Templates con variables controladas; sanitizer básico.
+- Deduplicación y logging (NotificationLog); preferencias básicas (si aplica).
+- Cron jobs de vencidos y próximos a vencer.
+
+## Checklist — Servicios y configuración
+
+- [ ] NotificationService: canal email + validaciones; error handling y backoff.
+- [ ] Templates: catálogo y placeholders; pruebas de render.
+- [ ] Preferencias: opt‑in/out por audiencia (si aplica a MVP).
+- [ ] Scheduler: cron jobs con ventanas y rate‑limit por destinatario.
+
+## Checklist — Endpoints
+
+- [ ] POST /api/docs/notifications/test (operativa y segura).
+- [ ] (Opcional) GET /api/docs/notifications/logs (paginado, filtros).
+
+## Checklist — Testing
+
+- [ ] Unit: render de plantillas; deduplicación; reintentos.
+- [ ] Integración: cron de vencimientos; “digest” agrupado (si aplica).
+- [ ] Contract: POST /notifications/test (errores y validaciones).
+
+## Checklist — Seguridad y aceptación
+
+- [ ] No PII en mensajes; links siempre firmados y de corta duración.
+- [ ] Crons respetan ventanas; límites por usuario/día; logs y métricas activas.
+- [ ] Aceptación: mensajes correctos, tiempos y deduplicación comprobados.
+
+

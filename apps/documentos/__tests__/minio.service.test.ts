@@ -1,4 +1,19 @@
-const { minioService } = require('../dist/services/minio.service');
+jest.mock('../src/config/environment', () => ({
+  getEnvironment: () => ({
+    ENABLE_DOCUMENTOS: true,
+    DOCUMENTOS_PORT: 4802,
+    NODE_ENV: 'test',
+    DOCUMENTOS_DATABASE_URL: 'postgres://u:p@localhost:5432/db',
+    MINIO_ENDPOINT: 'localhost:9000',
+    MINIO_PORT: 9000,
+    MINIO_REGION: 'us-east-1',
+    MINIO_ACCESS_KEY: 'minio',
+    MINIO_SECRET_KEY: 'miniosecret',
+    MINIO_USE_SSL: false,
+    MINIO_BUCKET_PREFIX: 'documentos-empresa',
+  }),
+}));
+const { minioService } = require('../src/services/minio.service');
 
 jest.mock('minio', () => {
   return {

@@ -34,8 +34,10 @@ export const validatePassword = (password: string): ValidationError[] => {
   return errors;
 };
 
-export const validateRequired = (value: any, fieldName: string): ValidationError | null => {
-  if (!value || (typeof value === 'string' && value.trim() === '')) {
+export const validateRequired = (value: unknown, fieldName: string): ValidationError | null => {
+  const isEmptyString = typeof value === 'string' && value.trim() === '';
+  const isFalsy = value === null || value === undefined || value === false || value === 0 || value === '';
+  if (isFalsy || isEmptyString) {
     return { field: fieldName, message: `${fieldName} is required` };
   }
   return null;

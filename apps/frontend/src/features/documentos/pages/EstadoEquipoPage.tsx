@@ -1,10 +1,11 @@
-import React, { useMemo } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import React, { useMemo, useCallback } from 'react';
+import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { Button } from '../../../components/ui/button';
 import { Card } from '../../../components/ui/card';
 import { Badge } from '../../../components/ui/badge';
 import { ArrowLeftIcon, DocumentTextIcon, CheckCircleIcon, ExclamationTriangleIcon, XCircleIcon, ClockIcon } from '@heroicons/react/24/outline';
 import { useGetEquipoComplianceQuery, useGetTemplatesQuery } from '../api/documentosApiSlice';
+import { useState } from 'react';
 
 const getStatusConfig = (state?: string) => {
   const v = String(state || '').toUpperCase();
@@ -22,7 +23,7 @@ const getStatusConfig = (state?: string) => {
   }
 };
 
-const Section: React.FC<{ title: string; items: Array<{ templateId: number; templateName?: string; state?: string; expiresAt?: string | null; documentId?: number }> }> = ({ title, items }) => {
+const Section: React.FC<{ title: string; items: Array<{ templateId: number; templateName?: string; state?: string; expiresAt?: string | null; documentId?: number; id?: number }> }> = ({ title, items }) => {
   const formatDate = (dateStr?: string | null) => {
     if (!dateStr) return null;
     try {
@@ -92,6 +93,22 @@ const Section: React.FC<{ title: string; items: Array<{ templateId: number; temp
                     <Badge variant="outline" className={`${config.color} text-xs sm:text-sm`}>
                       {config.label}
                     </Badge>
+                    {item.documentId && (
+                      <a
+                        href={`${import.meta.env.VITE_DOCUMENTOS_API_URL}/api/docs/documents/${item.documentId}/download`}
+                        rel="noreferrer"
+                        target="_blank"
+                        className='text-xs sm:text-sm border rounded px-2 py-1 hover:bg-gray-50'
+                      >
+                        Descargar
+                      </a>
+                    )}
+                    <a
+                      href={`/documentos/carga?equipoId=${encodeURIComponent(String((window.location.pathname.match(/\/(\d+)\/estado$/)?.[1] || '')))}&templateId=${encodeURIComponent(String(item.templateId))}`}
+                      className='text-xs sm:text-sm border rounded px-2 py-1 hover:bg-blue-50'
+                    >
+                      {String(item.state || '').toUpperCase() === 'VENCIDO' ? 'Renovar' : 'Nueva versión'}
+                    </a>
                   </div>
                 </div>
               );
@@ -107,14 +124,68 @@ export const EstadoEquipoPage: React.FC = () => {
   const { id } = useParams();
   const equipoId = Number(id);
   const navigate = useNavigate();
+  const location = useLocation();
+  const [textFilter, setTextFilter] = useState('');
+  const onlyParam = useMemo(()=> {
+    try { return new URLSearchParams(location.search).get('only') || ''; } catch { return ''; }
+  }, [location.search]);
+  const setOnlyParam = (val: string) => {
+    try {
+      const sp = new URLSearchParams(location.search);
+      if (!val || val === 'all') sp.delete('only'); else sp.set('only', val);
+      navigate({ pathname: location.pathname, search: sp.toString() });
+    } catch {
+      // fallback
+      navigate(val && val !== 'all' ? `${location.pathname}?only=${encodeURIComponent(val)}` : location.pathname);
+    }
+  };
   const { data, isLoading, error } = useGetEquipoComplianceQuery({ id: equipoId }, { skip: !equipoId });
   const { data: templates = [] } = useGetTemplatesQuery();
+  const token = typeof localStorage !== 'undefined' ? (localStorage.getItem('token') || '') : '';
+
+  const downloadZipVigentes = async () => {
+    try {
+      const url = `${import.meta.env.VITE_DOCUMENTOS_API_URL}/api/docs/equipos/${equipoId}/zip`;
+      const resp = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
+      if (!resp.ok) throw new Error(`Error ${resp.status}`);
+      const blob = await resp.blob();
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = `equipo_${equipoId}_vigentes.zip`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+    } catch {
+      alert('No fue posible descargar el ZIP de vigentes');
+    }
+  };
+
+  const downloadExcelResumen = async () => {
+    try {
+      const url = `${import.meta.env.VITE_DOCUMENTOS_API_URL}/api/docs/equipos/${equipoId}/summary.xlsx`;
+      const resp = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
+      if (!resp.ok) throw new Error(`Error ${resp.status}`);
+      const blob = await resp.blob();
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = `equipo_${equipoId}_resumen.xlsx`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+    } catch {
+      alert('No fue posible descargar el Excel de resumen');
+    }
+  };
 
   const templateNameById = useMemo(() => {
     const m = new Map<number, string>();
     (templates as any[]).forEach((t: any) => { if (t?.id) m.set(t.id, (t.nombre ?? t.name ?? `Plantilla #${t.id}`)); });
     return m;
   }, [templates]);
+  const getTemplateName = useCallback((templateId?: number) => {
+    if (!templateId) return '';
+    return templateNameById.get(templateId) || '';
+  }, [templateNameById]);
 
   const complianceByEntidad = useMemo(() => {
     const map: Record<string, Array<any>> = { EMPRESA_TRANSPORTISTA: [], CHOFER: [], CAMION: [], ACOPLADO: [] };
@@ -122,12 +193,42 @@ export const EstadoEquipoPage: React.FC = () => {
       const clientes = (data?.clientes || []) as Array<{ clienteId: number; compliance: any[] }>;
       for (const c of clientes) {
         for (const r of c.compliance || []) {
-          (map[r.entityType] = map[r.entityType] || []).push(r);
+          const list = (map[r.entityType] = map[r.entityType] || []);
+          list.push(r);
         }
       }
-    } catch {}
-    return map;
-  }, [data]);
+    } catch (e) { /* noop */ }
+    // Filtrado opcional por estado
+    const only = String(onlyParam || '').toUpperCase().trim();
+    const filterFn = (arr: any[]) => {
+      if (!only || only === 'ALL' || only === 'TODOS') return arr;
+      const state = (x: any) => String(x.state || '').toUpperCase();
+      if (only === 'VENCIDOS' || only === 'VENCIDO') return arr.filter((x) => state(x) === 'VENCIDO');
+      if (only === 'VIGENTES' || only === 'OK' || only === 'VIGENTE') return arr.filter((x) => state(x) === 'OK');
+      if (only === 'POR_VENCER' || only === 'PROXIMO' || only === 'PRÓXIMO') return arr.filter((x) => state(x) === 'PROXIMO');
+      if (only === 'FALTANTES' || only === 'FALTANTE') return arr.filter((x) => state(x) === 'FALTANTE');
+      return arr;
+    };
+    const text = String(textFilter || '').toLowerCase().trim();
+    const filterByText = (arr: any[]) => {
+      if (!text) return arr;
+      return arr.filter((x) => getTemplateName(x.templateId).toLowerCase().includes(text));
+    };
+    if (only) {
+      return {
+        EMPRESA_TRANSPORTISTA: filterByText(filterFn(map.EMPRESA_TRANSPORTISTA)),
+        CHOFER: filterByText(filterFn(map.CHOFER)),
+        CAMION: filterByText(filterFn(map.CAMION)),
+        ACOPLADO: filterByText(filterFn(map.ACOPLADO)),
+      };
+    }
+    return {
+      EMPRESA_TRANSPORTISTA: filterByText(map.EMPRESA_TRANSPORTISTA),
+      CHOFER: filterByText(map.CHOFER),
+      CAMION: filterByText(map.CAMION),
+      ACOPLADO: filterByText(map.ACOPLADO),
+    };
+  }, [data, onlyParam, textFilter, getTemplateName]);
 
   const totalDocs = Object.values(complianceByEntidad).flat().length;
   const faltantesTotal = Object.values(complianceByEntidad).flat().filter(r => r.state?.toUpperCase() === 'FALTANTE').length;
@@ -146,6 +247,30 @@ export const EstadoEquipoPage: React.FC = () => {
           <div className='flex-1'>
             <h1 className='text-2xl sm:text-3xl font-bold text-gray-900'>Estado Documental del Equipo</h1>
             <p className='text-sm sm:text-base text-muted-foreground mt-1'>Resumen completo de la documentación requerida</p>
+          </div>
+          <div className='flex gap-2 self-start sm:self-auto'>
+            <Button variant='outline' size='sm' onClick={downloadZipVigentes}>Descargar ZIP vigentes</Button>
+            <Button size='sm' onClick={downloadExcelResumen}>Descargar Excel</Button>
+          </div>
+        </div>
+        {/* Filtros rápidos */}
+        <div className='mb-4 flex flex-wrap items-center gap-2'>
+          <span className='text-xs text-muted-foreground'>Filtro:</span>
+          <Button variant={(!onlyParam || onlyParam==='all') ? 'default' : 'outline'} size='sm' onClick={()=> setOnlyParam('all')}>Todos</Button>
+          <Button variant={(onlyParam||'').toLowerCase().startsWith('venc') ? 'default' : 'outline'} size='sm' onClick={()=> setOnlyParam('vencidos')}>Vencidos</Button>
+          <Button variant={(onlyParam||'').toLowerCase().includes('por') ? 'default' : 'outline'} size='sm' onClick={()=> setOnlyParam('por_vencer')}>Por vencer</Button>
+          <Button variant={(onlyParam||'').toLowerCase().startsWith('vigen') || (onlyParam||'').toLowerCase()==='ok' ? 'default' : 'outline'} size='sm' onClick={()=> setOnlyParam('vigentes')}>Vigentes</Button>
+          <Button variant={(onlyParam||'').toLowerCase().startsWith('falta') ? 'default' : 'outline'} size='sm' onClick={()=> setOnlyParam('faltantes')}>Faltantes</Button>
+          <div className='ml-auto flex items-center gap-2'>
+            <label htmlFor='textFilter' className='text-xs text-muted-foreground'>Documento</label>
+            <input
+              id='textFilter'
+              value={textFilter}
+              onChange={(e)=> setTextFilter(e.target.value)}
+              placeholder='Filtrar por nombre de documento'
+              className='border rounded px-2 py-1 text-sm'
+              aria-label='Filtrar por nombre de documento'
+            />
           </div>
         </div>
 
@@ -171,7 +296,7 @@ export const EstadoEquipoPage: React.FC = () => {
 
         {/* Resumen general */}
         {!isLoading && data && totalDocs > 0 && (
-          <Card className='mb-6 sm:mb-8 overflow-hidden'>
+          <Card className='mb-6 sm:mb-8 overflow-hidden' aria-live='polite'>
             <div className='bg-gradient-to-r from-blue-600 to-indigo-600 text-white px-4 sm:px-6 py-4'>
               <h2 className='text-lg sm:text-xl font-semibold'>Resumen General</h2>
               <p className='text-blue-100 mt-1 text-sm sm:text-base'>Equipo #{equipoId}</p>

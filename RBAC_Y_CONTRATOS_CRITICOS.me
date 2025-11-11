@@ -1,0 +1,100 @@
+## Propósito
+
+- Alinear expectativas de acceso (RBAC) y eliminar ambigüedad de contratos antes de implementar.
+- Mantenerlo breve, inequívoco y accionable.
+
+## RBAC minimal (rol × acción × recurso)
+
+- SUPERADMIN
+  - Todo permitido a nivel plataforma y tenant; puede seleccionar tenant por header.
+- ADMIN
+  - Gestiona plantillas, configuración, aprobación/rechazo, equipos y maestros dentro de su tenant.
+- OPERADOR_INTERNO
+  - Operaciones diarias: carga, aprobación, renovaciones, consultas; sin configuraciones críticas.
+- DADOR_DE_CARGA
+  - Acceso solo a su scope: sus equipos, sus documentos, sus maestros; aprobación acotada si la política lo permite.
+- TRANSPORTISTA (empresa) / CHOFER (individual)
+  - Consulta y carga propia (mis equipos, mis documentos); sin acceso a datos ajenos.
+- CLIENTE
+  - Consulta de cumplimiento y descarga/ZIP según sus equipos asignados; sin modificar.
+
+Notas:
+- Auto‑filtros obligatorios por scope: tenant, dador, transportista/chofer según rol.
+- Prohibido acceso cruzado entre dadores/transportistas.
+
+## Contratos críticos (contract‑first, extracto)
+
+Convenciones
+- Headers: Authorization (Bearer), x-tenant-id (opcional para SUPERADMIN).
+- Errores: code estable, message legible, traceId.
+- Paginación: page, limit; orden: sort, order; límites por rol.
+
+1) Listar pendientes de aprobación
+- GET /api/docs/approval/pending
+- Query: entityType (opcional), minConfidence, maxConfidence, page, limit.
+- Respuestas:
+  - 200: success=true, data=[documentos con template y classification], pagination.
+  - 403/401/500 con code: INSUFFICIENT_PERMISSIONS|NOT_AUTHENTICATED|INTERNAL_ERROR.
+
+2) Aprobar documento
+- POST /api/docs/approval/pending/{id}/approve
+- Body: confirmedEntityType?, confirmedEntityId?, confirmedExpiration?, confirmedTemplateId?, reviewNotes?.
+- Respuestas:
+  - 200/204: success=true y datos mínimos del documento actualizado.
+  - 400: datos inválidos; 401/403; 409 si conflicto; 404 si no existe o no pendiente.
+
+3) Rechazar documento
+- POST /api/docs/approval/pending/{id}/reject
+- Body: reason (catálogo), notes?.
+- Respuestas: similar a aprobar; code=REJECT_REASON_REQUIRED cuando falte reason.
+
+4) Renovar documento (versionado)
+- POST /api/docs/documents/{id}/renew
+- Body: expiresAt?, notes?; comportamiento: crea nueva versión, depreca la anterior al aprobar.
+- Respuestas: 201 con success=true y referencia a versión nueva; 409 si reglas violadas.
+
+5) Descargar documento (inline o attachment)
+- GET /api/docs/documents/{id}/download
+- Query: inline=1|0.
+- Respuestas: 200 stream; 403 si fuera de scope; 404 si no existe; 410 si deprecado y política no permite.
+
+6) Búsqueda masiva por patentes (cliente)
+- POST /api/docs/clients/bulk-search
+- Body: patentes=[string], normalizadas; clienteId?.
+- Respuestas: 200 data=[equipos], errores de validación por patente inválida; límites por tamaño del lote.
+
+7) ZIP estructurado (cliente)
+- POST /api/docs/clients/bulk-zip
+- Body: patentes=[string], opciones de inclusión (vigentes/por vencer/rechazados), rango de fechas opcional.
+- Respuestas: 202 con jobId; polling: GET /api/docs/jobs/{id}; descarga al completar.
+
+8) Alta rápida de equipo (dador/transportista)
+- POST /api/docs/equipos/minimal
+- Body: dadorCargaId?, dniChofer, patenteTractor, patenteAcoplado?, choferPhones?.
+- Respuestas: 201 con equipo creado; 400/403/409 según reglas y ownership.
+
+9) Estado de equipo (semáforo)
+- GET /api/docs/equipos/{id}/estado
+- Query: clienteId? (para requisitos específicos).
+- Respuestas: 200 con estado general y breakdown por documento requerido; 404/403 si ajeno.
+
+10) Notificación de prueba (operativa)
+- POST /api/docs/notifications/test
+- Body: audience, target, templateKey, payload mínima.
+- Respuestas: 200 con success y logId; 429 si rate‑limit; 400 si template inválido.
+
+## Errores estándar (taxonomía)
+
+- 400 VALIDATION_ERROR, PAYLOAD_TOO_LARGE, UNSUPPORTED_MEDIA_TYPE, CONFLICT.
+- 401 NOT_AUTHENTICATED; 403 INSUFFICIENT_PERMISSIONS, DADOR_ACCESS_DENIED.
+- 404 NOT_FOUND; 409 CONFLICT; 410 GONE (deprecado según política).
+- 429 RATE_LIMITED; 499 CLIENT_CLOSED_REQUEST.
+- 500 INTERNAL_ERROR; 502/503 DEPENDENCY_ERROR/SERVICE_UNAVAILABLE; 504 TIMEOUT.
+
+## Reglas de validación transversales
+
+- Zod en body/query/params; mensajes consistentes; no exponer stack en prod.
+- Normalización prior a consultas (dniNorm, patenteNorm).
+- Límites de lote por rol (p. ej. bulk search ≤ 50 entradas).
+
+

@@ -1,5 +1,6 @@
 import { Response } from 'express';
 import { AuthRequest } from '../middlewares/auth.middleware';
+import { AuditService } from '../services/audit.service';
 import { db } from '../config/database';
 import { AppLogger } from '../config/logger';
 import { createError } from '../middlewares/error.middleware';
@@ -155,6 +156,19 @@ export class TemplatesController {
         data: template,
         message: 'Plantilla creada exitosamente',
       });
+      // Audit
+      void AuditService.log({
+        tenantEmpresaId: req.tenantId,
+        userId: req.user?.userId,
+        userRole: req.user?.role,
+        method: req.method,
+        path: req.originalUrl || req.path,
+        statusCode: 201,
+        action: 'TEMPLATE_CREATE',
+        entityType: 'TEMPLATE',
+        entityId: template.id,
+        details: { name: template.name, entityType: template.entityType },
+      });
     } catch (error) {
       AppLogger.error('💥 Error al crear template:', error);
       if (error instanceof Error && 'code' in error) {
@@ -229,6 +243,19 @@ export class TemplatesController {
         data: updatedTemplate,
         message: 'Plantilla actualizada exitosamente',
       });
+      // Audit
+      void AuditService.log({
+        tenantEmpresaId: req.tenantId,
+        userId: req.user?.userId,
+        userRole: req.user?.role,
+        method: req.method,
+        path: req.originalUrl || req.path,
+        statusCode: 200,
+        action: 'TEMPLATE_UPDATE',
+        entityType: 'TEMPLATE',
+        entityId: updatedTemplate.id,
+        details: { name, active: activeValue },
+      });
     } catch (error) {
       AppLogger.error('💥 Error al actualizar template:', error);
       if (error instanceof Error && 'code' in error) {
@@ -280,6 +307,19 @@ export class TemplatesController {
       res.json({
         success: true,
         message: 'Plantilla eliminada exitosamente',
+      });
+      // Audit
+      void AuditService.log({
+        tenantEmpresaId: req.tenantId,
+        userId: req.user?.userId,
+        userRole: req.user?.role,
+        method: req.method,
+        path: req.originalUrl || req.path,
+        statusCode: 200,
+        action: 'TEMPLATE_DELETE',
+        entityType: 'TEMPLATE',
+        entityId: existingTemplate.id,
+        details: { name: existingTemplate.name, entityType: existingTemplate.entityType },
       });
     } catch (error) {
       AppLogger.error('💥 Error al eliminar template:', error);

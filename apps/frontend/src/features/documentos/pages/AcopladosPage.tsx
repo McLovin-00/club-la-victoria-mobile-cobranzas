@@ -6,7 +6,7 @@ import { Pagination } from '../../../components/ui/Pagination';
 import { ArrowLeftIcon } from '@heroicons/react/24/outline';
 import { useNavigate } from 'react-router-dom';
 import { useCreateAcopladoMutation, useDeleteAcopladoMutation, useGetAcopladosQuery, useUpdateAcopladoMutation, useGetDadoresQuery } from '../api/documentosApiSlice';
-import { useToast } from '../../../components/ui/toast';
+import { useToast } from '../../../hooks/useToast';
 import type { Acoplado, DadorCarga } from '../types/entities';
 
 const AcopladosPage: React.FC = () => {

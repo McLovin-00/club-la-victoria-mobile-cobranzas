@@ -63,7 +63,6 @@ const EndUserModal: React.FC<Props> = ({ isOpen, onClose, initial, onSubmit }) =
       try {
         payload.metadata = JSON.parse(payload.metadata);
       } catch (_err) {
-        // eslint-disable-next-line no-alert
         window.alert('Metadata debe ser JSON válido');
         return;
       }

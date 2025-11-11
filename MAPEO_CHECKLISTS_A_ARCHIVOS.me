@@ -1,0 +1,232 @@
+## Propósito
+
+- Mapear cada checklist de sprint a archivos, rutas y módulos concretos para ejecutar PRs atómicos (Conv. Commits), minimizando rozamiento y sobre‑ingeniería.
+
+## Convenciones de PR (Conventional Commits)
+
+- feat(scope): descripción corta
+- fix(scope): corrección
+- refactor(scope): cambio interno sin funcionalidad
+- perf(scope): mejora de performance
+- chore(scope): ajustes CI/infra/scripts
+- docs(scope): documentación
+
+---
+
+## Sprint 1 — Acceso y Permisos (RBAC, filtros, contratos)
+
+- Backend (apps/documentos)
+  - Roles y tipos
+    - files:
+      - src/types/roles.ts (extender enum con roles faltantes)
+      - prisma/schema.prisma (solo si se decide reflejar roles en DB local del servicio)
+    - PR sugerido: feat(auth): add roles enums and strict types
+  - Middlewares y filtros
+    - files:
+      - src/middlewares/auth.middleware.ts (verificar compatibilidad authorize/tenantResolver)
+      - src/middlewares/autoFilterByDador.middleware.ts (nuevo)
+      - src/middlewares/authorizeTransportista.middleware.ts (nuevo)
+    - PR sugerido: feat(auth): add autoFilterByDador and authorizeTransportista
+  - PermissionsService (centralizar ownership)
+    - files:
+      - src/services/permissions.service.ts (nuevo)
+      - src/controllers/* (aplicar puntos de control): approval.controller.ts, documents.controller.ts, equipos.controller.ts, maestros.controller.ts, clients.controller.ts, search.controller.ts
+      - src/routes/* (asegurar uso de middlewares): equipos.routes.ts, maestros.routes.ts, clients.routes.ts, approval.routes.ts, search.routes.ts, transportistas.routes.ts
+    - PR sugerido: feat(auth): introduce PermissionsService and enforce ownership checks
+  - Tests mínimos de acceso
+    - files:
+      - src/controllers/*.access.test.ts (agregar para approval/equipos/maestros/clients/search)
+    - PR sugerido: test(auth): add RBAC and ownership contract tests
+
+- Backend (apps/backend)
+  - (Opcional) Si se extiende matriz de roles en plataforma
+    - files: prisma/schema.prisma (EndUserRole/UserRole), src/controllers/* si aplica
+    - PR sugerido: feat(core-auth): extend platform roles (if required)
+
+- Frontend (apps/frontend)
+  - Aplicar headers/token/tenant y ocultar UI fuera de scope
+    - files:
+      - src/features/documentos/api/documentosApiSlice.ts (asegurar headers)
+      - src/pages/ClientePortalPage.tsx, DadoresPortalPage.tsx, TransportistasPortalPage.tsx (ocultar acciones según rol)
+    - PR sugerido: feat(ui-auth): enforce role-based UI guards
+
+---
+
+## Sprint 2 — Workflow Documental y Versionado
+
+- Backend (apps/documentos)
+  - Modelo y migraciones
+    - files:
+      - prisma/schema.prisma (campos de versionado en Document, catálogo de motivos de rechazo; opcional DocumentHistorial)
+      - prisma/migrations/* (nuevas)
+    - PR sugerido: feat(doc): add document versioning and reject reasons
+  - Servicios y controladores
+    - files:
+      - src/services/approval.service.ts (motivos, notas, reviewedBy, batch robusto)
+      - src/services/document.service.ts (renew, getHistory, latest)
+      - src/services/compliance.service.ts (validación 19 documentos)
+      - src/controllers/approval.controller.ts, documents.controller.ts
+      - src/routes/approval.routes.ts, documents.routes.ts
+    - PR sugerido: feat(doc): renew and history endpoints; extend approval reject
+  - Media/preview
+    - files:
+      - src/services/minio.service.ts (URLs firmadas configurables)
+      - src/services/media.service.ts o thumbnail.service.ts (nuevo, si se separa)
+      - src/controllers/documents.controller.ts (GET thumbnail)
+    - PR sugerido: feat(media): add thumbnails and secure preview
+
+- Frontend (apps/frontend)
+  - Approval UI y preview
+    - files:
+      - src/features/documentos/pages/ApprovalQueuePage.tsx, ApprovalDetailPage.tsx
+      - src/features/documentos/components/DocumentPreview.tsx (thumbnails)
+    - PR sugerido: feat(ui-approval): extend reject flow and history view
+
+---
+
+## Sprint 3 — Semáforo y Cumplimiento
+
+- Backend (apps/documentos)
+  - Cálculo runtime y performance
+    - files:
+      - src/services/equipo-estado.service.ts (nuevo)
+      - src/services/compliance.service.ts (extensión: vencido/por vencer/rechazado/pendiente/faltante)
+      - src/controllers/equipos.controller.ts (GET /estado)
+      - src/controllers/clients.controller.ts (agregación por cliente)
+      - src/routes/equipos.routes.ts, clients.routes.ts (nuevos endpoints)
+    - PR sugerido: feat(semaforo): add equipo estado service and endpoints
+
+- Frontend (apps/frontend)
+  - Estado de equipo y filtros
+    - files:
+      - src/features/documentos/components/EquipoEstadoBadge.tsx (nuevo)
+      - src/features/documentos/pages/EstadoEquipoPage.tsx (si aplica) y listados
+    - PR sugerido: feat(ui): equipo estado badge and filters
+
+---
+
+## Sprint 4 — Portales (Cliente, Dador, Transportistas/Choferes)
+
+- Backend (apps/documentos)
+  - Cliente
+    - files:
+      - src/controllers/clients.controller.ts (bulk-search/bulk-zip)
+      - src/routes/clients.routes.ts (nuevas rutas POST)
+      - src/services/document-zip.service.ts (nuevo)
+    - PR sugerido: feat(client): bulk search and structured zip jobs
+  - Dador
+    - files:
+      - src/middlewares/autoFilterByDador.middleware.ts (ya S1)
+      - src/controllers/dadores.controller.ts (aprobación acotada si flag)
+      - src/routes/dadores.routes.ts (ajustes)
+    - PR sugerido: feat(dador): scoped approvals and searches
+  - Transportistas/Choferes
+    - files:
+      - src/middlewares/authorizeTransportista.middleware.ts (ya S1)
+      - src/controllers/transportistas.controller.ts (si existe) / transportistas.routes.ts
+      - src/controllers/equipos.controller.ts (endpoint mis-equipos si está aquí)
+    - PR sugerido: feat(transport): my-teams and limited searches
+  - Jobs ZIP
+    - files:
+      - src/services/jobs.service.ts (extender para ZIP y polling)
+      - src/services/queue.service.ts / websocket.service.ts (si aplica feedback)
+    - PR sugerido: feat(zip): job orchestration and progress feedback
+
+- Frontend (apps/frontend)
+  - Cliente
+    - files:
+      - src/features/documentos/components/BulkPatentesSearch.tsx (nuevo)
+      - src/pages/ClientePortalPage.tsx (acciones ZIP/Excel y feedback de jobs)
+    - PR sugerido: feat(ui-client): bulk search and zip download
+  - Dador
+    - files:
+      - src/pages/DadoresPortalPage.tsx (aprobaciones acotadas, listados propios)
+    - PR sugerido: feat(ui-dador): scoped approvals and searches
+  - Transportistas/Choferes
+    - files:
+      - src/pages/TransportistasPortalPage.tsx (mis equipos, descargas propias)
+    - PR sugerido: feat(ui-transport): my teams and limited searches
+
+---
+
+## Sprint 5 — Notificaciones
+
+- Backend (apps/documentos)
+  - Servicio y scheduling
+    - files:
+      - src/services/notification.service.ts (email provider + templates)
+      - src/services/scheduler.service.ts (cron vencidos/por vencer)
+      - src/controllers/notifications.controller.ts, src/routes/notifications.routes.ts
+    - PR sugerido: feat(notify): email channel, templates and cron jobs
+
+- Frontend (apps/frontend)
+  - Operativa y pruebas
+    - files:
+      - (opcional) vista mínima para disparo de prueba en admin
+    - PR sugerido: feat(ui-notify): test trigger for notifications
+
+---
+
+## Sprint 6 — Auditoría, Métricas, Health
+
+- Backend (apps/documentos)
+  - Auditoría
+    - files:
+      - prisma/schema.prisma (modelo AuditLog)
+      - src/services/audit.service.ts (nuevo)
+      - src/middlewares/audit.middleware.ts (nuevo) o integración en controladores
+      - src/controllers/audit.controller.ts, src/routes/audit.routes.ts (opcional lectura)
+    - PR sugerido: feat(audit): add audit log model and middleware
+  - Métricas y health
+    - files:
+      - src/routes/metrics.routes.ts (enriquecer métricas)
+      - src/routes/health.routes.ts (checks reales de dependencias)
+    - PR sugerido: feat(obs): enrich /metrics and /health checks
+
+---
+
+## Sprint 7 — Backup/Recovery + Hardening
+
+- Repositorio/Infra (monorepo)
+  - Backups y restore
+    - files:
+      - scripts/ (agregar scripts backup/restore DB)
+      - docs/procedures/PROCEDURE_DATABASE_RESTORE.md (actualizar)
+    - PR sugerido: chore(ops): db backup/restore scripts and docs
+  - S3/MinIO
+    - files:
+      - configuración de lifecycle/versioning (docs/ENVIRONMENTS.md)
+    - PR sugerido: docs(ops): s3 versioning and lifecycle policies
+  - Hardening
+    - files:
+      - apps/documentos/src/config/* (headers de seguridad, CORS)
+      - apps/documentos/src/middlewares/* (rate-limits por rol)
+    - PR sugerido: feat(security): harden headers, cors and rate-limits
+
+---
+
+## Plan de PRs atómicos (secuenciado por sprint)
+
+1) feat(auth): add roles enums and strict types
+2) feat(auth): add autoFilterByDador and authorizeTransportista
+3) feat(auth): introduce PermissionsService and enforce ownership checks
+4) test(auth): add RBAC and ownership contract tests
+5) feat(doc): add document versioning and reject reasons
+6) feat(doc): renew and history endpoints; extend approval reject
+7) feat(media): add thumbnails and secure preview
+8) feat(semaforo): add equipo estado service and endpoints
+9) feat(client): bulk search and structured zip jobs
+10) feat(zip): job orchestration and progress feedback
+11) feat(ui-*): client/dador/transport/guards and flows (3–4 PRs pequeños)
+12) feat(notify): email channel, templates and cron jobs
+13) feat(audit): add audit log model and middleware
+14) feat(obs): enrich /metrics and /health checks
+15) feat(security): harden headers, cors and rate-limits
+16) chore(ops): db backup/restore scripts and docs
+17) docs(ops): s3 versioning and lifecycle policies
+
+Notas:
+- Mantener cada PR ≤ 400–600 LOC efectivos y con tests mínimos incluidos.
+- Evitar mezclar refactors no relacionados; comentarios sólo para racionales relevantes.
+
+

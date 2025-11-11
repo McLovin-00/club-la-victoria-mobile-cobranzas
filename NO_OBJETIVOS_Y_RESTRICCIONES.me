@@ -1,0 +1,40 @@
+## Propósito
+
+- Evitar sobre‑ingeniería y anclar decisiones a KISS.
+- Establecer límites duros (tecnológicos, de alcance, de rendimiento y de seguridad) para guiar la implementación y los trade‑offs.
+
+## No‑objetivos (No‑goes)
+
+- No agregar microservicios adicionales: solo backend principal y microservicio Documentos.
+- No CQRS, no Event Sourcing, no GraphQL, no colas externas nuevas (usar lo ya previsto).
+- No permisos ultra granulares por campo / fila; RBAC por rol y scope es suficiente.
+- No “historial infinito” de cambios a nivel de todos los modelos; auditar solo acciones críticas.
+- No caché distribuido adicional sin evidencia de necesidad (YAGNI).
+- No soporte de formatos exoticos de archivo; solo PDF/JPG/PNG.
+- No UI/temas complejos; mobile‑first simple, accesible y consistente.
+- No integraciones externas adicionales (APIs de terceros) durante el MVP.
+
+## Restricciones duras
+
+- Stack y versiones
+  - Node ≥ 20, Express, Prisma, React 18 + TypeScript (strict), Winston, JWT RS256, MinIO/S3 compatible.
+- Seguridad por defecto
+  - Validación Zod en fronteras; masking de PII; CORS por entorno; rate limits por rol.
+  - Nunca loggear secretos; variables de entorno para credenciales; URLs firmadas con expiración.
+- Rendimiento y capacidad
+  - p95 endpoints CRUD < 400 ms; batch búsquedas (hasta 50 patentes) ≤ 2 s; ZIP masivo por job/streaming, ≤ 30–45 s.
+  - Tamaño máximo de archivo configurable; límites por ZIP y lote para evitar bombings.
+- Dominio
+  - Estados “por vencer” calculados en runtime; no persistir estados temporales.
+  - 19 documentos obligatorios fijos (no configurables).
+- Operabilidad
+  - Auditoría en acciones críticas; /health y /metrics en todos los servicios; backups DB diarios y versionado S3.
+
+## Principios de decisión
+
+- Simplicidad y legibilidad > “elegancia” compleja.
+- “Primero correcto, luego rápido”; optimizar solo puntos calientes medidos.
+- Preferir extensiones incrementales a refactors masivos.
+- Cada feature pasa por: contrato claro → validación → logging/auditoría → pruebas → docs.
+
+

@@ -1,0 +1,78 @@
+## Propósito
+
+- Garantizar entregas seguras y progresivas: migraciones pequeñas, flags claros, riesgos controlados y criterios de entrada/salida.
+
+## Migraciones (pequeñas y reversibles)
+
+- Principios
+  - Cambios atómicos, compatibles hacia adelante; evitar downtime.
+  - Roll‑forward/back disponible; backups previos a cambios sensibles.
+  - Ensayo obligatorio en staging con dataset realista.
+- Secuencia típica
+  - Agregar columnas nuevas (nullable) → backfill por jobs/controlado → conmutar lógica → hacer columnas NOT NULL si corresponde → remover legado.
+- Checklist por migración
+  - Script y plan de reversión; impacto esperado; métricas a observar; ventana y owner.
+
+## Feature flags y kill‑switches
+
+- Flags propuestos
+  - semaforoAvanzado (cálculo extendido).
+  - zipEstructurado (estructura jerárquica y Excel).
+  - aprobacionDador (permisos extendidos para dadores).
+  - notificacionesEmail (activar canal).
+  - thumbnailsPreview (miniaturas).
+- Políticas
+  - Flags configurables por entorno/tenant; default OFF en prod.
+  - Kill‑switch: desactivar en caliente funciones con impacto de capacidad (ZIP masivo, thumbnails).
+
+## Riesgos y mitigaciones (Top 10)
+
+- Semáforo no consistente con negocio
+  - Definir tabla de prioridad; unit tests con casos límite; lanzamiento gradual.
+- ZIPs demasiado grandes / tiempo excesivo
+  - Lotes y streaming; límites por rol; job asíncrono con progreso y reintentos.
+- Vencimientos masivos → tormenta de notificaciones
+  - Ventanas horarias; deduplicación; rate‑limit por destinatario; “digest” diario.
+- Fugas de datos entre scopes
+  - Auto‑filtros; contract tests RBAC; auditoría por acceso; revisiones de permisos.
+- Carga de archivos maliciosos o enormes
+  - Validación de mime/tamaño; antivirus opcional; sandbox para rasterización; límites estrictos.
+- Índices insuficientes y N+1
+  - Revisión de planes de ejecución; índices recomendados; pruebas con datasets realistas.
+- Dependencias externas inestables (correo/whatsapp)
+  - Reintentos con backoff; circuit breaker simple; fallback a colas internas.
+- Costos de almacenamiento/transferencia en alza
+  - Lifecycle S3 y compresión; políticas de retención; monitoreo y alertas.
+- Claves/secretos mal gestionados
+  - Secret manager/variables; rotación periódica; mínimo privilegio.
+- Cambios de roles no coordinados
+  - Plan y calendario de cambios; anuncios; pruebas por rol en staging.
+
+## DoR (Definition of Ready)
+
+- Historia con objetivo claro y valor de negocio.
+- Contrato API definido (request/response/errores) y validaciones Zod acordadas.
+- Reglas de RBAC y scopes explícitos.
+- Presupuesto de performance y límites acordados.
+- Métricas/logs/auditoría definidos.
+- Pruebas planificadas (unit/contract/integración/E2E) y fixtures requeridos.
+
+## DoD (Definition of Done)
+
+- Linter/formatter sin warnings; typecheck OK; CI verde.
+- Pruebas unitarias/integración/contract según plan; cobertura mínima.
+- Validaciones en fronteras y mensajes consistentes.
+- Logs sin PII; auditoría de acciones críticas activas.
+- Métricas expuestas y dashboards/alertas actualizados si aplica.
+- Documentación actualizada (plan, contratos, cambios notables) y CHANGELOG.
+
+## Release y ramas
+
+- Estrategia
+  - Trunk‑based con ramas cortas; PRs pequeños; revisión obligatoria.
+  - Tags semánticos; despliegue progresivo; rollback planificado.
+- Gates de CI/CD
+  - Lint, typecheck, unit, integration, e2e selectivo, coverage threshold, build.
+  - Staging con datos realistas; aprobación manual para producción.
+
+

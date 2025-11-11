@@ -122,6 +122,12 @@ export const DocumentosMainPage: React.FC = () => {
           <Button size='sm' variant='outline' onClick={() => navigate('/documentos/consulta')}>
             Consulta
           </Button>
+          <Button size='sm' variant='outline' onClick={() => navigate('/documentos/auditoria')}>
+            Auditoría
+          </Button>
+          <Button size='sm' onClick={() => navigate('/documentos/carga')}>
+            Subir documentos
+          </Button>
           <Button size='sm' variant='outline' onClick={() => navigate('/plantillas')} className='flex items-center'>
             <DocumentTextIcon className='h-4 w-4 mr-2' />
             Plantillas

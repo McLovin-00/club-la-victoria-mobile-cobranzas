@@ -1,7 +1,6 @@
 import { useMemo, useState } from 'react';
 import { Pagination } from '../../../components/ui/Pagination';
 import { Link } from 'react-router-dom';
-import { useToast } from '../../../components/ui/toast';
 import {
   useCreateEmpresaTransportistaMutation,
   useDeleteEmpresaTransportistaMutation,
@@ -13,7 +12,7 @@ import {
 import type { DadorCarga, EmpresaTransportista } from '../types/entities';
 
 export default function EmpresasTransportistasPage() {
-  const { show } = useToast();
+  const show = (msg: string) => { try { alert(msg); } catch { console.log(msg); } };
   const [q, setQ] = useState('');
   const [page, setPage] = useState(1);
   const [limit] = useState(20);

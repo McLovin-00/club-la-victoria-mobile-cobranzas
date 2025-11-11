@@ -2,6 +2,7 @@ import { Request, Response } from 'express';
 import { ApprovalService } from '../services/approval.service';
 import { webSocketService } from '../services/websocket.service';
 import { AppLogger } from '../config/logger';
+import { AuditService } from '../services/audit.service';
 
 export class ApprovalController {
   static async getPendingDocuments(req: Request, res: Response): Promise<void> {
@@ -57,6 +58,20 @@ export class ApprovalController {
       }
       const approved = results.filter(r => r.ok).length;
       res.json({ success: true, approved, failed: results.length - approved, results });
+      // Audit best-effort
+      void AuditService.log({
+        tenantEmpresaId: (req as any).tenantId,
+        userId: (req as any).user?.userId ?? (req as any).user?.id,
+        userRole: (req as any).user?.role,
+        method: req.method,
+        path: req.originalUrl || req.path,
+        statusCode: res.statusCode,
+        action: 'APPROVAL_BATCH_APPROVE',
+        entityType: 'DOCUMENT',
+        details: { ids, overrides },
+      });
+      // Refrescar vista materializada (best-effort)
+      try { (await import('../services/performance.service')).performanceService.refreshMaterializedView(); } catch {}
     } catch (error) {
       AppLogger.error('ApprovalController.batchApprove error:', error);
       res.status(500).json({ success: false, message: 'Error interno del servidor', code: 'INTERNAL_ERROR' });
@@ -102,6 +117,20 @@ export class ApprovalController {
         webSocketService.notifyDocumentApproved({ documentId: doc.id, empresaId: doc.dadorCargaId, expiresAt: doc.expiresAt ? new Date(doc.expiresAt).toISOString() : null });
       } catch {}
       res.json({ success: true, data: doc, message: 'Documento aprobado' });
+      // Audit best-effort
+      void AuditService.log({
+        tenantEmpresaId: (req as any).tenantId,
+        userId: (req as any).user?.userId ?? (req as any).user?.id,
+        userRole: (req as any).user?.role,
+        method: req.method,
+        path: req.originalUrl || req.path,
+        statusCode: res.statusCode,
+        action: 'APPROVAL_APPROVE',
+        entityType: 'DOCUMENT',
+        entityId: doc?.id,
+        details: { confirmedEntityType, confirmedEntityId, confirmedExpiration, confirmedTemplateId },
+      });
+      try { (await import('../services/performance.service')).performanceService.refreshMaterializedView(); } catch {}
     } catch (error) {
       AppLogger.error('ApprovalController.approveDocument error:', error);
       const msg = (error as any)?.message || '';
@@ -125,6 +154,20 @@ export class ApprovalController {
       }
       const doc = await ApprovalService.rejectDocument(id, tenantEmpresaId, { reviewedBy: userId, reason, reviewNotes });
       res.json({ success: true, data: doc, message: 'Documento rechazado' });
+      // Audit best-effort
+      void AuditService.log({
+        tenantEmpresaId: (req as any).tenantId,
+        userId: (req as any).user?.userId ?? (req as any).user?.id,
+        userRole: (req as any).user?.role,
+        method: req.method,
+        path: req.originalUrl || req.path,
+        statusCode: res.statusCode,
+        action: 'APPROVAL_REJECT',
+        entityType: 'DOCUMENT',
+        entityId: doc?.id,
+        details: { reason, reviewNotes },
+      });
+      try { (await import('../services/performance.service')).performanceService.refreshMaterializedView(); } catch {}
     } catch (error) {
       AppLogger.error('ApprovalController.rejectDocument error:', error);
       const msg = (error as any)?.message || '';

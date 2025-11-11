@@ -1,0 +1,100 @@
+## Sprint 1 — Acceso y Permisos Base (RBAC, filtros, contratos)
+
+- Objetivo: asegurar controles de acceso correctos, filtros automáticos por rol/tenant, permisos consistentes y contratos activos para comenzar features funcionales sin deuda de seguridad.
+- Duración: 1 semana.
+- Documentos base: PLAN_EJECUCION_SISTEMA_GESTION_EQUIPOS.me, ANALISIS_PRE_IMPLEMENTACION.me, NO_OBJETIVOS_Y_RESTRICCIONES.me, RBAC_Y_CONTRATOS_CRITICOS.me.
+
+## Entregables del sprint
+
+- Enums de roles completos (sin sobre‑ingeniería).
+- Middlewares de autorización y auto‑filtros operativos.
+- PermissionsService centralizado (puntos de control de ownership).
+- Contratos críticos validados (request/response/errores).
+- Tests unitarios y contract mínimos por rol/ruta.
+- CI con gates (lint, typecheck, unit, contract) en verde.
+
+## Checklist — Modelos/Tipos/Roles
+
+- [ ] Extender enums de roles en ambos servicios (principal/documentos) sin añadir lógicas no requeridas.
+- [ ] Sincronizar tipos TypeScript; evitar `any` y usar `strict`.
+- [ ] Revisar seeds mínimos (solo si estrictamente necesario).
+
+## Checklist — Middlewares y filtros
+
+- [ ] `authenticate` y `authorize(roles)` (ya existen): verificar que aceptan nuevos roles.
+- [ ] `tenantResolver`: mantener comportamiento para SUPERADMIN (x-tenant-id) y resto (token).
+- [ ] `autoFilterByDador` (nuevo):
+  - [ ] Extrae `dadorCargaId` de user.metadata o relación.
+  - [ ] Inyecta filtro en `req.query` de endpoints de maestros/equipos/búsquedas.
+  - [ ] Deniega override para roles no autorizados.
+- [ ] `authorizeTransportista` (nuevo):
+  - [ ] Diferenciar empresa vs chofer (metadata).
+  - [ ] Inyectar filtros (`empresaTransportistaId`, `choferId`/`dni`) y restringir alcance.
+
+## Checklist — PermissionsService (central)
+
+- [ ] `canAccessEquipo(user, equipoId)` — ownership por rol/tenant/dador/transportista/chofer.
+- [ ] `canApproveDocument(user, documentId)` — política simple por rol y scope.
+- [ ] `canUploadDocument(user, entityType, entityId)` — validar ownership y límites.
+- [ ] `getAccessibleEquipos(user, dadorId?)` — helper de listados por rol.
+- [ ] Aplicar puntos de control en: Approval, Documents, Equipos, Maestros, Clients, Search.
+
+## Checklist — Aplicación por rutas (escopado)
+
+- [ ] `/api/docs/equipos/*`: aplicar `autoFilterByDador`/`authorizeTransportista` según rol.
+- [ ] `/api/docs/maestros/*`: filtros obligatorios (dador/transportista).
+- [ ] `/api/docs/clients/*`: validar que CLIENTE solo ve su scope de equipos asignados.
+- [ ] `/api/docs/approval/*`: restricción a ADMIN/OPERADOR_INTERNO y dadores autorizados (si flag).
+- [ ] `/api/docs/search/*`: siempre con filtros por rol; límites de lote por rol.
+
+## Checklist — Contratos (contract-first)
+
+- [ ] Revisar 10 contratos en `RBAC_Y_CONTRATOS_CRITICOS.me`:
+  - [ ] Aprobación/rechazo (pending/:id/approve|reject).
+  - [ ] Renovación (documents/:id/renew).
+  - [ ] Download (inline/attachment).
+  - [ ] Bulk search (clients/bulk-search).
+  - [ ] Bulk ZIP (clients/bulk-zip) → 202 + job.
+  - [ ] Alta rápida (equipos/minimal).
+  - [ ] Estado de equipo (equipos/:id/estado).
+  - [ ] Notificación de prueba.
+- [ ] Confirmar: headers, paginación, límites por rol, errores y mensajes.
+- [ ] Anotar ejemplos request/response definitivos (sin cambiar shape salvo necesidad).
+
+## Checklist — Testing mínimo viable
+
+- [ ] Unit tests: `PermissionsService` (roles y ownership), middlewares nuevos.
+- [ ] Contract tests (superficiales): 5 rutas críticas (200/401/403/404; shape general).
+- [ ] Smoke E2E por rol: SUPERADMIN (tenant header), ADMIN, DADOR_DE_CARGA, TRANSPORTISTA/CHOFER, CLIENTE.
+- [ ] Dataset sintético mínimo compartido (tenant, dador, 2 choferes, 2 camiones, 1 cliente, 3 equipos).
+
+## Checklist — Seguridad y límites
+
+- [ ] Rate-limits por rol (búsquedas masivas y ZIP → más estrictos).
+- [ ] CORS por entorno (no abrir prod).
+- [ ] Validaciones Zod en entradas (no exponer stack en prod).
+- [ ] Logs sin PII (masking de DNI/patente).
+
+## Checklist — CI/CD y rollout
+
+- [ ] Pipelines: lint, typecheck, unit, contract; cobertura mínima por módulo del sprint.
+- [ ] Branches cortas; PRs pequeños con descripción y criterios de aceptación.
+- [ ] Feature flags (si aplica): `aprobacionDador` por tenant/entorno.
+- [ ] Canary: habilitar gradualmente rutas con filtros automáticos.
+
+## Criterios de aceptación del sprint
+
+- Acceso denegado de forma consistente fuera del scope (tests incluidos).
+- Filtros automáticos por rol/tenant/dador/transportista aplicados y verificables.
+- Contratos críticos estables y documentados con ejemplos.
+- CI verde (lint, typecheck, unit, contract); smoke E2E básicos por rol OK.
+
+## Plan de trabajo diario (orientativo)
+
+- Día 1: roles y tipos; diseño `PermissionsService`; skeleton de middlewares.
+- Día 2: `autoFilterByDador` y `authorizeTransportista`; aplicación inicial a rutas.
+- Día 3: puntos de control en servicios (Approval, Equipos, Maestros); ajustes de contratos.
+- Día 4: unit y contract tests; dataset mínimo; rate-limits por rol.
+- Día 5: smoke E2E por rol; CI/CD; documentación de contratos; revisión final.
+
+

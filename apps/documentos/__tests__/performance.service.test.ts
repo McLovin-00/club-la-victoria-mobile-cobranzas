@@ -1,6 +1,6 @@
-const { performanceService } = require('../dist/services/performance.service');
+const { performanceService } = require('../src/services/performance.service');
 
-jest.mock('../dist/config/database', () => ({
+jest.mock('../src/config/database', () => ({
   db: {
     getClient: () => ({
       $queryRawUnsafe: jest.fn().mockResolvedValue([{ tenantId: 1, redCount: 0, yellowCount: 1, greenCount: 2, totalCount: 3 }]),

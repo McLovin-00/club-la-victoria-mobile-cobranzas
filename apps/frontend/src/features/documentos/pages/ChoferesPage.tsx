@@ -7,7 +7,7 @@ import { ArrowLeftIcon } from '@heroicons/react/24/outline';
 import { useNavigate } from 'react-router-dom';
 import { useCreateChoferMutation, useDeleteChoferMutation, useGetChoferesQuery, useUpdateChoferMutation, useGetDadoresQuery } from '../api/documentosApiSlice';
 import type { Chofer, DadorCarga } from '../types/entities';
-import { useToast } from '../../../components/ui/toast';
+import { useToast } from '../../../hooks/useToast';
 import { validatePhone } from '../../../utils/validators';
 
 const ChoferPhonesInline: React.FC<{ choferId: number; initial: string[]; onSave: (phones: string[])=>Promise<any> }>=({ choferId, initial, onSave })=>{

@@ -46,7 +46,7 @@ router.get(
 router.post(
   '/upload',
   authenticate,
-  authorize([UserRole.SUPERADMIN, UserRole.ADMIN, UserRole.OPERATOR]),
+  authorize([UserRole.SUPERADMIN, UserRole.ADMIN, UserRole.OPERATOR, UserRole.DADOR_DE_CARGA, UserRole.TRANSPORTISTA]),
   uploadRateLimit,
   // Aceptar compatibilidad: 'documents' (múltiples) y 'document' (único)
   uploadMiddleware.fields([
@@ -91,6 +91,39 @@ router.get(
   authorize([UserRole.SUPERADMIN, UserRole.ADMIN, UserRole.OPERATOR]),
   validate(getDocumentSchema),
   DocumentsController.downloadDocument
+);
+
+/**
+ * GET /api/docs/documents/:id/thumbnail - Obtener thumbnail
+ */
+router.get(
+  '/:id/thumbnail',
+  authenticate,
+  authorize([UserRole.SUPERADMIN, UserRole.ADMIN, UserRole.OPERATOR]),
+  validate(getDocumentSchema),
+  DocumentsController.getDocumentThumbnail
+);
+
+/**
+ * POST /api/docs/documents/:id/renew - Renovar documento
+ */
+router.post(
+  '/:id/renew',
+  authenticate,
+  authorize([UserRole.SUPERADMIN, UserRole.ADMIN, UserRole.OPERATOR]),
+  validate(getDocumentSchema),
+  DocumentsController.renewDocument
+);
+
+/**
+ * GET /api/docs/documents/:id/history - Historial de versiones
+ */
+router.get(
+  '/:id/history',
+  authenticate,
+  authorize([UserRole.SUPERADMIN, UserRole.ADMIN, UserRole.OPERATOR]),
+  validate(getDocumentSchema),
+  DocumentsController.getDocumentHistory
 );
 
 /**

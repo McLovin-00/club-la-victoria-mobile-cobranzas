@@ -3,6 +3,7 @@ import { AuthRequest } from '../middlewares/auth.middleware';
 import { prisma } from '../config/database';
 import { AppLogger } from '../config/logger';
 import { createError } from '../middlewares/error.middleware';
+import { AuditService } from '../services/audit.service';
 
 /**
  * Controlador de Configuración - Elegancia Empresarial
@@ -117,6 +118,19 @@ export class ConfigController {
         success: true,
         data: config,
         message: 'Configuración actualizada exitosamente',
+      });
+      // Audit
+      void AuditService.log({
+        tenantEmpresaId: req.tenantId,
+        userId: req.user?.userId,
+        userRole: req.user?.role,
+        method: req.method,
+        path: req.originalUrl || req.path,
+        statusCode: 200,
+        action: 'CONFIG_UPDATE',
+        entityType: 'CONFIG',
+        entityId: parseInt(empresaId),
+        details: { enabled: config.enabled, templateIds: config.templateIds, hasAlertEmail: !!config.alertEmail, hasAlertPhone: !!config.alertPhone },
       });
     } catch (error) {
       AppLogger.error('💥 Error al actualizar configuración de empresa:', error);

@@ -1,6 +1,8 @@
 import { Router } from 'express';
 import { generalRateLimit } from '../middlewares/rateLimiter.middleware';
 import { AppLogger } from '../config/logger';
+import { requestContext } from '../middlewares/requestContext.middleware';
+import { auditMiddleware } from '../middlewares/audit.middleware';
 
 // Importar rutas
 import healthRoutes from './health.routes';
@@ -22,16 +24,22 @@ import maestrosRoutes from './maestros.routes';
 import batchRoutes from './batch.routes';
 import transportistasRoutes from './transportistas.routes';
 import { authenticate, tenantResolver } from '../middlewares/auth.middleware';
+import { autoFilterByDador } from '../middlewares/autoFilterByDador.middleware';
+import { authorizeTransportista } from '../middlewares/authorizeTransportista.middleware';
 import empresasTransportistasRoutes from './empresas-transportistas.routes';
 import approvalRoutes from './approval.routes';
 import { configRateLimit } from '../middlewares/rateLimiter.middleware';
 import complianceRoutes from './compliance.routes';
+import auditLogsRoutes from './audit.routes';
 
 const router = Router();
 
 // =================================
 // MIDDLEWARE GLOBAL
 // =================================
+
+// Contexto de request (X-Request-ID)
+router.use(requestContext);
 
 // Rate limiting general
 router.use(generalRateLimit);
@@ -43,9 +51,13 @@ router.use((req, res, next) => {
     path: req.path,
     ip: req.ip,
     userAgent: req.get('User-Agent'),
+    requestId: (req as any).requestId,
   });
   next();
 });
+
+// Auditoría de métodos mutantes (best-effort)
+router.use(auditMiddleware);
 
 // =================================
 // RUTAS PRINCIPALES
@@ -68,18 +80,19 @@ router.use('/api/docs/config', authenticate, tenantResolver, configRateLimit, co
 router.use('/api/docs/documents', authenticate, tenantResolver, documentsRoutes);
 router.use('/api/docs/dashboard', authenticate, tenantResolver, dashboardRoutes);
 router.use('/api/docs/clients', authenticate, tenantResolver, clientsRoutes);
-router.use('/api/docs/equipos', authenticate, tenantResolver, equiposRoutes);
-router.use('/api/docs/search', authenticate, tenantResolver, searchRoutes);
+router.use('/api/docs/equipos', authenticate, tenantResolver, autoFilterByDador, authorizeTransportista, equiposRoutes);
+router.use('/api/docs/search', authenticate, tenantResolver, autoFilterByDador, authorizeTransportista, searchRoutes);
 router.use('/api/docs/storage', authenticate, tenantResolver, storageRoutes);
 router.use('/api/docs/notifications', authenticate, tenantResolver, notificationsRoutes);
 router.use('/api/docs/defaults', authenticate, tenantResolver, defaultsRoutes);
 router.use('/api/docs/dadores', authenticate, tenantResolver, dadoresRoutes);
-router.use('/api/docs/maestros', authenticate, tenantResolver, maestrosRoutes);
+router.use('/api/docs/maestros', authenticate, tenantResolver, autoFilterByDador, authorizeTransportista, maestrosRoutes);
 router.use('/api/docs', authenticate, tenantResolver, batchRoutes);
-router.use('/api/docs/transportistas', authenticate, tenantResolver, transportistasRoutes);
+router.use('/api/docs/transportistas', authenticate, tenantResolver, authorizeTransportista, transportistasRoutes);
 router.use('/api/docs/empresas-transportistas', authenticate, tenantResolver, empresasTransportistasRoutes);
 router.use('/api/docs/approval', authenticate, tenantResolver, approvalRoutes);
 router.use('/api/docs/compliance', authenticate, tenantResolver, complianceRoutes);
+router.use('/api/docs/audit', authenticate, tenantResolver, auditLogsRoutes);
 
 // =================================
 // RUTA RAÍZ - Información del Servicio

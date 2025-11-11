@@ -1,9 +1,9 @@
 import request from 'supertest';
 import express from 'express';
 
-const templatesRouter = require('../dist/routes/templates.routes').default;
+const templatesRouter = require('../src/routes/templates.routes').default;
 
-jest.mock('../dist/middlewares/auth.middleware', () => ({
+jest.mock('../src/middlewares/auth.middleware', () => ({
   authenticate: (_req: any, _res: any, next: any) => next(),
   authorize: () => (_req: any, _res: any, next: any) => next(),
   validate: () => (_req: any, _res: any, next: any) => next(),

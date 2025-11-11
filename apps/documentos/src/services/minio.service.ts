@@ -410,6 +410,33 @@ export class MinIOService {
   }
 
   /**
+   * Subir thumbnail u otros objetos arbitrarios bajo una ruta conocida.
+   */
+  public async uploadObject(
+    tenantEmpresaId: number,
+    objectPath: string,
+    buffer: Buffer,
+    contentType: string
+  ): Promise<{ bucketName: string; objectPath: string }> {
+    try {
+      await this.ensureBucketExists(tenantEmpresaId);
+      const bucketName = this.getBucketName(tenantEmpresaId);
+      await this.client.putObject(
+        bucketName,
+        objectPath,
+        buffer,
+        buffer.length,
+        { 'Content-Type': contentType } as any
+      );
+      AppLogger.info('📤 Objeto subido', { bucketName, objectPath, size: buffer.length });
+      return { bucketName, objectPath };
+    } catch (error) {
+      AppLogger.error('💥 Error subiendo objeto arbitrario:', error);
+      throw createError('Error al almacenar recurso', 500, 'MINIO_UPLOAD_OBJECT_ERROR');
+    }
+  }
+
+  /**
    * Verificar conectividad con MinIO
    */
   public async healthCheck(): Promise<boolean> {

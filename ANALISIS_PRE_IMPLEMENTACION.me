@@ -1,0 +1,172 @@
+## Objetivo
+
+- Consolidar análisis previos a la implementación para disminuir ambigüedad, reducir retrabajo y elevar la calidad técnica desde el inicio.
+- Entregables: dominio y bounded contexts, contratos y errores, integridad/índices, testing, performance, threat model, observabilidad, releases/migraciones, riesgos, lifecycle, UX y costos/backup.
+- Criterios: simpleza, seguridad por defecto, tipado estricto, mantenibilidad y trazabilidad.
+
+## 1) Dominio y bounded contexts
+
+- Contexto “Documentos y Cumplimiento”
+  - Responsabilidad: plantillas/documentos, clasificación, aprobación/rechazo, vencimientos, semáforo, ZIP/Excel, notificaciones.
+  - Propietario: microservicio Documentos.
+  - Agregados principales: DocumentTemplate, Document, DocumentClassification, Cliente/ClienteDocumentRequirement, Equipo (Chofer, Camión, Acoplado), DadorCarga, EmpresaTransportista.
+  - Eventos de dominio: DocumentoAprobado, DocumentoRechazado, DocumentoVencido, EquipoActualizado, RequisitoCumplido/Faltante, NotificacionEncolada/Enviada.
+  - Reglas invariantes: un Documento vigente por (templateId, entityType, entityId) como “actual”; versiones previas marcadas como deprecadas; expiración determina estado dinámico (no persistir “por vencer”).
+- Contexto “Identidad, Tenancy y Roles”
+  - Responsabilidad: autenticación (JWT RS256), roles (SUPERADMIN, ADMIN, OPERADOR_INTERNO, DADOR_DE_CARGA, TRANSPORTISTA, CHOFER, CLIENTE), tenant y scoping.
+  - Propietario: backend principal (identidad), consumido por Documentos.
+  - Invariantes: todo request autenticado, scope por tenant; auto-filtros por dador/transportista cuando aplique.
+- Contexto “Notificaciones”
+  - Responsabilidad: plantillas, deduplicación, scheduling, envío (WhatsApp/Email).
+  - Propietario: Documentos (módulo interno), con evolución a servicio dedicado si escala.
+- Contexto “Observabilidad y Auditoría”
+  - Responsabilidad: logs (sin PII), métricas, auditoría de acciones (quién, qué, cuándo, dónde).
+  - Propietario: cada servicio emite; estándar común de formato y transporte.
+
+## 2) Diagramas de secuencia (descriptivo)
+
+- Carga → Clasificación → Aprobación
+  - Usuario sube archivo → valida Zod (mime, tamaño) → guarda en MinIO → crea Document(PENDIENTE) → job de clasificación (si aplica) → Document(CLASSIFICANDO) → set classification → Document(PENDIENTE_APROBACION) → revisor aprueba/rechaza → Document(APROBADO|RECHAZADO), histórico actualizado → eventos para notificación.
+- Renovación/versionado
+  - Usuario usa “renovar” sobre documento → crea Document nuevo con referencia a anterior → valida fechas → marca anterior como DEPRECADO cuando nuevo queda APROBADO → conserva trazabilidad.
+- ZIP masivo (Cliente)
+  - Cliente envía patentes → normaliza → resuelve equipos → filtra docs aprobados y vigentes → genera estructura jerárquica → añade Excel resumen → entrega stream/descarga con límites y progreso.
+- Vencimientos
+  - Cron diario obtiene documentos cercanos a vencer → genera notificaciones (respetando ventanas y deduplicación) → registra NotificationLog.
+
+## 3) API contract-first (resumen)
+
+- Estándares
+  - Versionado de API por prefijo; recursos REST; errores normalizados; validación con Zod en fronteras; ejemplos en responses (happy/sad path).
+  - Idempotencia para endpoints de aprobación y renovaciones (con tokens idempotentes opcionales).
+- Errores (taxonomía)
+  - 4xx: VALIDATION_ERROR, UNAUTHORIZED, FORBIDDEN, NOT_FOUND, CONFLICT, RATE_LIMITED, PAYLOAD_TOO_LARGE, UNSUPPORTED_MEDIA_TYPE.
+  - 5xx: INTERNAL_ERROR, DEPENDENCY_ERROR, TIMEOUT, STORAGE_ERROR.
+  - Incluye code estable, message amigable, traceId y hints seguros.
+- Paginación y filtros
+  - page, limit, sort, order; filtros por tenant, dador, transportista; límites conservadores por rol.
+
+## 4) Integridad referencial y diseño de índices
+
+- Integridad y cascadas
+  - Document → Template (RESTRICT), Document → Classification (CASCADE on delete de Document).
+  - Relaciones Equipo-Cliente con PK compuesta (equipoId, clienteId, asignadoDesde).
+  - Invariantes de unicidad: normalizados (dniNorm, patenteNorm) por tenant + dador.
+- Índices calientes
+  - Document: (tenantEmpresaId, dadorCargaId, entityType, entityId); (status, expiresAt); (templateId).
+  - Equipo: (tenantEmpresaId, dadorCargaId, driverDniNorm/truckPlateNorm/trailerPlateNorm).
+  - Búsquedas masivas por DNI/patentes: índices en campos normalizados.
+- Plan de verificación
+  - Revisar EXPLAIN/ANALYZE de consultas top; asegurar cobertura por índices; evitar N+1.
+
+## 5) Estrategia de testing y datasets
+
+- Pirámide de pruebas
+  - Unitarias: Approval, Equipo, Compliance, Semáforo, ZIP builder, Notificaciones (dobles).
+  - Contract tests: endpoints críticos (schema request/response, errores).
+  - Integración: flows (upload→approve→zip), busqueda masiva, vencimientos.
+  - E2E (básicos por rol): Cliente, Dador, Transportista (login→acción clave).
+- Fixtures/Datasets
+  - Seeds para: 1 tenant, 2 dadores, 1 empresa transportista, 5 choferes, 5 camiones, 3 acoplados, 4 clientes, 19 templates y combinaciones de documentos (vigente, próximo a vencer, vencido, rechazado).
+- DoD de pruebas
+  - Cobertura mínima por módulo; asserts en mensajes de error; no dependencias de red externas (mock).
+
+## 6) Presupuestos de performance y límites
+
+- Presupuestos (p95)
+  - Aprobación individual: ≤ 250 ms (sin IO pesado).
+  - Búsqueda masiva 50 patentes: ≤ 2 s (con caché y consultas indexadas).
+  - Generación ZIP 100 equipos: streaming, ≤ 30–45 s con job/polling (no síncrono).
+- Límites operativos
+  - Upload: tamaño máximo configurable por mime; thumbnails bajo 20 MB PDF.
+  - ZIP: límite de entrada (equipos/documentos) y de tamaño final; fallback a lotes.
+  - URLs firmadas: expiración 5–15 min por contexto; revocación manual en incidentes.
+- Backpressure y jobs
+  - Colas para procesos largos; timeouts; reintentos exponenciales; cancelación.
+
+## 7) Threat modeling y seguridad
+
+- Abusos y mitigaciones
+  - Brute force/credential stuffing: rate-limit por IP/usuario; lockouts temporales.
+  - Token theft: expiración razonable; revocación; rotación de llaves RS256; audience/issuer.
+  - ZIP bombing: límites de compresión y tamaño; análisis de estructura; quotas.
+  - Data exfiltration: scoping estricto por rol/tenant; firmar URLs con mínimos privilegios y expiración.
+  - File upload: validación estricta de mime/extension; antivirus opcional; conversión controlada (pdf/images).
+  - IDOR: checks de ownership centralizados (PermissionsService).
+- PII y privacidad
+  - Minimizar recolección; masking en logs; no exponer datos sensibles en mensajes o URLs.
+  - Consentimiento para notificaciones (opt-in/out cuando aplique).
+
+## 8) Observabilidad (KPIs, SLI/SLO, métricas, logging)
+
+- KPIs
+  - % equipos “al día”, tiempo medio de aprobación, % rechazos por motivo, volumen de vencidos/próximos a vencer, tasa de notificaciones entregadas.
+- SLI/SLO
+  - Disponibilidad API Documentos 99.9% mensual; latencia p95 < 400 ms en endpoints CRUD.
+  - Éxito de jobs programados (vencimientos) ≥ 99%.
+- Métricas
+  - Contadores por endpoint/estado, latencias, tamaño ZIP promedio, errores por tipo, colas (largo/tiempo).
+- Logging
+  - Estructurado; traceId por request; niveles por entorno; sin PII; redacción de errores.
+- Auditoría
+  - Acciones críticas: quién/qué/cuándo/dónde; export con filtros; retención conforme a política.
+
+## 9) Releases, migraciones y flags
+
+- Migraciones
+  - Pequeñas y reversibles; roll-forward/back; pruebas en staging con dataset realista.
+  - Scripts seguros (sin data loss por defecto); backups antes de migrar.
+- Feature flags
+  - Activar por rol/tenant; dark launch para ZIP estructurado y semáforo avanzado.
+- Flujo CI/CD
+  - Gates: lint, typecheck, unit/integration, coverage; promoción manual a prod; tags semánticos.
+
+## 10) Riesgos y mitigaciones
+
+- Semáforo complejo → definir tabla de prioridad; pruebas unitarias exhaustivas; canary release.
+- ZIP grande → cuotas, streaming, jobs y paginación de entrada; límites estrictos; cancelación.
+- Vencimientos masivos → escalonar notificaciones; ventanas horarias; deduplicación robusta.
+- Cambios de roles/permisos → contract tests RBAC; auditoría de accesos; revisiones de seguridad.
+- Almacenamiento S3 → versionado y lifecycle; costos monitoreados; alertas de capacidad.
+
+## 11) Lifecycle de datos
+
+- Documentos
+  - Ciclo: subida → clasificación → aprobación/rechazo → vigencia → renovación → deprecación → archivo/purga según retención.
+  - Metadatos mínimos necesarios; no duplicar PII.
+- Retención
+  - DB: políticas por entidad (p.ej., logs 180–365 días, auditoría 1–3 años según norma).
+  - S3: versionado activo; lifecycle rules para transicionar/expurgar.
+
+## 12) UX y accesibilidad (wireflows)
+
+- Por rol
+  - Cliente: pegar patentes (multi-línea) → resultados → ZIP + Excel → previsualización segura.
+  - Dador: alta rápida de equipos → carga masiva → revisión/aprobación acotada → maestros.
+  - Transportista/Chofer: “mis equipos” → estado → carga/descarga propia → calendario de vencimientos.
+- Accesibilidad
+  - Navegación por teclado; roles ARIA; contraste; feedback inmediato; estados vacíos y errores recuperables.
+- Diseño
+  - Mobile-first; progresivo; confirmaciones claras; evitar sobrecarga de opciones.
+
+## 13) Costos y backup/restore
+
+- Costos
+  - Almacenamiento (S3/MinIO): estimar por volumen de documentos, thumbnails y versiones.
+  - Transferencia: ZIP/descargas masivas; ajustar expiraciones y compresión.
+  - Procesamiento: rasterización/pdf, generación de ZIP/Excel, cron jobs.
+- Backup/Restore
+  - DB: full diaria + incremental cada 6h; prueba mensual de restore (RPO/RTO definidos).
+  - S3: versioning y políticas de retención; restauración de objetos; verificación de integridad.
+  - Runbooks y monitoreo: alertas por fallos; reporte semanal de estado de backups.
+
+## Criterios de “listo para implementar”
+
+- Contratos API documentados y consensuados (request/response, errores).
+- Reglas del semáforo definidas y testeables.
+- RBAC y auto-filtros clarificados (matriz permisos).
+- Límites de performance y operación acordados (p95, tamaños, cuotas).
+- Plan de pruebas, observabilidad y auditoría listo.
+- Riesgos priorizados con mitigación y plan de reversión.
+
+

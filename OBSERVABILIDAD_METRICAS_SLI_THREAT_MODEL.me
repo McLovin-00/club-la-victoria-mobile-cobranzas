@@ -1,0 +1,69 @@
+## Propósito
+
+- Definir observabilidad mínima útil y threat model de alto impacto antes de implementar.
+- Asegurar trazabilidad, diagnósticos rápidos y seguridad por diseño.
+
+## KPIs
+
+- % de equipos “al día” por cliente y global.
+- Tiempo medio de aprobación (desde PENDIENTE_APROBACION hasta APROBADO).
+- % de rechazos por motivo (top 5).
+- Volumen de documentos vencidos y próximos a vencer (hoy + horizontes de 7/30 días).
+- Tasa de entrega de notificaciones y fallos por canal.
+- Tamaño promedio de ZIP y ratio de fallos/timeout.
+
+## SLI/SLO
+
+- Disponibilidad API Documentos: 99.9%/mes (SLI: uptime por health y readiness).
+- Latencia p95:
+  - CRUD/consulta: < 400 ms.
+  - Búsqueda masiva (≤ 50): < 2 s.
+- Éxito de jobs programados (vencimientos): ≥ 99% en ejecución dentro de ventana.
+- Error rate por endpoint: < 1% (5xx) sostenido.
+
+## Métricas (Prometheus)
+
+- Por endpoint: contador de requests, histogramas de latencia, códigos de respuesta, tamaño de respuesta.
+- Jobs: duración, estado (ok/fail), reintentos, colas (largo, tiempo en cola).
+- Notificaciones: enviados/entregados/fallidos por canal y plantilla.
+- Storage: tamaño total por tenant/cliente, objetos, expiración media.
+- Semáforo: distribución de estados (verde/amarillo/rojo/gris/azul) por cliente.
+
+## Logging (Winston)
+
+- Estructurado con traceId y tenantId; niveles por entorno (debug en dev, info en prod).
+- No PII en logs; masking de DNIs/patentes (mostrar parciales).
+- Trazas de acciones críticas: quién, qué, sobre qué entidad, desde dónde (IP, UA).
+
+## Auditoría
+
+- Acciones: login/logout, upload, approve/reject, renew, associate cliente-equipo, ZIP/descargas masivas, cambios de configuración.
+- Campos: actorId, rol, recurso, acción, old/new values (si aplica), ip, user-agent, timestamp.
+- Export/consulta: filtros por actor/recurso/fecha; retención según política.
+
+## Threat Model (alto impacto)
+
+- Riesgos principales y mitigaciones
+  - IDOR (acceso a recursos ajenos)
+    - Chequeos de ownership centralizados; auto‑filtros; tests RBAC.
+  - ZIP bombing / payload excesivo
+    - Límites de tamaño y compresión; streaming; cuotas; análisis de estructura.
+  - Token theft / replay
+    - Expiración razonable; aud/iss; revocación; rotación de llaves RS256.
+  - Brute force / credential stuffing
+    - Rate limit por IP/usuario; bloqueo temporal progresivo.
+  - Exfiltración de datos
+    - Scopes estrictos; URLs firmadas de corta duración; logs sin PII; mínimos privilegios.
+  - File upload malicioso
+    - Validación de mime/extension; límites de tamaño; rasterización controlada; antivirus opcional.
+
+## Alertas y runbooks
+
+- Alertas
+  - p95 fuera de presupuesto por 15 min; jobs fallidos consecutivos; error rate > 1% por endpoint; espacio S3/DB > 80%.
+- Runbooks
+  - Degradación de ZIP/descargas: activar kill‑switch de ZIP masivo; reducir lotes; comunicar.
+  - Pico de vencimientos: escalonar notificaciones; ampliar ventanas; monitorear colas.
+  - Claves comprometidas: rotación inmediata; invalidar tokens; forensic básico.
+
+

@@ -3,7 +3,6 @@ import { Button } from '../../../components/ui/button';
 import { Card } from '../../../components/ui/card';
 import { Document } from '../api/documentosApiSlice';
 import { useGetDadoresQuery } from '../api/documentosApiSlice';
-import { useToast } from '../../../components/ui/toast';
 import { formatFileSize } from '../../../utils/formatters';
 import {
   XMarkIcon,
@@ -28,7 +27,7 @@ export const DocumentPreview: React.FC<DocumentPreviewProps> = ({
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isFullscreen, setIsFullscreen] = useState(false);
-  const { show } = useToast();
+  const show = (msg: string) => { try { alert(msg); } catch { console.log(msg); } };
 
   // Detectar si estamos en un dispositivo móvil/Android
   const isMobile = /Android|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
@@ -105,7 +104,7 @@ export const DocumentPreview: React.FC<DocumentPreviewProps> = ({
 
       if (!fileResp.ok) {
         let msg = `Error ${fileResp.status}: ${fileResp.statusText}`;
-        try { const t = await fileResp.text(); if (t) msg = t; } catch {}
+        try { const t = await fileResp.text(); if (t) msg = t; } catch (e) { /* noop */ }
         throw new Error(msg);
       }
 
@@ -125,13 +124,13 @@ export const DocumentPreview: React.FC<DocumentPreviewProps> = ({
     } else {
       // Liberar blob anterior si existe
       if (previewUrl && previewUrl.startsWith('blob:')) {
-        try { window.URL.revokeObjectURL(previewUrl); } catch {}
+        try { window.URL.revokeObjectURL(previewUrl); } catch (e) { /* noop */ }
       }
       setPreviewUrl(null);
       setError(null);
       setIsFullscreen(false);
     }
-  }, [isOpen, document, loadPreview]);
+  }, [isOpen, document, loadPreview, previewUrl]);
 
   const handleDownload = async () => {
     if (!document) return;
@@ -171,7 +170,7 @@ export const DocumentPreview: React.FC<DocumentPreviewProps> = ({
       
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Error desconocido';
-      show(`Error al descargar: ${errorMessage}`, 'error');
+      show(`Error al descargar: ${errorMessage}`);
     } finally {
       setIsLoading(false);
     }

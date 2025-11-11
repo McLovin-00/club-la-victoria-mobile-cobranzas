@@ -78,13 +78,14 @@ export const CameraCapture: React.FC<CameraCaptureProps> = ({ isOpen, onClose, o
       }
     };
     start();
+    const currentVideo = videoRef.current;
     return () => {
       if (streamRef.current) {
         streamRef.current.getTracks().forEach((t) => t.stop());
         streamRef.current = null;
       }
-      if (videoRef.current) {
-        try { videoRef.current.pause(); } catch {}
+      if (currentVideo) {
+        try { currentVideo.pause(); } catch (e) { /* noop */ }
       }
       setCaptured([]);
     };

@@ -1,12 +1,22 @@
-const { NotificationService } = require('../dist/services/notification.service');
-
-jest.mock('../dist/services/system-config.service', () => ({
+jest.mock('../src/services/system-config.service', () => ({
   SystemConfigService: {
-    getConfig: jest.fn().mockResolvedValue('true'),
+    getConfig: jest.fn().mockImplementation((key: string) => {
+      if (String(key).includes('notifications.enabled')) return Promise.resolve('true');
+      if (String(key).includes('notifications.windows')) {
+        return Promise.resolve(JSON.stringify({
+          aviso: { enabled: true, unit: 'days', value: 30 },
+          alerta: { enabled: true, unit: 'days', value: 14 },
+          alarma: { enabled: true, unit: 'days', value: 3 },
+        }));
+      }
+      if (String(key).includes('notifications.templates')) return Promise.resolve(null);
+      return Promise.resolve(null);
+    }),
   },
 }));
+const { NotificationService } = require('../src/services/notification.service');
 
-jest.mock('../dist/config/database', () => ({
+jest.mock('../src/config/database', () => ({
   prisma: {
     document: { findMany: jest.fn().mockResolvedValue([]) },
     dadorCarga: { findUnique: jest.fn().mockResolvedValue({ phones: [], notifyDadorEnabled: false, notifyDriverEnabled: false }) },
@@ -15,11 +25,11 @@ jest.mock('../dist/config/database', () => ({
   }
 }));
 
-jest.mock('../dist/services/compliance.service', () => ({
+jest.mock('../src/services/compliance.service', () => ({
   ComplianceService: { evaluateEquipoCliente: jest.fn().mockResolvedValue([]) },
 }));
 
-jest.mock('../dist/services/evolution-client.service', () => ({
+jest.mock('../src/services/evolution-client.service', () => ({
   EvolutionClient: { sendText: jest.fn().mockResolvedValue({ ok: true }) },
 }));
 

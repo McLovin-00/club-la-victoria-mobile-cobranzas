@@ -95,6 +95,35 @@ export const uploadDocumentSchema = z.object({
       .union([z.string(), z.number()])
       .transform((val) => Number(val))
       .refine((val) => val > 0, 'Dador ID inválido'),
+    // Confirmación explícita para cargar una nueva versión cuando el documento previo no está vencido
+    confirmNewVersion: z
+      .union([z.string(), z.boolean()])
+      .transform((v) => (typeof v === 'string' ? v === 'true' : Boolean(v)))
+      .optional(),
+    // Modo de carga:
+    // - initial: alta inicial, requiere planilla completa y puede crear equipo si corresponde
+    // - renewal: renovación de un documento vencido
+    // mode eliminado (se infiere del backend). Permitimos que llegue pero lo ignoramos si existe.
+    // mode: z.enum(['initial', 'renewal']).optional(),
+    // Datos de planilla (se valida exhaustivamente en controller según 'mode')
+    planilla: z
+      .object({
+        // Empresa transportista
+        empresaTransportista: z.string().min(2).max(200).optional(),
+        cuitTransportista: z.string().regex(/^\d{11}$/,'CUIT inválido').optional(),
+        // Chofer
+        choferNombre: z.string().min(1).max(120).optional(),
+        choferApellido: z.string().min(1).max(120).optional(),
+        choferDni: z.string().min(6).max(32).optional(),
+        // Unidades
+        tractorPatente: z.string().min(5).max(12).optional(),
+        semiPatente: z.string().min(5).max(12).optional(),
+        // Fechas de vencimiento (texto ISO)
+        vencimientos: z
+          .record(z.string(), z.string().optional())
+          .optional(),
+      })
+      .optional(),
     // Optional camera/file source hint
     source: z.enum(['camera','file']).optional(),
     // Base64 inputs for camera capture support (front may send either files or base64)
@@ -122,6 +151,8 @@ export const getDocumentsByDadorSchema = z.object({
   }),
   query: z.object({
     status: documentStatusSchema.optional(),
+    page: z.string().transform((v) => parseInt(v, 10)).default('1').optional(),
+    limit: z.string().transform((v) => Math.min(parseInt(v, 10), 100)).default('50').optional(),
   }).optional(),
 });
 
@@ -438,11 +469,15 @@ export const equipoListQuerySchema = z.object({
   query: z.object({
     dadorCargaId: z.string().optional(),
     empresaId: z.string().optional(),
+    page: z.string().transform((v) => parseInt(v, 10)).default('1').optional(),
+    limit: z.string().transform((v) => Math.min(parseInt(v, 10), 100)).default('20').optional(),
   }).refine((q) => q.dadorCargaId || q.empresaId, {
     message: 'dadorCargaId requerido',
     path: ['dadorCargaId'],
   }).transform((q) => ({
     dadorCargaId: Number((q as any).dadorCargaId || (q as any).empresaId),
+    page: (q as any).page ? parseInt((q as any).page, 10) : 1,
+    limit: (q as any).limit ? Math.min(parseInt((q as any).limit, 10), 100) : 20,
   })),
 });
 

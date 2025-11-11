@@ -2,11 +2,9 @@ import React, { useEffect, useMemo, useState, useRef } from 'react';
 import { Card } from '../components/ui/card';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
-import { useGetDadoresQuery, useCreateEquipoMinimalMutation, useUploadBatchDocsTransportistasMutation, useGetJobStatusQuery, useGetDefaultsQuery } from '../features/documentos/api/documentosApiSlice';
+import { useGetDadoresQuery, useCreateEquipoMinimalMutation, useUploadBatchDocsTransportistasMutation, useGetJobStatusQuery, useGetDefaultsQuery, useGetMisEquiposQuery, useTransportistasSearchMutation } from '../features/documentos/api/documentosApiSlice';
 import { showToast } from '../components/ui/Toast.utils';
 import { useNavigate } from 'react-router-dom';
-import { useSelector } from 'react-redux';
-import { RootState } from '../store/store';
 import { 
   TruckIcon, 
   UserIcon, 
@@ -26,7 +24,6 @@ import { CalendarioInteligente } from '../components/transportistas/CalendarioIn
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs';
 
 export const TransportistasPortalPage: React.FC = () => {
-  const navigate = useNavigate();
   const { data: dadoresResp } = useGetDadoresQuery({});
   const dadores = useMemo(() => (dadoresResp as any)?.list ?? (Array.isArray(dadoresResp) ? dadoresResp : []), [dadoresResp]);
   const { data: defaults } = useGetDefaultsQuery();
@@ -39,17 +36,12 @@ export const TransportistasPortalPage: React.FC = () => {
   const [phones, setPhones] = useState<string[]>(['']);
   const phoneRegex = /^\+?[1-9]\d{7,14}$/;
   const [misEquipos, setMisEquipos] = useState<any[]>([]);
-  const authToken = useSelector((s: RootState) => (s as any)?.auth?.token);
-  const empresaId = useSelector((s: RootState) => (s as any)?.auth?.user?.empresaId);
-  const authHeaders: HeadersInit = useMemo(() => ({
-    ...(authToken ? { Authorization: `Bearer ${authToken}` } : {}),
-    ...(empresaId ? { 'x-tenant-id': String(empresaId) } : {}),
-  }), [authToken, empresaId]);
-  const baseUrl = `${import.meta.env.VITE_DOCUMENTOS_API_URL}/api/docs`;
   const [tabValue, setTabValue] = useState<'dashboard'|'registro'|'documentos'|'equipos'|'calendario'|'perfil'>('dashboard');
   const tabsScrollRef = useRef<HTMLDivElement | null>(null);
   const tabsTriggersRef = useRef<Record<string, HTMLButtonElement | null>>({});
-  useEffect(()=>{ (async ()=>{ try { const res = await fetch(`${baseUrl}/transportistas/mis-equipos`, { credentials:'include', headers: authHeaders }); const data = await res.json(); setMisEquipos(Array.isArray(data?.data)? data.data : []); } catch (e) { console.debug('mis-equipos fetch failed', e); } })(); },[authHeaders, baseUrl]);
+  // Cargar mis equipos con hook dedicado
+  const { data: misEquiposHook = [] } = useGetMisEquiposQuery();
+  useEffect(()=>{ setMisEquipos(Array.isArray(misEquiposHook) ? misEquiposHook : []); }, [misEquiposHook]);
 
   // Mantener el tab seleccionado centrado (o al borde si es el primero/último)
   useEffect(()=>{
@@ -408,7 +400,7 @@ const TransportistaBatchUploader: React.FC = () => {
         <div className="mt-3 text-sm">
           <span className="text-green-600">Proceso finalizado.</span>
           <Button size="sm" className="ml-3" variant="outline" onClick={() => navigate('/documentos')}>Ver en Documentos</Button>
-          {Array.isArray((status as any)?.job?.results) && (
+          {(status as any)?.job?.results && (
             <div className="mt-3 border rounded">
               <div className="p-2 text-xs text-muted-foreground flex items-center justify-between">
                 <span>Resultados</span>
@@ -416,42 +408,6 @@ const TransportistaBatchUploader: React.FC = () => {
                   <input type="checkbox" checked={onlyErrors} onChange={(e)=>setOnlyErrors(e.target.checked)} />
                   <span>Solo errores</span>
                 </label>
-                <Button size="sm" variant="outline" onClick={async ()=>{
-                  await fetch(`/api/docs/jobs/${jobId}/retry-failed`, { method: 'POST', credentials: 'include' });
-                  showToast('Reintentando documentos rechazados', 'default');
-                }}>Reintentar fallidos</Button>
-                <Button size="sm" variant="outline" onClick={() => {
-                  const rows = (status as any).job.results as any[];
-                  const filtered = onlyErrors ? rows.filter(r => r.status === 'RECHAZADO') : rows;
-                  const csv = ['fileName,status,comprobante,vencimiento,documentId']
-                    .concat(filtered.map(r => [r.fileName, r.status, r.comprobante || '', r.vencimiento ? new Date(r.vencimiento).toLocaleDateString() : '', r.documentId].map(v => '"'+String(v).replace(/"/g,'""')+'"').join(',')))
-                    .join('\n');
-                  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-                  const a = document.createElement('a');
-                  a.href = URL.createObjectURL(blob);
-                  a.download = `reporte_batch_${jobId}.csv`;
-                  a.click();
-                  URL.revokeObjectURL(a.href);
-                }}>Descargar CSV</Button>
-              </div>
-              <div className="divide-y">
-                {((status as any).job.results as any[]).filter((r:any)=>!onlyErrors || r.status==='RECHAZADO').map((r: any) => {
-                  const badge = r.status === 'APROBADO'
-                    ? 'bg-green-100 text-green-700'
-                    : r.status === 'RECHAZADO'
-                    ? 'bg-red-100 text-red-700'
-                    : (r.status === 'CLASIFICANDO' ? 'bg-blue-100 text-blue-700' : r.status === 'PENDIENTE_APROBACION' ? 'bg-yellow-100 text-yellow-700' : 'bg-gray-100 text-gray-600');
-                  return (
-                    <div key={r.documentId} className="p-2 flex items-center justify-between">
-                      <div className="text-sm">
-                        <div className="font-medium">{r.fileName}</div>
-                        <div className="text-xs text-muted-foreground">Comprobante: {r.comprobante || '-'}</div>
-                        <div className="text-xs text-muted-foreground">Vencimiento: {r.vencimiento ? new Date(r.vencimiento).toLocaleDateString() : '-'}</div>
-                      </div>
-                      <span className={`text-xs px-2 py-1 rounded ${badge}`}>{r.status}</span>
-                    </div>
-                  );
-                })}
               </div>
             </div>
           )}
@@ -495,6 +451,39 @@ const DocumentosTab: React.FC = () => {
 
 // Componente para tab de equipos
 const MisEquiposTab: React.FC<{ misEquipos: any[] }> = ({ misEquipos }) => {
+  const [dni, setDni] = useState('');
+  const [plate, setPlate] = useState('');
+  const [search, { data: results = [], isLoading }] = useTransportistasSearchMutation();
+  const resultsHeadingRef = React.useRef<HTMLHeadingElement | null>(null);
+  const doSearch = React.useCallback(async () => {
+    const payload: any = {};
+    if (dni) payload.dni = dni;
+    if (plate) payload.plate = plate;
+    try { await search(payload).unwrap(); } catch { /* noop */ }
+  }, [dni, plate, search]);
+  const onKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      void doSearch();
+    }
+  };
+  // Debounce de entrada para disparar búsquedas automáticas sin bloquear la UI
+  React.useEffect(() => {
+    const handler = setTimeout(() => {
+      const hasDni = typeof dni === 'string' && dni.replace(/\D/g, '').length >= 3;
+      const hasPlate = typeof plate === 'string' && plate.replace(/[^A-Za-z0-9]/g, '').length >= 3;
+      if (hasDni || hasPlate) {
+        void doSearch();
+      }
+    }, 500);
+    return () => clearTimeout(handler);
+  }, [dni, plate, doSearch]); // intención: disparar por cambios de input
+  // Foco en resultados al actualizar
+  React.useEffect(() => {
+    if (Array.isArray(results) && results.length > 0) {
+      resultsHeadingRef.current?.focus();
+    }
+  }, [results]);
   return (
     <div className="container mx-auto px-4 py-6 sm:py-8 max-w-6xl">
       <Card className="bg-white rounded-2xl shadow-xl border-0 overflow-hidden">
@@ -511,6 +500,41 @@ const MisEquiposTab: React.FC<{ misEquipos: any[] }> = ({ misEquipos }) => {
         </div>
         
         <div className="p-6">
+          {/* Buscador limitado */}
+          <div className="mb-6 grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <Input placeholder="DNI" aria-label="DNI" value={dni} onChange={(e)=> setDni(e.target.value)} onKeyDown={onKeyDown} />
+            <Input placeholder="Patente (tractor/acoplado)" aria-label="Patente" value={plate} onChange={(e)=> setPlate(e.target.value)} onKeyDown={onKeyDown} />
+            <div className="flex gap-2">
+              <Button title="Buscar equipos por DNI/patente" variant="outline" onClick={doSearch} disabled={isLoading} className="h-12 border-2 border-green-300 text-green-600 hover:bg-green-100 rounded-xl font-semibold">Buscar</Button>
+              <Button title="Limpiar filtros" variant="outline" onClick={()=> { setDni(''); setPlate(''); }} disabled={isLoading} className="h-12 border-2 border-gray-300 text-gray-700 hover:bg-gray-100 rounded-xl font-semibold">Limpiar</Button>
+            </div>
+          </div>
+          {isLoading && (
+            <div role="status" aria-live="polite" className="text-sm text-gray-500 mb-3">Buscando…</div>
+          )}
+          {!isLoading && Array.isArray(results) && results.length === 0 && (dni || plate) && (
+            <div className="text-sm text-gray-500 mb-4">No se encontraron resultados con los filtros ingresados.</div>
+          )}
+          {Array.isArray(results) && results.length > 0 && (
+            <div className="mb-8">
+              <h3 ref={resultsHeadingRef} tabIndex={-1} className="text-gray-800 font-semibold mb-2">Resultados ({results.length})</h3>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                {results.map((e: any) => (
+                  <div key={`r-${e.id}`} className="bg-gradient-to-br from-green-50 to-teal-50 rounded-2xl p-5 border-2 border-green-200">
+                    <div className="font-semibold text-gray-800 mb-2">Equipo #{e.id}</div>
+                    <div className="text-sm text-gray-600">DNI: <strong>{e.driverDniNorm || '-'}</strong></div>
+                    <div className="text-sm text-gray-600">Tractor: <strong>{e.truckPlateNorm || '-'}</strong></div>
+                    {e.trailerPlateNorm && <div className="text-sm text-gray-600">Acoplado: <strong>{e.trailerPlateNorm}</strong></div>}
+                    <Button 
+                      variant="outline" 
+                      onClick={() => window.open(`/api/docs/clients/equipos/${e.id}/zip`, '_blank')}
+                      className="mt-3 w-full h-10 border-2 border-green-300 text-green-600 hover:bg-green-100 rounded-xl font-semibold"
+                    >Descargar Documentos</Button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
           {misEquipos.length > 0 ? (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
               {misEquipos.map((e: any) => (

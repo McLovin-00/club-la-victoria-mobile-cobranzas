@@ -411,3 +411,26 @@ model DocumentClassification {
   @@index([reviewedAt])
   @@map("document_classifications")
 }
+
+// =================================
+// AUDITORÍA
+// =================================
+model AuditLog {
+  id               Int       @id @default(autoincrement())
+  tenantEmpresaId  Int?      @map("tenant_empresa_id")
+  accion           String    @db.VarChar(150)
+  detalles         Json?
+  userId           Int?      @map("user_id")
+  userRole         String?   @map("user_role") @db.VarChar(50)
+  statusCode       Int       @map("status_code")
+  method           String    @db.VarChar(10)
+  path             String    @db.VarChar(500)
+  entityType       String?   @map("entity_type") @db.VarChar(50)
+  entityId         Int?      @map("entity_id")
+  createdAt        DateTime  @default(now()) @map("created_at")
+
+  @@index([tenantEmpresaId, createdAt])
+  @@index([userId, createdAt])
+  @@index([accion, createdAt])
+  @@map("audit_logs")
+}

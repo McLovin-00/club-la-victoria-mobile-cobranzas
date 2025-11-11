@@ -28,6 +28,16 @@ export class NotificationsController {
     await NotificationService.send(msisdn, msg, { tenantId: req.tenantId!, audience: 'CHOFER', type: 'aviso', templateKey: 'test' });
     res.json({ success: true });
   }
+
+  static async runExpirations(req: AuthRequest, res: Response) {
+    const count = await NotificationService.checkExpirations(req.tenantId!);
+    res.json({ success: true, sent: count });
+  }
+
+  static async runMissing(req: AuthRequest, res: Response) {
+    const count = await NotificationService.checkMissingDocs(req.tenantId!);
+    res.json({ success: true, sent: count });
+  }
 }
 
 

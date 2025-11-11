@@ -1,6 +1,6 @@
-const { SystemConfigService } = require('../dist/services/system-config.service');
+const { SystemConfigService } = require('../src/services/system-config.service');
 
-jest.mock('../dist/config/database', () => ({
+jest.mock('../src/config/database', () => ({
   db: {
     getClient: () => ({
       systemConfig: {

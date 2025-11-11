@@ -1,0 +1,28 @@
+## Checklist previo a implementación (arranque rápido)
+
+- Repositorio y ramas
+  - [ ] Crear rama `feat/sprint-1-rbac` desde main limpia y actualizada.
+  - [ ] Verificar CI en main (lint, typecheck, unit) en verde.
+- Entornos y secretos
+  - [ ] Variables de entorno definidas por servicio; sin secretos en texto plano.
+  - [ ] Claves RS256 disponibles (dev/stg/prod); issuer/audience definidos.
+  - [ ] Endpoints de MinIO/S3 y buckets existentes con permisos mínimos.
+- Datos y seeds
+  - [ ] Dataset sintético mínimo (tenant, dador, 2 choferes, 2 camiones, 1 cliente, 3 equipos).
+  - [ ] Scripts/seed reproducibles (solo si estrictamente necesarios).
+- Documentación y contratos
+  - [ ] Revisar `RBAC_Y_CONTRATOS_CRITICOS.me` y cerrar ejemplos definitivos.
+  - [ ] Validar `NO_OBJETIVOS_Y_RESTRICCIONES.me` (sin features fuera de alcance).
+  - [ ] Confirmar límites (paginación, tamaños de lote) por rol.
+- Observabilidad y auditoría
+  - [ ] /health y /metrics accesibles en dev; Winston configurado sin PII.
+  - [ ] Auditoría mínima: quién/qué/cuándo/dónde para acciones críticas del sprint.
+- Seguridad
+  - [ ] Rate-limits por rol (valores iniciales); CORS por entorno.
+  - [ ] Validación Zod activa en fronteras; mensajes limpios (sin stack).
+- Plan y aceptación
+  - [ ] Alinear equipo con `SPRINT_1_CHECKLIST_IMPLEMENTACION.me` (tareas y orden).
+  - [ ] Definir criterios de aceptación y responsabilidades diarias.
+  - [ ] Asegurar feature flags/killswitches (si aplica) inicializados en OFF.
+
+

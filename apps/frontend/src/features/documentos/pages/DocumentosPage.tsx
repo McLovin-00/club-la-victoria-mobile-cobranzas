@@ -46,7 +46,7 @@ export const DocumentosPage: React.FC = () => {
     skip: !empresaId,
     pollingInterval: 60000,
   });
-  const docsRaw = (docsResp as any)?.data ?? [];
+  const docsRaw = useMemo(() => (docsResp as any)?.data ?? [], [docsResp]);
   const total = (docsResp as any)?.pagination?.total ?? (Array.isArray(docsRaw) ? docsRaw.length : 0);
 
   // Filtro adicional por "Por vencer" (client-side: próximos 30 días)

@@ -5,7 +5,6 @@ import { useNavigate } from 'react-router-dom';
 import { Card } from '../../../components/ui/card';
 import { Button } from '../../../components/ui/button';
 import { Input } from '../../../components/ui/input';
-import { useToast } from '../../../components/ui/toast';
 import { Label } from '../../../components/ui/label';
 import { useAssociateEquipoClienteMutation, useAttachEquipoComponentsMutation, useCreateEquipoMutation, useDetachEquipoComponentsMutation, useGetClientsQuery, useGetDadoresQuery, useGetDefaultsQuery, useGetEquiposQuery, useCreateChoferMutation, useCreateCamionMutation, useCreateAcopladoMutation, useGetEmpresasTransportistasQuery, useUpdateEquipoMutation, useGetChoferesQuery, useGetCamionesQuery, useGetAcopladosQuery, useDeleteEquipoMutation, useSearchEquiposQuery, useGetEquipoHistoryQuery, useGetEquipoKpisQuery, useGetEquipoComplianceQuery, useLazyGetEquipoComplianceQuery, useImportCsvEquiposMutation } from '../api/documentosApiSlice';
 import { validatePhone } from '../../../utils/validators';
@@ -16,14 +15,14 @@ import { ConfirmContext } from '../../../contexts/confirmContext';
 
 export const EquiposPage: React.FC = () => {
   const navigate = useNavigate();
-  const { show } = useToast();
+  const show = (msg: string) => { try { alert(msg); } catch { console.log(msg); } };
   const { confirm } = useContext(ConfirmContext);
   const { data: dadoresResp } = useGetDadoresQuery({});
   const dadores = useMemo<DadorCarga[]>(() => (dadoresResp?.list ?? []) as DadorCarga[], [dadoresResp]);
   const { data: defaults } = useGetDefaultsQuery();
   const initialDadorId = useMemo(()=> defaults?.defaultDadorId || dadores[0]?.id, [defaults, dadores]);
   const [dadorCargaId, setDadorCargaId] = useState<number | undefined>(initialDadorId);
-  useEffect(()=>{ if (initialDadorId && (dadorCargaId === undefined || dadorCargaId === null)) setDadorCargaId(initialDadorId); }, [initialDadorId]);
+  useEffect(()=>{ if (initialDadorId && (dadorCargaId === undefined || dadorCargaId === null)) setDadorCargaId(initialDadorId); }, [initialDadorId, dadorCargaId]);
   const dadorId = dadorCargaId || initialDadorId || 1;
   // KPIs de equipos (creados, swaps, eliminados)
   const { data: equipoKpis } = useGetEquipoKpisQuery({});
@@ -156,7 +155,7 @@ export const EquiposPage: React.FC = () => {
   const [truckPlate, setTruckPlate] = useState('');
   const [trailerPlate, setTrailerPlate] = useState('');
   const [clienteId, setClienteId] = useState<number | undefined>(initialClienteId);
-  useEffect(()=>{ if (initialClienteId && (clienteId === undefined || clienteId === null)) setClienteId(initialClienteId); }, [initialClienteId]);
+  useEffect(()=>{ if (initialClienteId && (clienteId === undefined || clienteId === null)) setClienteId(initialClienteId); }, [initialClienteId, clienteId]);
   const [equipoId, setEquipoId] = useState<number | undefined>(equipos[0]?.id);
   const [phones, setPhones] = useState<string[]>(['']);
   // Validación de teléfonos unificada en utils/validators
@@ -604,6 +603,46 @@ export const EquiposPage: React.FC = () => {
                 <Button
                   variant='outline'
                   size='sm'
+                  onClick={async ()=> {
+                    try {
+                      const url = `${import.meta.env.VITE_DOCUMENTOS_API_URL}/api/docs/equipos/${eq.id}/zip`;
+                      const resp = await fetch(url, { headers: { Authorization: `Bearer ${authToken}` } });
+                      if (!resp.ok) throw new Error('ZIP');
+                      const blob = await resp.blob();
+                      const a = document.createElement('a');
+                      a.href = URL.createObjectURL(blob);
+                      a.download = `equipo_${eq.id}_vigentes.zip`;
+                      document.body.appendChild(a);
+                      a.click();
+                      a.remove();
+                    } catch { show('No se pudo descargar el ZIP de vigentes', 'error'); }
+                  }}
+                >
+                  ZIP vigentes
+                </Button>
+                <Button
+                  variant='outline'
+                  size='sm'
+                  onClick={async ()=> {
+                    try {
+                      const url = `${import.meta.env.VITE_DOCUMENTOS_API_URL}/api/docs/equipos/${eq.id}/summary.xlsx`;
+                      const resp = await fetch(url, { headers: { Authorization: `Bearer ${authToken}` } });
+                      if (!resp.ok) throw new Error('XLSX');
+                      const blob = await resp.blob();
+                      const a = document.createElement('a');
+                      a.href = URL.createObjectURL(blob);
+                      a.download = `equipo_${eq.id}_resumen.xlsx`;
+                      document.body.appendChild(a);
+                      a.click();
+                      a.remove();
+                    } catch { show('No se pudo descargar el Excel de resumen', 'error'); }
+                  }}
+                >
+                  Excel
+                </Button>
+                <Button
+                  variant='outline'
+                  size='sm'
                   onClick={async ()=>{
                     try {
                       const complianceResp = await getEquipoComplianceLazy({ id: eq.id }).unwrap();
@@ -637,7 +676,7 @@ export const EquiposPage: React.FC = () => {
                           const cd = resp.headers.get('Content-Disposition');
                           const originalName = parseFileName(cd) || `doc_${docId}.pdf`;
                           zip.file(originalName, blob);
-                        } catch {}
+                        } catch (e) { /* noop */ }
                       }
                       const content = await zip.generateAsync({ type: 'blob' });
                       const url = window.URL.createObjectURL(content);
@@ -649,12 +688,12 @@ export const EquiposPage: React.FC = () => {
                       a.click();
                       a.remove();
                       window.URL.revokeObjectURL(url);
-                    } catch {
+                    } catch (e) {
                       show('No fue posible iniciar la descarga', 'error');
                     }
                   }}
                 >Bajar documentación</Button>
-                <Button variant='outline' size='sm' onClick={()=> navigate(`/documentos/equipos/${eq.id}/estado`)}>Ver estado</Button>
+                <Button variant='outline' size='sm' onClick={()=> navigate(`/documentos/equipos/${eq.id}/estado?only=vencidos`)}>Ver estado</Button>
                 <Button variant='outline' size='sm' onClick={()=> openManage(eq.id)}>Gestionar componentes</Button>
                 <Button variant='outline' size='sm' onClick={()=> setHistoryEquipoId(eq.id)}>Historial</Button>
                 <Button
@@ -796,6 +835,7 @@ const Dot: React.FC<{ color: string }> = ({ color }) => (
 );
 
 const EquipoSemaforo: React.FC<{ equipoId: number }> = ({ equipoId }) => {
+  const navigate = useNavigate();
   const { data } = useGetEquipoComplianceQuery({ id: equipoId }, { skip: !equipoId });
   if (!data) return null;
   const now = Date.now();
@@ -823,10 +863,15 @@ const EquipoSemaforo: React.FC<{ equipoId: number }> = ({ equipoId }) => {
         bumpFromCompliance(r.entityType as any, r);
       }
     }
-  } catch {}
+  } catch (e) { /* noop */ }
 
   return (
-    <div className='mt-1 flex items-center gap-4 text-xs'>
+    <button
+      type='button'
+      className='mt-1 flex items-center gap-4 text-xs hover:bg-gray-50 dark:hover:bg-slate-800/50 px-2 py-1 rounded'
+      onClick={()=> navigate(`/documentos/carga?equipoId=${encodeURIComponent(String(equipoId))}`)}
+      title='Cargar documentación (renovación)'
+    >
       <span className='flex items-center gap-1' title='Documentación faltante'>
         <Dot color='#ef4444' />
         <span>Faltantes</span>
@@ -847,7 +892,7 @@ const EquipoSemaforo: React.FC<{ equipoId: number }> = ({ equipoId }) => {
         <span>Vigentes</span>
         <strong>{vigentes}</strong>
       </span>
-    </div>
+    </button>
   );
 };
 

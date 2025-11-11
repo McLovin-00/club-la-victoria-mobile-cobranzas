@@ -96,7 +96,6 @@ export const useCameraPermissions = (): CameraPermissionsHook => {
       window.open(settingsUrl, '_blank');
     } else {
       // Fallback: show instructions to user
-      // eslint-disable-next-line no-alert
       window.alert('Para cambiar los permisos de cámara, ve a la configuración de tu navegador > Sitios web > Permisos > Cámara');
     }
   }, []);

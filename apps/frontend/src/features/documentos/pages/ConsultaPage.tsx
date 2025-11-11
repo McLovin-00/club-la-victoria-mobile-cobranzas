@@ -5,14 +5,13 @@ import { RootState } from '../../../store/store';
 import { Card } from '../../../components/ui/card';
 import { Button } from '../../../components/ui/button';
 import { Input } from '../../../components/ui/input';
-import { useToast } from '../../../components/ui/toast';
 import { ConfirmContext } from '../../../contexts/confirmContext';
 import { useGetDadoresQuery, useGetTemplatesQuery, useGetClientsQuery, useLazySearchEquiposQuery, useGetDefaultsQuery, useLazyGetEquipoComplianceQuery, useDeleteEquipoMutation, useGetEquipoComplianceQuery, useSearchEquiposByDnisMutation, useDownloadVigentesBulkMutation } from '../api/documentosApiSlice';
 import { ArrowLeftIcon } from '@heroicons/react/24/outline';
 
 export const ConsultaPage: React.FC = () => {
   const navigate = useNavigate();
-  const { show } = useToast();
+  const show = (msg: string) => { try { alert(msg); } catch { console.log(msg); } };
   const { confirm } = useContext(ConfirmContext);
   const { data: dadoresResp } = useGetDadoresQuery({});
   const dadores = dadoresResp?.list ?? (Array.isArray(dadoresResp) ? dadoresResp : []);
@@ -50,9 +49,9 @@ export const ConsultaPage: React.FC = () => {
       if (params.truckPlate) sp.truckPlate = params.truckPlate;
       if (params.trailerPlate) sp.trailerPlate = params.trailerPlate;
       setSearchParams(sp);
-      try { sessionStorage.setItem('consultaSearch', JSON.stringify(sp)); } catch {}
+      try { sessionStorage.setItem('consultaSearch', JSON.stringify(sp)); } catch (e) { /* noop */ }
     }
-  }, [dadorIdForSearch, params.dni, params.truckPlate, params.trailerPlate]);
+  }, [dadorIdForSearch, params, setSearchParams, trigger]);
 
   // Inicializar desde URL o sessionStorage
   useEffect(() => {
@@ -74,8 +73,8 @@ export const ConsultaPage: React.FC = () => {
         setTrailerPlate(saved.trailerPlate || '');
         setParams(saved);
       }
-    } catch {}
-  }, []);
+    } catch (e) { /* noop */ }
+  }, [searchParams]);
 
   const csvInputRef = React.useRef<HTMLInputElement>(null);
   const onCsvFile = async (file: File) => {
@@ -127,7 +126,7 @@ export const ConsultaPage: React.FC = () => {
           size='sm'
           onClick={() => {
             // Limpiar búsqueda persistida y volver
-            try { sessionStorage.removeItem('consultaSearch'); } catch {}
+            try { sessionStorage.removeItem('consultaSearch'); } catch (e) { /* noop */ }
             setSearchParams({});
             navigate('/documentos');
           }}
@@ -211,7 +210,7 @@ export const ConsultaPage: React.FC = () => {
                       const parseFileName = (cd: string | null): string | null => {
                         if (!cd) return null;
                         const star = cd.match(/filename\*=(?:UTF-8''|)([^;]+)/i);
-                        if (star && star[1]) { try { return decodeURIComponent(star[1].replace(/\"/g, '').trim()); } catch {} }
+                        if (star && star[1]) { try { return decodeURIComponent(star[1].replace(/\"/g, '').trim()); } catch (e) { /* noop */ } }
                         const normal = cd.match(/filename="?([^";]+)"?/i);
                         if (normal && normal[1]) return normal[1].trim();
                         return null;
@@ -225,7 +224,7 @@ export const ConsultaPage: React.FC = () => {
                           const cd = resp.headers.get('Content-Disposition');
                           const originalName = parseFileName(cd) || `doc_${docId}.pdf`;
                           zip.file(originalName, blob);
-                        } catch {}
+                        } catch (e) { /* noop */ }
                       }
                       const content = await zip.generateAsync({ type: 'blob' });
                       const url = window.URL.createObjectURL(content);
@@ -293,7 +292,7 @@ const EquipoSemaforo: React.FC<{ equipoId: number }> = ({ equipoId }) => {
         bumpFromCompliance(r.entityType as any, r);
       }
     }
-  } catch {}
+  } catch (e) { /* noop */ }
 
   return (
     <div className='mt-1 flex items-center gap-4 text-xs'>

@@ -1,10 +1,11 @@
-import React, { useMemo, useRef, useState } from 'react';
+import React, { useMemo, useRef, useState, useEffect } from 'react';
 import { Card } from '../components/ui/card';
 import { Button } from '../components/ui/button';
 import { useGetClientsQuery } from '../features/documentos/api/documentosApiSlice';
 import type { Cliente, EquipoDocumento, EquipoWithExtras } from '../features/documentos/types/entities';
-import { useGetClienteEquiposQuery, useGetDocumentosPorEquipoQuery, useGetClientRequirementsQuery } from '../features/documentos/api/documentosApiSlice';
+import { useGetClienteEquiposQuery, useGetDocumentosPorEquipoQuery, useGetClientRequirementsQuery, useBulkSearchPlatesMutation, useRequestClientsBulkZipMutation, useGetClientsZipJobQuery } from '../features/documentos/api/documentosApiSlice';
 import { useNavigate } from 'react-router-dom';
+import { showToast } from '../components/ui/Toast.utils';
 import { 
   BuildingOfficeIcon,
   TruckIcon,
@@ -34,6 +35,68 @@ export const ClientePortalPage: React.FC = () => {
   const docsCacheRef = useRef<Map<number, EquipoDocumento[]>>(new Map());
 
   const [estadoFilter, setEstadoFilter] = useState<'TODOS'|'VIGENTE'|'PROXIMO'|'VENCIDO'|'FALTANTE'>('TODOS');
+
+  // Búsqueda masiva por patentes (cliente)
+  const [platesInput, setPlatesInput] = useState('');
+  const [plateType, setPlateType] = useState<'both'|'truck'|'trailer'>('both');
+  const [bulkResults, setBulkResults] = useState<Array<{ id: number; truckPlateNorm?: string|null; trailerPlateNorm?: string|null }>>([]);
+  const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
+  const [invalidLines, setInvalidLines] = useState<string[]>([]);
+  const [requestZip, { isLoading: isZipLoading }] = useRequestClientsBulkZipMutation();
+  const [bulkSearch, { isLoading: isBulkLoading }] = useBulkSearchPlatesMutation();
+  const [zipJobId, setZipJobId] = useState<string | null>(null);
+  const [isExcelLoading, setIsExcelLoading] = useState(false);
+  const { data: zipJobData } = useGetClientsZipJobQuery(
+    { jobId: zipJobId || '' },
+    { skip: !zipJobId, pollingInterval: 1000 }
+  );
+
+  const normalizePlate = (s: string) => (s || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
+  const parsePlates = () => {
+    const lines = platesInput.split(/\r?\n/).map(l => normalizePlate(l.trim())).filter(Boolean);
+    const unique = Array.from(new Set(lines));
+    const invalid = unique.filter(p => p.length < 5);
+    setInvalidLines(invalid);
+    return unique.filter(p => p.length >= 5);
+  };
+  const handleBulkSearch = async () => {
+    const plates = parsePlates();
+    if (plates.length === 0) {
+      setBulkResults([]);
+      setSelectedIds(new Set());
+      return;
+    }
+    const type = plateType === 'both' ? undefined : (plateType as 'truck'|'trailer');
+    try {
+      const data = await bulkSearch({ plates, type }).unwrap();
+      setBulkResults(Array.isArray(data) ? data : []);
+      setSelectedIds(new Set());
+      showToast(`Búsqueda completada: ${Array.isArray(data) ? data.length : 0} equipos`, 'success');
+    } catch {
+      showToast('No se pudo completar la búsqueda. Reintentá más tarde.', 'error');
+      setBulkResults([]);
+      setSelectedIds(new Set());
+    }
+  };
+  const handleGenerateZip = async () => {
+    const pick = Array.from(selectedIds);
+    const equipoIds = (pick.length ? pick : Array.from(new Set(bulkResults.map(r => r.id)))).slice(0, 200);
+    if (equipoIds.length === 0) return;
+    try {
+      showToast('Generando ZIP, te avisamos cuando esté listo…');
+      const r = await requestZip({ equipoIds }).unwrap();
+      setZipJobId(r.jobId);
+    } catch {
+      showToast('No fue posible iniciar la generación del ZIP', 'error');
+    }
+  };
+  useEffect(()=> {
+    if (zipJobId && zipJobData?.job?.signedUrl) {
+      showToast('ZIP listo para descargar', 'success');
+    } else if (zipJobId && zipJobData?.job?.status === 'failed') {
+      showToast('Falló la generación del ZIP', 'error');
+    }
+  }, [zipJobId, zipJobData]);
 
   const exportCsv = () => {
     const rows: string[] = ['equipoId,entityType,templateId,templateName,estado,venceEl'];
@@ -145,14 +208,171 @@ export const ClientePortalPage: React.FC = () => {
                 </Button>
                 <Button 
                   variant="outline"
-                  onClick={exportCsv}
+                  onClick={()=>{
+                    try {
+                      exportCsv();
+                      showToast('CSV generado', 'success');
+                    } catch {
+                      showToast('No se pudo generar el CSV', 'error');
+                    }
+                  }}
                   className="h-12 border-2 border-cyan-300 text-cyan-600 hover:bg-cyan-100 rounded-xl font-semibold"
                 >
                   <DocumentCheckIcon className="h-4 w-4 mr-2" />
                   Exportar CSV
                 </Button>
+                <Button
+                  variant="outline"
+                  onClick={async ()=>{
+                    if (!resolvedClienteId) return;
+                    try {
+                      setIsExcelLoading(true);
+                      const url = `${import.meta.env.VITE_DOCUMENTOS_API_URL}/api/docs/clients/${resolvedClienteId}/summary.xlsx`;
+                      const resp = await fetch(url, { headers: { Authorization: `Bearer ${localStorage.getItem('token') || ''}` } });
+                      if (!resp.ok) throw new Error('XLSX');
+                      const blob = await resp.blob();
+                      const a = document.createElement('a');
+                      a.href = URL.createObjectURL(blob);
+                      a.download = `cliente_${resolvedClienteId}_resumen.xlsx`;
+                      document.body.appendChild(a); a.click(); a.remove();
+                      showToast('Excel descargado', 'success');
+                    } catch {
+                      showToast('No se pudo descargar el Excel del cliente', 'error');
+                    } finally {
+                      setIsExcelLoading(false);
+                    }
+                  }}
+                  className="h-12 border-2 border-blue-300 text-blue-600 hover:bg-blue-100 rounded-xl font-semibold"
+                >
+                  {isExcelLoading ? 'Descargando…' : 'Excel cliente'}
+                </Button>
+                <Button
+                  onClick={async ()=>{
+                    if (zipJobData?.job?.signedUrl) { window.open(zipJobData.job.signedUrl, '_blank'); return; }
+                    const equipoIds = Array.isArray(equipos) ? (equipos as any[]).map((e: any)=> (e.equipo?.id ?? e.id)).slice(0, 200) : [];
+                    if (!equipoIds.length) return;
+                    try {
+                      const r = await requestZip({ equipoIds }).unwrap();
+                      setZipJobId(r.jobId);
+                      showToast('Generando ZIP, te avisamos cuando esté listo…');
+                    } catch {
+                      showToast('No se pudo iniciar el ZIP masivo', 'error');
+                    }
+                  }}
+                  disabled={isZipLoading}
+                  className="h-12 border-2 border-indigo-300 text-indigo-600 hover:bg-indigo-100 rounded-xl font-semibold"
+                >
+                  {isZipLoading ? 'Generando ZIP…' : 'ZIP masivo'}
+                </Button>
               </div>
             </div>
+          </div>
+        </Card>
+
+        {/* Búsqueda masiva por patentes */}
+        <Card className="bg-white dark:bg-slate-900 rounded-2xl shadow-xl border-0 overflow-hidden mb-8">
+          <div className="bg-gradient-to-r from-emerald-500 to-cyan-500 p-6 text-white">
+            <div className="flex items-center gap-3 mb-2">
+              <div className="bg-white/20 p-3 rounded-xl">
+                <TruckIcon className="h-6 w-6" />
+              </div>
+              <div>
+                <h2 className="text-xl font-bold">Búsqueda masiva por patentes</h2>
+                <p className="text-emerald-100 text-sm">Pegá una lista de patentes (una por línea). Se normalizan automáticamente.</p>
+              </div>
+            </div>
+          </div>
+          <div className="p-6 space-y-4">
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+              <div className="lg:col-span-2">
+                <textarea
+                  value={platesInput}
+                  onChange={(e) => setPlatesInput(e.target.value)}
+                  placeholder="Ejemplo:\nAB123CD\nAA000BB\nABC123"
+                  className="w-full min-h-[140px] rounded-xl border-2 border-gray-200 p-3 text-gray-800 focus:outline-none focus:border-emerald-500"
+                />
+                {invalidLines.length > 0 && (
+                  <p className="mt-2 text-sm text-red-600">Líneas inválidas (min 5 chars): {invalidLines.join(', ')}</p>
+                )}
+              </div>
+              <div className="space-y-3">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Tipo de patente</label>
+                  <select
+                    value={plateType}
+                    onChange={(e)=> setPlateType(e.target.value as any)}
+                    className="w-full h-11 text-base rounded-xl border-2 border-gray-200 bg-white text-gray-900 focus:outline-none focus:border-emerald-500"
+                  >
+                    <option value="both">Tractor y Acoplado</option>
+                    <option value="truck">Solo Tractor</option>
+                    <option value="trailer">Solo Acoplado</option>
+                  </select>
+                </div>
+                <div className="flex gap-3">
+                  <Button
+                    variant="outline"
+                    onClick={handleBulkSearch}
+                    disabled={isBulkLoading}
+                    className="h-11 border-2 border-emerald-300 text-emerald-600 hover:bg-emerald-100 rounded-xl font-semibold"
+                  >
+                    Buscar
+                  </Button>
+                  <Button
+                    variant="outline"
+                    onClick={handleGenerateZip}
+                    disabled={bulkResults.length === 0 || isZipLoading}
+                    className="h-11 border-2 border-cyan-300 text-cyan-600 hover:bg-cyan-100 rounded-xl font-semibold"
+                  >
+                    Generar ZIP
+                  </Button>
+                </div>
+                {zipJobId && (
+                  <div className="text-sm text-gray-600">
+                    Estado ZIP: {zipJobData?.job?.status || '...'} · Progreso: {Math.round((zipJobData?.job?.progress || 0)*100)}%
+                    {zipJobData?.job?.signedUrl && (
+                      <div className="mt-2">
+                        <a href={zipJobData.job.signedUrl} target="_blank" rel="noreferrer" className="text-cyan-600 underline">Descargar ZIP</a>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            </div>
+            {bulkResults.length > 0 && (
+              <div className="mt-4">
+                <h3 className="text-gray-800 font-semibold mb-2">Resultados ({bulkResults.length})</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                  {bulkResults.map((r) => {
+                    const checked = selectedIds.has(r.id);
+                    return (
+                      <label key={r.id} className="border-2 border-gray-200 rounded-xl p-3 text-sm bg-gray-50 flex items-start gap-2 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={checked}
+                          onChange={(e)=> {
+                            setSelectedIds(prev => {
+                              const next = new Set(prev);
+                              if (e.target.checked) next.add(r.id); else next.delete(r.id);
+                              return next;
+                            });
+                          }}
+                          className="mt-0.5"
+                          aria-label={`Seleccionar equipo ${r.id}`}
+                        />
+                        <div>
+                          <div className="font-semibold text-gray-800">Equipo #{r.id}</div>
+                          <div className="text-gray-600">Tractor: <strong>{r.truckPlateNorm || '-'}</strong></div>
+                          <div className="text-gray-600">Acoplado: <strong>{r.trailerPlateNorm || '-'}</strong></div>
+                        </div>
+                      </label>
+                    );
+                  })}
+                </div>
+                <div className="mt-2 text-xs text-gray-600" aria-live="polite">
+                  {selectedIds.size > 0 ? `${selectedIds.size} seleccionados` : 'Sin selección: se exportarán todos los resultados (hasta 200).'}
+                </div>
+              </div>
+            )}
           </div>
         </Card>
 

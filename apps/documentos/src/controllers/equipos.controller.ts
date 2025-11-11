@@ -1,11 +1,15 @@
 import { Response } from 'express';
 import { EquipoService } from '../services/equipo.service';
 import { AuthRequest } from '../middlewares/auth.middleware';
+import { AuditService } from '../services/audit.service';
 
 export class EquiposController {
   static async list(req: AuthRequest, res: Response) {
     const dadorCargaId = Number(req.query.dadorCargaId);
-    const data = await EquipoService.list(req.tenantId!, dadorCargaId);
+    // Paginación opcional (con defaults definidos en schema)
+    const page = (req.query as any).page ? parseInt(String((req.query as any).page), 10) : 1;
+    const limit = (req.query as any).limit ? parseInt(String((req.query as any).limit), 10) : 20;
+    const data = await EquipoService.list(req.tenantId!, dadorCargaId, page, limit);
     res.json({ success: true, data });
   }
 
@@ -78,6 +82,19 @@ export class EquiposController {
     const asignadoHasta = req.body.asignadoHasta ? new Date(req.body.asignadoHasta) : undefined;
     const data = await EquipoService.associateCliente(req.tenantId!, equipoId, clienteId, asignadoDesde, asignadoHasta);
     res.status(201).json({ success: true, data });
+    // Audit
+    void AuditService.log({
+      tenantEmpresaId: req.tenantId,
+      userId: req.user?.userId,
+      userRole: req.user?.role,
+      method: req.method,
+      path: req.originalUrl || req.path,
+      statusCode: 201,
+      action: 'EQUIPO_CLIENTE_ATTACH',
+      entityType: 'EQUIPO',
+      entityId: equipoId,
+      details: { clienteId, asignadoDesde, asignadoHasta },
+    });
   }
 
   static async removeCliente(req: AuthRequest, res: Response) {
@@ -85,6 +102,19 @@ export class EquiposController {
     const clienteId = Number(req.params.clienteId);
     const data = await EquipoService.removeCliente(req.tenantId!, equipoId, clienteId);
     res.json({ success: true, data });
+    // Audit
+    void AuditService.log({
+      tenantEmpresaId: req.tenantId,
+      userId: req.user?.userId,
+      userRole: req.user?.role,
+      method: req.method,
+      path: req.originalUrl || req.path,
+      statusCode: 200,
+      action: 'EQUIPO_CLIENTE_DETACH',
+      entityType: 'EQUIPO',
+      entityId: equipoId,
+      details: { clienteId },
+    });
   }
 
   static async delete(req: AuthRequest, res: Response) {

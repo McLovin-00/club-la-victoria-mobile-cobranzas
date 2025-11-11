@@ -75,7 +75,7 @@ export default function ApprovalDetailPage() {
     let cancelled = false;
     // Limpiar blob anterior
     if (previewBlobUrl && previewBlobUrl.startsWith('blob:')) {
-      try { URL.revokeObjectURL(previewBlobUrl); } catch {}
+      try { URL.revokeObjectURL(previewBlobUrl); } catch (e) { /* noop */ }
     }
     setPreviewBlobUrl(null);
     setPreviewError(null);
@@ -90,7 +90,7 @@ export default function ApprovalDetailPage() {
         });
         if (!resp.ok) {
           let msg = `Error ${resp.status}: ${resp.statusText}`;
-          try { const t = await resp.text(); if (t) msg = t; } catch {}
+          try { const t = await resp.text(); if (t) msg = t; } catch (e) { /* noop */ }
           throw new Error(msg);
         }
         const blob = await resp.blob();
@@ -105,7 +105,7 @@ export default function ApprovalDetailPage() {
     })();
 
     return () => { cancelled = true; };
-  }, [effectivePreviewUrl]);
+  }, [effectivePreviewUrl, previewBlobUrl]);
   const classification = info?.classification || (info as any)?.data?.classification;
   const meta = (info as any)?.data ?? info;
 

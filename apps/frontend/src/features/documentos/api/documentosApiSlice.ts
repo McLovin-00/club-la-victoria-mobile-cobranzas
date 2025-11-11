@@ -98,6 +98,33 @@ export const documentosApiSlice = createApi({
       transformResponse: (r: any) => r?.data ?? [],
       providesTags: ['Equipos'],
     }),
+    // Cliente: búsqueda masiva por patentes
+    bulkSearchPlates: builder.mutation<
+      Array<{ id: number; dadorCargaId: number; truckPlateNorm?: string|null; trailerPlateNorm?: string|null; driverDniNorm?: string|null; estado?: string }>,
+      { plates: string[]; type?: 'truck'|'trailer' }
+    >({
+      query: (body) => ({ url: `/clients/bulk-search`, method: 'POST', body }),
+      transformResponse: (r: any) => r?.data ?? [],
+    }),
+    // Cliente: solicitar ZIP masivo
+    requestClientsBulkZip: builder.mutation<{ success: boolean; jobId: string }, { equipoIds: number[] }>({
+      query: ({ equipoIds }) => ({ url: `/clients/bulk-zip`, method: 'POST', body: { equipoIds } }),
+    }),
+    // Cliente: estado de job de ZIP
+    getClientsZipJob: builder.query<{ success: boolean; job: { id: string; status: string; progress: number; message?: string; signedUrl?: string } }, { jobId: string }>({
+      query: ({ jobId }) => ({ url: `/clients/jobs/${jobId}` }),
+    }),
+    // Transportistas: mis equipos
+    getMisEquipos: builder.query<Array<{ id: number; driverDniNorm?: string; truckPlateNorm?: string; trailerPlateNorm?: string|null }>, void>({
+      query: () => ({ url: `/transportistas/mis-equipos` }),
+      transformResponse: (r: any) => r?.data ?? [],
+      providesTags: ['Equipos'],
+    }),
+    // Transportistas: búsqueda limitada (dni/plate)
+    transportistasSearch: builder.mutation<Array<{ id: number; driverDniNorm?: string; truckPlateNorm?: string; trailerPlateNorm?: string|null }>, { dni?: string; plate?: string }>({
+      query: (body) => ({ url: `/transportistas/search`, method: 'POST', body }),
+      transformResponse: (r: any) => r?.data ?? [],
+    }),
 
     // Documentos por equipo (portal cliente)
     getDocumentosPorEquipo: builder.query<EquipoDocumento[], { equipoId: number }>({
@@ -445,39 +472,26 @@ export const documentosApiSlice = createApi({
       keepUnusedDataFor: 30,
     }),
 
-    uploadDocument: builder.mutation<
-      Document,
-      {
-        templateId: number;
-        empresaId: number;
-        entityType: string;
-        entityId: string;
-        files: File[];
-        expiresAt?: string;
-      }
-    >({
-      query: ({ files, ...data }) => {
+    uploadDocument: builder.mutation<Document, any>({
+      query: (arg: any) => {
+        // Permite enviar FormData crudo o un objeto tipado
+        if (typeof FormData !== 'undefined' && arg instanceof FormData) {
+          return { url: '/documents/upload', method: 'POST', body: arg };
+        }
+        const { files = [], ...data } = arg || {};
         const formData = new FormData();
-        formData.append('templateId', data.templateId.toString());
-        formData.append('dadorCargaId', data.empresaId.toString());
-        formData.append('entityType', data.entityType);
-        formData.append('entityId', data.entityId);
+        if (data.templateId != null) formData.append('templateId', String(data.templateId));
+        if (data.empresaId != null) formData.append('dadorCargaId', String(data.empresaId));
+        if (data.entityType != null) formData.append('entityType', String(data.entityType));
+        if (data.entityId != null) formData.append('entityId', String(data.entityId));
+        if (data.confirmNewVersion) formData.append('confirmNewVersion', 'true');
+        if (data.planilla) formData.append('planilla', typeof data.planilla === 'string' ? data.planilla : JSON.stringify(data.planilla));
         formData.append('source', 'file');
-        if (data.expiresAt) {
-          formData.append('expiresAt', data.expiresAt);
-        }
-        if (files.length > 1) {
-          // Multi-imagen: enviar todas como 'documents'
-          files.forEach((f) => formData.append('documents', f));
-        } else if (files.length === 1) {
-          // Compatibilidad: un único archivo como 'document'
-          formData.append('document', files[0]);
-        }
-        return {
-          url: '/documents/upload',
-          method: 'POST',
-          body: formData,
-        };
+        if (data.expiresAt) formData.append('expiresAt', data.expiresAt);
+        const list: File[] = Array.isArray(files) ? files : [];
+        if (list.length > 1) list.forEach((f) => formData.append('documents', f));
+        else if (list.length === 1) formData.append('document', list[0]);
+        return { url: '/documents/upload', method: 'POST', body: formData };
       },
       async onQueryStarted(arg, { dispatch, queryFulfilled }) {
         try {
@@ -737,6 +751,30 @@ export const documentosApiSlice = createApi({
       query: ({ id, ...body }) => ({ url: `/equipos/${id}/detach`, method: 'POST', body }),
       invalidatesTags: ['Equipos', 'Dashboard'],
     }),
+
+    // =================================
+    // AUDITORÍA
+    // =================================
+    getAuditLogs: builder.query<
+      { data: any[]; total: number; page: number; limit: number; totalPages: number },
+      { page?: number; limit?: number; from?: string; to?: string; userId?: number; userRole?: string; method?: string; statusCode?: number; action?: string; entityType?: string; entityId?: number; pathContains?: string }
+    >({
+      query: (params = {}) => {
+        const search = new URLSearchParams();
+        Object.entries(params).forEach(([k, v]) => {
+          if (v !== undefined && v !== null && v !== '') search.set(k, String(v));
+        });
+        return { url: `/audit/logs?${search.toString()}` };
+      },
+      transformResponse: (r: any) => ({
+        data: r?.data ?? [],
+        total: r?.total ?? 0,
+        page: r?.page ?? 1,
+        limit: r?.limit ?? 20,
+        totalPages: r?.totalPages ?? 0,
+      }),
+      providesTags: ['Dashboard'],
+    }),
   }),
 });
 
@@ -768,6 +806,12 @@ export const {
   // Portal Cliente
   useGetClienteEquiposQuery,
   useGetDocumentosPorEquipoQuery,
+  useBulkSearchPlatesMutation,
+  useRequestClientsBulkZipMutation,
+  useGetClientsZipJobQuery,
+  useLazyGetClientsZipJobQuery,
+  useGetMisEquiposQuery,
+  useTransportistasSearchMutation,
   // Nuevos hooks - Equipos
   useGetEquiposQuery,
   useGetEquipoHistoryQuery,
@@ -830,4 +874,6 @@ export const {
   // Equipos attach/detach
   useAttachEquipoComponentsMutation,
   useDetachEquipoComponentsMutation,
+  // Auditoría
+  useGetAuditLogsQuery,
 } = documentosApiSlice;

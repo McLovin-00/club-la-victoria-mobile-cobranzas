@@ -1,4 +1,4 @@
-const { flowiseService } = require('../dist/services/flowise.service');
+const { flowiseService } = require('../src/services/flowise.service');
 
 describe('FlowiseService parse tagged text', () => {
   it('extractAiTaggedFields path yields success', async () => {

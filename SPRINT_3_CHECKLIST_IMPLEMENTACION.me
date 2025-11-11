@@ -1,0 +1,46 @@
+## Sprint 3 — Semáforo y cumplimiento
+
+- Objetivo: calcular el estado integral de equipos y documentos en runtime, con prioridad clara y endpoints de consulta eficientes.
+- Duración: 1 semana.
+- Documentos base: PLAN_EJECUCION_SISTEMA_GESTION_EQUIPOS.me, ANALISIS_PRE_IMPLEMENTACION.me.
+
+## Entregables del sprint
+
+- EquipoEstadoService con reglas y prioridades.
+- ComplianceService extendido (estados: vigente, por vencer, vencido, pendiente, rechazado, faltante).
+- Endpoints de estado por equipo y agregaciones por cliente.
+
+## Checklist — Diseño de reglas
+
+- [ ] Tabla de prioridad de estados: Rojo > Rojo+Azul > Amarillo > Verde > Azul > Gris.
+- [ ] Umbrales de “por vencer” por cliente (diasAnticipacion).
+- [ ] Regla de faltante para acoplado inexistente cuando es requerido.
+
+## Checklist — Servicios y rendimiento
+
+- [ ] EquipoEstadoService: `calculateEquipoEstado(equipoId, clienteId?)`.
+- [ ] ComplianceService: extender para considerar expiración, rechazo, pendiente.
+- [ ] Consultas indexadas; evitar N+1; paginación adecuada en agregaciones.
+
+## Checklist — Endpoints
+
+- [ ] GET /api/docs/equipos/:id/estado
+- [ ] GET /api/docs/clients/:id/equipos/estado (paginación y filtros).
+
+## Checklist — Frontend
+
+- [ ] Componente `EquipoEstadoBadge` con 6 colores y leyenda.
+- [ ] Integración en listados y detalle; filtros por estado.
+
+## Checklist — Testing
+
+- [ ] Unit: casos límite (sin acoplado requerido, docs expirados el mismo día, múltiples entidades).
+- [ ] Contract: respuestas y shape del breakdown por documento.
+- [ ] Performance: dataset de prueba grande para medir p95; ajustar índices si es necesario.
+
+## Checklist — Seguridad y aceptación
+
+- [ ] Filtros por rol/tenant/dador/transportista aplicados a endpoints de estado.
+- [ ] Aceptación: resultados coinciden con reglas de negocio en ejemplos acordados.
+
+

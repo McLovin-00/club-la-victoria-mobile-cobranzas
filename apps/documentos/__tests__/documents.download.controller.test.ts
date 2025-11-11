@@ -1,6 +1,10 @@
-const { DocumentsController } = require('../dist/controllers/documents.controller');
+const { DocumentsController } = require('../src/controllers/documents.controller');
 
-jest.mock('../dist/config/database', () => ({
+jest.mock('../src/services/queue.service', () => ({
+  queueService: { addDocumentValidation: jest.fn(), cancelDocumentValidationJobs: jest.fn() },
+}));
+
+jest.mock('../src/config/database', () => ({
   db: {
     getClient: () => ({
       document: {
@@ -20,7 +24,7 @@ jest.mock('../dist/config/database', () => ({
   }
 }));
 
-jest.mock('../dist/services/minio.service', () => ({
+jest.mock('../src/services/minio.service', () => ({
   minioService: {
     ensureBucketExists: jest.fn().mockResolvedValue(undefined),
     getObject: jest.fn().mockImplementation(() => {
@@ -47,7 +51,7 @@ function mockRes() {
 
 describe('DocumentsController.downloadDocument', () => {
   it('sets headers and pipes stream', async () => {
-    const req: any = { params: { id: '1' }, user: { role: 'SUPERADMIN' } };
+    const req: any = { params: { id: '1' }, query: {}, user: { role: 'SUPERADMIN' } };
     const res = mockRes();
     await DocumentsController.downloadDocument(req, res);
     expect(res.setHeader).toHaveBeenCalledWith('Content-Type', 'application/pdf');

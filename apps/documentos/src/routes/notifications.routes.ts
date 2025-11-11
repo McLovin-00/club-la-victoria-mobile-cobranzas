@@ -9,6 +9,8 @@ router.use(authenticate);
 router.get('/', authorize([UserRole.ADMIN, UserRole.SUPERADMIN]), NotificationsController.getConfig);
 router.put('/', authorize([UserRole.ADMIN, UserRole.SUPERADMIN]), NotificationsController.updateConfig);
 router.post('/test', authorize([UserRole.ADMIN, UserRole.SUPERADMIN]), NotificationsController.test);
+router.post('/run-expirations', authorize([UserRole.ADMIN, UserRole.SUPERADMIN]), NotificationsController.runExpirations);
+router.post('/run-missing', authorize([UserRole.ADMIN, UserRole.SUPERADMIN]), NotificationsController.runMissing);
 
 export default router;
 

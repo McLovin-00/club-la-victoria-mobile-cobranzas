@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { Card } from '../components/ui/card';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
-import { useGetDadoresQuery, useCreateEquipoMinimalMutation, useImportCsvEquiposMutation, useUploadBatchDocsDadorMutation, useGetJobStatusQuery } from '../features/documentos/api/documentosApiSlice';
+import { useGetDadoresQuery, useCreateEquipoMinimalMutation, useImportCsvEquiposMutation, useUploadBatchDocsDadorMutation, useGetJobStatusQuery, useGetChoferesQuery, useGetCamionesQuery, useGetAcopladosQuery, useGetEquiposQuery } from '../features/documentos/api/documentosApiSlice';
 import { showToast } from '../components/ui/Toast.utils';
 import { useNavigate } from 'react-router-dom';
 import { useRef } from 'react';
@@ -29,6 +29,11 @@ export const DadoresPortalPage: React.FC = () => {
   const [tractor, setTractor] = useState('');
   const [acoplado, setAcoplado] = useState('');
   const [createMinimal, { isLoading }] = useCreateEquipoMinimalMutation();
+  const { data: equiposList = [] } = useGetEquiposQuery({ empresaId: Number(resolvedDadorId || 0) }, { skip: !resolvedDadorId });
+  const [uploadBatch, { isLoading: uploadingBatch }] = useUploadBatchDocsDadorMutation();
+  const [batchJobId, setBatchJobId] = useState<string | null>(null);
+  const { data: batchJob } = useGetJobStatusQuery({ jobId: batchJobId || '' }, { skip: !batchJobId, pollingInterval: 1500 });
+  const [zipVigLoading, setZipVigLoading] = useState(false);
   
   return (
     <div className="min-h-screen bg-gradient-to-br from-purple-50 via-indigo-50 to-blue-50 dark:from-slate-900 dark:via-slate-950 dark:to-black">
@@ -60,6 +65,51 @@ export const DadoresPortalPage: React.FC = () => {
                   <p className="text-gray-600 dark:text-slate-300 text-base sm:text-lg">
                     Centro de control logístico para gestión integral de equipos
                   </p>
+                </div>
+                <div className="flex gap-2">
+                  <Button
+                    variant='outline'
+                    size='sm'
+                    disabled={zipVigLoading}
+                    onClick={async ()=>{
+                      const ids = Array.isArray(equiposList) ? (equiposList as any[]).map((e: any)=> (e.id ?? e.equipo?.id)).filter(Boolean).slice(0,200) : [];
+                      if (!ids.length) return;
+                      try {
+                        setZipVigLoading(true);
+                        const resp = await fetch(`${import.meta.env.VITE_DOCUMENTOS_API_URL}/api/docs/equipos/download/vigentes`, {
+                          method: 'POST',
+                          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${localStorage.getItem('token') || ''}` },
+                          body: JSON.stringify({ equipoIds: ids }),
+                        });
+                        if (!resp.ok) throw new Error('ZIP');
+                        const blob = await resp.blob();
+                        const a = document.createElement('a');
+                        a.href = URL.createObjectURL(blob);
+                        a.download = `dador_${resolvedDadorId}_vigentes.zip`;
+                        document.body.appendChild(a); a.click(); a.remove();
+                        showToast('ZIP descargado', 'success');
+                      } catch { showToast('No se pudo descargar el ZIP de vigentes', 'error'); }
+                      finally { setZipVigLoading(false); }
+                    }}
+                  >
+                    {zipVigLoading ? 'Descargando…' : 'ZIP vigentes'}
+                  </Button>
+                  <Button
+                    size='sm'
+                    onClick={()=>{
+                      // CSV resumen como alternativa liviana de Excel
+                      const rows: string[] = ['equipoId'];
+                      (Array.isArray(equiposList) ? equiposList as any[] : []).forEach((e: any)=> rows.push(String(e.id ?? e.equipo?.id)));
+                      const blob = new Blob([rows.join('\n')], { type: 'text/csv;charset=utf-8;' });
+                      const a = document.createElement('a');
+                      a.href = URL.createObjectURL(blob);
+                      a.download = `dador_${resolvedDadorId}_resumen.csv`;
+                      document.body.appendChild(a); a.click(); a.remove();
+                      showToast('CSV generado', 'success');
+                    }}
+                  >
+                    Resumen CSV
+                  </Button>
                 </div>
               </div>
             </div>
@@ -190,7 +240,101 @@ export const DadoresPortalPage: React.FC = () => {
               </div>
             </div>
           </Card>
+
+        {/* Carga inicial por planilla (multi-documento) */}
+        <Card className="bg-white dark:bg-slate-900 rounded-2xl shadow-xl border-0 overflow-hidden">
+          <div className="bg-gradient-to-r from-emerald-500 to-lime-500 p-6 text-white">
+            <div className="flex items-center gap-3 mb-2">
+              <div className="bg-white/20 p-3 rounded-xl">
+                <DocumentArrowUpIcon className="h-6 w-6" />
+              </div>
+              <div>
+                <h2 className="text-xl font-bold">Carga Inicial por Planilla</h2>
+                <p className="text-emerald-100 text-sm">Subí múltiples documentos (PDF/imagenes) en una sola tanda</p>
+              </div>
+            </div>
+          </div>
+          <div className="p-6 space-y-4">
+            <p className="text-sm text-gray-600">
+              Adjuntá todos los archivos requeridos de la planilla (empresa, chofer, tractor, semi). El backend validará consistencia y creará los equipos si corresponde.
+            </p>
+            <div className="flex items-center gap-3">
+              <input
+                id="batchDocs"
+                type="file"
+                multiple
+                accept="application/pdf,image/*"
+                className="text-sm"
+                onChange={async (e) => {
+                  const files = e.currentTarget.files;
+                  if (!files || !resolvedDadorId || files.length === 0) return;
+                  try {
+                    const r = await uploadBatch({ dadorId: Number(resolvedDadorId), files }).unwrap();
+                    setBatchJobId(r.jobId);
+                  } catch {
+                    showToast('No fue posible iniciar la carga batch', 'error');
+                  } finally {
+                    e.currentTarget.value = '';
+                  }
+                }}
+                aria-label="Seleccionar archivos de la planilla"
+              />
+              <Button disabled className="h-10" title="Los archivos se suben automáticamente al seleccionarlos">
+                Subir selección
+              </Button>
+            </div>
+            {uploadingBatch && <div className="text-sm text-gray-600">Subiendo archivos...</div>}
+            {batchJobId && (
+              <div className="text-sm text-gray-700" aria-live="polite">
+                Job #{batchJobId} · Estado: {batchJob?.job?.status || '...'} · Progreso: {Math.round((batchJob?.job?.progress || 0)*100)}%
+              </div>
+            )}
+          </div>
+        </Card>
         </div>
+
+        {/* Aprobación - acceso acotado por flag (validación en backend) */}
+        <Card className="bg-white dark:bg-slate-900 rounded-2xl shadow-xl border-0 overflow-hidden mb-8">
+          <div className="bg-gradient-to-r from-fuchsia-500 to-purple-600 p-6 text-white">
+            <div className="flex items-center gap-3 mb-2">
+              <div className="bg-white/20 p-3 rounded-xl">
+                <CogIcon className="h-6 w-6" />
+              </div>
+              <div>
+                <h2 className="text-xl font-bold">Aprobación de Documentos</h2>
+                <p className="text-fuchsia-100 text-sm">Disponible si está habilitado para tu Dador</p>
+              </div>
+            </div>
+          </div>
+          <div className="p-6">
+            <div className="flex flex-wrap items-center gap-3">
+              <Button onClick={()=> navigate('/documentos/aprobacion')} className="h-12 rounded-xl bg-gradient-to-r from-fuchsia-500 to-purple-600 hover:from-fuchsia-600 hover:to-purple-700 text-white font-semibold">
+                Ir a Aprobación
+              </Button>
+              <p className="text-sm text-gray-600 dark:text-slate-300">
+                Si no está habilitado, el backend rechazará la acción con un mensaje claro.
+              </p>
+            </div>
+          </div>
+        </Card>
+
+        {/* Maestros readonly (scoped al dador) */}
+        <Card className="bg-white dark:bg-slate-900 rounded-2xl shadow-xl border-0 overflow-hidden mb-8">
+          <div className="bg-gradient-to-r from-teal-500 to-cyan-600 p-6 text-white">
+            <div className="flex items-center gap-3 mb-2">
+              <div className="bg-white/20 p-3 rounded-xl">
+                <TruckIcon className="h-6 w-6" />
+              </div>
+              <div>
+                <h2 className="text-xl font-bold">Maestros (Solo Lectura)</h2>
+                <p className="text-teal-100 text-sm">Choferes, Camiones y Acoplados asociados</p>
+              </div>
+            </div>
+          </div>
+          <div className="p-6">
+            <MaestrosReadonly dadorId={resolvedDadorId} />
+          </div>
+        </Card>
 
         {/* Carga masiva de documentos */}
         <Card className="bg-white dark:bg-slate-900 rounded-2xl shadow-xl border-0 overflow-hidden mb-8">
@@ -253,6 +397,89 @@ export default DadoresPortalPage;
 // ------------------------
 // Helpers de carga con progreso
 // ------------------------
+
+const MaestrosReadonly: React.FC<{ dadorId?: number }> = ({ dadorId }) => {
+  const [limit] = React.useState(10);
+  const [pageChoferes, setPageChoferes] = React.useState(1);
+  const [pageCamiones, setPageCamiones] = React.useState(1);
+  const [pageAcoplados, setPageAcoplados] = React.useState(1);
+
+  const { data: choferesResp, isFetching: loadingChoferes } = useGetChoferesQuery({ empresaId: Number(dadorId || 0), page: pageChoferes, limit }, { skip: !dadorId });
+  const { data: camionesResp, isFetching: loadingCamiones } = useGetCamionesQuery({ empresaId: Number(dadorId || 0), page: pageCamiones, limit }, { skip: !dadorId });
+  const { data: acopladosResp, isFetching: loadingAcoplados } = useGetAcopladosQuery({ empresaId: Number(dadorId || 0), page: pageAcoplados, limit }, { skip: !dadorId });
+  const choferes = (choferesResp as any)?.data ?? [];
+  const camiones = (camionesResp as any)?.data ?? [];
+  const acoplados = (acopladosResp as any)?.data ?? [];
+  const chPag = (choferesResp as any)?.pagination;
+  const caPag = (camionesResp as any)?.pagination;
+  const acPag = (acopladosResp as any)?.pagination;
+  const totalPages = (p: any) => p?.pages || (p?.total && p?.limit ? Math.max(1, Math.ceil(p.total / p.limit)) : undefined);
+  const chPages = totalPages(chPag);
+  const caPages = totalPages(caPag);
+  const acPages = totalPages(acPag);
+
+  return (
+    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <div>
+        <h3 className="text-gray-800 font-semibold mb-2">Choferes</h3>
+        <div className="space-y-2">
+          {loadingChoferes && <div role="status" aria-live="polite" className="text-sm text-gray-500">Cargando...</div>}
+          {!loadingChoferes && choferes.length === 0 && <div className="text-sm text-gray-500">Sin registros</div>}
+          {choferes.map((c: any) => (
+            <div key={c.id} className="p-3 bg-gray-50 border-2 border-gray-200 rounded-xl text-sm text-gray-700">
+              DNI <strong>{c.dni}</strong> · {c.nombre || ''} {c.apellido || ''}
+            </div>
+          ))}
+          <div className="flex items-center justify-between pt-2">
+            <span className="text-xs text-gray-500">Página {pageChoferes}{chPages ? ` / ${chPages}` : ''}</span>
+            <div className="flex gap-2">
+              <Button variant="outline" size="sm" disabled={pageChoferes<=1} onClick={()=> setPageChoferes(p => Math.max(1, p-1))}>Anterior</Button>
+              <Button variant="outline" size="sm" disabled={chPages ? pageChoferes>=chPages : choferes.length < limit} onClick={()=> setPageChoferes(p => p+1)}>Siguiente</Button>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div>
+        <h3 className="text-gray-800 font-semibold mb-2">Camiones</h3>
+        <div className="space-y-2">
+          {loadingCamiones && <div role="status" aria-live="polite" className="text-sm text-gray-500">Cargando...</div>}
+          {!loadingCamiones && camiones.length === 0 && <div className="text-sm text-gray-500">Sin registros</div>}
+          {camiones.map((m: any) => (
+            <div key={m.id} className="p-3 bg-gray-50 border-2 border-gray-200 rounded-xl text-sm text-gray-700">
+              Patente <strong>{m.patente}</strong> · {m.marca || ''} {m.modelo || ''}
+            </div>
+          ))}
+          <div className="flex items-center justify-between pt-2">
+            <span className="text-xs text-gray-500">Página {pageCamiones}{caPages ? ` / ${caPages}` : ''}</span>
+            <div className="flex gap-2">
+              <Button variant="outline" size="sm" disabled={pageCamiones<=1} onClick={()=> setPageCamiones(p => Math.max(1, p-1))}>Anterior</Button>
+              <Button variant="outline" size="sm" disabled={caPages ? pageCamiones>=caPages : camiones.length < limit} onClick={()=> setPageCamiones(p => p+1)}>Siguiente</Button>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div>
+        <h3 className="text-gray-800 font-semibold mb-2">Acoplados</h3>
+        <div className="space-y-2">
+          {loadingAcoplados && <div role="status" aria-live="polite" className="text-sm text-gray-500">Cargando...</div>}
+          {!loadingAcoplados && acoplados.length === 0 && <div className="text-sm text-gray-500">Sin registros</div>}
+          {acoplados.map((a: any) => (
+            <div key={a.id} className="p-3 bg-gray-50 border-2 border-gray-200 rounded-xl text-sm text-gray-700">
+              Patente <strong>{a.patente}</strong> · {a.tipo || ''}
+            </div>
+          ))}
+          <div className="flex items-center justify-between pt-2">
+            <span className="text-xs text-gray-500">Página {pageAcoplados}{acPages ? ` / ${acPages}` : ''}</span>
+            <div className="flex gap-2">
+              <Button variant="outline" size="sm" disabled={pageAcoplados<=1} onClick={()=> setPageAcoplados(p => Math.max(1, p-1))}>Anterior</Button>
+              <Button variant="outline" size="sm" disabled={acPages ? pageAcoplados>=acPages : acoplados.length < limit} onClick={()=> setPageAcoplados(p => p+1)}>Siguiente</Button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 const CsvUploader: React.FC<{ dadorId?: number }> = ({ dadorId }) => {
   const [file, setFile] = useState<File | null>(null);

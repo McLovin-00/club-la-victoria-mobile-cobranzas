@@ -1,0 +1,309 @@
+## Visión general
+
+- Objetivo: entregar un plan integral, profesional y simple para implementar la “Solución de Compromiso - Sistema de Gestión de Equipos” priorizando calidad de código, seguridad, mantenibilidad y foco en negocio.
+- Alcance: compara documentos iniciales (visión base del sistema) con los nuevos documentos (resumen de compromiso y análisis por portales), identifica cambios y define un plan ejecutable end-to-end.
+- Principios rectores:
+  - Simplicidad primero (KISS) y consistencia; evitar sobre-ingeniería.
+  - Seguridad by default (JWT RS256, validaciones con Zod, PII masking, mínimos privilegios).
+  - Calidad de código (ESLint + Prettier, Jest, Tipado estricto, patrones claros).
+  - Observabilidad (Winston, /health, /metrics, auditoría completa).
+  - Entregas incrementales; sin grandes-bangs; feature flags donde aplique.
+
+## Documentos comparados
+
+- Base/Iniciales (línea de base):
+  - MANUAL_MICROSERVICIO_DOCUMENTOS.md
+  - docs/PLATAFORMA_CLIENTES.md
+  - PERMISOS_Y_ROLES_SISTEMA.md
+  - docs/CICD_PIPELINE_3_SERVICES.md, docs/ENVIRONMENTS.md, docs/TOOLS_STACK.md
+  - ADR_RS256_TENANT.md y docs/ADRS.md (decisiones arquitectónicas)
+- Nuevos (actualización de alcance y detalle):
+  - RESUMEN_SOLUCION_COMPROMISO.md (documento maestro actual)
+  - ANALISIS_PORTAL_CLIENTE_PATENTES.md + RESUMEN_EJECUTIVO_PATENTES.md
+  - ANALISIS_PORTAL_DADOR_CARGA.md + RESUMEN_EJECUTIVO_DADOR.md
+  - ANALISIS_PORTAL_TRANSPORTISTAS_CHOFERES.md + RESUMEN_EJECUTIVO_TRANSPORTISTAS.md
+  - docs/NOTIFICACIONES_PLAN.md, docs/PORTAL_*_PLAN.md (apoyo)
+
+## Deltas clave (inicial → nuevos)
+
+- Multi-rol expandido: de 3 roles (SUPERADMIN/ADMIN/OPERATOR) a 8 roles (incluyendo DADOR_DE_CARGA, TRANSPORTISTA, CHOFER, CLIENTE, ADMIN_INTERNO/OPERADOR_INTERNO).
+- Workflows de documentos: aprobación completa (PENDIENTE_APROBACION, APROBADO, RECHAZADO, APROBADO_AUTOMATICO), versionado y renovaciones.
+- Validación obligatoria de 19 documentos (Empresa, Chofer, Tractor, Semi).
+- Semáforo integral (Equipo y documento): Verde, Amarillo, Rojo, Gris, Azul, Rojo+Azul con prioridades y reglas.
+- Portales: Cliente (búsqueda masiva por patentes, ZIP estructurado + Excel), Dador (autonomía, aprobación acotada, autofiltro), Transportistas/Choferes (acceso propio, búsqueda limitada, descargas).
+- Observabilidad y seguridad: auditoría 14+ acciones, rate-limits diferenciados, CORS controlado, masking PII, /metrics.
+- Notificaciones no bloqueantes (Email/WhatsApp), plantillas, deduplicación y scheduling.
+- Backup y recuperación: políticas de DB y S3, soft delete y retención/versionado.
+
+## Roadmap macro (fases y criterios de salida)
+
+1) Base de acceso y permisos (Semana 1)
+   - Entregables:
+     - Enum de roles completo y migraciones.
+     - Middlewares de autorización y auto-filtros por rol/tenant/dador/transportista.
+     - Matriz de permisos efectiva aplicada en rutas.
+   - Salida: smoke tests OK, endpoints críticos bajo RBAC, CI verde.
+2) Workflow documental y cumplimiento (Semanas 1-2)
+   - Entregables:
+     - Aprobación/rechazo/renovación/versionado.
+     - Semáforo de estado (equipo/doc) y cumplimiento por cliente.
+   - Salida: colas de aprobación funcionando, estados calculados en runtime.
+3) Portales (Semanas 2-3)
+   - Entregables:
+     - Cliente: bulk search, ZIP estructurado, Excel resumen.
+     - Dador: autonomía (aprobación acotada), búsquedas, maestros.
+     - Transportistas: mis equipos, búsquedas limitadas, descargas.
+   - Salida: pruebas E2E básicas por perfil, accesos aislados.
+4) Notificaciones + Observabilidad + Auditoría (Semanas 3-4)
+   - Entregables:
+     - Cron jobs, plantillas Email/WhatsApp, deduplicación robusta.
+     - Audit log completo, métricas y healthchecks.
+   - Salida: alarmas funcionales y registros auditados.
+5) Backup/Recovery + Endurecimiento (Semana 4)
+   - Entregables:
+     - Backups DB, versionado S3, restauración y ensayos.
+     - Hardening (headers, CORS, rate limits, secretos).
+   - Salida: runbooks validados, simulacro de restore exitoso.
+
+## Plan detallado por dominio (con subtareas)
+
+### A. Autenticación, autorización y RBAC
+
+- A1. Roles y tipos (estricto)
+  - A1.1. Backend principal y microservicio documentos: extender enums.
+  - A1.2. Migraciones y actualización de seeds minimalistas (si procede).
+  - A1.3. Tipos TypeScript sincronizados; sin “any” inseguros.
+- A2. Middlewares y filtros automáticos
+  - A2.1. authorize(roles) reutilizable: listas por endpoint.
+  - A2.2. tenantResolver: mantener y ampliar pruebas.
+  - A2.3. autoFilterByDador: inyectar dadorCargaId de user metadata; denegar override por roles no autorizados.
+  - A2.4. authorizeTransportista: distinguir empresa vs chofer (via metadata); aplicar filtros (empresaTransportistaId, choferId/dni).
+- A3. Matriz de permisos centralizada
+  - A3.1. PermissionsService: canApproveDocument, canAccessEquipo, getAccessibleEquipos, etc.
+  - A3.2. Aplicar en Approval, Documents, Equipos, Maestros, Clients, Search.
+  - A3.3. Tests unitarios/contract por rol/endpoint (tabla de verdad).
+- A4. Seguridad API
+  - A4.1. JWT RS256 validado, rotación de claves documentada (ADR).
+  - A4.2. Rate limiting por rol y ruta; burst control.
+  - A4.3. CORS: whitelist por entorno; “*” solo en dev.
+  - A4.4. Headers de seguridad (no PII en logs/headers).
+  - A4.5. Zod en fronteras: body/query/params, mensajes limpios.
+
+### B. Workflow documental y versionado
+
+- B1. Estados y aprobación
+  - B1.1. Mantener enum DocumentStatus (sin inflarlo con estados temporales).
+  - B1.2. ApprovalService: aprobar/rechazar con reviewedBy, notes, y motivos estandarizados.
+  - B1.3. Reglas: solo roles autorizados; Dador con permisos acotados sobre su scope.
+  - B1.4. Batch approve: chunking y feedback granular; idempotencia básica.
+- B2. Versionado y renovaciones
+  - B2.1. Extender modelo Document: referencias a versión previa (sin duplicación excesiva).
+  - B2.2. Renovación: endpoint específico; deprecar anterior; mantener trazabilidad.
+  - B2.3. Historial de versiones: consulta paginada, filtro por entidad/template.
+- B3. Validación obligatoria (19 docs)
+  - B3.1. Lista fija y no configurable (alineada a negocio).
+  - B3.2. EquipoValidation: verificar faltantes/expirados y prerequisitos (acoplado opcional).
+  - B3.3. Mensajes de error claros para UX; no exponer datos sensibles.
+- B4. Previsualización y media
+  - B4.1. MinIO: URLs firmadas con expiración ajustable.
+  - B4.2. Thumbnails (PDF/JPG/PNG) y límites de tamaño.
+  - B4.3. Política de mime-types permitidos (validación en backend).
+
+### C. Semáforo (equipo y documento)
+
+- C1. Modelo mental (sin persistir estados temporales)
+  - C1.1. Cálculo en runtime: en services; sin nuevos enums en BD.
+  - C1.2. Prioridades: Rojo > Rojo+Azul > Amarillo > Verde > Azul > Gris.
+- C2. EquipoEstadoService
+  - C2.1. calculate for equipo: consolida estados de docs requeridos por cliente.
+  - C2.2. Documentos por vencer: umbral configurable por cliente (diasAnticipacion).
+  - C2.3. APIs: /equipos/:id/estado, /clients/:id/equipos/estado (paginado).
+- C3. Integración con ComplianceService
+  - C3.1. Extender a más estados (vencido, rechazado, pendiente).
+  - C3.2. Rendimiento: consultas N+1 evitadas, índices utilizados.
+
+### D. Portales (Cliente, Dador, Transportistas/Choferes)
+
+- D1. Cliente
+  - D1.1. Búsqueda masiva por patentes (textarea + normalización).
+  - D1.2. ZIP estructurado: Patente_Camion/EMPRESA_CUIT/CHOFER_DNI/CAMION_Pat/ACOPLADO_Pat.
+  - D1.3. Excel resumen (ExcelJS): por equipo/documento/estado/fecha venc.
+  - D1.4. Vista de maestros (readonly); restricciones por rol CLIENTE.
+- D2. Dador de Carga
+  - D2.1. Autofiltro por dadorId en todas las vistas y APIs.
+  - D2.2. Aprobación acotada (solo sobre su dadorId).
+  - D2.3. Búsquedas por DNI/patentes (scoped).
+  - D2.4. Cargas masivas y orquestación de jobs con feedback.
+- D3. Transportistas/Choferes
+  - D3.1. Single role TRANSPORTISTA (metadata: empresa vs chofer).
+  - D3.2. Mis equipos: list, estado, descargas propias.
+  - D3.3. Búsquedas limitadas (solo sus patentes/DNI).
+  - D3.4. Mobile-first; tabs; accesibilidad (focus/ARIA).
+
+### E. Notificaciones (no bloqueantes)
+
+- E1. Eventos
+  - E1.1. Rechazo, próximo a vencer, vencido, aprobado, equipo completo.
+  - E1.2. Trigger directo desde services (domain events); colas si aplica.
+- E2. Canales
+  - E2.1. WhatsApp (Evolution) y Email (proveedor SMTP/configurable).
+  - E2.2. Deduplicación (NotificationLog), reintentos y backoff.
+  - E2.3. Opt-in/out por audiencia; política de privacidad.
+- E3. Plantillas
+  - E3.1. Mensajes concisos, sin PII innecesaria; links firmados.
+  - E3.2. Variables controladas; sanitizer; lenguaje consistente.
+- E4. Schedules
+  - E4.1. Cron para vencimientos (diario) y próximos a vencer (X días).
+  - E4.2. Ventanas de envío y límites por usuario/día.
+
+### F. Auditoría, métricas y logging
+
+- F1. Auditoría
+  - F1.1. Modelo AuditLog en documentos (análogo a backend principal).
+  - F1.2. Registrar: actor, entidad, cambios, IP, user-agent, timestamp.
+  - F1.3. Export/consulta con filtros; retención conforme a políticas.
+- F2. Logging
+  - F2.1. Winston; niveles por entorno; no loggear PII; hashing/masking.
+  - F2.2. Correlación por request-id; tiempos de respuesta.
+- F3. Métricas y health
+  - F3.1. /metrics (Prometheus) con contadores de errores/latencias.
+  - F3.2. /health con checks de DB, MinIO, cola, dependencias.
+
+### G. ZIP estructurado y Excel
+
+- G1. DocumentZipService
+  - G1.1. Estructura exacta y estable; nombres de carpeta normalizados.
+  - G1.2. Solo documentos aprobados y vigentes; opcional incluir rechazados.
+  - G1.3. Timeouts/limites de tamaño; streaming; progreso en jobs.
+- G2. ExcelJS
+  - G2.1. Hoja resumen por equipo y por documento.
+  - G2.2. Validación de datos, formatos de fechas, estilos mínimos.
+
+### H. Backup, recuperación y retención
+
+- H1. Base de datos
+  - H1.1. Full diaria + incremental 6h; verificación de integridad.
+  - H1.2. Script de restore documentado; prueba mensual de restauración.
+- H2. S3/MinIO
+  - H2.1. Versioning habilitado; políticas de retención; soft delete.
+  - H2.2. Restauración de una versión previa validada.
+- H3. Runbooks y monitoreo
+  - H3.1. Procedimientos en docs/procedures; tiempos objetivo (RTO/RPO).
+  - H3.2. Alertas de fallos en backups; capacidad y costos.
+
+## Calidad de código y seguridad (requisitos transversales)
+
+- Linter/Formato:
+  - ESLint + Prettier sin warnings; npm run lint && npm run format en CI.
+- Testing:
+  - Unit tests (Jest) para lógica no trivial; cobertura mínima del umbral.
+  - E2E básicos por rol (auth, permisos, flujos críticos).
+  - Contract tests en endpoints nuevos (status codes, shapes Zod).
+- Tipado:
+  - Strict true; evitar any; type guards en capas de entrada.
+- Validación:
+  - Zod en fronteras; mensajes limpios; no filtrar stacks en prod.
+- Seguridad:
+  - JWT RS256; rotación semestral o según política.
+  - bcrypt >= 12 para hashes (donde aplique).
+  - Rate-limits por rol; CORS restringido; headers de seguridad.
+  - Secretos vía env/secret manager; nunca hardcode.
+  - Sanitización entradas/salidas; tamaño máximo de payload/archivos.
+- Observabilidad:
+  - Winston con formateadores; no PII; correlación de requests.
+  - /health y /metrics expuestos; paneles (si aplica).
+
+## Plan de implementación por sprints (granular)
+
+- Sprint 1 (Semana 1): Acceso y base segura
+  - Tareas:
+    - Extender enums de roles y migraciones.
+    - Implementar autoFilterByDador y authorizeTransportista.
+    - PermissionsService y aplicación en endpoints clave.
+    - Rate limits iniciales por rol; CORS por entorno.
+    - Tests unitarios de permisos y smoke E2E por rol.
+  - Criterios de aceptación:
+    - Usuarios sin permisos no acceden ni por bypasses.
+    - Rutas críticas con tenant y filtros automáticos aplicados.
+    - CI verde y cobertura mínima cumplida.
+- Sprint 2 (Semanas 1-2): Workflow documental + versionado
+  - Tareas:
+    - Aprobación/rechazo con motivos y notas; batch approve robusto.
+    - Renovación/versionado; historial de versiones y consultas.
+    - Validación 19 documentos (lista fija), EquipoValidation.
+    - Thumbnails y políticas de mime/size.
+  - Criterios:
+    - Cola de aprobación operativa; datos consistentes post-acciones.
+    - Versionado visible; documentos previos no se pierden.
+- Sprint 3 (Semana 2): Semáforo y cumplimiento
+  - Tareas:
+    - EquipoEstadoService (cálculo runtime, prioridades).
+    - Extender ComplianceService para estados faltantes.
+    - Endpoints de estado y agregación por cliente.
+  - Criterios:
+    - Estados coinciden con reglas de negocio (casos de prueba).
+    - Consultas performantes (sin N+1); índices verificados.
+- Sprint 4 (Semana 2-3): Portales (Cliente/Dador/Transportistas)
+  - Tareas:
+    - Cliente: bulk patentes, ZIP estructurado, Excel resumen, maestros.
+    - Dador: autonomía, aprobaciones acotadas, búsquedas, maestros.
+    - Transportistas: mis equipos, búsquedas limitadas, descargas.
+    - Accesibilidad y mobile-first refinado.
+  - Criterios:
+    - Cada portal restringe datos a su scope.
+    - ZIP y Excel cumplen estructura y performance.
+- Sprint 5 (Semana 3): Notificaciones
+  - Tareas:
+    - Proveedor Email; plantillas; deduplicación consolidada.
+    - Cron jobs vencimientos/próximos a vencer.
+    - Preferencias de destinatario (si aplica) y límites.
+  - Criterios:
+    - Mensajes no exponen PII; links firmados; deduplicación eficaz.
+- Sprint 6 (Semana 3-4): Auditoría, métricas, health
+  - Tareas:
+    - AuditLog en documentos; middleware de auditoría.
+    - /metrics y /health enriquecidos; paneles básicos.
+  - Criterios:
+    - 100% de acciones críticas auditadas con trazabilidad.
+    - Health y metrics integrados en monitoreo.
+- Sprint 7 (Semana 4): Backup/Recovery + Hardening final
+  - Tareas:
+    - Scripts de backup y restore; versionado S3.
+    - Ensayo de restauración; runbook; costos estimados.
+    - Revisiones de seguridad finales; headers, límites, secreto.
+  - Criterios:
+    - Restore exitoso y documentado; alarmas configuradas.
+    - Checklist de seguridad Dev/QA/Stg/Prod en verde.
+
+## Gestión de riesgos y mitigaciones
+
+- Complejidad del semáforo: definir tabla de prioridad y unit tests exhaustivos.
+- Tamaño de ZIP/Excel: límites y paginación; generación por job/streaming.
+- Ruido de notificaciones: deduplicación estricta, ventanas horarias, límites por usuario.
+- Rechazos masivos: motivos estandarizados y batch con feedback; idempotencia.
+- Seguridad: pentest ligero interno; scanning de dependencias; CSP y CORS correctos.
+
+## Definición de Hecho (DoD) por entrega
+
+- Código formateado y sin warnings de linter.
+- Pruebas unitarias y de integración con cobertura mínima.
+- Validación Zod en todos los endpoints nuevos/modificados.
+- Logs sin PII; auditoría generada en acciones relevantes.
+- Documentación actualizada (README/ADR/CHANGELOG).
+- Checklist QA y seguridad completados.
+
+## CI/CD y entornos
+
+- Pipelines:
+  - Jobs: lint, test, build, type-check, e2e (selectivo), publish, deploy.
+  - Gates: fail-fast; prod requiere aprobación manual.
+- Environments:
+  - Dev/Stg/Prod con variables y llaves separadas; no compartir secretos.
+  - Healthchecks y readiness probes; PM2 ecosystem para prod.
+
+## Cierre
+
+- Este plan optimiza simplicidad, seguridad y calidad. Se apoya en la base ya implementada y limita trabajo desde cero a lo indispensable (semáforo, ZIP estructurado, auditoría y backup).
+- La priorización por sprints permite valor temprano sin comprometer integridad, manteniendo una línea profesional y mantenible a largo plazo.
+
+

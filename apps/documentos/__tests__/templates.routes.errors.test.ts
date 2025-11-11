@@ -1,9 +1,9 @@
 import request from 'supertest';
 import express from 'express';
 
-const templatesRouter = require('../dist/routes/templates.routes').default;
+const templatesRouter = require('../src/routes/templates.routes').default;
 
-jest.mock('../dist/middlewares/auth.middleware', () => ({
+jest.mock('../src/middlewares/auth.middleware', () => ({
   authenticate: (_req: any, _res: any, next: any) => next(),
   authorize: () => (req: any, res: any, _next: any) => res.status(403).json({ success:false, code:'INSUFFICIENT_PERMISSIONS' }),
   validate: () => (_req: any, _res: any, next: any) => next(),
