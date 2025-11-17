@@ -3,7 +3,7 @@ WORKDIR /app
 COPY package*.json ./
 COPY . .
 # Instalar dependencias de todos los workspaces (incluye apps/frontend y Vite)
-RUN --mount=type=cache,target=/root/.npm sh -c "if [ -f package-lock.json ]; then npm ci --workspaces; else npm install --workspaces; fi"
+RUN --mount=type=cache,target=/root/.npm sh -c "npm config set legacy-peer-deps true && npm install --workspaces"
 # Pasar variables de build de Vite
 ARG VITE_API_URL
 ARG VITE_API_BASE_URL
@@ -21,6 +21,6 @@ FROM pierrezemb/gostatic:latest
 COPY --from=build /app/apps/frontend/dist /srv/http
 EXPOSE 8550
 # Flags válidas en goStatic
-CMD ["-port","8550","-enable-health"]
+CMD ["-port","8550","-enable-health","-fallback","index.html"]
 
 

@@ -127,6 +127,58 @@ export class PlatformAuthService {
       return { success: false, message: 'Credenciales inválidas' };
     }
 
+    // Normalización defensiva de contraseñas: algunos despliegues antiguos
+    // pudieron almacenar hashes truncados o sin prefijos de bcrypt.
+    // Si detectamos un formato inválido, solo auto-corregimos para cuentas semilla
+    // y cuando el usuario conoce la contraseña por defecto (evitamos un reset arbitrario).
+    const isLikelyBcryptHash = (value: string | null | undefined): boolean => {
+      if (!value) return false;
+      // Longitud típica 60 y prefijo $2a/$2b/$2y
+      return value.length === 60 && /^\$2[aby]\$[0-9]{2}\$/.test(value);
+    };
+    const SEED_EMAILS = new Set([
+      'admin@bca.com',
+      'admin@empresa.com',
+      'superadmin@empresa.com',
+      'admin@mfh.com.ar',
+    ]);
+    const DEFAULT_PASSWORDS = new Set(['password123', 'admin123', 'Mfh@#2024A']);
+
+    if (!isLikelyBcryptHash(platformUser.password)) {
+      AppLogger.warn('Detectado hash de contraseña con formato inválido', {
+        userId: platformUser.id,
+        email: platformUser.email,
+        currentLength: platformUser.password?.length ?? 0,
+      });
+
+      const isSeedAccount = SEED_EMAILS.has(platformUser.email.toLowerCase());
+      const isDefaultPassword = DEFAULT_PASSWORDS.has(password);
+
+      if (isSeedAccount && isDefaultPassword) {
+        // Solo para cuentas semilla con password conocido: re-hashear y corregir
+        const repairedHash = await bcrypt.hash(password, this.SALT_ROUNDS);
+        await prisma.user.update({
+          where: { id: platformUser.id },
+          data: { password: repairedHash },
+        });
+        platformUser.password = repairedHash;
+        AppLogger.info('Hash de contraseña reparado para cuenta semilla', {
+          userId: platformUser.id,
+          email: platformUser.email,
+        });
+      } else {
+        // No auto-corregir cuentas normales para no permitir resets silenciosos
+        AppLogger.error(
+          'Formato de hash inválido para usuario no-semilla; solicitar reset de contraseña'
+        );
+        return {
+          success: false,
+          message:
+            'Credenciales inválidas. Contacte al administrador para restablecer su contraseña.',
+        };
+      }
+    }
+
     const isPasswordValid = await bcrypt.compare(password, platformUser.password);
     if (!isPasswordValid) {
       return { success: false, message: 'Credenciales inválidas' };

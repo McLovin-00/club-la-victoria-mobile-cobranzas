@@ -38,6 +38,7 @@ import ChoferesPage from './features/documentos/pages/ChoferesPage';
 import CamionesPage from './features/documentos/pages/CamionesPage';
 import AcopladosPage from './features/documentos/pages/AcopladosPage';
 import EstadoEquipoPage from './features/documentos/pages/EstadoEquipoPage';
+import AltaEquipoCompletaPage from './features/equipos/pages/AltaEquipoCompletaPage';
 import { PerfilPage } from './pages/PerfilPage';
 import { AuthInitializer } from './components/AuthInitializer';
 import { ProtectedServiceRoute } from './components/ProtectedServiceRoute';
@@ -108,6 +109,11 @@ function App() {
                 <Route path='/documentos/equipos' element={
                   <ProtectedServiceRoute service="documentos">
                     <EquiposPage />
+                  </ProtectedServiceRoute>
+                } />
+                <Route path='/documentos/equipos/alta-completa' element={
+                  <ProtectedServiceRoute service="documentos">
+                    <AltaEquipoCompletaPage />
                   </ProtectedServiceRoute>
                 } />
                 <Route path='/documentos/equipos/:id/estado' element={

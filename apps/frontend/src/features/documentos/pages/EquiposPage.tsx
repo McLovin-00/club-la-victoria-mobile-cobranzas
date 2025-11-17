@@ -289,12 +289,22 @@ export const EquiposPage: React.FC = () => {
 
   return (
     <div className='container mx-auto px-4 py-8'>
-      <div className='flex items-center gap-2 mb-4'>
-        <Button variant='outline' size='sm' onClick={() => navigate('/documentos')} className='flex items-center'>
-          <ArrowLeftIcon className='h-4 w-4 mr-2' />
-          Volver
+      <div className='flex items-center justify-between mb-4'>
+        <div className='flex items-center gap-2'>
+          <Button variant='outline' size='sm' onClick={() => navigate('/documentos')} className='flex items-center'>
+            <ArrowLeftIcon className='h-4 w-4 mr-2' />
+            Volver
+          </Button>
+          <h1 className='text-2xl font-bold'>Asociación de Equipos</h1>
+        </div>
+        <Button 
+          variant='default' 
+          size='sm' 
+          onClick={() => navigate('/documentos/equipos/alta-completa')}
+          className='bg-green-600 hover:bg-green-700 text-white'
+        >
+          📄 Alta Completa con Documentos
         </Button>
-        <h1 className='text-2xl font-bold'>Asociación de Equipos</h1>
       </div>
 
       {/* Importación CSV */}

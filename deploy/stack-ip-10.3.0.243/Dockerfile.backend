@@ -3,7 +3,7 @@ WORKDIR /app
 # Copiar todo el monorepo (necesario por workspaces y paths de tsconfig)
 COPY . .
 # Instalar dependencias de workspaces y compilar backend
-RUN --mount=type=cache,target=/root/.npm npm ci --workspaces && npm run -w apps/backend build
+RUN --mount=type=cache,target=/root/.npm sh -c "npm config set legacy-peer-deps true && npm install --workspaces && npm run -w apps/backend build"
 
 FROM node:20-alpine AS runner
 WORKDIR /app
