@@ -4,7 +4,7 @@ import { Button } from '../components/ui/button';
 import { useNavigate } from 'react-router-dom';
 import { 
   useGetDadoresQuery, 
-  useGetPendingDocumentsQuery,
+  useGetApprovalPendingQuery,
   useGetEquiposQuery 
 } from '../features/documentos/api/documentosApiSlice';
 import { 
@@ -24,7 +24,7 @@ export const AdminInternoPortalPage: React.FC = () => {
 
   // Queries
   const { data: dadoresResp, isLoading: dadoresLoading } = useGetDadoresQuery({});
-  const { data: pendingDocsResp, isLoading: pendingLoading } = useGetPendingDocumentsQuery({ 
+  const { data: pendingDocsResp, isLoading: pendingLoading } = useGetApprovalPendingQuery({ 
     dadorCargaId: selectedDadorId 
   });
   const { data: equiposResp, isLoading: equiposLoading } = useGetEquiposQuery({ 
