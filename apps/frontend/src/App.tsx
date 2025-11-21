@@ -46,6 +46,7 @@ import { ProtectedServiceRoute } from './components/ProtectedServiceRoute';
 import ClientePortalPage from './pages/ClientePortalPage';
 import DadoresPortalPage from './pages/DadoresPortalPage';
 import TransportistasPortalPage from './pages/TransportistasPortalPage';
+import { AdminInternoPortalPage } from './pages/AdminInternoPortalPage';
 
 function App() {
   return (
@@ -79,8 +80,8 @@ function App() {
                 <Route path='/empresas' element={<EmpresasPageLazy />} />
               </Route>
 
-              {/* Rutas de Documentos para SUPERADMIN, ADMIN y OPERATOR */}
-              <Route element={<RequireAuth allowedRoles={['SUPERADMIN', 'ADMIN', 'OPERATOR']} />}>
+              {/* Rutas de Documentos para SUPERADMIN, ADMIN, OPERATOR y ADMIN_INTERNO */}
+              <Route element={<RequireAuth allowedRoles={['SUPERADMIN', 'ADMIN', 'OPERATOR', 'ADMIN_INTERNO', 'OPERADOR_INTERNO']} />}>
                 <Route path='/documentos' element={
                   <ProtectedServiceRoute service="documentos">
                     <DocumentosMainPage />
@@ -208,6 +209,11 @@ function App() {
               </Route>
               <Route element={<RequireAuth allowedRoles={['ADMIN','SUPERADMIN']} />}> 
                 <Route path='/portal/transportistas' element={<TransportistasPortalPage />} />
+              </Route>
+
+              {/* Portal de Admin Interno */}
+              <Route element={<RequireAuth allowedRoles={['ADMIN_INTERNO', 'ADMIN', 'SUPERADMIN']} />}> 
+                <Route path='/portal/admin-interno' element={<AdminInternoPortalPage />} />
               </Route>
 
               {/* Ruta de Mi Perfil para todos los usuarios */}

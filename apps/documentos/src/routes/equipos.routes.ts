@@ -13,7 +13,7 @@ const router = Router();
 
 router.use(authenticate);
 router.get('/', validate(equipoListQuerySchema), EquiposController.list);
-router.post('/', authorize(['ADMIN' as any, 'SUPERADMIN' as any]), validate(createEquipoSchema), EquiposController.create);
+router.post('/', authorize(['ADMIN' as any, 'SUPERADMIN' as any, 'ADMIN_INTERNO' as any]), validate(createEquipoSchema), EquiposController.create);
 
 // Alta mínima desde identificadores para Dadores/Transportistas
 const phoneRegex = /^\+?[1-9]\d{7,14}$/;
@@ -26,15 +26,15 @@ const createMinimalSchema = z.object({
     choferPhones: z.array(z.string().regex(phoneRegex, 'Formato WhatsApp inválido')).max(3).optional(),
   }),
 });
-router.post('/minimal', authorize(['ADMIN' as any, 'SUPERADMIN' as any]), validate(createMinimalSchema), EquiposController.createMinimal);
-router.put('/:id', authorize(['ADMIN' as any, 'SUPERADMIN' as any]), validate(updateEquipoSchema), EquiposController.update);
-router.delete('/:id', authorize(['ADMIN' as any, 'SUPERADMIN' as any]), EquiposController.delete);
-router.get('/:id/history', authorize(['ADMIN' as any, 'SUPERADMIN' as any]), validate(equipoHistoryQuerySchema), EquiposController.history);
-router.post('/:equipoId/clientes/:clienteId', authorize(['ADMIN' as any, 'SUPERADMIN' as any]), validate(equipoClienteAssocSchema), EquiposController.associateCliente);
-router.delete('/:equipoId/clientes/:clienteId', authorize(['ADMIN' as any, 'SUPERADMIN' as any]), EquiposController.removeCliente);
+router.post('/minimal', authorize(['ADMIN' as any, 'SUPERADMIN' as any, 'ADMIN_INTERNO' as any]), validate(createMinimalSchema), EquiposController.createMinimal);
+router.put('/:id', authorize(['ADMIN' as any, 'SUPERADMIN' as any, 'ADMIN_INTERNO' as any]), validate(updateEquipoSchema), EquiposController.update);
+router.delete('/:id', authorize(['ADMIN' as any, 'SUPERADMIN' as any, 'ADMIN_INTERNO' as any]), EquiposController.delete);
+router.get('/:id/history', authorize(['ADMIN' as any, 'SUPERADMIN' as any, 'ADMIN_INTERNO' as any]), validate(equipoHistoryQuerySchema), EquiposController.history);
+router.post('/:equipoId/clientes/:clienteId', authorize(['ADMIN' as any, 'SUPERADMIN' as any, 'ADMIN_INTERNO' as any]), validate(equipoClienteAssocSchema), EquiposController.associateCliente);
+router.delete('/:equipoId/clientes/:clienteId', authorize(['ADMIN' as any, 'SUPERADMIN' as any, 'ADMIN_INTERNO' as any]), EquiposController.removeCliente);
 
 // Acciones de soporte para dadores/admin: revisar faltantes ahora y solicitar documentos (chofer)
-router.post('/:equipoId/check-missing-now', authorize(['ADMIN' as any, 'SUPERADMIN' as any]), async (req, res) => {
+router.post('/:equipoId/check-missing-now', authorize(['ADMIN' as any, 'SUPERADMIN' as any, 'ADMIN_INTERNO' as any]), async (req, res) => {
   const equipoId = Number(req.params.equipoId);
   const { NotificationService } = await import('../services/notification.service');
   // resolver tenant actual del equipo para cumplir firma (tenantId, equipoId)
@@ -43,7 +43,7 @@ router.post('/:equipoId/check-missing-now', authorize(['ADMIN' as any, 'SUPERADM
   res.json({ success: true, data: { sent: count } });
 });
 
-router.post('/:equipoId/request-missing', authorize(['ADMIN' as any, 'SUPERADMIN' as any]), async (req, res) => {
+router.post('/:equipoId/request-missing', authorize(['ADMIN' as any, 'SUPERADMIN' as any, 'ADMIN_INTERNO' as any]), async (req, res) => {
   const equipoId = Number(req.params.equipoId);
   const { prisma } = await import('../config/database');
   const { ComplianceService } = await import('../services/compliance.service');
@@ -84,7 +84,7 @@ router.get('/:id/estado', async (req, res) => {
 });
 
 // Asociar / Desasociar componentes del equipo
-router.post('/:id/attach', authorize(['ADMIN' as any, 'SUPERADMIN' as any]), validate(equipoAttachSchema), async (req: any, res) => {
+router.post('/:id/attach', authorize(['ADMIN' as any, 'SUPERADMIN' as any, 'ADMIN_INTERNO' as any]), validate(equipoAttachSchema), async (req: any, res) => {
   const { EquipoService } = await import('../services/equipo.service');
   const result = await EquipoService.attachComponents(req.tenantId!, Number(req.params.id), req.body);
   const response = { success: true, data: result };
