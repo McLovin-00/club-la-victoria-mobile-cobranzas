@@ -42,8 +42,8 @@ services:
       "-c", "log_min_duration_statement=1000",
       "-c", "log_statement=mod"
     ]
-    ports:
-      - "5432:5432"
+    # ports:
+    #   - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - ./postgres/init:/docker-entrypoint-initdb.d:ro
@@ -79,8 +79,8 @@ services:
     ]
     volumes:
       - redis_data:/data
-    ports:
-      - "127.0.0.1:6379:6379"
+    # ports:
+    #   - "127.0.0.1:6379:6379"
     deploy:
       resources:
         reservations:

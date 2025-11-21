@@ -13,25 +13,25 @@
 echo "🚀 Creando usuario ADMIN_INTERNO en servidor 10.3.0.243..."
 echo ""
 
-# Verificar que estamos en el directorio correcto
-if [ ! -f "docker-compose.yml" ]; then
-    echo "❌ Error: No se encontró docker-compose.yml"
-    echo "   Asegúrate de estar en el directorio deploy/stack-ip-10.3.0.243/"
-    exit 1
-fi
+# Nombre del contenedor del backend
+BACKEND_CONTAINER_NAME="bca_backend"
 
-# Verificar que el contenedor backend existe
-if ! docker ps -a --format '{{.Names}}' | grep -q 'backend'; then
-    echo "❌ Error: No se encontró el contenedor backend"
+# Verificar que el contenedor backend existe y está corriendo
+if ! docker ps --format '{{.Names}}' | grep -q "^${BACKEND_CONTAINER_NAME}$"; then
+    echo "❌ Error: El contenedor '${BACKEND_CONTAINER_NAME}' no está corriendo"
     echo "   Asegúrate de que docker-compose esté ejecutándose"
+    echo ""
+    echo "   Contenedores actuales:"
+    docker ps --format '   - {{.Names}} ({{.Status}})'
     exit 1
 fi
 
-echo "📦 Ejecutando seed dentro del contenedor backend..."
+echo "📦 Contenedor '${BACKEND_CONTAINER_NAME}' encontrado"
+echo "📝 Ejecutando seed dentro del contenedor..."
 echo ""
 
 # Ejecutar el script de seed dentro del contenedor
-docker exec -it stack-ip-10.3.0.243-backend-1 sh -c "cd /app && npx ts-node -r tsconfig-paths/register /app/scripts/seed-admin-interno.ts"
+docker exec -i ${BACKEND_CONTAINER_NAME} npx ts-node -r tsconfig-paths/register /app/scripts/seed-admin-interno.ts
 
 SEED_EXIT_CODE=$?
 
@@ -39,11 +39,17 @@ echo ""
 if [ $SEED_EXIT_CODE -eq 0 ]; then
     echo "✅ Usuario ADMIN_INTERNO creado exitosamente!"
     echo ""
-    echo "🌐 Datos de acceso:"
-    echo "   URL:      http://10.3.0.243:3000/login"
-    echo "   Email:    admin.interno@bca.com"
-    echo "   Password: Admin2024!"
-    echo "   Portal:   http://10.3.0.243:3000/portal/admin-interno"
+    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    echo "🌐 DATOS DE ACCESO - ADMIN INTERNO"
+    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    echo ""
+    echo "   📧 Email:     admin.interno@bca.com"
+    echo "   🔑 Password:  Admin2024!"
+    echo ""
+    echo "   🔗 Login:     http://10.3.0.243:8550/login"
+    echo "   🏠 Portal:    http://10.3.0.243:8550/portal/admin-interno"
+    echo ""
+    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
     echo ""
     echo "✨ ¡Listo para usar!"
 else
@@ -51,4 +57,3 @@ else
     echo "   Revisa los logs arriba para más detalles"
     exit 1
 fi
-
