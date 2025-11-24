@@ -9,7 +9,36 @@ export class ClientsService {
   }
 
   static async create(input: { tenantEmpresaId: number; razonSocial: string; cuit: string; activo?: boolean; notas?: string }) {
-    return prisma.cliente.create({ data: input });
+    return prisma.$transaction(async (tx) => {
+      // 1. Crear el cliente
+      const cliente = await tx.cliente.create({ data: input });
+
+      // 2. Obtener todas las plantillas activas
+      const templates = await tx.documentTemplate.findMany({
+        where: { active: true },
+        orderBy: [{ entityType: 'asc' }, { name: 'asc' }],
+      });
+
+      // 3. Crear requisitos automáticamente para cada plantilla
+      const requirements = templates.map((template) => ({
+        tenantEmpresaId: input.tenantEmpresaId,
+        clienteId: cliente.id,
+        templateId: template.id,
+        entityType: template.entityType,
+        obligatorio: true,
+        diasAnticipacion: 0,
+        visibleChofer: true,
+      }));
+
+      if (requirements.length > 0) {
+        await tx.clienteDocumentRequirement.createMany({
+          data: requirements,
+          skipDuplicates: true,
+        });
+      }
+
+      return cliente;
+    });
   }
 
   static async update(tenantEmpresaId: number, id: number, data: { razonSocial?: string; cuit?: string; activo?: boolean; notas?: string }) {
