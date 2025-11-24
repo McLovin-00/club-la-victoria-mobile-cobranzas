@@ -46,7 +46,7 @@ router.get(
 router.post(
   '/upload',
   authenticate,
-  authorize([UserRole.SUPERADMIN, UserRole.ADMIN, UserRole.OPERATOR, UserRole.DADOR_DE_CARGA, UserRole.TRANSPORTISTA]),
+  authorize([UserRole.SUPERADMIN, UserRole.ADMIN, UserRole.OPERATOR, UserRole.ADMIN_INTERNO, UserRole.DADOR_DE_CARGA, UserRole.TRANSPORTISTA]),
   uploadRateLimit,
   // Aceptar compatibilidad: 'documents' (múltiples) y 'document' (único)
   uploadMiddleware.fields([
@@ -64,7 +64,7 @@ router.post(
 router.get(
   '/status',
   authenticate,
-  authorize([UserRole.SUPERADMIN, UserRole.ADMIN, UserRole.OPERATOR]),
+  authorize([UserRole.SUPERADMIN, UserRole.ADMIN, UserRole.OPERATOR, UserRole.ADMIN_INTERNO]),
   validate(getDocumentStatusSchema),
   DocumentsController.getDocumentStatus
 );
@@ -76,7 +76,7 @@ router.get(
 router.get(
   '/:id/preview',
   authenticate,
-  authorize([UserRole.SUPERADMIN, UserRole.ADMIN, UserRole.OPERATOR]),
+  authorize([UserRole.SUPERADMIN, UserRole.ADMIN, UserRole.OPERATOR, UserRole.ADMIN_INTERNO]),
   validate(getDocumentSchema),
   DocumentsController.getDocumentPreview
 );
@@ -88,7 +88,7 @@ router.get(
 router.get(
   '/:id/download',
   authenticate,
-  authorize([UserRole.SUPERADMIN, UserRole.ADMIN, UserRole.OPERATOR]),
+  authorize([UserRole.SUPERADMIN, UserRole.ADMIN, UserRole.OPERATOR, UserRole.ADMIN_INTERNO]),
   validate(getDocumentSchema),
   DocumentsController.downloadDocument
 );
@@ -99,7 +99,7 @@ router.get(
 router.get(
   '/:id/thumbnail',
   authenticate,
-  authorize([UserRole.SUPERADMIN, UserRole.ADMIN, UserRole.OPERATOR]),
+  authorize([UserRole.SUPERADMIN, UserRole.ADMIN, UserRole.OPERATOR, UserRole.ADMIN_INTERNO]),
   validate(getDocumentSchema),
   DocumentsController.getDocumentThumbnail
 );
@@ -128,12 +128,12 @@ router.get(
 
 /**
  * DELETE /api/docs/documents/:id - Eliminar documento
- * Acceso: Superadmin o Admin de la empresa
+ * Acceso: Superadmin, Admin o Admin Interno
  */
 router.delete(
   '/:id',
   authenticate,
-  authorize([UserRole.SUPERADMIN, UserRole.ADMIN]),
+  authorize([UserRole.SUPERADMIN, UserRole.ADMIN, UserRole.ADMIN_INTERNO]),
   validate(deleteDocumentSchema),
   DocumentsController.deleteDocument
 );
