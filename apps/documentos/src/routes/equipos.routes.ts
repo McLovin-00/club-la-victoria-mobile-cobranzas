@@ -27,6 +27,43 @@ const createMinimalSchema = z.object({
   }),
 });
 router.post('/minimal', authorize(['ADMIN' as any, 'SUPERADMIN' as any, 'ADMIN_INTERNO' as any]), validate(createMinimalSchema), EquiposController.createMinimal);
+
+// Alta Completa de Equipo - TRANSACCIONAL
+const createCompletoSchema = z.object({
+  body: z.object({
+    dadorCargaId: z.union([z.string(), z.number()]).transform((v) => Number(v)).refine((v) => v > 0).optional(),
+    // Empresa Transportista
+    empresaTransportistaCuit: z.string().regex(/^\d{11}$/, 'CUIT debe tener 11 dígitos'),
+    empresaTransportistaNombre: z.string().min(2).max(200),
+    // Chofer
+    choferDni: z.string().min(6).max(32),
+    choferNombre: z.string().min(1).max(120).optional(),
+    choferApellido: z.string().min(1).max(120).optional(),
+    choferPhones: z.array(z.string().regex(phoneRegex, 'Formato WhatsApp inválido')).max(3).optional(),
+    // Camión
+    camionPatente: z.string().min(5).max(12),
+    camionMarca: z.string().min(1).max(100).optional(),
+    camionModelo: z.string().min(1).max(100).optional(),
+    // Acoplado (opcional)
+    acopladoPatente: z.string().min(5).max(12).optional().nullable(),
+    acopladoTipo: z.string().min(1).max(100).optional(),
+    // Clientes a asociar
+    clienteIds: z.array(z.number().int().positive()).optional(),
+  }),
+});
+router.post('/alta-completa', authorize(['ADMIN' as any, 'SUPERADMIN' as any, 'ADMIN_INTERNO' as any]), validate(createCompletoSchema), EquiposController.createCompleto);
+
+// Rollback de Alta Completa
+const rollbackCompletoSchema = z.object({
+  body: z.object({
+    deleteChofer: z.boolean().optional(),
+    deleteCamion: z.boolean().optional(),
+    deleteAcoplado: z.boolean().optional(),
+    deleteEmpresa: z.boolean().optional(),
+  }),
+});
+router.post('/:id/rollback', authorize(['ADMIN' as any, 'SUPERADMIN' as any, 'ADMIN_INTERNO' as any]), validate(rollbackCompletoSchema), EquiposController.rollbackCompleto);
+
 router.put('/:id', authorize(['ADMIN' as any, 'SUPERADMIN' as any, 'ADMIN_INTERNO' as any]), validate(updateEquipoSchema), EquiposController.update);
 router.delete('/:id', authorize(['ADMIN' as any, 'SUPERADMIN' as any, 'ADMIN_INTERNO' as any]), EquiposController.delete);
 router.get('/:id/history', authorize(['ADMIN' as any, 'SUPERADMIN' as any, 'ADMIN_INTERNO' as any]), validate(equipoHistoryQuerySchema), EquiposController.history);

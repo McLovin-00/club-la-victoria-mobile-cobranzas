@@ -399,6 +399,42 @@ export const documentosApiSlice = createApi({
       transformResponse: (response: any) => response?.data,
       invalidatesTags: ['Equipos'],
     }),
+    createEquipoCompleto: builder.mutation<
+      any,
+      {
+        dadorCargaId?: number;
+        empresaTransportistaCuit: string;
+        empresaTransportistaNombre: string;
+        choferDni: string;
+        choferNombre?: string;
+        choferApellido?: string;
+        choferPhones?: string[];
+        camionPatente: string;
+        camionMarca?: string;
+        camionModelo?: string;
+        acopladoPatente?: string | null;
+        acopladoTipo?: string;
+        clienteIds?: number[];
+      }
+    >({
+      query: (body) => ({ url: '/equipos/alta-completa', method: 'POST', body }),
+      transformResponse: (response: any) => response?.data,
+      invalidatesTags: ['Equipos', 'Choferes', 'Camiones', 'Acoplados', 'EmpresasTransportistas'],
+    }),
+    rollbackEquipoCompleto: builder.mutation<
+      any,
+      {
+        equipoId: number;
+        deleteChofer?: boolean;
+        deleteCamion?: boolean;
+        deleteAcoplado?: boolean;
+        deleteEmpresa?: boolean;
+      }
+    >({
+      query: ({ equipoId, ...body }) => ({ url: `/equipos/${equipoId}/rollback`, method: 'POST', body }),
+      transformResponse: (response: any) => response?.data,
+      invalidatesTags: ['Equipos', 'Choferes', 'Camiones', 'Acoplados', 'EmpresasTransportistas'],
+    }),
     updateEquipo: builder.mutation<
       any,
       { id: number; trailerId?: number; trailerPlate?: string; validTo?: string|null; estado?: 'activa'|'finalizada'; empresaTransportistaId?: number }
@@ -816,6 +852,8 @@ export const {
   useGetEquiposQuery,
   useGetEquipoHistoryQuery,
   useCreateEquipoMutation,
+  useCreateEquipoCompletoMutation,
+  useRollbackEquipoCompletoMutation,
   useUpdateEquipoMutation,
   useDeleteEquipoMutation,
   useAssociateEquipoClienteMutation,

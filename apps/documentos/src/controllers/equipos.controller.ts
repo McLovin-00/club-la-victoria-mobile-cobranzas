@@ -35,6 +35,105 @@ export class EquiposController {
     res.status(201).json({ success: true, data });
   }
 
+  /**
+   * Alta Completa de Equipo - TRANSACCIONAL
+   * Crea empresa + chofer + camión + acoplado + equipo en una sola transacción
+   * Si algún componente ya existe (excepto empresa), retorna ERROR y hace ROLLBACK
+   */
+  static async createCompleto(req: AuthRequest, res: Response) {
+    const tenantId = req.tenantId!;
+    let dadorId = Number(req.body.dadorCargaId);
+    if (!dadorId || Number.isNaN(dadorId)) {
+      const { SystemConfigService } = await import('../services/system-config.service');
+      const def = await SystemConfigService.getConfig(`tenant:${tenantId}:defaults.defaultDadorId`);
+      if (def) dadorId = Number(def);
+    }
+
+    const input = {
+      tenantEmpresaId: tenantId,
+      dadorCargaId: dadorId,
+      
+      // Empresa Transportista
+      empresaTransportistaCuit: String(req.body.empresaTransportistaCuit),
+      empresaTransportistaNombre: String(req.body.empresaTransportistaNombre),
+      
+      // Chofer
+      choferDni: String(req.body.choferDni),
+      choferNombre: req.body.choferNombre ? String(req.body.choferNombre) : undefined,
+      choferApellido: req.body.choferApellido ? String(req.body.choferApellido) : undefined,
+      choferPhones: Array.isArray(req.body.choferPhones) ? (req.body.choferPhones as string[]) : undefined,
+      
+      // Camión
+      camionPatente: String(req.body.camionPatente),
+      camionMarca: req.body.camionMarca ? String(req.body.camionMarca) : undefined,
+      camionModelo: req.body.camionModelo ? String(req.body.camionModelo) : undefined,
+      
+      // Acoplado (opcional)
+      acopladoPatente: req.body.acopladoPatente ? String(req.body.acopladoPatente) : null,
+      acopladoTipo: req.body.acopladoTipo ? String(req.body.acopladoTipo) : undefined,
+      
+      // Clientes a asociar
+      clienteIds: Array.isArray(req.body.clienteIds) ? (req.body.clienteIds as number[]) : undefined,
+    };
+
+    const data = await EquipoService.createEquipoCompleto(input);
+    
+    // Log de auditoría
+    await AuditService.log({
+      tenantEmpresaId: tenantId,
+      userId: req.user?.userId,
+      userRole: req.user?.role,
+      method: req.method,
+      path: req.originalUrl || req.path,
+      statusCode: 201,
+      action: 'EQUIPO_ALTA_COMPLETA',
+      entityType: 'EQUIPO',
+      entityId: data.id,
+      details: {
+        dniChofer: input.choferDni,
+        patenteCamion: input.camionPatente,
+        patenteAcoplado: input.acopladoPatente,
+        cuitEmpresa: input.empresaTransportistaCuit,
+      },
+    });
+
+    res.status(201).json({ success: true, data });
+  }
+
+  /**
+   * Rollback de Alta Completa
+   * Elimina un equipo y opcionalmente sus componentes
+   */
+  static async rollbackCompleto(req: AuthRequest, res: Response) {
+    const equipoId = Number(req.params.id);
+    const input = {
+      tenantEmpresaId: req.tenantId!,
+      equipoId,
+      deleteChofer: req.body.deleteChofer === true,
+      deleteCamion: req.body.deleteCamion === true,
+      deleteAcoplado: req.body.deleteAcoplado === true,
+      deleteEmpresa: req.body.deleteEmpresa === true,
+    };
+
+    const data = await EquipoService.rollbackAltaCompleta(input);
+    
+    // Log de auditoría
+    await AuditService.log({
+      tenantEmpresaId: req.tenantId,
+      userId: req.user?.userId,
+      userRole: req.user?.role,
+      method: req.method,
+      path: req.originalUrl || req.path,
+      statusCode: 200,
+      action: 'EQUIPO_ROLLBACK_COMPLETO',
+      entityType: 'EQUIPO',
+      entityId: equipoId,
+      details: input,
+    });
+
+    res.json({ success: true, data });
+  }
+
   static async create(req: AuthRequest, res: Response) {
     const tenantId = req.tenantId!;
     let dadorId = Number(req.body.dadorCargaId);

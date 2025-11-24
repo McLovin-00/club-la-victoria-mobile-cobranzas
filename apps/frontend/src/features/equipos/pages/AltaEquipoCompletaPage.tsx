@@ -4,10 +4,10 @@ import { useAppSelector } from '../../../store/hooks';
 import {
   useGetTemplatesQuery,
   useUploadDocumentMutation,
-  useCreateEquipoMutation,
+  useCreateEquipoCompletoMutation,
+  useRollbackEquipoCompletoMutation,
   useGetDadoresQuery,
   useGetClientsQuery,
-  useAssociateEquipoClienteMutation,
 } from '../../documentos/api/documentosApiSlice';
 import { SeccionDocumentos, Template } from '../components/SeccionDocumentos';
 
@@ -49,8 +49,8 @@ const AltaEquipoCompletaPage: React.FC = () => {
   const { data: dadoresResp } = useGetDadoresQuery({ activo: true });
   const { data: clientsResp } = useGetClientsQuery({ activo: true });
   const [uploadDocument, { isLoading: uploading }] = useUploadDocumentMutation();
-  const [createEquipo, { isLoading: creatingEquipo }] = useCreateEquipoMutation();
-  const [associateCliente] = useAssociateEquipoClienteMutation();
+  const [createEquipoCompleto, { isLoading: creatingEquipo }] = useCreateEquipoCompletoMutation();
+  const [rollbackEquipoCompleto] = useRollbackEquipoCompletoMutation();
 
   // Estados del formulario
   const [dadorCargaId, setDadorCargaId] = useState<number | null>(null);
@@ -191,7 +191,7 @@ const AltaEquipoCompletaPage: React.FC = () => {
     // No hace nada, la subida se hace al crear el equipo
   };
 
-  // Handler de creación de equipo (refactorizado para subir documentos después)
+  // Handler de creación de equipo (NUEVO FLUJO TRANSACCIONAL)
   const handleCrearEquipo = async () => {
     if (!datosBasicosCompletos) {
       setMessage({ type: 'error', text: 'Completá todos los datos básicos obligatorios' });
@@ -208,41 +208,64 @@ const AltaEquipoCompletaPage: React.FC = () => {
       return;
     }
 
-    try {
-      setMessage({ type: 'success', text: '⏳ Creando equipo...' });
+    let equipoCreado: any = null;
 
-      // PASO 1: Crear el equipo (esto crea chofer, camión, acoplado con IDs reales)
+    try {
+      setMessage({ type: 'success', text: '⏳ Validando y creando equipo...' });
+
+      // ═══════════════════════════════════════════════════════════════════
+      // PASO 1: Crear equipo COMPLETO de forma TRANSACCIONAL
+      // Backend valida que chofer/camión/acoplado NO existan
+      // Si existe alguno, retorna ERROR y hace ROLLBACK automático
+      // ═══════════════════════════════════════════════════════════════════
       const payload = {
         dadorCargaId: dadorCargaId,
-        dniChofer: choferDni,
-        patenteTractor: tractorPatente,
-        patenteAcoplado: semiPatente || undefined,
-        choferPhones: choferPhones ? choferPhones.split(',').map((p) => p.trim()) : undefined,
+        
+        // Empresa Transportista
         empresaTransportistaCuit: cuitTransportista,
         empresaTransportistaNombre: empresaTransportista,
+        
+        // Chofer
+        choferDni: choferDni,
+        choferNombre: choferNombre || undefined,
+        choferApellido: choferApellido || undefined,
+        choferPhones: choferPhones ? choferPhones.split(',').map((p) => p.trim()) : undefined,
+        
+        // Camión
+        camionPatente: tractorPatente,
+        camionMarca: tractorMarca || undefined,
+        camionModelo: tractorModelo || undefined,
+        
+        // Acoplado (opcional)
+        acopladoPatente: semiPatente || null,
+        acopladoTipo: semiTipo || undefined,
+        
+        // Clientes a asociar
+        clienteIds: clienteIds.length > 0 ? clienteIds : undefined,
       };
 
-      const result = await createEquipo(payload).unwrap();
-      const equipoData = (result as any)?.data || result;
-      const equipoId = equipoData?.id;
-      const driverId = equipoData?.driverId;
-      const truckId = equipoData?.truckId;
-      const trailerId = equipoData?.trailerId;
-      const empresaTransportistaId = equipoData?.empresaTransportistaId;
+      equipoCreado = await createEquipoCompleto(payload).unwrap();
+      
+      const equipoId = equipoCreado?.id;
+      const driverId = equipoCreado?.driverId;
+      const truckId = equipoCreado?.truckId;
+      const trailerId = equipoCreado?.trailerId;
+      const empresaTransportistaId = equipoCreado?.empresaTransportistaId;
 
       if (!equipoId || !driverId || !truckId) {
         throw new Error('El equipo se creó pero faltan IDs esenciales');
       }
 
-      setMessage({ type: 'success', text: `⏳ Equipo creado. Subiendo ${selectedFiles.size} documentos...` });
+      setMessage({ type: 'success', text: `✅ Equipo creado. Subiendo ${selectedFiles.size} documentos...` });
 
+      // ═══════════════════════════════════════════════════════════════════
       // PASO 2: Subir todos los documentos con los IDs reales
+      // ═══════════════════════════════════════════════════════════════════
       let uploadedCount = 0;
       const uploadErrors: string[] = [];
 
       for (const [templateId, fileData] of selectedFiles.entries()) {
         try {
-          // Determinar el tipo de entidad y el ID correspondiente
           const template = [...Object.values(templatesPorTipo)].flat().find((t) => t.id === templateId);
           if (!template) continue;
 
@@ -251,6 +274,10 @@ const AltaEquipoCompletaPage: React.FC = () => {
 
           switch (entityType) {
             case 'EMPRESA_TRANSPORTISTA':
+              if (!empresaTransportistaId) {
+                uploadErrors.push(`${template.name}: No hay empresa transportista`);
+                continue;
+              }
               entityId = empresaTransportistaId;
               break;
             case 'CHOFER':
@@ -271,7 +298,6 @@ const AltaEquipoCompletaPage: React.FC = () => {
               continue;
           }
 
-          // Preparar FormData
           const formData = new FormData();
           formData.append('document', fileData.file);
           formData.append('templateId', String(templateId));
@@ -279,12 +305,10 @@ const AltaEquipoCompletaPage: React.FC = () => {
           formData.append('entityId', String(entityId));
           formData.append('dadorCargaId', String(dadorCargaId));
 
-          // Si hay fecha de vencimiento, agregarla
           if (fileData.expiryDate) {
             formData.append('expiresAt', fileData.expiryDate);
           }
 
-          // Construir planilla con todos los datos para metadatos
           const planilla = JSON.stringify({
             empresaTransportista,
             cuitTransportista,
@@ -301,39 +325,78 @@ const AltaEquipoCompletaPage: React.FC = () => {
           setMessage({ type: 'success', text: `⏳ Subidos ${uploadedCount}/${selectedFiles.size} documentos...` });
         } catch (err: any) {
           const errorMsg = err?.data?.message || err?.message || 'Error desconocido';
-          uploadErrors.push(`${templateId}: ${errorMsg}`);
+          uploadErrors.push(`${template.name}: ${errorMsg}`);
         }
       }
 
-      // PASO 3: Asociar clientes al equipo
-      if (clienteIds.length > 0 && equipoId) {
-        setMessage({ type: 'success', text: '⏳ Asociando clientes...' });
-        for (const clienteId of clienteIds) {
-          try {
-            await associateCliente({ equipoId, clienteId }).unwrap();
-          } catch (err) {
-            console.error(`Error asociando cliente ${clienteId}:`, err);
-            uploadErrors.push(`Error asociando cliente ${clienteId}`);
-          }
-        }
-      }
-
-      // Mostrar resultado final
+      // ═══════════════════════════════════════════════════════════════════
+      // PASO 3: Verificar si hubo errores en la subida de documentos
+      // ═══════════════════════════════════════════════════════════════════
       if (uploadErrors.length > 0) {
         setMessage({
           type: 'error',
-          text: `⚠️ Equipo creado pero algunos documentos fallaron:\n${uploadErrors.slice(0, 3).join('\n')}`,
+          text: `⚠️ Algunos documentos fallaron. Deshaciendo cambios...`,
         });
+
+        // ROLLBACK: Eliminar el equipo y sus componentes recién creados
+        try {
+          await rollbackEquipoCompleto({
+            equipoId,
+            deleteChofer: true, // Eliminar chofer creado
+            deleteCamion: true, // Eliminar camión creado
+            deleteAcoplado: true, // Eliminar acoplado creado (si existe)
+            deleteEmpresa: false, // NO eliminar empresa (puede ser reutilizable)
+          }).unwrap();
+
+          setMessage({
+            type: 'error',
+            text: `❌ Rollback completado. Errores:\n${uploadErrors.slice(0, 5).join('\n')}`,
+          });
+        } catch (rollbackError: any) {
+          console.error('Error en rollback:', rollbackError);
+          setMessage({
+            type: 'error',
+            text: `❌ Error al deshacer cambios. Contacte al administrador. Equipo ID: ${equipoId}`,
+          });
+        }
       } else {
+        // ═══════════════════════════════════════════════════════════════════
+        // ÉXITO COMPLETO
+        // ═══════════════════════════════════════════════════════════════════
         setMessage({ type: 'success', text: '✅ Equipo creado exitosamente con todos sus documentos' });
-        // Redirigir después de 2 segundos
         setTimeout(() => {
           navigate(getBackRoute());
         }, 2000);
       }
     } catch (error: any) {
+      // ═══════════════════════════════════════════════════════════════════
+      // ERROR EN CREACIÓN DE EQUIPO (antes de subir documentos)
+      // ═══════════════════════════════════════════════════════════════════
+      const errorCode = error?.data?.code;
       const errorMsg = error?.data?.message || error?.message || 'Error al crear equipo';
-      setMessage({ type: 'error', text: errorMsg });
+
+      // Errores específicos con mensajes claros
+      if (errorCode === 'CHOFER_DUPLICADO') {
+        setMessage({
+          type: 'error',
+          text: `❌ CHOFER YA EXISTE: El chofer con DNI ${choferDni} ya está registrado en el sistema. No se puede duplicar.`,
+        });
+      } else if (errorCode === 'CAMION_DUPLICADO') {
+        setMessage({
+          type: 'error',
+          text: `❌ CAMIÓN YA EXISTE: El camión con patente ${tractorPatente} ya está registrado en el sistema. No se puede duplicar.`,
+        });
+      } else if (errorCode === 'ACOPLADO_DUPLICADO') {
+        setMessage({
+          type: 'error',
+          text: `❌ ACOPLADO YA EXISTE: El acoplado con patente ${semiPatente} ya está registrado en el sistema. No se puede duplicar.`,
+        });
+      } else {
+        setMessage({ type: 'error', text: `❌ ${errorMsg}` });
+      }
+
+      // El rollback es automático (transacción de Prisma)
+      // No se creó nada en la base de datos
     }
   };
 

@@ -492,6 +492,373 @@ export class EquipoService {
       return tx.equipo.delete({ where: { id: equipoId } });
     });
   }
+
+  /**
+   * Alta Completa de Equipo - TRANSACCIONAL
+   * 
+   * Flujo:
+   * 1. EMPRESA (CUIT): Si existe, usar. Si no, crear.
+   * 2. CHOFER (DNI): Si existe, ERROR + ROLLBACK. Si no, crear.
+   * 3. CAMIÓN (Patente): Si existe, ERROR + ROLLBACK. Si no, crear.
+   * 4. ACOPLADO (Patente): Si existe, ERROR + ROLLBACK. Si no, crear.
+   * 5. Crear EQUIPO con las 4 entidades.
+   * 6. Asociar clientes al equipo.
+   * 
+   * Si cualquier paso falla, se hace ROLLBACK automático de toda la transacción.
+   */
+  static async createEquipoCompleto(input: {
+    tenantEmpresaId: number;
+    dadorCargaId: number;
+    
+    // Empresa Transportista
+    empresaTransportistaCuit: string;
+    empresaTransportistaNombre: string;
+    
+    // Chofer
+    choferDni: string;
+    choferNombre?: string;
+    choferApellido?: string;
+    choferPhones?: string[];
+    
+    // Camión
+    camionPatente: string;
+    camionMarca?: string;
+    camionModelo?: string;
+    
+    // Acoplado (opcional)
+    acopladoPatente?: string | null;
+    acopladoTipo?: string;
+    
+    // Clientes a asociar
+    clienteIds?: number[];
+  }) {
+    return await prisma.$transaction(async (tx) => {
+      // ═══════════════════════════════════════════════════════════════════
+      // 1. EMPRESA TRANSPORTISTA: Si existe (por CUIT), usar. Si no, crear.
+      // ═══════════════════════════════════════════════════════════════════
+      const cuitNorm = (input.empresaTransportistaCuit || '').replace(/\D+/g, '');
+      if (!cuitNorm || cuitNorm.length !== 11) {
+        throw createError('CUIT inválido (debe tener 11 dígitos)', 400, 'CUIT_INVALIDO');
+      }
+
+      let empresaTransportista = await tx.empresaTransportista.findFirst({
+        where: {
+          tenantEmpresaId: input.tenantEmpresaId,
+          dadorCargaId: input.dadorCargaId,
+          cuit: cuitNorm,
+        },
+      });
+
+      if (!empresaTransportista) {
+        empresaTransportista = await tx.empresaTransportista.create({
+          data: {
+            tenantEmpresaId: input.tenantEmpresaId,
+            dadorCargaId: input.dadorCargaId,
+            cuit: cuitNorm,
+            razonSocial: (input.empresaTransportistaNombre || '').trim() || `Empresa ${cuitNorm}`,
+            activo: true,
+          } as any,
+        });
+      }
+
+      // ═══════════════════════════════════════════════════════════════════
+      // 2. CHOFER: Si existe (por DNI), ERROR. Si no, crear.
+      // ═══════════════════════════════════════════════════════════════════
+      const dniNorm = normalizeDni(input.choferDni);
+      if (!dniNorm || dniNorm.length < 6) {
+        throw createError('DNI inválido (mínimo 6 dígitos)', 400, 'DNI_INVALIDO');
+      }
+
+      const choferExistente = await tx.chofer.findFirst({
+        where: {
+          tenantEmpresaId: input.tenantEmpresaId,
+          dadorCargaId: input.dadorCargaId,
+          dniNorm,
+        },
+      });
+
+      if (choferExistente) {
+        throw createError(
+          `El chofer con DNI ${input.choferDni} ya existe en el sistema. No se puede duplicar.`,
+          409,
+          'CHOFER_DUPLICADO'
+        );
+      }
+
+      const chofer = await tx.chofer.create({
+        data: {
+          tenantEmpresaId: input.tenantEmpresaId,
+          dadorCargaId: input.dadorCargaId,
+          dni: dniNorm,
+          dniNorm,
+          nombre: (input.choferNombre || '').trim() || undefined,
+          apellido: (input.choferApellido || '').trim() || undefined,
+          phones: input.choferPhones ?? [],
+          activo: true,
+        },
+      });
+
+      // ═══════════════════════════════════════════════════════════════════
+      // 3. CAMIÓN: Si existe (por Patente), ERROR. Si no, crear.
+      // ═══════════════════════════════════════════════════════════════════
+      const patenteNorm = normalizePlate(input.camionPatente);
+      if (!patenteNorm || patenteNorm.length < 5) {
+        throw createError('Patente de camión inválida (mínimo 5 caracteres)', 400, 'PATENTE_CAMION_INVALIDA');
+      }
+
+      const camionExistente = await tx.camion.findFirst({
+        where: {
+          tenantEmpresaId: input.tenantEmpresaId,
+          dadorCargaId: input.dadorCargaId,
+          patenteNorm,
+        },
+      });
+
+      if (camionExistente) {
+        throw createError(
+          `El camión con patente ${input.camionPatente} ya existe en el sistema. No se puede duplicar.`,
+          409,
+          'CAMION_DUPLICADO'
+        );
+      }
+
+      const camion = await tx.camion.create({
+        data: {
+          tenantEmpresaId: input.tenantEmpresaId,
+          dadorCargaId: input.dadorCargaId,
+          patente: patenteNorm,
+          patenteNorm,
+          marca: (input.camionMarca || '').trim() || undefined,
+          modelo: (input.camionModelo || '').trim() || undefined,
+          activo: true,
+        },
+      });
+
+      // ═══════════════════════════════════════════════════════════════════
+      // 4. ACOPLADO (Opcional): Si existe (por Patente), ERROR. Si no, crear.
+      // ═══════════════════════════════════════════════════════════════════
+      let acoplado: any = null;
+      let acopladoId: number | null = null;
+
+      if (input.acopladoPatente && input.acopladoPatente.trim()) {
+        const acopladoPatenteNorm = normalizePlate(input.acopladoPatente);
+        if (acopladoPatenteNorm.length < 5) {
+          throw createError('Patente de acoplado inválida (mínimo 5 caracteres)', 400, 'PATENTE_ACOPLADO_INVALIDA');
+        }
+
+        const acopladoExistente = await tx.acoplado.findFirst({
+          where: {
+            tenantEmpresaId: input.tenantEmpresaId,
+            dadorCargaId: input.dadorCargaId,
+            patenteNorm: acopladoPatenteNorm,
+          },
+        });
+
+        if (acopladoExistente) {
+          throw createError(
+            `El acoplado con patente ${input.acopladoPatente} ya existe en el sistema. No se puede duplicar.`,
+            409,
+            'ACOPLADO_DUPLICADO'
+          );
+        }
+
+        acoplado = await tx.acoplado.create({
+          data: {
+            tenantEmpresaId: input.tenantEmpresaId,
+            dadorCargaId: input.dadorCargaId,
+            patente: acopladoPatenteNorm,
+            patenteNorm: acopladoPatenteNorm,
+            tipo: (input.acopladoTipo || '').trim() || undefined,
+            activo: true,
+          },
+        });
+        acopladoId = acoplado.id;
+      }
+
+      // ═══════════════════════════════════════════════════════════════════
+      // 5. CREAR EQUIPO con las 4 entidades
+      // ═══════════════════════════════════════════════════════════════════
+      const equipo = await tx.equipo.create({
+        data: {
+          tenantEmpresaId: input.tenantEmpresaId,
+          dadorCargaId: input.dadorCargaId,
+          driverId: chofer.id,
+          truckId: camion.id,
+          trailerId: acopladoId,
+          empresaTransportistaId: empresaTransportista.id,
+          driverDniNorm: dniNorm,
+          truckPlateNorm: patenteNorm,
+          trailerPlateNorm: acopladoId ? normalizePlate(input.acopladoPatente!) : null,
+          validFrom: new Date(),
+          validTo: null,
+        },
+      });
+
+      // Registrar creación en historial
+      await tx.equipoHistory.create({
+        data: {
+          equipoId: equipo.id,
+          action: 'create',
+          component: 'system',
+          originEquipoId: null,
+          payload: {
+            method: 'altaCompleta',
+            dniChofer: input.choferDni,
+            patenteCamion: input.camionPatente,
+            patenteAcoplado: input.acopladoPatente,
+            cuitEmpresa: input.empresaTransportistaCuit,
+          } as any,
+        },
+      });
+
+      // ═══════════════════════════════════════════════════════════════════
+      // 6. ASOCIAR CLIENTES al equipo (si se proporcionaron)
+      // ═══════════════════════════════════════════════════════════════════
+      if (input.clienteIds && input.clienteIds.length > 0) {
+        for (const clienteId of input.clienteIds) {
+          await tx.equipoCliente.create({
+            data: {
+              equipoId: equipo.id,
+              clienteId,
+              asignadoDesde: new Date(),
+              asignadoHasta: null,
+            },
+          });
+        }
+      }
+
+      // ═══════════════════════════════════════════════════════════════════
+      // 7. RETORNAR EQUIPO CREADO CON TODOS LOS IDs
+      // ═══════════════════════════════════════════════════════════════════
+      return {
+        id: equipo.id,
+        driverId: chofer.id,
+        truckId: camion.id,
+        trailerId: acopladoId,
+        empresaTransportistaId: empresaTransportista.id,
+        dadorCargaId: input.dadorCargaId,
+        tenantEmpresaId: input.tenantEmpresaId,
+        validFrom: equipo.validFrom,
+        validTo: equipo.validTo,
+        estado: equipo.estado,
+        createdAt: equipo.createdAt,
+        // Datos completos para el frontend
+        chofer: {
+          id: chofer.id,
+          dni: chofer.dni,
+          nombre: chofer.nombre,
+          apellido: chofer.apellido,
+        },
+        camion: {
+          id: camion.id,
+          patente: camion.patente,
+          marca: camion.marca,
+          modelo: camion.modelo,
+        },
+        acoplado: acoplado ? {
+          id: acoplado.id,
+          patente: acoplado.patente,
+          tipo: acoplado.tipo,
+        } : null,
+        empresaTransportista: {
+          id: empresaTransportista.id,
+          cuit: empresaTransportista.cuit,
+          razonSocial: empresaTransportista.razonSocial,
+        },
+      };
+    });
+  }
+
+  /**
+   * Rollback de Alta Completa
+   * Elimina un equipo y sus componentes creados en el proceso de alta completa.
+   * SOLO si fueron creados en esta operación (validar por timestamp o flag).
+   */
+  static async rollbackAltaCompleta(input: {
+    tenantEmpresaId: number;
+    equipoId: number;
+    deleteChofer?: boolean;
+    deleteCamion?: boolean;
+    deleteAcoplado?: boolean;
+    deleteEmpresa?: boolean;
+  }) {
+    return await prisma.$transaction(async (tx) => {
+      // Obtener el equipo
+      const equipo = await tx.equipo.findUnique({
+        where: { id: input.equipoId },
+        include: {
+          chofer: true,
+          camion: true,
+          acoplado: true,
+          empresaTransportista: true,
+        },
+      });
+
+      if (!equipo || equipo.tenantEmpresaId !== input.tenantEmpresaId) {
+        throw createError('Equipo no encontrado', 404, 'EQUIPO_NOT_FOUND');
+      }
+
+      // Eliminar asociaciones equipo-cliente
+      await tx.equipoCliente.deleteMany({
+        where: { equipoId: input.equipoId },
+      });
+
+      // Eliminar historial del equipo
+      await tx.equipoHistory.deleteMany({
+        where: { equipoId: input.equipoId },
+      });
+
+      // Eliminar documentos asociados (si existen)
+      await tx.document.deleteMany({
+        where: {
+          tenantEmpresaId: input.tenantEmpresaId,
+          OR: [
+            { entityType: 'CHOFER', entityId: equipo.driverId },
+            { entityType: 'CAMION', entityId: equipo.truckId },
+            { entityType: 'ACOPLADO', entityId: equipo.trailerId ?? undefined },
+            { entityType: 'EMPRESA_TRANSPORTISTA', entityId: equipo.empresaTransportistaId ?? undefined },
+          ],
+        },
+      });
+
+      // Eliminar el equipo
+      await tx.equipo.delete({
+        where: { id: input.equipoId },
+      });
+
+      // Eliminar componentes si se solicita
+      if (input.deleteChofer && equipo.chofer) {
+        await tx.chofer.delete({ where: { id: equipo.driverId } });
+      }
+
+      if (input.deleteCamion && equipo.camion) {
+        await tx.camion.delete({ where: { id: equipo.truckId } });
+      }
+
+      if (input.deleteAcoplado && equipo.trailerId && equipo.acoplado) {
+        await tx.acoplado.delete({ where: { id: equipo.trailerId } });
+      }
+
+      if (input.deleteEmpresa && equipo.empresaTransportistaId && equipo.empresaTransportista) {
+        // Solo eliminar si no tiene otros equipos asociados
+        const otrosEquipos = await tx.equipo.count({
+          where: {
+            tenantEmpresaId: input.tenantEmpresaId,
+            empresaTransportistaId: equipo.empresaTransportistaId,
+            id: { not: input.equipoId },
+          },
+        });
+
+        if (otrosEquipos === 0) {
+          await tx.empresaTransportista.delete({
+            where: { id: equipo.empresaTransportistaId },
+          });
+        }
+      }
+
+      return { success: true, message: 'Rollback completado exitosamente' };
+    });
+  }
 }
 
 
