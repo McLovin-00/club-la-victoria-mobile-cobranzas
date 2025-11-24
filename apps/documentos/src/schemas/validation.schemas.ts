@@ -106,23 +106,33 @@ export const uploadDocumentSchema = z.object({
     // mode eliminado (se infiere del backend). Permitimos que llegue pero lo ignoramos si existe.
     // mode: z.enum(['initial', 'renewal']).optional(),
     // Datos de planilla (se valida exhaustivamente en controller según 'mode')
+    // Acepta tanto string JSON como objeto (FormData envía como string)
     planilla: z
-      .object({
-        // Empresa transportista
-        empresaTransportista: z.string().min(2).max(200).optional(),
-        cuitTransportista: z.string().regex(/^\d{11}$/,'CUIT inválido').optional(),
-        // Chofer
-        choferNombre: z.string().min(1).max(120).optional(),
-        choferApellido: z.string().min(1).max(120).optional(),
-        choferDni: z.string().min(6).max(32).optional(),
-        // Unidades
-        tractorPatente: z.string().min(5).max(12).optional(),
-        semiPatente: z.string().min(5).max(12).optional(),
-        // Fechas de vencimiento (texto ISO)
-        vencimientos: z
-          .record(z.string(), z.string().optional())
-          .optional(),
-      })
+      .union([
+        z.string().transform((str) => {
+          try {
+            return JSON.parse(str);
+          } catch {
+            return {};
+          }
+        }),
+        z.object({
+          // Empresa transportista
+          empresaTransportista: z.string().min(2).max(200).optional(),
+          cuitTransportista: z.string().regex(/^\d{11}$/,'CUIT inválido').optional(),
+          // Chofer
+          choferNombre: z.string().min(1).max(120).optional(),
+          choferApellido: z.string().min(1).max(120).optional(),
+          choferDni: z.string().min(6).max(32).optional(),
+          // Unidades
+          tractorPatente: z.string().min(5).max(12).optional(),
+          semiPatente: z.string().min(5).max(12).optional(),
+          // Fechas de vencimiento (texto ISO)
+          vencimientos: z
+            .record(z.string(), z.string().optional())
+            .optional(),
+        }),
+      ])
       .optional(),
     // Optional camera/file source hint
     source: z.enum(['camera','file']).optional(),
