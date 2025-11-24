@@ -3,26 +3,19 @@ import { PrismaClient, EntityType, DocumentStatus } from '.prisma/documentos';
 const prisma = new PrismaClient();
 
 async function main(): Promise<void> {
-  console.log('🌱 Seeding Documentos - templates, clientes, requisitos, equipos y documentos demo...');
+  console.log('🌱 Seeding Documentos - clientes, requisitos, equipos y documentos demo...');
 
-  const templates = [
-    { name: 'Licencia de Conducir', entityType: EntityType.CHOFER, active: true },
-    { name: 'Certificado de Antecedentes', entityType: EntityType.CHOFER, active: true },
-    { name: 'Seguro Vehicular', entityType: EntityType.CAMION, active: true },
-    { name: 'Verificación Técnica', entityType: EntityType.CAMION, active: true },
-    { name: 'Habilitación Dador', entityType: EntityType.DADOR, active: true },
-    { name: 'Seguro de Carga', entityType: EntityType.ACOPLADO, active: true },
-  ];
+  // IMPORTANTE: NO crear plantillas automáticamente desde el seed
+  // Las plantillas deben crearse ÚNICAMENTE desde la pantalla de gestión de plantillas
 
-  await prisma.documentTemplate.createMany({ data: templates, skipDuplicates: true });
-
-  // Obtener IDs de plantillas clave
+  // Obtener IDs de plantillas existentes (creadas manualmente por el admin)
   const tpl = await prisma.documentTemplate.findMany({});
-  const getTplId = (name: string) => tpl.find(t => t.name === name)?.id as number;
+  const getTplId = (name: string) => tpl.find(t => t.name === name)?.id;
 
-  const licenciaTplId = getTplId('Licencia de Conducir');
-  const vtvTplId = getTplId('Verificación Técnica');
-  const seguroAcopladoTplId = getTplId('Seguro de Carga');
+  // Usar plantillas existentes que coincidan con las del formulario oficial
+  const licenciaTplId = getTplId('Licencia Nacional de Conducir (frente y dorso)');
+  const vtvTplId = getTplId('RTO - Revisión Técnica Obligatoria');
+  const seguroAcopladoTplId = getTplId('Póliza de Seguro (incluye Cláusula de No Repetición)');
 
   // Dador demo (usar variable si está definida)
   const dadorId = Number(process.env.SEED_DADOR_ID || 1);
@@ -41,9 +34,9 @@ async function main(): Promise<void> {
     return prisma.cliente.findFirst({}) as any;
   });
 
-  // Requisitos por cliente
+  // Requisitos por cliente (solo si las plantillas existen)
   const existingReqs = await prisma.clienteDocumentRequirement.findMany({ where: { clienteId: clienteDemo.id } });
-  if (existingReqs.length === 0) {
+  if (existingReqs.length === 0 && licenciaTplId && vtvTplId && seguroAcopladoTplId) {
     await prisma.clienteDocumentRequirement.createMany({
       data: [
         { tenantEmpresaId: tenantId, clienteId: clienteDemo.id, templateId: licenciaTplId, entityType: EntityType.CHOFER, obligatorio: true, diasAnticipacion: 15 },
@@ -52,6 +45,8 @@ async function main(): Promise<void> {
       ],
       skipDuplicates: true,
     });
+  } else if (!licenciaTplId || !vtvTplId || !seguroAcopladoTplId) {
+    console.log('⚠️ Algunas plantillas no existen. Saltando creación de requisitos demo.');
   }
 
   // Equipo demo (chofer+camión+acoplado)
@@ -82,40 +77,44 @@ async function main(): Promise<void> {
     },
   });
 
-  // Documentos demo para compliance: OK para chofer, PRÓXIMO para camión, FALTANTE para acoplado
-  await prisma.document.create({
-    data: {
-      tenantEmpresaId: tenantId,
-      templateId: licenciaTplId,
-      entityType: EntityType.CHOFER,
-      entityId: 101,
-      dadorCargaId: dadorId,
-      fileName: 'licencia.pdf',
-      filePath: `documentos-empresa-t${tenantId}/chofer/101/licencia/seed.pdf`,
-      fileSize: 12345,
-      mimeType: 'application/pdf',
-      status: DocumentStatus.APROBADO,
-      expiresAt: new Date(now.getTime() + 90 * dayMs),
-    },
-  });
+  // Documentos demo para compliance (solo si las plantillas existen)
+  if (licenciaTplId && vtvTplId) {
+    await prisma.document.create({
+      data: {
+        tenantEmpresaId: tenantId,
+        templateId: licenciaTplId,
+        entityType: EntityType.CHOFER,
+        entityId: 101,
+        dadorCargaId: dadorId,
+        fileName: 'licencia.pdf',
+        filePath: `documentos-empresa-t${tenantId}/chofer/101/licencia/seed.pdf`,
+        fileSize: 12345,
+        mimeType: 'application/pdf',
+        status: DocumentStatus.APROBADO,
+        expiresAt: new Date(now.getTime() + 90 * dayMs),
+      },
+    });
 
-  await prisma.document.create({
-    data: {
-      tenantEmpresaId: tenantId,
-      templateId: vtvTplId,
-      entityType: EntityType.CAMION,
-      entityId: 201,
-      dadorCargaId: dadorId,
-      fileName: 'vtv.pdf',
-      filePath: `documentos-empresa-t${tenantId}/camion/201/vtv/seed.pdf`,
-      fileSize: 23456,
-      mimeType: 'application/pdf',
-      status: DocumentStatus.APROBADO,
-      expiresAt: new Date(now.getTime() + 15 * dayMs),
-    },
-  });
+    await prisma.document.create({
+      data: {
+        tenantEmpresaId: tenantId,
+        templateId: vtvTplId,
+        entityType: EntityType.CAMION,
+        entityId: 201,
+        dadorCargaId: dadorId,
+        fileName: 'vtv.pdf',
+        filePath: `documentos-empresa-t${tenantId}/camion/201/vtv/seed.pdf`,
+        fileSize: 23456,
+        mimeType: 'application/pdf',
+        status: DocumentStatus.APROBADO,
+        expiresAt: new Date(now.getTime() + 15 * dayMs),
+      },
+    });
+  } else {
+    console.log('⚠️ Plantillas no encontradas. Saltando creación de documentos demo.');
+  }
 
-  console.log('✅ Seed completado: templates, cliente demo, requisitos, equipo y documentos');
+  console.log('✅ Seed completado: cliente demo, requisitos, equipo y documentos (sin crear plantillas)');
 }
 
 main()
