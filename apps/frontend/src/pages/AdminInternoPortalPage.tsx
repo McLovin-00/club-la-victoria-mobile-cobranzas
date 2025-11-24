@@ -48,7 +48,7 @@ export const AdminInternoPortalPage: React.FC = () => {
             </CardHeader>
             <CardContent className='text-center space-y-4'>
               <p className='text-muted-foreground text-lg'>
-                Registrar nuevo equipo con toda su documentación en un solo proceso
+                Registrar nuevo equipo con toda su documentación
               </p>
               <ul className='text-sm text-muted-foreground space-y-2 text-left'>
                 <li className='flex items-start gap-2'>
