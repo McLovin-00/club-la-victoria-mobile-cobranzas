@@ -51,7 +51,7 @@ const AltaEquipoCompletaPage: React.FC = () => {
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
   // Permisos
-  const canUpload = ['SUPERADMIN', 'ADMIN', 'OPERATOR', 'DADOR_DE_CARGA', 'TRANSPORTISTA'].includes(role || '');
+  const canUpload = ['SUPERADMIN', 'ADMIN', 'OPERATOR', 'ADMIN_INTERNO', 'DADOR_DE_CARGA', 'TRANSPORTISTA'].includes(role || '');
 
   // Agrupar templates por entityType
   const templatesPorTipo = useMemo(() => {
