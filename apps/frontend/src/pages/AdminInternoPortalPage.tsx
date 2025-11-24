@@ -125,25 +125,9 @@ export const AdminInternoPortalPage: React.FC = () => {
                 variant='outline' 
                 size='sm'
                 className='border-slate-600 hover:bg-slate-700'
-                onClick={() => navigate('/documentos/dadores')}
-              >
-                Gestión de Dadores
-              </Button>
-              <Button 
-                variant='outline' 
-                size='sm'
-                className='border-slate-600 hover:bg-slate-700'
                 onClick={() => navigate('/documentos/approval/pending')}
               >
                 Aprobaciones Pendientes
-              </Button>
-              <Button 
-                variant='outline' 
-                size='sm'
-                className='border-slate-600 hover:bg-slate-700'
-                onClick={() => navigate('/documentos/empresas-transportistas')}
-              >
-                Consultar Maestros
               </Button>
               <Button 
                 variant='outline' 
