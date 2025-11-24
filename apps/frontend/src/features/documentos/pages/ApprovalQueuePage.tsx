@@ -1,13 +1,33 @@
 import { useMemo, useState } from 'react';
 import { Pagination } from '../../../components/ui/Pagination';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { useGetApprovalPendingQuery, useGetApprovalKpisQuery } from '../api/documentosApiSlice';
 import { formatDateTime } from '../../../utils/formatters';
 import type { ApprovalPendingDocument } from '../types/entities';
+import { useAppSelector } from '../../../store/hooks';
+import { ArrowLeftIcon } from '@heroicons/react/24/outline';
 
 type EntityType = 'DADOR' | 'EMPRESA_TRANSPORTISTA' | 'CHOFER' | 'CAMION' | 'ACOPLADO' | '';
 
 export default function ApprovalQueuePage() {
+  const navigate = useNavigate();
+  const userRole = useAppSelector((s) => (s as any).auth?.user?.role) as string | undefined;
+  
+  // Determinar ruta de volver según el rol
+  const getBackRoute = () => {
+    switch (userRole) {
+      case 'ADMIN_INTERNO':
+        return '/portal/admin-interno';
+      case 'DADOR_DE_CARGA':
+        return '/portal/dadores';
+      case 'TRANSPORTISTA':
+      case 'CHOFER':
+        return '/portal/transportistas';
+      default:
+        return '/documentos';
+    }
+  };
+  
   const [page, setPage] = useState<number>(1);
   const [limit] = useState<number>(20);
   const [entityType, setEntityType] = useState<EntityType>('');
@@ -48,6 +68,13 @@ export default function ApprovalQueuePage() {
     <div className="p-6 space-y-6">
       <header className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
         <div className="flex items-center gap-3">
+          <button
+            onClick={() => navigate(getBackRoute())}
+            className="inline-flex items-center gap-2 px-3 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 transition-colors"
+          >
+            <ArrowLeftIcon className="h-4 w-4" />
+            Volver
+          </button>
           <Link 
             to="/documentos" 
             className="inline-flex items-center gap-2 border border-gray-300 text-gray-600 hover:bg-gray-50 font-medium px-4 py-2 rounded-lg transition-all duration-200"

@@ -1,8 +1,9 @@
 import React from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { useSearchParams, useNavigate } from 'react-router-dom';
 import { useGetAuditLogsQuery } from '../../documentos/api/documentosApiSlice';
 import { useAppSelector } from '../../../store/hooks';
 import { showToast } from '../../../components/ui/Toast.utils';
+import { ArrowLeftIcon } from '@heroicons/react/24/outline';
 
 const toInt = (s: string | null, def: number): number => {
   const n = s ? parseInt(s, 10) : NaN;
@@ -42,10 +43,27 @@ const Pager: React.FC<{ page: number; totalPages: number; onPage: (p: number) =>
 );
 
 const AuditLogsPage: React.FC = () => {
+  const navigate = useNavigate();
   const [params, setParams] = useSearchParams();
   const token = useAppSelector((s) => (s as any).auth?.token) as string | undefined;
   const empresaId = useAppSelector((s) => (s as any).auth?.user?.empresaId) as number | undefined;
+  const userRole = useAppSelector((s) => (s as any).auth?.user?.role) as string | undefined;
   const [downloading, setDownloading] = React.useState<null | 'csv' | 'xlsx'>(null);
+  
+  // Determinar ruta de volver según el rol
+  const getBackRoute = () => {
+    switch (userRole) {
+      case 'ADMIN_INTERNO':
+        return '/portal/admin-interno';
+      case 'DADOR_DE_CARGA':
+        return '/portal/dadores';
+      case 'TRANSPORTISTA':
+      case 'CHOFER':
+        return '/portal/transportistas';
+      default:
+        return '/documentos';
+    }
+  };
   const page = toInt(params.get('page'), 1);
   const limit = toInt(params.get('limit'), 20);
   const query = {
@@ -106,7 +124,16 @@ const AuditLogsPage: React.FC = () => {
 
   return (
     <div className='container mx-auto px-4 py-6'>
-      <h1 className='text-2xl font-semibold mb-4'>Auditoría</h1>
+      <div className='flex items-center gap-3 mb-4'>
+        <button
+          onClick={() => navigate(getBackRoute())}
+          className='inline-flex items-center gap-2 px-3 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 transition-colors'
+        >
+          <ArrowLeftIcon className='h-4 w-4' />
+          Volver
+        </button>
+        <h1 className='text-2xl font-semibold'>Auditoría</h1>
+      </div>
       <div className='grid grid-cols-1 md:grid-cols-4 gap-3 mb-4'>
         <TextInput label='Desde' name='from' value={params.get('from') ?? ''} onChange={(v) => set('from', v)} type='datetime-local' />
         <TextInput label='Hasta' name='to' value={params.get('to') ?? ''} onChange={(v) => set('to', v)} type='datetime-local' />

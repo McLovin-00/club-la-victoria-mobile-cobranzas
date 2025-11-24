@@ -24,6 +24,21 @@ const AltaEquipoCompletaPage: React.FC = () => {
   const navigate = useNavigate();
   const empresaId = useAppSelector((s) => (s as any).auth?.user?.empresaId) as number | undefined;
   const role = useAppSelector((s) => (s as any).auth?.user?.role) as string | undefined;
+  
+  // Determinar ruta de volver según el rol
+  const getBackRoute = () => {
+    switch (role) {
+      case 'ADMIN_INTERNO':
+        return '/portal/admin-interno';
+      case 'DADOR_DE_CARGA':
+        return '/portal/dadores';
+      case 'TRANSPORTISTA':
+      case 'CHOFER':
+        return '/portal/transportistas';
+      default:
+        return '/documentos';
+    }
+  };
 
   // Queries y mutations del sistema existente
   const { data: templatesResp, isLoading: loadingTemplates } = useGetTemplatesQuery(undefined);
@@ -214,7 +229,7 @@ const AltaEquipoCompletaPage: React.FC = () => {
       <div className='flex items-center justify-between mb-6'>
         <h1 className='text-3xl font-bold text-gray-900'>Alta Completa de Equipo</h1>
         <button
-          onClick={() => navigate(-1)}
+          onClick={() => navigate(getBackRoute())}
           className='px-4 py-2 text-sm border border-gray-300 rounded-md hover:bg-gray-50 transition-colors'
         >
           ← Volver

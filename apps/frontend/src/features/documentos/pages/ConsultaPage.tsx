@@ -11,6 +11,23 @@ import { ArrowLeftIcon } from '@heroicons/react/24/outline';
 
 export const ConsultaPage: React.FC = () => {
   const navigate = useNavigate();
+  const userRole = useAppSelector((s) => (s as any).auth?.user?.role) as string | undefined;
+  
+  // Determinar ruta de volver según el rol
+  const getBackRoute = () => {
+    switch (userRole) {
+      case 'ADMIN_INTERNO':
+        return '/portal/admin-interno';
+      case 'DADOR_DE_CARGA':
+        return '/portal/dadores';
+      case 'TRANSPORTISTA':
+      case 'CHOFER':
+        return '/portal/transportistas';
+      default:
+        return '/documentos';
+    }
+  };
+  
   const show = (msg: string) => { try { alert(msg); } catch { console.log(msg); } };
   const { confirm } = useContext(ConfirmContext);
   const { data: dadoresResp } = useGetDadoresQuery({});
@@ -128,7 +145,7 @@ export const ConsultaPage: React.FC = () => {
             // Limpiar búsqueda persistida y volver
             try { sessionStorage.removeItem('consultaSearch'); } catch (e) { /* noop */ }
             setSearchParams({});
-            navigate('/documentos');
+            navigate(getBackRoute());
           }}
           className='flex items-center'
         >
