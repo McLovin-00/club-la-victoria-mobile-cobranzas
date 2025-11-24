@@ -27,10 +27,35 @@ export const LoginForm = () => {
       const response = await login(credentials).unwrap();
       dispatch(setCredentials(response));
 
-      // Si el usuario tiene un rol válido y está autorizado, redirigir a la página original
+      // Si el usuario tiene un rol válido y está autorizado, redirigir según el rol
       if (response.data?.role) {
-        Logger.debug('Login exitoso, redirigiendo a:', from);
-        navigate(from, { replace: true });
+        // Determinar la ruta de destino según el rol del usuario
+        let destination = from;
+        
+        // Si viene de login (from === '/'), redirigir al portal según el rol
+        if (from === '/') {
+          switch (response.data.role) {
+            case 'ADMIN_INTERNO':
+              destination = '/portal/admin-interno';
+              break;
+            case 'DADOR_DE_CARGA':
+              destination = '/portal/dadores';
+              break;
+            case 'TRANSPORTISTA':
+            case 'CHOFER':
+              destination = '/portal/transportistas';
+              break;
+            case 'CLIENTE':
+              destination = '/portal/cliente';
+              break;
+            default:
+              destination = '/';
+              break;
+          }
+        }
+        
+        Logger.debug('Login exitoso, redirigiendo a:', destination);
+        navigate(destination, { replace: true });
       } else {
         Logger.error('Usuario sin rol asignado');
         setError('root', {
