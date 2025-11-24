@@ -75,12 +75,6 @@ export default function ApprovalQueuePage() {
             <ArrowLeftIcon className="h-4 w-4" />
             Volver
           </button>
-          <Link 
-            to="/documentos" 
-            className="inline-flex items-center gap-2 border border-gray-300 text-gray-600 hover:bg-gray-50 font-medium px-4 py-2 rounded-lg transition-all duration-200"
-          >
-            ← Volver
-          </Link>
           <h1 className="text-2xl font-semibold tracking-tight">Aprobación de Documentos</h1>
           <p className="text-muted-foreground">Revisá y aprobá o rechazá documentos clasificados por la IA.</p>
         </div>
