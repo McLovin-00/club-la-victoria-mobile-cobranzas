@@ -1,6 +1,6 @@
 import { useEffect } from 'react';
 import { useSelector } from 'react-redux';
-import { useNavigate } from 'react-router-dom';
+import { Navigate } from 'react-router-dom';
 import { selectCurrentUser } from '../features/auth/authSlice';
 import { SuperAdminDashboard } from '../features/dashboard/components/SuperAdminDashboard';
 import { AdminDashboard } from '../features/dashboard/components/AdminDashboard';
@@ -9,29 +9,21 @@ import { UserDashboard } from '../features/dashboard/components/UserDashboard';
 // Exportación predeterminada que actúa como un router según el rol del usuario
 export default function DashboardPage() {
   const user = useSelector(selectCurrentUser);
-  const navigate = useNavigate();
 
-  // Redirigir usuarios con portales específicos
-  useEffect(() => {
-    if (user?.role) {
-      switch (user.role) {
-        case 'ADMIN_INTERNO':
-          navigate('/portal/admin-interno', { replace: true });
-          break;
-        case 'DADOR_DE_CARGA':
-          navigate('/portal/dadores', { replace: true });
-          break;
-        case 'TRANSPORTISTA':
-        case 'CHOFER':
-          navigate('/portal/transportistas', { replace: true });
-          break;
-        case 'CLIENTE':
-          navigate('/portal/cliente', { replace: true });
-          break;
-        // SUPERADMIN y ADMIN se quedan en el dashboard
-      }
+  // Redirigir usuarios con portales específicos (NO renderizar nada, solo redirigir)
+  if (user?.role) {
+    switch (user.role) {
+      case 'ADMIN_INTERNO':
+        return <Navigate to='/portal/admin-interno' replace />;
+      case 'DADOR_DE_CARGA':
+        return <Navigate to='/portal/dadores' replace />;
+      case 'TRANSPORTISTA':
+      case 'CHOFER':
+        return <Navigate to='/portal/transportistas' replace />;
+      case 'CLIENTE':
+        return <Navigate to='/portal/cliente' replace />;
     }
-  }, [user?.role, navigate]);
+  }
 
   // Determinar el tipo de dashboard según el rol del usuario
   if (user?.role === 'SUPERADMIN') {
