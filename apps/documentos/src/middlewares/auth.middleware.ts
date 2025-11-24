@@ -117,7 +117,7 @@ export const authorize = (allowedRoles: Array<UserRole | string>) => {
 /**
  * Resolver de Tenant - Determina req.tenantId
  * - Por defecto usa user.empresaId
- * - SUPERADMIN puede seleccionar tenant via header 'x-tenant-id' o query 'tenantId'
+ * - SUPERADMIN y ADMIN_INTERNO pueden seleccionar tenant via header 'x-tenant-id' o query 'tenantId'
  */
 export const tenantResolver = (req: AuthRequest, res: Response, next: NextFunction): void => {
   try {
@@ -127,7 +127,9 @@ export const tenantResolver = (req: AuthRequest, res: Response, next: NextFuncti
       return;
     }
     let resolvedTenant: number | undefined = undefined;
-    if (user.role === 'SUPERADMIN') {
+    
+    // SUPERADMIN y ADMIN_INTERNO pueden acceder a cualquier tenant
+    if (user.role === 'SUPERADMIN' || user.role === 'ADMIN_INTERNO') {
       const headerTenant = req.headers['x-tenant-id'];
       const queryTenant = (req.query as any).tenantId;
       const candidate = headerTenant ?? queryTenant ?? user.empresaId;
@@ -138,7 +140,7 @@ export const tenantResolver = (req: AuthRequest, res: Response, next: NextFuncti
         }
       }
     } else {
-      // Para roles no superadmin, debe venir en el token y ser numérico
+      // Para roles no superadmin/admin_interno, debe venir en el token y ser numérico
       resolvedTenant = typeof (user as any).empresaId === 'number' ? (user as any).empresaId : undefined;
     }
     if (!resolvedTenant) {
