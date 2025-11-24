@@ -17,6 +17,8 @@ export interface SeccionDocumentosProps {
   uploadMutation: any;
   disabled?: boolean;
   uploadedTemplateIds: number[];
+  selectOnlyMode?: boolean; // Modo solo selección de archivos
+  onFileSelect?: (templateId: number, file: File | null, expiryDate?: string) => void;
 }
 
 // Templates que requieren fecha de vencimiento
@@ -42,6 +44,8 @@ export const SeccionDocumentos: React.FC<SeccionDocumentosProps> = ({
   uploadMutation,
   disabled = false,
   uploadedTemplateIds,
+  selectOnlyMode = false,
+  onFileSelect,
 }) => {
   const templatesCount = templates.length;
   const uploadedCount = templates.filter((t) => uploadedTemplateIds.includes(t.id)).length;
@@ -78,6 +82,8 @@ export const SeccionDocumentos: React.FC<SeccionDocumentosProps> = ({
                 onUploadSuccess={onUploadSuccess}
                 uploadMutation={uploadMutation}
                 disabled={disabled}
+                selectOnlyMode={selectOnlyMode}
+                onFileSelect={onFileSelect}
               />
             );
           })}

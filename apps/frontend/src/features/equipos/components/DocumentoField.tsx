@@ -11,6 +11,8 @@ export interface DocumentoFieldProps {
   onUploadSuccess: (templateId: number, expiryDate?: string) => void;
   uploadMutation: any; // useUploadDocumentMutation hook
   disabled?: boolean;
+  onFileSelect?: (templateId: number, file: File | null, expiryDate?: string) => void; // Callback para modo selección
+  selectOnlyMode?: boolean; // Si es true, solo permite seleccionar archivos, no subirlos
 }
 
 /**
@@ -27,6 +29,8 @@ export const DocumentoField: React.FC<DocumentoFieldProps> = ({
   onUploadSuccess,
   uploadMutation,
   disabled = false,
+  onFileSelect,
+  selectOnlyMode = false,
 }) => {
   const [file, setFile] = useState<File | null>(null);
   const [expiryDate, setExpiryDate] = useState('');
@@ -55,6 +59,11 @@ export const DocumentoField: React.FC<DocumentoFieldProps> = ({
       setFile(selectedFile);
       setError('');
       setUploaded(false);
+
+      // En modo selectOnlyMode, notificar al padre
+      if (selectOnlyMode && onFileSelect) {
+        onFileSelect(templateId, selectedFile, expiryDate);
+      }
     }
   };
 
@@ -143,21 +152,23 @@ export const DocumentoField: React.FC<DocumentoFieldProps> = ({
               disabled={uploading || disabled}
             />
 
-            <button
-              type='button'
-              onClick={handleUpload}
-              disabled={!file || uploading || disabled}
-              className='inline-flex items-center gap-1 px-3 py-1.5 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors'
-            >
-              {uploading ? (
-                <>Subiendo...</>
-              ) : (
-                <>
-                  <ArrowUpTrayIcon className='h-4 w-4' />
-                  Subir
-                </>
-              )}
-            </button>
+            {!selectOnlyMode && (
+              <button
+                type='button'
+                onClick={handleUpload}
+                disabled={!file || uploading || disabled}
+                className='inline-flex items-center gap-1 px-3 py-1.5 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors'
+              >
+                {uploading ? (
+                  <>Subiendo...</>
+                ) : (
+                  <>
+                    <ArrowUpTrayIcon className='h-4 w-4' />
+                    Subir
+                  </>
+                )}
+              </button>
+            )}
           </div>
 
           {requiresExpiry && (
@@ -166,7 +177,13 @@ export const DocumentoField: React.FC<DocumentoFieldProps> = ({
               <input
                 type='date'
                 value={expiryDate}
-                onChange={(e) => setExpiryDate(e.target.value)}
+                onChange={(e) => {
+                  setExpiryDate(e.target.value);
+                  // En modo selectOnlyMode, notificar cambios de fecha
+                  if (selectOnlyMode && onFileSelect && file) {
+                    onFileSelect(templateId, file, e.target.value);
+                  }
+                }}
                 className='border border-gray-300 rounded px-2 py-1 text-sm w-full'
                 disabled={uploading || disabled}
                 min={new Date().toISOString().split('T')[0]}
