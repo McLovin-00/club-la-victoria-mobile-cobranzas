@@ -62,7 +62,11 @@ function App() {
           {/* Rutas Protegidas anidadas dentro de MainLayout */}
           <Route element={<MainLayout />}>
             <Route element={<RequireAuth />}>
+              {/* Ruta raíz ahora redirige al DashboardPage que maneja la redirección por rol */}
               <Route path='/' element={<DashboardPage />} />
+              
+              {/* Dashboard explícito para SUPERADMIN y ADMIN */}
+              <Route path='/dashboard' element={<DashboardPage />} />
 
               {/* Rutas para admin y superadmin */}
               <Route element={<RequireAuth allowedRoles={['ADMIN', 'SUPERADMIN']} />}>
