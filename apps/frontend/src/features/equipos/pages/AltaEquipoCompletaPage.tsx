@@ -14,14 +14,15 @@ import { SeccionDocumentos, Template } from '../components/SeccionDocumentos';
 /**
  * Página de Alta Completa de Equipo
  * 
- * Permite cargar todos los documentos necesarios organizados por sección:
+ * Permite seleccionar todos los documentos necesarios organizados por sección:
  * - Empresa Transportista
  * - Chofer
  * - Tractor (Camión)
  * - Semi (Acoplado) - opcional
  * 
+ * Flujo: 1) Seleccionar archivos, 2) Crear equipo, 3) Subir todos los documentos.
  * Solo habilita el botón "Crear Equipo" cuando TODOS los documentos obligatorios
- * están subidos (atomicidad).
+ * están SELECCIONADOS (atomicidad).
  */
 const AltaEquipoCompletaPage: React.FC = () => {
   const navigate = useNavigate();
@@ -66,9 +67,8 @@ const AltaEquipoCompletaPage: React.FC = () => {
   const [semiPatente, setSemiPatente] = useState('');
   const [semiTipo, setSemiTipo] = useState('');
 
-  // Estado de documentos subidos
-  const [uploadedTemplateIds, setUploadedTemplateIds] = useState<number[]>([]);
-  const [uploadedVencimientos, setUploadedVencimientos] = useState<Record<number, string>>({});
+  // Estado de documentos SELECCIONADOS (no subidos aún)
+  const [selectedFiles, setSelectedFiles] = useState<Map<number, { file: File; expiryDate?: string }>>(new Map());
 
   // Mensajes
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
@@ -161,44 +161,45 @@ const AltaEquipoCompletaPage: React.FC = () => {
     return ids;
   }, [templatesPorTipo, semiPatente]);
 
-  // Verificar si todos los documentos obligatorios están subidos
-  const todosDocumentosSubidos = useMemo(() => {
-    return templateIdsObligatorios.every((id) => uploadedTemplateIds.includes(id));
-  }, [templateIdsObligatorios, uploadedTemplateIds]);
+  // Verificar si todos los documentos obligatorios están SELECCIONADOS
+  const todosDocumentosSeleccionados = useMemo(() => {
+    return templateIdsObligatorios.every((id) => selectedFiles.has(id));
+  }, [templateIdsObligatorios, selectedFiles]);
 
   // Progreso
   const progreso = useMemo(() => {
     const total = templateIdsObligatorios.length;
-    const completados = uploadedTemplateIds.filter((id) => templateIdsObligatorios.includes(id)).length;
+    const completados = templateIdsObligatorios.filter((id) => selectedFiles.has(id)).length;
     return total > 0 ? Math.round((completados / total) * 100) : 0;
-  }, [templateIdsObligatorios, uploadedTemplateIds]);
+  }, [templateIdsObligatorios, selectedFiles]);
 
-  // Handler de upload exitoso
-  const handleUploadSuccess = (templateId: number, expiryDate?: string) => {
-    setUploadedTemplateIds((prev) => {
-      if (!prev.includes(templateId)) {
-        return [...prev, templateId];
+  // Handler para cuando se selecciona un archivo (NO sube, solo guarda)
+  const handleFileSelect = (templateId: number, file: File | null, expiryDate?: string) => {
+    setSelectedFiles((prev) => {
+      const newMap = new Map(prev);
+      if (file) {
+        newMap.set(templateId, { file, expiryDate });
+      } else {
+        newMap.delete(templateId);
       }
-      return prev;
+      return newMap;
     });
-
-    if (expiryDate) {
-      setUploadedVencimientos((prev) => ({ ...prev, [templateId]: expiryDate }));
-    }
-
-    setMessage({ type: 'success', text: 'Documento subido exitosamente' });
-    setTimeout(() => setMessage(null), 3000);
   };
 
-  // Handler de creación de equipo
+  // Handler dummy para compatibilidad (ya no se usa)
+  const handleUploadSuccess = (templateId: number, expiryDate?: string) => {
+    // No hace nada, la subida se hace al crear el equipo
+  };
+
+  // Handler de creación de equipo (refactorizado para subir documentos después)
   const handleCrearEquipo = async () => {
     if (!datosBasicosCompletos) {
       setMessage({ type: 'error', text: 'Completá todos los datos básicos obligatorios' });
       return;
     }
 
-    if (!todosDocumentosSubidos) {
-      setMessage({ type: 'error', text: 'Subí todos los documentos obligatorios antes de crear el equipo' });
+    if (!todosDocumentosSeleccionados) {
+      setMessage({ type: 'error', text: 'Seleccioná todos los documentos obligatorios antes de crear el equipo' });
       return;
     }
 
@@ -208,7 +209,9 @@ const AltaEquipoCompletaPage: React.FC = () => {
     }
 
     try {
-      // Usar el endpoint existente de creación de equipo
+      setMessage({ type: 'success', text: '⏳ Creando equipo...' });
+
+      // PASO 1: Crear el equipo (esto crea chofer, camión, acoplado con IDs reales)
       const payload = {
         dadorCargaId: dadorCargaId,
         dniChofer: choferDni,
@@ -220,25 +223,114 @@ const AltaEquipoCompletaPage: React.FC = () => {
       };
 
       const result = await createEquipo(payload).unwrap();
-      const equipoId = (result as any)?.id || (result as any)?.data?.id;
+      const equipoData = (result as any)?.data || result;
+      const equipoId = equipoData?.id;
+      const driverId = equipoData?.driverId;
+      const truckId = equipoData?.truckId;
+      const trailerId = equipoData?.trailerId;
+      const empresaTransportistaId = equipoData?.empresaTransportistaId;
 
-      // Si hay clientes seleccionados, asociarlos al equipo
+      if (!equipoId || !driverId || !truckId) {
+        throw new Error('El equipo se creó pero faltan IDs esenciales');
+      }
+
+      setMessage({ type: 'success', text: `⏳ Equipo creado. Subiendo ${selectedFiles.size} documentos...` });
+
+      // PASO 2: Subir todos los documentos con los IDs reales
+      let uploadedCount = 0;
+      const uploadErrors: string[] = [];
+
+      for (const [templateId, fileData] of selectedFiles.entries()) {
+        try {
+          // Determinar el tipo de entidad y el ID correspondiente
+          const template = [...Object.values(templatesPorTipo)].flat().find((t) => t.id === templateId);
+          if (!template) continue;
+
+          let entityId: number;
+          let entityType = template.entityType;
+
+          switch (entityType) {
+            case 'EMPRESA_TRANSPORTISTA':
+              entityId = empresaTransportistaId;
+              break;
+            case 'CHOFER':
+              entityId = driverId;
+              break;
+            case 'CAMION':
+              entityId = truckId;
+              break;
+            case 'ACOPLADO':
+              if (!trailerId) {
+                uploadErrors.push(`${template.name}: No hay acoplado en este equipo`);
+                continue;
+              }
+              entityId = trailerId;
+              break;
+            default:
+              uploadErrors.push(`${template.name}: Tipo de entidad desconocido`);
+              continue;
+          }
+
+          // Preparar FormData
+          const formData = new FormData();
+          formData.append('document', fileData.file);
+          formData.append('templateId', String(templateId));
+          formData.append('entityType', entityType);
+          formData.append('entityId', String(entityId));
+          formData.append('dadorCargaId', String(dadorCargaId));
+
+          // Si hay fecha de vencimiento, agregarla
+          if (fileData.expiryDate) {
+            formData.append('expiresAt', fileData.expiryDate);
+          }
+
+          // Construir planilla con todos los datos para metadatos
+          const planilla = JSON.stringify({
+            empresaTransportista,
+            cuitTransportista,
+            choferNombre,
+            choferApellido,
+            choferDni,
+            tractorPatente,
+            semiPatente: semiPatente || undefined,
+          });
+          formData.append('planilla', planilla);
+
+          await uploadDocument(formData).unwrap();
+          uploadedCount++;
+          setMessage({ type: 'success', text: `⏳ Subidos ${uploadedCount}/${selectedFiles.size} documentos...` });
+        } catch (err: any) {
+          const errorMsg = err?.data?.message || err?.message || 'Error desconocido';
+          uploadErrors.push(`${templateId}: ${errorMsg}`);
+        }
+      }
+
+      // PASO 3: Asociar clientes al equipo
       if (clienteIds.length > 0 && equipoId) {
+        setMessage({ type: 'success', text: '⏳ Asociando clientes...' });
         for (const clienteId of clienteIds) {
           try {
             await associateCliente({ equipoId, clienteId }).unwrap();
           } catch (err) {
             console.error(`Error asociando cliente ${clienteId}:`, err);
+            uploadErrors.push(`Error asociando cliente ${clienteId}`);
           }
         }
       }
 
-      setMessage({ type: 'success', text: '✅ Equipo creado exitosamente con todos sus documentos' });
-      
-      // Redirigir después de 2 segundos
-      setTimeout(() => {
-        navigate(getBackRoute());
-      }, 2000);
+      // Mostrar resultado final
+      if (uploadErrors.length > 0) {
+        setMessage({
+          type: 'error',
+          text: `⚠️ Equipo creado pero algunos documentos fallaron:\n${uploadErrors.slice(0, 3).join('\n')}`,
+        });
+      } else {
+        setMessage({ type: 'success', text: '✅ Equipo creado exitosamente con todos sus documentos' });
+        // Redirigir después de 2 segundos
+        setTimeout(() => {
+          navigate(getBackRoute());
+        }, 2000);
+      }
     } catch (error: any) {
       const errorMsg = error?.data?.message || error?.message || 'Error al crear equipo';
       setMessage({ type: 'error', text: errorMsg });
@@ -279,9 +371,9 @@ const AltaEquipoCompletaPage: React.FC = () => {
       {/* Progress Bar */}
       <div className='mb-6 bg-white border border-gray-300 rounded-lg p-4'>
         <div className='flex items-center justify-between mb-2'>
-          <span className='text-sm font-medium text-gray-700'>Progreso de carga</span>
+          <span className='text-sm font-medium text-gray-700'>Progreso de selección</span>
           <span className='text-sm text-gray-600'>
-            {uploadedTemplateIds.filter((id) => templateIdsObligatorios.includes(id)).length} /{' '}
+            {templateIdsObligatorios.filter((id) => selectedFiles.has(id)).length} /{' '}
             {templateIdsObligatorios.length} documentos ({progreso}%)
           </span>
         </div>
@@ -599,11 +691,13 @@ const AltaEquipoCompletaPage: React.FC = () => {
         templates={templatesPorTipo.EMPRESA_TRANSPORTISTA}
         entityType='EMPRESA_TRANSPORTISTA'
         entityId={empresaTransportistaId}
-        dadorCargaId={empresaId || 0}
+        dadorCargaId={dadorCargaId || 0}
         onUploadSuccess={handleUploadSuccess}
         uploadMutation={uploadDocument}
         disabled={!datosBasicosCompletos}
-        uploadedTemplateIds={uploadedTemplateIds}
+        uploadedTemplateIds={Array.from(selectedFiles.keys())}
+        selectOnlyMode={true}
+        onFileSelect={handleFileSelect}
       />
 
       <SeccionDocumentos
@@ -611,11 +705,13 @@ const AltaEquipoCompletaPage: React.FC = () => {
         templates={templatesPorTipo.CHOFER}
         entityType='CHOFER'
         entityId={choferId}
-        dadorCargaId={empresaId || 0}
+        dadorCargaId={dadorCargaId || 0}
         onUploadSuccess={handleUploadSuccess}
         uploadMutation={uploadDocument}
         disabled={!datosBasicosCompletos}
-        uploadedTemplateIds={uploadedTemplateIds}
+        uploadedTemplateIds={Array.from(selectedFiles.keys())}
+        selectOnlyMode={true}
+        onFileSelect={handleFileSelect}
       />
 
       <SeccionDocumentos
@@ -623,11 +719,13 @@ const AltaEquipoCompletaPage: React.FC = () => {
         templates={templatesPorTipo.CAMION}
         entityType='CAMION'
         entityId={tractorId}
-        dadorCargaId={empresaId || 0}
+        dadorCargaId={dadorCargaId || 0}
         onUploadSuccess={handleUploadSuccess}
         uploadMutation={uploadDocument}
         disabled={!datosBasicosCompletos}
-        uploadedTemplateIds={uploadedTemplateIds}
+        uploadedTemplateIds={Array.from(selectedFiles.keys())}
+        selectOnlyMode={true}
+        onFileSelect={handleFileSelect}
       />
 
       {semiPatente && semiPatente.trim().length > 0 && (
@@ -636,11 +734,13 @@ const AltaEquipoCompletaPage: React.FC = () => {
           templates={templatesPorTipo.ACOPLADO}
           entityType='ACOPLADO'
           entityId={semiId}
-          dadorCargaId={empresaId || 0}
+          dadorCargaId={dadorCargaId || 0}
           onUploadSuccess={handleUploadSuccess}
           uploadMutation={uploadDocument}
           disabled={!datosBasicosCompletos}
-          uploadedTemplateIds={uploadedTemplateIds}
+          uploadedTemplateIds={Array.from(selectedFiles.keys())}
+          selectOnlyMode={true}
+          onFileSelect={handleFileSelect}
         />
       )}
 
@@ -648,16 +748,16 @@ const AltaEquipoCompletaPage: React.FC = () => {
       <div className='mt-8 flex justify-center'>
         <button
           onClick={handleCrearEquipo}
-          disabled={!datosBasicosCompletos || !todosDocumentosSubidos || creatingEquipo}
+          disabled={!datosBasicosCompletos || !todosDocumentosSeleccionados || creatingEquipo}
           className='px-8 py-3 text-lg font-semibold text-white bg-green-600 rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors shadow-lg'
         >
-          {creatingEquipo ? 'Creando Equipo...' : '✓ Crear Equipo con Todos los Documentos'}
+          {creatingEquipo ? 'Creando Equipo y Subiendo Documentos...' : '✓ Crear Equipo con Todos los Documentos'}
         </button>
       </div>
 
-      {!todosDocumentosSubidos && datosBasicosCompletos && (
+      {!todosDocumentosSeleccionados && datosBasicosCompletos && (
         <p className='text-center text-sm text-gray-600 mt-4'>
-          Subí {templateIdsObligatorios.length - uploadedTemplateIds.filter((id) => templateIdsObligatorios.includes(id)).length} documentos más para habilitar la creación del equipo
+          Seleccioná {templateIdsObligatorios.length - templateIdsObligatorios.filter((id) => selectedFiles.has(id)).length} documentos más para habilitar la creación del equipo
         </p>
       )}
     </div>
