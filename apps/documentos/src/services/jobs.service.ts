@@ -135,10 +135,11 @@ export class JobsService {
             'application/pdf'
           );
 
-          // 2) Asegurar template válido (FK). Buscar uno activo para DADOR; si no existe, crear "AUTO".
-          let tpl = await db.getClient().documentTemplate.findFirst({ where: { entityType: 'DADOR' as any, active: true } });
+          // 2) Asegurar template válido (FK). Buscar uno activo para DADOR.
+          // IMPORTANTE: NO crear plantillas automáticamente - solo buscar existentes
+          const tpl = await db.getClient().documentTemplate.findFirst({ where: { entityType: 'DADOR' as any, active: true } });
           if (!tpl) {
-            tpl = await db.getClient().documentTemplate.create({ data: { name: 'AUTO', entityType: 'DADOR' as any, active: true } });
+            throw new Error('No existe plantilla activa para entidad DADOR. Por favor, crear plantilla manualmente desde la pantalla de gestión de plantillas.');
           }
 
           // 3) Crear registro pendiente en documents

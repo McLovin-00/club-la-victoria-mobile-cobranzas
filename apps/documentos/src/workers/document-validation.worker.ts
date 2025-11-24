@@ -156,17 +156,19 @@ class DocumentValidationWorker {
       });
 
       // Si Flowise detectó tipo de documento y entidad, ajustar plantilla del documento
+      // IMPORTANTE: NO crear plantillas automáticamente - solo buscar existentes
       try {
         if (safeDocType && safeEntityType) {
           const tpl = await db.getClient().documentTemplate.findFirst({
             where: { name: safeDocType, entityType: safeEntityType as any } as any,
           });
-          let templateIdToUse: number | null = (tpl as any)?.id ?? null;
+          const templateIdToUse: number | null = (tpl as any)?.id ?? null;
+          
           if (!templateIdToUse) {
-            const created = await db.getClient().documentTemplate.create({ data: { name: safeDocType, entityType: safeEntityType as any, active: true } });
-            templateIdToUse = (created as any).id;
-          }
-          if (templateIdToUse) {
+            // Plantilla no existe - NO crear automáticamente
+            // Loguear advertencia para que admin la cree manualmente si es necesaria
+            AppLogger.warn(`⚠️ Plantilla no encontrada: ${safeDocType} (${safeEntityType}) - Documento ID: ${documentId}`);
+          } else if (templateIdToUse) {
             // Verificar nuevamente que el documento existe antes de actualizar
             const stillExists = await db.getClient().document.findUnique({
               where: { id: documentId },
