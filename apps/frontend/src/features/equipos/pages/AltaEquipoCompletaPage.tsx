@@ -5,6 +5,9 @@ import {
   useGetTemplatesQuery,
   useUploadDocumentMutation,
   useCreateEquipoMutation,
+  useGetDadoresQuery,
+  useGetClientsQuery,
+  useAssociateEquipoClienteMutation,
 } from '../../documentos/api/documentosApiSlice';
 import { SeccionDocumentos, Template } from '../components/SeccionDocumentos';
 
@@ -42,10 +45,15 @@ const AltaEquipoCompletaPage: React.FC = () => {
 
   // Queries y mutations del sistema existente
   const { data: templatesResp, isLoading: loadingTemplates } = useGetTemplatesQuery(undefined);
+  const { data: dadoresResp } = useGetDadoresQuery({ activo: true });
+  const { data: clientsResp } = useGetClientsQuery({ activo: true });
   const [uploadDocument, { isLoading: uploading }] = useUploadDocumentMutation();
   const [createEquipo, { isLoading: creatingEquipo }] = useCreateEquipoMutation();
+  const [associateCliente] = useAssociateEquipoClienteMutation();
 
   // Estados del formulario
+  const [dadorCargaId, setDadorCargaId] = useState<number | null>(null);
+  const [clienteIds, setClienteIds] = useState<number[]>([]);
   const [empresaTransportista, setEmpresaTransportista] = useState('');
   const [cuitTransportista, setCuitTransportista] = useState('');
   const [choferNombre, setChoferNombre] = useState('');
@@ -67,6 +75,25 @@ const AltaEquipoCompletaPage: React.FC = () => {
 
   // Permisos
   const canUpload = ['SUPERADMIN', 'ADMIN', 'OPERATOR', 'ADMIN_INTERNO', 'DADOR_DE_CARGA', 'TRANSPORTISTA'].includes(role || '');
+  const isAdminInterno = role === 'ADMIN_INTERNO';
+  
+  // Listas de dadores y clientes
+  const dadoresList = useMemo(() => {
+    const raw = (dadoresResp as any)?.data || (dadoresResp as any)?.list || [];
+    return Array.isArray(raw) ? raw : [];
+  }, [dadoresResp]);
+  
+  const clientesList = useMemo(() => {
+    const raw = (clientsResp as any)?.data || (clientsResp as any)?.list || [];
+    return Array.isArray(raw) ? raw : [];
+  }, [clientsResp]);
+  
+  // Si el usuario NO es ADMIN_INTERNO, usar su empresaId como dadorCargaId por defecto
+  useEffect(() => {
+    if (!isAdminInterno && empresaId && !dadorCargaId) {
+      setDadorCargaId(empresaId);
+    }
+  }, [isAdminInterno, empresaId, dadorCargaId]);
 
   // Agrupar templates por entityType
   const templatesPorTipo = useMemo(() => {
@@ -108,6 +135,7 @@ const AltaEquipoCompletaPage: React.FC = () => {
   // Validar datos básicos
   const datosBasicosCompletos = useMemo(() => {
     return (
+      dadorCargaId !== null &&
       empresaTransportista.trim().length > 1 &&
       /^\d{11}$/.test(cuitTransportista) &&
       choferNombre.trim().length >= 1 &&
@@ -115,7 +143,7 @@ const AltaEquipoCompletaPage: React.FC = () => {
       choferDni.trim().length >= 6 &&
       tractorPatente.trim().length >= 5
     );
-  }, [empresaTransportista, cuitTransportista, choferNombre, choferApellido, choferDni, tractorPatente]);
+  }, [dadorCargaId, empresaTransportista, cuitTransportista, choferNombre, choferApellido, choferDni, tractorPatente]);
 
   // Calcular documentos obligatorios
   const templateIdsObligatorios = useMemo(() => {
@@ -174,15 +202,15 @@ const AltaEquipoCompletaPage: React.FC = () => {
       return;
     }
 
-    if (!empresaId) {
-      setMessage({ type: 'error', text: 'No se pudo determinar la empresa' });
+    if (!dadorCargaId) {
+      setMessage({ type: 'error', text: 'Debe seleccionar un dador de carga' });
       return;
     }
 
     try {
       // Usar el endpoint existente de creación de equipo
       const payload = {
-        dadorCargaId: empresaId,
+        dadorCargaId: dadorCargaId,
         dniChofer: choferDni,
         patenteTractor: tractorPatente,
         patenteAcoplado: semiPatente || undefined,
@@ -191,13 +219,25 @@ const AltaEquipoCompletaPage: React.FC = () => {
         empresaTransportistaNombre: empresaTransportista,
       };
 
-      await createEquipo(payload).unwrap();
+      const result = await createEquipo(payload).unwrap();
+      const equipoId = (result as any)?.id || (result as any)?.data?.id;
+
+      // Si hay clientes seleccionados, asociarlos al equipo
+      if (clienteIds.length > 0 && equipoId) {
+        for (const clienteId of clienteIds) {
+          try {
+            await associateCliente({ equipoId, clienteId }).unwrap();
+          } catch (err) {
+            console.error(`Error asociando cliente ${clienteId}:`, err);
+          }
+        }
+      }
 
       setMessage({ type: 'success', text: '✅ Equipo creado exitosamente con todos sus documentos' });
       
-      // Redirigir al listado de equipos después de 2 segundos
+      // Redirigir después de 2 segundos
       setTimeout(() => {
-        navigate('/equipos');
+        navigate(getBackRoute());
       }, 2000);
     } catch (error: any) {
       const errorMsg = error?.data?.message || error?.message || 'Error al crear equipo';
@@ -265,6 +305,83 @@ const AltaEquipoCompletaPage: React.FC = () => {
           {message.text}
         </div>
       )}
+
+      {/* SELECTOR DE DADOR DE CARGA (solo para ADMIN_INTERNO) */}
+      {isAdminInterno && (
+        <div className='bg-gradient-to-r from-purple-50 to-purple-100 border-2 border-purple-300 rounded-lg p-6 mb-4'>
+          <h2 className='text-xl font-semibold text-purple-900 mb-4 flex items-center'>
+            <span className='bg-purple-200 text-purple-900 rounded-full w-8 h-8 flex items-center justify-center mr-3 text-sm font-bold'>📋</span>
+            Dador de Carga *
+          </h2>
+          <div className='grid grid-cols-1 gap-4'>
+            <div>
+              <label className='block text-sm font-medium text-gray-700 mb-1'>
+                Seleccionar Dador de Carga *
+              </label>
+              <select
+                value={dadorCargaId || ''}
+                onChange={(e) => setDadorCargaId(e.target.value ? Number(e.target.value) : null)}
+                className='w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500'
+              >
+                <option value=''>-- Seleccionar Dador --</option>
+                {dadoresList.map((dador: any) => (
+                  <option key={dador.id} value={dador.id}>
+                    {dador.razonSocial} (CUIT: {dador.cuit})
+                  </option>
+                ))}
+              </select>
+              {!dadorCargaId && (
+                <p className='text-xs text-red-600 mt-1'>⚠️ Debe seleccionar un dador de carga</p>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* SELECTOR DE CLIENTES (para todos los roles que pueden cargar) */}
+      <div className='bg-gradient-to-r from-blue-50 to-blue-100 border-2 border-blue-300 rounded-lg p-6 mb-4'>
+        <h2 className='text-xl font-semibold text-blue-900 mb-4 flex items-center'>
+          <span className='bg-blue-200 text-blue-900 rounded-full w-8 h-8 flex items-center justify-center mr-3 text-sm font-bold'>👥</span>
+          Clientes (Opcional)
+        </h2>
+        <div className='grid grid-cols-1 gap-4'>
+          <div>
+            <label className='block text-sm font-medium text-gray-700 mb-2'>
+              Seleccionar Clientes (puede seleccionar múltiples)
+            </label>
+            <div className='max-h-60 overflow-y-auto border border-gray-300 rounded-md p-3 bg-white'>
+              {clientesList.length === 0 ? (
+                <p className='text-sm text-gray-500'>No hay clientes disponibles</p>
+              ) : (
+                clientesList.map((cliente: any) => (
+                  <label key={cliente.id} className='flex items-center gap-2 p-2 hover:bg-gray-50 rounded cursor-pointer'>
+                    <input
+                      type='checkbox'
+                      checked={clienteIds.includes(cliente.id)}
+                      onChange={(e) => {
+                        if (e.target.checked) {
+                          setClienteIds([...clienteIds, cliente.id]);
+                        } else {
+                          setClienteIds(clienteIds.filter((id) => id !== cliente.id));
+                        }
+                      }}
+                      className='w-4 h-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded'
+                    />
+                    <span className='text-sm text-gray-700'>
+                      {cliente.razonSocial} {cliente.cuit && `(CUIT: ${cliente.cuit})`}
+                    </span>
+                  </label>
+                ))
+              )}
+            </div>
+            {clienteIds.length > 0 && (
+              <p className='text-xs text-blue-600 mt-2'>
+                ✓ {clienteIds.length} cliente{clienteIds.length > 1 ? 's' : ''} seleccionado{clienteIds.length > 1 ? 's' : ''}
+              </p>
+            )}
+          </div>
+        </div>
+      </div>
 
       {/* DATOS BÁSICOS AGRUPADOS POR ENTIDAD */}
       
