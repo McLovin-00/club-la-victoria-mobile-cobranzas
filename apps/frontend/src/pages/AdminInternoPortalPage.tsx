@@ -125,7 +125,7 @@ export const AdminInternoPortalPage: React.FC = () => {
                 variant='outline' 
                 size='sm'
                 className='border-slate-600 hover:bg-slate-700'
-                onClick={() => navigate('/documentos/approval/pending')}
+                onClick={() => navigate('/documentos/aprobacion')}
               >
                 Aprobaciones Pendientes
               </Button>
