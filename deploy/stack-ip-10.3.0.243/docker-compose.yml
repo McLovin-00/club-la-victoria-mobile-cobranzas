@@ -14,6 +14,7 @@ services:
   postgres:
     image: postgres:16
     container_name: bca_postgres
+    restart: always
     environment:
       POSTGRES_USER: evo
       POSTGRES_PASSWORD: phoenix
@@ -42,8 +43,8 @@ services:
       "-c", "log_min_duration_statement=1000",
       "-c", "log_statement=mod"
     ]
-    # ports:
-    #   - "5432:5432"
+    ports:
+      - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - ./postgres/init:/docker-entrypoint-initdb.d:ro
@@ -66,6 +67,7 @@ services:
   redis:
     image: redis:7-alpine
     container_name: bca_redis
+    restart: always
     command: [
       "redis-server",
       "--appendonly", "yes",
@@ -79,8 +81,8 @@ services:
     ]
     volumes:
       - redis_data:/data
-    # ports:
-    #   - "127.0.0.1:6379:6379"
+    ports:
+      - "127.0.0.1:6379:6379"
     deploy:
       resources:
         reservations:
@@ -100,6 +102,7 @@ services:
   minio:
     image: minio/minio:latest
     container_name: bca_minio
+    restart: always
     command: [
       "server", "/data",
       "--address", ":9000",
@@ -149,13 +152,14 @@ services:
       dockerfile: ./deploy/stack-ip-10.3.0.243/Dockerfile.backend
     image: bca/backend:latest
     container_name: bca_backend
+    restart: always
     command: [
       "node",
       "--max-old-space-size=3072",
       "apps/backend/dist/src/server.js"
     ]
     environment:
-      NODE_ENV: production
+      NODE_ENV: development
       # split users siempre habilitado en código (no requiere env)
       BACKEND_PORT: 4800
       # Optimizaciones Node.js
@@ -211,8 +215,9 @@ services:
       dockerfile: Dockerfile
     image: bca/documentos:latest
     container_name: bca_documentos
+    restart: always
     environment:
-      NODE_ENV: production
+      NODE_ENV: development
       ENABLE_DOCUMENTOS: "true"
       DOCUMENTOS_PORT: 4802
       # Optimizaciones Node.js para procesamiento intensivo
@@ -286,6 +291,7 @@ services:
   flowise:
     image: flowiseai/flowise:latest
     container_name: bca_flowise
+    restart: always
     environment:
       PORT: 3005
       # Opcional: proteger UI de Flowise
@@ -301,7 +307,7 @@ services:
       DATABASE_NAME: monorepo-bca
       DATABASE_SCHEMA: flowise
       # Performance optimizations
-      NODE_ENV: production
+      NODE_ENV: development
       NODE_OPTIONS: "--max-old-space-size=4096"
       # AI model optimizations
       LANGCHAIN_TRACING_V2: "false"
@@ -349,7 +355,8 @@ services:
         VITE_APP_TITLE: Empresa Management System
     image: bca/frontend:latest
     container_name: bca_frontend
-    command: ["-port","8550","-enable-health"]
+    restart: always
+    command: ["-port","8550","-enable-health","-fallback","index.html"]
     environment:
       SERVER_PORT: 8550
       SERVER_ROOT: /public
