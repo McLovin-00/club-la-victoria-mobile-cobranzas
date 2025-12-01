@@ -67,7 +67,7 @@ router.get(
  */
 router.get(
   '/approval-kpis',
-  authorize([UserRole.SUPERADMIN, UserRole.ADMIN, UserRole.OPERATOR]),
+  authorize([UserRole.SUPERADMIN, UserRole.ADMIN, UserRole.OPERATOR, UserRole.ADMIN_INTERNO]),
   DashboardController.getApprovalKpis
 );
 
