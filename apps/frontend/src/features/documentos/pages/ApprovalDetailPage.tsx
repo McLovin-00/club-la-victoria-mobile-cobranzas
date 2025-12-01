@@ -156,7 +156,7 @@ export default function ApprovalDetailPage() {
     });
 
     return () => { cancelled = true; };
-  }, [effectivePreviewUrl, previewBlobUrl]);
+  }, [effectivePreviewUrl]); // FIXED: Removed previewBlobUrl from deps to prevent infinite loop
   const classification = info?.classification || (info as any)?.data?.classification;
   const meta = (info as any)?.data ?? info;
 
