@@ -96,23 +96,72 @@ export const DocumentPreview: React.FC<DocumentPreviewProps> = ({
       if (!finalUrl) throw new Error('URL de preview no disponible');
 
       // Descargar con Authorization y mostrar como blob (evita 401 en iframe)
-      const fileResp = await fetch(finalUrl, {
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`,
-        },
-      });
+      // Reintentar hasta 3 veces con backoff exponencial
+      let lastError: Error | null = null;
+      
+      for (let attempt = 1; attempt <= 3; attempt++) {
+        try {
+          const controller = new AbortController();
+          const timeoutId = setTimeout(() => controller.abort(), 15000); // 15s timeout por intento
+          
+          const fileResp = await fetch(finalUrl, {
+            headers: {
+              'Authorization': `Bearer ${localStorage.getItem('token')}`,
+            },
+            signal: controller.signal,
+          });
+          
+          clearTimeout(timeoutId);
 
-      if (!fileResp.ok) {
-        let msg = `Error ${fileResp.status}: ${fileResp.statusText}`;
-        try { const t = await fileResp.text(); if (t) msg = t; } catch (e) { /* noop */ }
-        throw new Error(msg);
+          if (!fileResp.ok) {
+            // Si es 429 (rate limit), esperar más tiempo antes de reintentar
+            if (fileResp.status === 429 && attempt < 3) {
+              const waitTime = Math.pow(2, attempt) * 1000; // 2s, 4s, 8s
+              await new Promise(resolve => setTimeout(resolve, waitTime));
+              continue;
+            }
+            
+            let msg = `Error ${fileResp.status}: ${fileResp.statusText}`;
+            try { const t = await fileResp.text(); if (t) msg = t; } catch (e) { /* noop */ }
+            throw new Error(msg);
+          }
+
+          const blob = await fileResp.blob();
+          const blobUrl = window.URL.createObjectURL(blob);
+          setPreviewUrl(blobUrl);
+          return; // Éxito, salir del callback
+          
+        } catch (e: any) {
+          lastError = e;
+          
+          // Si es abort o timeout, reintentar
+          if (e.name === 'AbortError' && attempt < 3) {
+            const waitTime = Math.pow(2, attempt - 1) * 1000; // 1s, 2s
+            await new Promise(resolve => setTimeout(resolve, waitTime));
+            continue;
+          }
+          
+          // Para otros errores de red, reintentar con backoff
+          if (attempt < 3 && (e.message?.includes('fetch') || e.message?.includes('network'))) {
+            const waitTime = Math.pow(2, attempt - 1) * 1000; // 1s, 2s
+            await new Promise(resolve => setTimeout(resolve, waitTime));
+            continue;
+          }
+          
+          // Si es el último intento, lanzar
+          if (attempt === 3) {
+            throw lastError;
+          }
+        }
       }
-
-      const blob = await fileResp.blob();
-      const blobUrl = window.URL.createObjectURL(blob);
-      setPreviewUrl(blobUrl);
+      
+      // Si llegamos aquí, falló después de todos los intentos
+      if (lastError) {
+        throw lastError;
+      }
+      
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Error desconocido');
+      setError((err instanceof Error ? err.message : 'Error desconocido') + ' (después de 3 intentos)');
     } finally {
       setIsLoading(false);
     }

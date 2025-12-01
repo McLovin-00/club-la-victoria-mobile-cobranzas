@@ -84,25 +84,76 @@ export default function ApprovalDetailPage() {
     setLoadingPreview(true);
 
     (async () => {
-      try {
-        const resp = await fetch(effectivePreviewUrl, {
-          headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` },
-        });
-        if (!resp.ok) {
-          let msg = `Error ${resp.status}: ${resp.statusText}`;
-          try { const t = await resp.text(); if (t) msg = t; } catch (e) { /* noop */ }
-          throw new Error(msg);
-        }
-        const blob = await resp.blob();
+      let lastError: Error | null = null;
+      
+      // Reintentar hasta 3 veces con backoff exponencial
+      for (let attempt = 1; attempt <= 3; attempt++) {
         if (cancelled) return;
-        const url = URL.createObjectURL(blob);
-        setPreviewBlobUrl(url);
-      } catch (e: any) {
-        if (!cancelled) setPreviewError(e?.message || 'Error al cargar preview');
-      } finally {
-        if (!cancelled) setLoadingPreview(false);
+        
+        try {
+          const controller = new AbortController();
+          const timeoutId = setTimeout(() => controller.abort(), 15000); // 15s timeout por intento
+          
+          const resp = await fetch(effectivePreviewUrl, {
+            headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` },
+            signal: controller.signal,
+          });
+          
+          clearTimeout(timeoutId);
+          
+          if (!resp.ok) {
+            // Si es 429 (rate limit), esperar más tiempo antes de reintentar
+            if (resp.status === 429 && attempt < 3) {
+              const waitTime = Math.pow(2, attempt) * 1000; // 2s, 4s, 8s
+              await new Promise(resolve => setTimeout(resolve, waitTime));
+              continue;
+            }
+            
+            let msg = `Error ${resp.status}: ${resp.statusText}`;
+            try { const t = await resp.text(); if (t) msg = t; } catch (e) { /* noop */ }
+            throw new Error(msg);
+          }
+          
+          const blob = await resp.blob();
+          if (cancelled) return;
+          const url = URL.createObjectURL(blob);
+          setPreviewBlobUrl(url);
+          return; // Éxito, salir
+          
+        } catch (e: any) {
+          lastError = e;
+          
+          // Si es abort o timeout, reintentar
+          if (e.name === 'AbortError' && attempt < 3) {
+            const waitTime = Math.pow(2, attempt - 1) * 1000; // 1s, 2s
+            await new Promise(resolve => setTimeout(resolve, waitTime));
+            continue;
+          }
+          
+          // Para otros errores de red, reintentar con backoff
+          if (attempt < 3 && (e.message?.includes('fetch') || e.message?.includes('network'))) {
+            const waitTime = Math.pow(2, attempt - 1) * 1000; // 1s, 2s
+            await new Promise(resolve => setTimeout(resolve, waitTime));
+            continue;
+          }
+          
+          // Si es el último intento o error no recuperable, lanzar
+          if (attempt === 3) {
+            throw lastError;
+          }
+        }
       }
-    })();
+      
+      // Si llegamos aquí, falló después de todos los intentos
+      if (lastError && !cancelled) {
+        throw lastError;
+      }
+      
+    })().catch((e: any) => {
+      if (!cancelled) setPreviewError(e?.message || 'Error al cargar preview después de 3 intentos');
+    }).finally(() => {
+      if (!cancelled) setLoadingPreview(false);
+    });
 
     return () => { cancelled = true; };
   }, [effectivePreviewUrl, previewBlobUrl]);
