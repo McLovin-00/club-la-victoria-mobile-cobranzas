@@ -9,7 +9,7 @@ import rateLimit from 'express-rate-limit';
  */
 export const uploadRateLimit = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutos
-  limit: 50, // Máximo 50 uploads por ventana de tiempo
+  limit: 200, // Máximo 200 uploads por ventana de tiempo
   message: {
     success: false,
     message: 'Demasiados uploads. Intenta nuevamente en 15 minutos.',
@@ -25,7 +25,7 @@ export const uploadRateLimit = rateLimit({
  */
 export const generalRateLimit = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutos
-  limit: 1000, // Máximo 1000 requests por ventana
+  limit: 5000, // Máximo 5000 requests por ventana (~333 req/min)
   message: {
     success: false,
     message: 'Demasiadas peticiones. Intenta nuevamente más tarde.',
@@ -55,7 +55,7 @@ export const configRateLimit = rateLimit({
  */
 export const approvalRateLimit = rateLimit({
   windowMs: 60 * 1000, // 1 minuto
-  limit: 60, // 60 acciones por minuto por usuario
+  limit: 200, // 200 acciones por minuto por usuario
   message: {
     success: false,
     message: 'Demasiadas acciones de aprobación/rechazo. Intenta nuevamente en breve.',
