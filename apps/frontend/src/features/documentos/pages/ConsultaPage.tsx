@@ -498,15 +498,12 @@ const EquipoSemaforo: React.FC<{ equipoId: number }> = ({ equipoId }) => {
     processedTemplates.add(key);
     
     const state = String(r.state || '').toUpperCase();
-    if (state === 'OK') { vigentes++; return; }
+    // Manejar todos los estados detallados del backend
+    if (state === 'OK' || state === 'VIGENTE') { vigentes++; return; }
     if (state === 'PROXIMO') { porVencer++; return; }
-    const list = (docsByEntity[entityType] || []) as Array<any>;
-    const latest = list.find((d: any) => d.templateId === r.templateId);
-    if (latest) {
-      const expired = latest.expiresAt && new Date(latest.expiresAt).getTime() <= now;
-      const statusExpired = String(latest.status || '').toUpperCase() === 'VENCIDO';
-      if (expired || statusExpired) { vencidos++; return; }
-    }
+    if (state === 'VENCIDO') { vencidos++; return; }
+    if (state === 'FALTANTE') { faltantes++; return; }
+    // Para estados desconocidos (PENDIENTE, RECHAZADO, etc.), contar como faltante
     faltantes++;
   };
 
