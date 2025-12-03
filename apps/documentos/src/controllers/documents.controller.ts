@@ -77,7 +77,10 @@ export class DocumentsController {
       });
       const isInitialAttempt = !last;
 
-      if (isInitialAttempt) {
+      // Permitir subida inicial para ADMIN_INTERNO (Alta Completa manual) y SUPERADMIN
+      const allowInitialUpload = req.user?.role === 'ADMIN_INTERNO' || req.user?.role === 'SUPERADMIN';
+
+      if (isInitialAttempt && !allowInitialUpload) {
         // Para alta inicial exigimos planilla completa con todos los documentos obligatorios (carga masiva).
         // Este endpoint sube 1 documento; rechazamos para evitar crear equipos incompletos.
         throw createError(

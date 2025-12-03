@@ -269,7 +269,7 @@ export const EquiposPage: React.FC = () => {
         }
       } else if (componentType === 'trailer') {
         const ok = await confirm({
-          title: 'Semirremolque no encontrado',
+          title: 'Acoplado no encontrado',
           message: `No existe un semirremolque con patente ${inputValue.trim()} en el dador seleccionado. ¿Desea crearlo y asociarlo al equipo?`,
           confirmText: 'Crear semirremolque',
           variant: 'primary',
@@ -278,7 +278,7 @@ export const EquiposPage: React.FC = () => {
         try {
           await createAcoplado({ dadorCargaId: dadorId, patente: inputValue.trim() }).unwrap();
           await attachEquipo({ id: manageEquipoId, trailerPlate: inputValue.trim() }).unwrap();
-          show('Semirremolque creado y asociado al equipo.', 'success');
+          show('Acoplado creado y asociado al equipo.', 'success');
           setManageOpen(false);
         } catch {
           show('Error al crear/adjuntar semirremolque.', 'error');
@@ -371,7 +371,7 @@ export const EquiposPage: React.FC = () => {
             </div>
           </div>
           <div>
-            <Label htmlFor='selCamion'>Camión/Tractor</Label>
+            <Label htmlFor='selCamion'>Camión</Label>
             <select id='selCamion' className='border rounded px-2 h-10 w-full bg-background text-foreground' value={truckIdSel}
               onChange={(e)=> setTruckIdSel(e.target.value? Number(e.target.value) : '')}>
               <option value=''>Seleccionar camión</option>
@@ -383,7 +383,7 @@ export const EquiposPage: React.FC = () => {
             </div>
           </div>
           <div>
-            <Label htmlFor='selAcoplado'>Semirremolque/Acoplado (opcional)</Label>
+            <Label htmlFor='selAcoplado'>Acoplado (opcional)</Label>
             <select id='selAcoplado' className='border rounded px-2 h-10 w-full bg-background text-foreground' value={trailerIdSel}
               onChange={(e)=> setTrailerIdSel(e.target.value? Number(e.target.value) : '')}>
               <option value=''>Sin acoplado</option>
@@ -798,8 +798,8 @@ export const EquiposPage: React.FC = () => {
                   value={componentType} onChange={(e)=> setComponentType(e.target.value as 'driver'|'truck'|'trailer'|'empresa')}>
                   <option value='driver'>Chofer</option>
                   <option value='truck'>Camión</option>
-                  <option value='trailer'>Semirremolque</option>
-                  <option value='empresa'>Empresa transportista</option>
+                  <option value='trailer'>Acoplado</option>
+                  <option value='empresa'>Empresa Transportista</option>
                 </select>
                 <span className='text-xs text-muted-foreground'>Actual: {currentIdentifier}</span>
               </div>
@@ -876,12 +876,7 @@ const EquipoSemaforo: React.FC<{ equipoId: number }> = ({ equipoId }) => {
   } catch (e) { /* noop */ }
 
   return (
-    <button
-      type='button'
-      className='mt-1 flex items-center gap-4 text-xs hover:bg-gray-50 dark:hover:bg-slate-800/50 px-2 py-1 rounded'
-      onClick={()=> navigate(`/documentos/carga?equipoId=${encodeURIComponent(String(equipoId))}`)}
-      title='Cargar documentación (renovación)'
-    >
+    <div className='mt-1 flex items-center gap-4 text-xs'>
       <span className='flex items-center gap-1' title='Documentación faltante'>
         <Dot color='#ef4444' />
         <span>Faltantes</span>
@@ -902,7 +897,7 @@ const EquipoSemaforo: React.FC<{ equipoId: number }> = ({ equipoId }) => {
         <span>Vigentes</span>
         <strong>{vigentes}</strong>
       </span>
-    </button>
+    </div>
   );
 };
 

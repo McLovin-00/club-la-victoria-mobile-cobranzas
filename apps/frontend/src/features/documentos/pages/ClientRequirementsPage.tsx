@@ -63,10 +63,10 @@ export const ClientRequirementsPage: React.FC = () => {
           <div className='flex flex-col'>
             <Label>Entidad</Label>
             <Select value={entity} onChange={(e) => { const val = e.target.value as 'EMPRESA_TRANSPORTISTA'|'CHOFER'|'CAMION'|'ACOPLADO'; setEntity(val); setTemplateId(tplByEntity[val][0]?.id); }}>
-              <option value='EMPRESA_TRANSPORTISTA'>Empresa transportista</option>
+              <option value='EMPRESA_TRANSPORTISTA'>Empresa Transportista</option>
               <option value='CHOFER'>Chofer</option>
-              <option value='CAMION'>Camión/Tractor</option>
-              <option value='ACOPLADO'>Semirremolque/Acoplado</option>
+              <option value='CAMION'>Camión</option>
+              <option value='ACOPLADO'>Acoplado</option>
             </Select>
           </div>
           <div className='flex flex-col'>
@@ -88,7 +88,7 @@ export const ClientRequirementsPage: React.FC = () => {
             <div key={r.id} className='flex items-center justify-between'>
               <div>
                 <span className='font-medium'>{r.template.name}</span>
-                <span className='text-sm text-muted-foreground ml-2'>({r.entityType === 'EMPRESA_TRANSPORTISTA' ? 'Empresa transportista' : r.entityType === 'ACOPLADO' ? 'Semirremolque/Acoplado' : r.entityType === 'CAMION' ? 'Camión/Tractor' : 'Chofer'})</span>
+                <span className='text-sm text-muted-foreground ml-2'>({r.entityType === 'EMPRESA_TRANSPORTISTA' ? 'Empresa Transportista' : r.entityType === 'ACOPLADO' ? 'Acoplado' : r.entityType === 'CAMION' ? 'Camión' : 'Chofer'})</span>
               </div>
               <Button variant='destructive' onClick={() => removeReq({ clienteId: id, requirementId: r.id })}>Quitar</Button>
             </div>

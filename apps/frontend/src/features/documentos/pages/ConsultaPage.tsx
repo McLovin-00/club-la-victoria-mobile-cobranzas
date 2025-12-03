@@ -6,9 +6,12 @@ import { useAppSelector } from '../../../store/hooks';
 import { Card } from '../../../components/ui/card';
 import { Button } from '../../../components/ui/button';
 import { Input } from '../../../components/ui/input';
+import { Label } from '../../../components/ui/label';
 import { ConfirmContext } from '../../../contexts/confirmContext';
-import { useGetDadoresQuery, useGetTemplatesQuery, useGetClientsQuery, useLazySearchEquiposQuery, useGetDefaultsQuery, useLazyGetEquipoComplianceQuery, useDeleteEquipoMutation, useGetEquipoComplianceQuery, useSearchEquiposByDnisMutation, useDownloadVigentesBulkMutation } from '../api/documentosApiSlice';
+import { useGetDadoresQuery, useGetTemplatesQuery, useGetClientsQuery, useLazySearchEquiposQuery, useGetDefaultsQuery, useLazyGetEquipoComplianceQuery, useDeleteEquipoMutation, useGetEquipoComplianceQuery, useSearchEquiposByDnisMutation, useDownloadVigentesBulkMutation, useGetEmpresasTransportistasQuery } from '../api/documentosApiSlice';
 import { ArrowLeftIcon } from '@heroicons/react/24/outline';
+
+type FilterType = 'todos' | 'dador' | 'cliente' | 'empresa';
 
 export const ConsultaPage: React.FC = () => {
   const navigate = useNavigate();
@@ -41,10 +44,24 @@ export const ConsultaPage: React.FC = () => {
   // Para búsqueda, usar default del dador si existe; si no, caer al empresaId del usuario
   const dadorIdForSearch = (defaults?.defaultDadorId ?? empresaIdFromAuth ?? undefined);
   const authToken = useSelector((s: RootState) => s.auth?.token) || (typeof localStorage !== 'undefined' ? (localStorage.getItem('token') || '') : '');
+  
+  // Estados de filtros
+  const [filterType, setFilterType] = useState<FilterType>('dador');
+  const [selectedDadorId, setSelectedDadorId] = useState<number | undefined>(dadorIdForSearch);
+  const [selectedClienteId, setSelectedClienteId] = useState<number | undefined>();
+  const [selectedEmpresaTranspId, setSelectedEmpresaTranspId] = useState<number | undefined>();
+  
+  // Obtener empresas transportistas del dador seleccionado
+  const { data: empresasTransp = [] } = useGetEmpresasTransportistasQuery(
+    { dadorCargaId: selectedDadorId || dadorIdForSearch || 1 },
+    { skip: !selectedDadorId && !dadorIdForSearch }
+  );
+  
   const [dni, setDni] = useState('');
   const [truckPlate, setTruckPlate] = useState('');
   const [trailerPlate, setTrailerPlate] = useState('');
-  const [params, setParams] = useState<{ dni?: string; truckPlate?: string; trailerPlate?: string }>({});
+  const [params, setParams] = useState<{ empresaId?: number; clienteId?: number; empresaTransportistaId?: number; dni?: string; truckPlate?: string; trailerPlate?: string }>({});
+  const [hasSearched, setHasSearched] = useState(false);
   const [searchParams, setSearchParams] = useSearchParams();
   const [trigger, { data = [], isFetching, isError, error }] = useLazySearchEquiposQuery();
   const [getCompliance] = useLazyGetEquipoComplianceQuery();
@@ -55,43 +72,76 @@ export const ConsultaPage: React.FC = () => {
   const [csvResults, setCsvResults] = useState<Array<any>>([]);
   const [csvInfo, setCsvInfo] = useState<{ name?: string; count?: number }>({});
 
-  // Ejecutar búsqueda al cambiar parámetros válidos
+  // Ejecutar búsqueda al cambiar parámetros válidos SOLO si el usuario ha hecho click en buscar
   useEffect(() => {
-    if ((params.dni || params.truckPlate || params.trailerPlate)) {
-      console.debug('ConsultaPage: buscando equipos', { empresaId: dadorIdForSearch, ...params });
+    if (!hasSearched) return; // No buscar hasta que el usuario haga click
+    
+    // Permitir búsqueda con cualquier filtro de entidad (empresaId, clienteId, empresaTransportistaId)
+    // incluso si no hay parámetros de búsqueda adicionales (dni, patentes)
+    const hasFilters = params.empresaId || params.clienteId || params.empresaTransportistaId;
+    const hasSearchParams = params.dni || params.truckPlate || params.trailerPlate;
+    
+    // Ejecutar búsqueda si hay al menos un filtro de entidad
+    if (hasFilters || hasSearchParams) {
+      console.debug('ConsultaPage: buscando equipos', params);
       // preferCacheValue=false para forzar request
-      (trigger as any)({ empresaId: dadorIdForSearch, ...params }, false);
-      // Persistir búsqueda en URL y sessionStorage
-      const sp: any = {};
+      (trigger as any)(params, false);
+      // Persistir búsqueda en URL con flag de búsqueda activa
+      const sp: any = { search: 'true' };
+      if (params.empresaId) sp.empresaId = String(params.empresaId);
+      if (params.clienteId) sp.clienteId = String(params.clienteId);
+      if (params.empresaTransportistaId) sp.empresaTranspId = String(params.empresaTransportistaId);
       if (params.dni) sp.dni = params.dni;
       if (params.truckPlate) sp.truckPlate = params.truckPlate;
       if (params.trailerPlate) sp.trailerPlate = params.trailerPlate;
       setSearchParams(sp);
-      try { sessionStorage.setItem('consultaSearch', JSON.stringify(sp)); } catch (e) { /* noop */ }
     }
-  }, [dadorIdForSearch, params, setSearchParams, trigger]);
+  }, [params, hasSearched, setSearchParams, trigger]);
 
-  // Inicializar desde URL o sessionStorage
+  // Inicializar desde URL o sessionStorage SOLO en montaje inicial
   useEffect(() => {
+    // Solo buscar automáticamente si hay un flag explícito en URL
+    const autoSearch = searchParams.get('search') === 'true';
+    const empresaIdQ = searchParams.get('empresaId') ? Number(searchParams.get('empresaId')) : undefined;
+    const clienteIdQ = searchParams.get('clienteId') ? Number(searchParams.get('clienteId')) : undefined;
+    const empresaTranspIdQ = searchParams.get('empresaTranspId') ? Number(searchParams.get('empresaTranspId')) : undefined;
     const dniQ = searchParams.get('dni') || undefined;
     const truckQ = searchParams.get('truckPlate') || undefined;
     const trailerQ = searchParams.get('trailerPlate') || undefined;
-    if (dniQ || truckQ || trailerQ) {
+    
+    if (empresaIdQ || clienteIdQ || empresaTranspIdQ || dniQ || truckQ || trailerQ) {
+      // Restaurar valores en los selectores y campos
+      if (empresaIdQ) { 
+        setSelectedDadorId(empresaIdQ);
+        setFilterType('dador');
+      }
+      if (clienteIdQ) {
+        setSelectedClienteId(clienteIdQ);
+        setFilterType('cliente');
+      }
+      if (empresaTranspIdQ) {
+        setSelectedEmpresaTranspId(empresaTranspIdQ);
+        setFilterType('empresa');
+      }
       setDni(dniQ || '');
       setTruckPlate(truckQ || '');
       setTrailerPlate(trailerQ || '');
-      setParams({ dni: dniQ, truckPlate: truckQ, trailerPlate: trailerQ });
+      
+      // Solo ejecutar búsqueda si viene con flag explícito
+      if (autoSearch) {
+        setParams({ 
+          empresaId: empresaIdQ, 
+          clienteId: clienteIdQ, 
+          empresaTransportistaId: empresaTranspIdQ,
+          dni: dniQ, 
+          truckPlate: truckQ, 
+          trailerPlate: trailerQ 
+        });
+        setHasSearched(true);
+      }
       return;
     }
-    try {
-      const saved = JSON.parse(sessionStorage.getItem('consultaSearch') || 'null');
-      if (saved && (saved.dni || saved.truckPlate || saved.trailerPlate)) {
-        setDni(saved.dni || '');
-        setTruckPlate(saved.truckPlate || '');
-        setTrailerPlate(saved.trailerPlate || '');
-        setParams(saved);
-      }
-    } catch (e) { /* noop */ }
+    // No cargar desde sessionStorage para evitar búsquedas automáticas
   }, [searchParams]);
 
   const csvInputRef = React.useRef<HTMLInputElement>(null);
@@ -108,6 +158,7 @@ export const ConsultaPage: React.FC = () => {
       // Uniformar a la forma esperada por el render: { equipo, clientes }
       const wrapped = (resp || []).map((eq: any) => ({ equipo: eq, clientes: [] }));
       setCsvResults(wrapped);
+      setHasSearched(true); // Marcar como búsqueda realizada
       show(`Se encontraron ${wrapped.length} equipos para ${dnis.length} DNI(s)`, 'success');
     } catch {
       show('Error leyendo el CSV de DNIs', 'error');
@@ -143,8 +194,7 @@ export const ConsultaPage: React.FC = () => {
           variant='outline'
           size='sm'
           onClick={() => {
-            // Limpiar búsqueda persistida y volver
-            try { sessionStorage.removeItem('consultaSearch'); } catch (e) { /* noop */ }
+            // Limpiar búsqueda y volver
             setSearchParams({});
             navigate(getBackRoute());
           }}
@@ -156,30 +206,178 @@ export const ConsultaPage: React.FC = () => {
         <h1 className='text-2xl font-bold'>Consulta</h1>
       </div>
       <Card className='p-4 mb-6'>
-        <div className='grid grid-cols-1 md:grid-cols-3 gap-2'>
-          <Input placeholder='DNI Chofer' value={dni} onChange={(e) => setDni(e.target.value)} />
-          <Input placeholder='Patente Camión' value={truckPlate} onChange={(e) => setTruckPlate(e.target.value)} />
-          <Input placeholder='Patente Acoplado' value={trailerPlate} onChange={(e) => setTrailerPlate(e.target.value)} />
+        {/* Tipo de Filtro */}
+        <div className='mb-4'>
+          <Label className='text-sm font-medium mb-2 block'>Filtrar por:</Label>
+          <div className='grid grid-cols-2 md:grid-cols-4 gap-2'>
+            <Button
+              type='button'
+              variant={filterType === 'todos' ? 'default' : 'outline'}
+              onClick={() => setFilterType('todos')}
+              size='sm'
+            >
+              Todos los equipos
+            </Button>
+            <Button
+              type='button'
+              variant={filterType === 'dador' ? 'default' : 'outline'}
+              onClick={() => setFilterType('dador')}
+              size='sm'
+            >
+              Por Dador
+            </Button>
+            <Button
+              type='button'
+              variant={filterType === 'cliente' ? 'default' : 'outline'}
+              onClick={() => setFilterType('cliente')}
+              size='sm'
+            >
+              Por Cliente
+            </Button>
+            <Button
+              type='button'
+              variant={filterType === 'empresa' ? 'default' : 'outline'}
+              onClick={() => setFilterType('empresa')}
+              size='sm'
+            >
+              Por Empresa Transp.
+            </Button>
+          </div>
         </div>
-        <div className='mt-3 flex flex-col md:flex-row gap-2 md:items-center justify-between'>
+
+        {/* Selector de Filtro Principal */}
+        {filterType !== 'todos' && (
+          <div className='mb-3'>
+            {filterType === 'dador' && (
+              <div>
+                <Label className='text-sm mb-1 block'>Dador de Carga</Label>
+                <select
+                  className='w-full border rounded px-3 py-2 text-sm'
+                  value={selectedDadorId || ''}
+                  onChange={(e) => setSelectedDadorId(e.target.value ? Number(e.target.value) : undefined)}
+                >
+                  <option value=''>Seleccione un dador</option>
+                  {dadores.map((d: any) => (
+                    <option key={d.id} value={d.id}>
+                      {d.razonSocial || d.nombre || `Dador #${d.id}`}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
+            {filterType === 'cliente' && (
+              <div>
+                <Label className='text-sm mb-1 block'>Cliente</Label>
+                <select
+                  className='w-full border rounded px-3 py-2 text-sm'
+                  value={selectedClienteId || ''}
+                  onChange={(e) => setSelectedClienteId(e.target.value ? Number(e.target.value) : undefined)}
+                >
+                  <option value=''>Seleccione un cliente</option>
+                  {clients.map((c: any) => (
+                    <option key={c.id} value={c.id}>
+                      {c.razonSocial || c.nombre || `Cliente #${c.id}`}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
+            {filterType === 'empresa' && (
+              <div>
+                <Label className='text-sm mb-1 block'>Empresa Transportista</Label>
+                <select
+                  className='w-full border rounded px-3 py-2 text-sm'
+                  value={selectedEmpresaTranspId || ''}
+                  onChange={(e) => setSelectedEmpresaTranspId(e.target.value ? Number(e.target.value) : undefined)}
+                >
+                  <option value=''>Seleccione una empresa transportista</option>
+                  {(empresasTransp as any[]).map((et: any) => (
+                    <option key={et.id} value={et.id}>
+                      {et.razonSocial || `Empresa #${et.id}`} - {et.cuit}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Filtros adicionales por DNI/Patentes */}
+        <div className='mb-3'>
+          <Label className='text-sm mb-1 block'>Filtros adicionales (opcionales)</Label>
+          <div className='grid grid-cols-1 md:grid-cols-3 gap-2'>
+            <Input placeholder='DNI Chofer' value={dni} onChange={(e) => setDni(e.target.value)} />
+            <Input placeholder='Patente Camión' value={truckPlate} onChange={(e) => setTruckPlate(e.target.value)} />
+            <Input placeholder='Patente Acoplado' value={trailerPlate} onChange={(e) => setTrailerPlate(e.target.value)} />
+          </div>
+        </div>
+
+        {/* Botones de Acción */}
+        <div className='flex flex-col md:flex-row gap-2 md:items-center justify-between'>
           <div className='flex gap-2'>
-            <Button type='button' onClick={() => { const p = { dni: dni || undefined, truckPlate: truckPlate || undefined, trailerPlate: trailerPlate || undefined }; setCsvResults([]); setParams(p); }} disabled={!dni && !truckPlate && !trailerPlate}>Buscar</Button>
-            <Button type='button' variant='outline' onClick={() => { setDni(''); setTruckPlate(''); setTrailerPlate(''); setParams({}); setCsvResults([]); }}>Limpiar</Button>
+            <Button 
+              type='button' 
+              onClick={() => {
+                const p: any = {
+                  dni: dni || undefined,
+                  truckPlate: truckPlate || undefined,
+                  trailerPlate: trailerPlate || undefined
+                };
+                if (filterType === 'todos') {
+                  // Para "todos", usar el dador por defecto o dejar sin filtro de entidad
+                  p.empresaId = dadorIdForSearch;
+                } else if (filterType === 'dador') {
+                  p.empresaId = selectedDadorId;
+                } else if (filterType === 'cliente') {
+                  p.clienteId = selectedClienteId;
+                } else if (filterType === 'empresa') {
+                  p.empresaTransportistaId = selectedEmpresaTranspId;
+                }
+                setCsvResults([]);
+                setHasSearched(true);
+                setParams(p);
+              }}
+              disabled={
+                (filterType === 'dador' && !selectedDadorId) ||
+                (filterType === 'cliente' && !selectedClienteId) ||
+                (filterType === 'empresa' && !selectedEmpresaTranspId)
+              }
+            >
+              Buscar
+            </Button>
+            <Button 
+              type='button' 
+              variant='outline' 
+              onClick={() => { 
+                setDni(''); 
+                setTruckPlate(''); 
+                setTrailerPlate(''); 
+                setSelectedDadorId(dadorIdForSearch);
+                setSelectedClienteId(undefined);
+                setSelectedEmpresaTranspId(undefined);
+                setFilterType('dador');
+                setParams({}); 
+                setCsvResults([]);
+                setHasSearched(false);
+              }}
+            >
+              Limpiar
+            </Button>
           </div>
           <div className='flex gap-2 items-center'>
             <input ref={csvInputRef} id='csvDnis' type='file' accept='.csv' className='hidden' onChange={(e)=> { const f = e.target.files?.[0]; if (f) onCsvFile(f); }} />
-            <Button type='button' variant='outline' onClick={()=> csvInputRef.current?.click()}>Seleccionar CSV DNIs</Button>
+            <Button type='button' variant='outline' onClick={()=> csvInputRef.current?.click()} size='sm'>Seleccionar CSV DNIs</Button>
             {csvInfo?.name && <span className='text-xs text-muted-foreground'>Cargado: {csvInfo.name} ({csvInfo.count || 0} DNIs)</span>}
-            <Button type='button' variant='outline' onClick={downloadAllVigentes} disabled={(displayResults || []).length === 0}>Bajar documentación vigente (ZIP)</Button>
+            <Button type='button' variant='outline' onClick={downloadAllVigentes} disabled={(displayResults || []).length === 0} size='sm'>Bajar documentación vigente (ZIP)</Button>
           </div>
         </div>
       </Card>
 
       {isFetching && <div className='text-sm text-muted-foreground'>Buscando...</div>}
-      {(!isFetching && Array.isArray(displayResults) && displayResults.length === 0 && (params.dni || params.truckPlate || params.trailerPlate || csvResults.length > 0)) && (
-        <div className='text-sm text-muted-foreground'>Sin resultados para los criterios ingresados.</div>
+      {(!isFetching && Array.isArray(displayResults) && displayResults.length === 0 && Object.keys(params).length > 0 && !csvResults.length) && (
+        <div className='text-sm text-muted-foreground'>Sin resultados para los criterios de filtro seleccionados.</div>
       )}
-      {isError && <div className='text-sm text-red-600'>Error al buscar{(error as any)?.status ? ` (${(error as any).status})` : ''}. Revise conexión y credenciales.</div>}
+      {isError && <div className='text-sm text-red-600'>Error al buscar{(error as any)?.status ? ` (${(error as any).status})` : ''}. Revise los filtros seleccionados.</div>}
       <div className='grid gap-3'>
         {displayResults.map((it: any) => {
           const eq = it.equipo || it;

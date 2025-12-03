@@ -93,22 +93,6 @@ const Section: React.FC<{ title: string; items: Array<{ templateId: number; temp
                     <Badge variant="outline" className={`${config.color} text-xs sm:text-sm`}>
                       {config.label}
                     </Badge>
-                    {item.documentId && (
-                      <a
-                        href={`${import.meta.env.VITE_DOCUMENTOS_API_URL}/api/docs/documents/${item.documentId}/download`}
-                        rel="noreferrer"
-                        target="_blank"
-                        className='text-xs sm:text-sm border rounded px-2 py-1 hover:bg-gray-50'
-                      >
-                        Descargar
-                      </a>
-                    )}
-                    <a
-                      href={`/documentos/carga?equipoId=${encodeURIComponent(String((window.location.pathname.match(/\/(\d+)\/estado$/)?.[1] || '')))}&templateId=${encodeURIComponent(String(item.templateId))}`}
-                      className='text-xs sm:text-sm border rounded px-2 py-1 hover:bg-blue-50'
-                    >
-                      {String(item.state || '').toUpperCase() === 'VENCIDO' ? 'Renovar' : 'Nueva versión'}
-                    </a>
                   </div>
                 </div>
               );
@@ -329,8 +313,8 @@ export const EstadoEquipoPage: React.FC = () => {
           <div className='grid grid-cols-1 xl:grid-cols-2 gap-4 sm:gap-6'>
             <Section title='Empresa Transportista' items={(complianceByEntidad['EMPRESA_TRANSPORTISTA'] || []).map((r: any)=> ({ ...r, templateName: templateNameById.get(r.templateId) }))} />
             <Section title='Chofer' items={(complianceByEntidad['CHOFER'] || []).map((r: any)=> ({ ...r, templateName: templateNameById.get(r.templateId) }))} />
-            <Section title='Camión/Tractor' items={(complianceByEntidad['CAMION'] || []).map((r: any)=> ({ ...r, templateName: templateNameById.get(r.templateId) }))} />
-            <Section title='Semirremolque/Acoplado' items={(complianceByEntidad['ACOPLADO'] || []).map((r: any)=> ({ ...r, templateName: templateNameById.get(r.templateId) }))} />
+            <Section title='Camión' items={(complianceByEntidad['CAMION'] || []).map((r: any)=> ({ ...r, templateName: templateNameById.get(r.templateId) }))} />
+            <Section title='Acoplado' items={(complianceByEntidad['ACOPLADO'] || []).map((r: any)=> ({ ...r, templateName: templateNameById.get(r.templateId) }))} />
           </div>
         )}
 

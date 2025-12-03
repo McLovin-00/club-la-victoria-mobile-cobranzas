@@ -111,7 +111,7 @@ export const DocumentsSemaforo: React.FC<DocumentsSemaforoProps> = ({
 
   return (
     <div className='grid grid-cols-1 md:grid-cols-4 gap-4'>
-      <SemaforoCard title='Empresa transportista' icon='🏢' data={totales.empresa} />
+      <SemaforoCard title='Empresa Transportista' icon='🏢' data={totales.empresa} />
       <SemaforoCard
         title='Choferes'
         icon='👨‍💼'

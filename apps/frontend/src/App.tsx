@@ -22,7 +22,6 @@ import { FlowiseConfigPage } from './features/documentos/pages/FlowiseConfigPage
 import EvolutionConfigPage from './features/documentos/pages/EvolutionConfigPage';
 import NotificationsConfigPage from './features/documentos/pages/NotificationsConfigPage';
 import AuditLogsPage from './features/documentos/pages/AuditLogsPage';
-import CargaDocumentosPage from './features/documentos/pages/CargaDocumentosPage';
 import DashboardDadoresPage from './features/documentos/pages/DashboardDadoresPage';
 import ClientsPage from './features/documentos/pages/ClientsPage';
 import ClientRequirementsPage from './features/documentos/pages/ClientRequirementsPage';
@@ -89,11 +88,6 @@ function App() {
                 <Route path='/documentos' element={
                   <ProtectedServiceRoute service="documentos">
                     <DocumentosMainPage />
-                  </ProtectedServiceRoute>
-                } />
-                <Route path='/documentos/carga' element={
-                  <ProtectedServiceRoute service="documentos">
-                    <CargaDocumentosPage />
                   </ProtectedServiceRoute>
                 } />
                 <Route path='/documentos/auditoria' element={

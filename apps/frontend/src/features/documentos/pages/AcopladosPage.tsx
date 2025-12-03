@@ -42,7 +42,7 @@ const AcopladosPage: React.FC = () => {
             <ArrowLeftIcon className='h-4 w-4 mr-2' />
             Volver
           </Button>
-          <h1 className='text-2xl font-bold'>Semirremolques/Acoplados</h1>
+          <h1 className='text-2xl font-bold'>Acoplados</h1>
         </div>
         <div className='grid grid-cols-1 md:grid-cols-6 gap-2 items-end'>
           <select
@@ -71,7 +71,7 @@ const AcopladosPage: React.FC = () => {
             if (!dadorId || !patente) return;
             try {
               await createAcoplado({ dadorCargaId: dadorId, patente, tipo: tipo || undefined }).unwrap();
-              show('Semirremolque creado', 'success');
+              show('Acoplado creado', 'success');
               setPatente(''); setTipo('');
             } catch (error: any) {
               console.error('Error creating acoplado:', error);
@@ -102,7 +102,7 @@ const AcopladosPage: React.FC = () => {
                 <span className='font-medium'>Patente {v.patente}</span>
                 <span className='text-sm text-muted-foreground'>{(v as any).tipo ? `${(v as any).tipo} · ` : ''}ID {v.id}</span>
               </div>
-              <AcopladoEditInline acoplado={v} onSave={async (payload)=> { await updateAcoplado({ id: v.id, ...payload }).unwrap(); show('Semirremolque actualizado', 'success'); }} onToggleActivo={async ()=> { await updateAcoplado({ id: v.id, activo: !v.activo }); show(v.activo ? 'Semirremolque desactivado' : 'Semirremolque activado', 'success'); }} onDelete={()=> setConfirmDeleteId(v.id)} />
+              <AcopladoEditInline acoplado={v} onSave={async (payload)=> { await updateAcoplado({ id: v.id, ...payload }).unwrap(); show('Acoplado actualizado', 'success'); }} onToggleActivo={async ()=> { await updateAcoplado({ id: v.id, activo: !v.activo }); show(v.activo ? 'Acoplado desactivado' : 'Acoplado activado', 'success'); }} onDelete={()=> setConfirmDeleteId(v.id)} />
             </div>
           ))}
           {acoplados.length === 0 && <div className='text-sm text-muted-foreground'>Sin acoplados</div>}
@@ -120,7 +120,7 @@ const AcopladosPage: React.FC = () => {
             <p className='text-sm text-muted-foreground'>¿Seguro que querés eliminar el semirremolque #{confirmDeleteId}? Esta acción no se puede deshacer.</p>
             <div className='mt-4 flex items-center justify-end gap-2'>
               <Button variant='outline' onClick={() => setConfirmDeleteId(null)}>Cancelar</Button>
-              <Button variant='destructive' onClick={async () => { await deleteAcoplado(confirmDeleteId as number); setConfirmDeleteId(null); show('Semirremolque eliminado', 'success'); }}>Eliminar</Button>
+              <Button variant='destructive' onClick={async () => { await deleteAcoplado(confirmDeleteId as number); setConfirmDeleteId(null); show('Acoplado eliminado', 'success'); }}>Eliminar</Button>
             </div>
           </div>
         </div>

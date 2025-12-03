@@ -280,7 +280,7 @@ export default function ApprovalDetailPage() {
                 <option value="EMPRESA_TRANSPORTISTA">Empresa Transportista</option>
                 <option value="CHOFER">Chofer</option>
                 <option value="CAMION">Camión</option>
-                <option value="ACOPLADO">Semirremolque</option>
+                <option value="ACOPLADO">Acoplado</option>
               </select>
             </div>
 

@@ -504,7 +504,9 @@ export const equipoClienteAssocSchema = z.object({
 
 export const searchQuerySchema = z.object({
   query: z.object({
-    dadorCargaId: z.string().transform((v) => Number(v)),
+    dadorCargaId: z.string().transform((v) => Number(v)).optional(),
+    clienteId: z.string().transform((v) => Number(v)).optional(),
+    empresaTransportistaId: z.string().transform((v) => Number(v)).optional(),
     dni: z.string().min(6).max(32).optional(),
     truckPlate: z.string().min(5).max(12).optional(),
     trailerPlate: z.string().min(5).max(12).optional(),
@@ -512,9 +514,6 @@ export const searchQuerySchema = z.object({
       .string()
       .transform((v) => Math.min(parseInt(v, 10), 100))
       .optional(),
-  }).refine((q) => q.dni || q.truckPlate || q.trailerPlate, {
-    message: 'Debe especificar al menos un parámetro de búsqueda',
-    path: ['dni'],
   }),
 });
 

@@ -465,11 +465,13 @@ export const documentosApiSlice = createApi({
     // =================================
     searchEquipos: builder.query<
       Array<{ equipo: any; clientes: Array<{ clienteId: number; compliance: any[] }> }>,
-      { empresaId?: number; dni?: string; truckPlate?: string; trailerPlate?: string }
+      { empresaId?: number; clienteId?: number; empresaTransportistaId?: number; dni?: string; truckPlate?: string; trailerPlate?: string }
     >({
-      query: ({ empresaId, dni, truckPlate, trailerPlate }) => {
+      query: ({ empresaId, clienteId, empresaTransportistaId, dni, truckPlate, trailerPlate }) => {
         const params = new URLSearchParams();
         if (typeof empresaId === 'number') params.set('dadorCargaId', String(empresaId));
+        if (typeof clienteId === 'number') params.set('clienteId', String(clienteId));
+        if (typeof empresaTransportistaId === 'number') params.set('empresaTransportistaId', String(empresaTransportistaId));
         if (dni) params.set('dni', dni);
         if (truckPlate) params.set('truckPlate', truckPlate);
         if (trailerPlate) params.set('trailerPlate', trailerPlate);

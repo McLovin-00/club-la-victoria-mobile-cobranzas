@@ -98,7 +98,7 @@ export default function ApprovalQueuePage() {
               <option value="EMPRESA_TRANSPORTISTA">Empresa Transportista</option>
               <option value="CHOFER">Chofer</option>
               <option value="CAMION">Camión</option>
-              <option value="ACOPLADO">Semirremolque</option>
+              <option value="ACOPLADO">Acoplado</option>
             </select>
             <button 
               className="bg-gradient-to-r from-indigo-500 to-blue-500 hover:from-indigo-600 hover:to-blue-600 text-white font-medium px-6 py-2 rounded-lg shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105"
