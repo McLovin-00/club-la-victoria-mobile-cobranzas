@@ -68,6 +68,39 @@ router.post('/:id/rollback', authorize(['ADMIN' as any, 'SUPERADMIN' as any, 'AD
 router.put('/:id', authorize(['ADMIN' as any, 'SUPERADMIN' as any, 'ADMIN_INTERNO' as any]), validate(updateEquipoSchema), EquiposController.update);
 router.delete('/:id', authorize(['ADMIN' as any, 'SUPERADMIN' as any, 'ADMIN_INTERNO' as any]), EquiposController.delete);
 router.get('/:id/history', authorize(['ADMIN' as any, 'SUPERADMIN' as any, 'ADMIN_INTERNO' as any]), validate(equipoHistoryQuerySchema), EquiposController.history);
+router.get('/:id/audit', authorize(['ADMIN' as any, 'SUPERADMIN' as any, 'ADMIN_INTERNO' as any]), EquiposController.getAuditHistory);
+router.get('/:id/requisitos', authorize(['ADMIN' as any, 'SUPERADMIN' as any, 'ADMIN_INTERNO' as any]), EquiposController.getRequisitos);
+
+// Actualizar entidades del equipo (chofer, camión, acoplado, empresa)
+const updateEntidadesSchema = z.object({
+  body: z.object({
+    choferId: z.number().int().positive().optional(),
+    camionId: z.number().int().positive().optional(),
+    acopladoId: z.number().int().positive().nullable().optional(),
+    empresaTransportistaId: z.number().int().positive().optional(),
+  }),
+});
+router.put('/:id/entidades', authorize(['ADMIN' as any, 'SUPERADMIN' as any, 'ADMIN_INTERNO' as any]), validate(updateEntidadesSchema), EquiposController.updateEntidades);
+
+// Gestión de clientes del equipo
+const addClienteSchema = z.object({
+  body: z.object({
+    clienteId: z.number().int().positive(),
+  }),
+});
+router.post('/:id/clientes', authorize(['ADMIN' as any, 'SUPERADMIN' as any, 'ADMIN_INTERNO' as any]), validate(addClienteSchema), EquiposController.addCliente);
+router.delete('/:id/clientes/:clienteId', authorize(['ADMIN' as any, 'SUPERADMIN' as any, 'ADMIN_INTERNO' as any]), EquiposController.removeClienteWithArchive);
+
+// Transferir equipo a otro dador de carga (solo admin interno)
+const transferirSchema = z.object({
+  body: z.object({
+    nuevoDadorCargaId: z.number().int().positive(),
+    motivo: z.string().max(500).optional(),
+  }),
+});
+router.post('/:id/transferir', authorize(['ADMIN_INTERNO' as any]), validate(transferirSchema), EquiposController.transferir);
+
+// Rutas legacy para compatibilidad
 router.post('/:equipoId/clientes/:clienteId', authorize(['ADMIN' as any, 'SUPERADMIN' as any, 'ADMIN_INTERNO' as any]), validate(equipoClienteAssocSchema), EquiposController.associateCliente);
 router.delete('/:equipoId/clientes/:clienteId', authorize(['ADMIN' as any, 'SUPERADMIN' as any, 'ADMIN_INTERNO' as any]), EquiposController.removeCliente);
 

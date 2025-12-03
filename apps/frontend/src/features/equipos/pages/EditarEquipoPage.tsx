@@ -12,11 +12,14 @@ import {
   useUpdateEquipoMutation,
   useAssociateEquipoClienteMutation,
   useRemoveEquipoClienteMutation,
+  useGetEquipoRequisitosQuery,
+  useAddEquipoClienteMutation,
+  useRemoveEquipoClienteWithArchiveMutation,
 } from '../../documentos/api/documentosApiSlice';
 import { Button } from '../../../components/ui/button';
 import { Card } from '../../../components/ui/card';
 import { Label } from '../../../components/ui/label';
-import { ArrowLeftIcon } from '@heroicons/react/24/outline';
+import { ArrowLeftIcon, DocumentIcon, CheckCircleIcon, ExclamationTriangleIcon, XCircleIcon, ClockIcon } from '@heroicons/react/24/outline';
 import { ConfirmContext } from '../../../contexts/confirmContext';
 
 /**
@@ -46,11 +49,19 @@ const EditarEquipoPage: React.FC = () => {
   const { data: acopladosResp } = useGetAcopladosQuery({ empresaId: dadorId, page: 1, limit: 100 });
   const { data: empresasResp } = useGetEmpresasTransportistasQuery({ dadorCargaId: dadorId });
   
+  // Cargar requisitos del equipo
+  const { data: requisitos, refetch: refetchRequisitos } = useGetEquipoRequisitosQuery(
+    { equipoId },
+    { skip: !equipoId }
+  );
+  
   // Mutations
   const [attachComponents, { isLoading: attaching }] = useAttachEquipoComponentsMutation();
   const [updateEquipo] = useUpdateEquipoMutation();
   const [associateCliente] = useAssociateEquipoClienteMutation();
   const [removeCliente] = useRemoveEquipoClienteMutation();
+  const [addClienteNew] = useAddEquipoClienteMutation();
+  const [removeClienteWithArchive] = useRemoveEquipoClienteWithArchiveMutation();
   
   // Estados locales para edición
   const [selectedChoferId, setSelectedChoferId] = useState<number | ''>('');
@@ -185,7 +196,7 @@ const EditarEquipoPage: React.FC = () => {
     }
   };
   
-  // Quitar cliente
+  // Quitar cliente (usando nuevo endpoint con archivado)
   const handleRemoveCliente = async (clienteId: number, clienteNombre: string) => {
     if (clientesActuales.length <= 1) {
       setMessage({ type: 'error', text: 'El equipo debe tener al menos un cliente' });
@@ -194,7 +205,7 @@ const EditarEquipoPage: React.FC = () => {
     
     const ok = await confirm({
       title: 'Quitar cliente',
-      message: `¿Quitar "${clienteNombre}" de este equipo?`,
+      message: `¿Quitar "${clienteNombre}" de este equipo? Los documentos exclusivos de este cliente serán archivados.`,
       confirmText: 'Quitar',
       variant: 'danger',
     });
@@ -202,12 +213,75 @@ const EditarEquipoPage: React.FC = () => {
     if (!ok) return;
     
     try {
-      await removeCliente({ equipoId, clienteId }).unwrap();
-      setMessage({ type: 'success', text: 'Cliente removido' });
+      const result = await removeClienteWithArchive({ equipoId, clienteId }).unwrap();
+      const archivedMsg = result?.archivedDocuments 
+        ? ` (${result.archivedDocuments} documentos archivados)`
+        : '';
+      setMessage({ type: 'success', text: `Cliente removido${archivedMsg}` });
       refetch();
+      refetchRequisitos();
     } catch (err: any) {
       setMessage({ type: 'error', text: err?.data?.message || 'Error al quitar cliente' });
     }
+  };
+  
+  // Helper para obtener color de estado
+  const getEstadoStyle = (estado: string) => {
+    switch (estado) {
+      case 'VIGENTE':
+        return { bg: 'bg-green-100', text: 'text-green-800', icon: CheckCircleIcon };
+      case 'PROXIMO_VENCER':
+        return { bg: 'bg-yellow-100', text: 'text-yellow-800', icon: ClockIcon };
+      case 'VENCIDO':
+        return { bg: 'bg-red-100', text: 'text-red-800', icon: ExclamationTriangleIcon };
+      case 'PENDIENTE':
+        return { bg: 'bg-blue-100', text: 'text-blue-800', icon: ClockIcon };
+      case 'FALTANTE':
+      default:
+        return { bg: 'bg-gray-100', text: 'text-gray-800', icon: XCircleIcon };
+    }
+  };
+  
+  // Agrupar requisitos por tipo de entidad
+  const requisitosPorEntidad = useMemo(() => {
+    if (!requisitos) return {};
+    
+    const grouped: Record<string, typeof requisitos> = {};
+    for (const req of requisitos) {
+      if (!grouped[req.entityType]) {
+        grouped[req.entityType] = [];
+      }
+      grouped[req.entityType].push(req);
+    }
+    return grouped;
+  }, [requisitos]);
+  
+  // Resumen de estados
+  const resumenEstados = useMemo(() => {
+    if (!requisitos) return { vigentes: 0, proximosVencer: 0, vencidos: 0, faltantes: 0, pendientes: 0 };
+    
+    return requisitos.reduce(
+      (acc, req) => {
+        switch (req.estado) {
+          case 'VIGENTE': acc.vigentes++; break;
+          case 'PROXIMO_VENCER': acc.proximosVencer++; break;
+          case 'VENCIDO': acc.vencidos++; break;
+          case 'PENDIENTE': acc.pendientes++; break;
+          case 'FALTANTE': 
+          default: acc.faltantes++; break;
+        }
+        return acc;
+      },
+      { vigentes: 0, proximosVencer: 0, vencidos: 0, faltantes: 0, pendientes: 0 }
+    );
+  }, [requisitos]);
+  
+  const entityTypeLabels: Record<string, string> = {
+    CHOFER: 'Chofer',
+    CAMION: 'Camión',
+    ACOPLADO: 'Acoplado',
+    EMPRESA_TRANSPORTISTA: 'Empresa Transportista',
+    DADOR: 'Dador de Carga',
   };
   
   if (isLoading) {
@@ -440,11 +514,102 @@ const EditarEquipoPage: React.FC = () => {
         </p>
       </Card>
       
+      {/* Documentación Requerida */}
+      <Card className='p-4 mb-6'>
+        <h2 className='text-lg font-semibold mb-4 flex items-center gap-2'>
+          <DocumentIcon className='h-5 w-5' />
+          Documentación Requerida
+        </h2>
+        
+        {/* Resumen */}
+        <div className='flex flex-wrap gap-4 mb-4 p-3 bg-gray-50 rounded-lg'>
+          <div className='flex items-center gap-2'>
+            <span className='w-3 h-3 rounded-full bg-green-500'></span>
+            <span className='text-sm'>Vigentes: {resumenEstados.vigentes}</span>
+          </div>
+          <div className='flex items-center gap-2'>
+            <span className='w-3 h-3 rounded-full bg-yellow-500'></span>
+            <span className='text-sm'>Próximos a vencer: {resumenEstados.proximosVencer}</span>
+          </div>
+          <div className='flex items-center gap-2'>
+            <span className='w-3 h-3 rounded-full bg-red-500'></span>
+            <span className='text-sm'>Vencidos: {resumenEstados.vencidos}</span>
+          </div>
+          <div className='flex items-center gap-2'>
+            <span className='w-3 h-3 rounded-full bg-blue-500'></span>
+            <span className='text-sm'>Pendientes: {resumenEstados.pendientes}</span>
+          </div>
+          <div className='flex items-center gap-2'>
+            <span className='w-3 h-3 rounded-full bg-gray-400'></span>
+            <span className='text-sm'>Faltantes: {resumenEstados.faltantes}</span>
+          </div>
+        </div>
+        
+        {/* Lista por entidad */}
+        {Object.entries(requisitosPorEntidad).map(([entityType, reqs]) => (
+          <div key={entityType} className='mb-4'>
+            <h3 className='font-medium text-gray-700 mb-2'>{entityTypeLabels[entityType] || entityType}</h3>
+            <div className='space-y-2'>
+              {reqs.map((req) => {
+                const style = getEstadoStyle(req.estado);
+                const IconComponent = style.icon;
+                return (
+                  <div
+                    key={`${req.templateId}-${req.entityType}`}
+                    className={`flex items-center justify-between p-3 rounded border ${style.bg}`}
+                  >
+                    <div className='flex items-center gap-3'>
+                      <IconComponent className={`h-5 w-5 ${style.text}`} />
+                      <div>
+                        <div className='font-medium'>{req.templateName}</div>
+                        <div className='text-xs text-gray-500'>
+                          Requerido por: {req.requeridoPor.map(c => c.clienteName).join(', ')}
+                        </div>
+                      </div>
+                    </div>
+                    <div className='flex items-center gap-3'>
+                      <span className={`text-sm font-medium ${style.text}`}>
+                        {req.estado === 'VIGENTE' && 'Vigente'}
+                        {req.estado === 'PROXIMO_VENCER' && 'Próximo a vencer'}
+                        {req.estado === 'VENCIDO' && 'Vencido'}
+                        {req.estado === 'PENDIENTE' && 'Pendiente'}
+                        {req.estado === 'FALTANTE' && 'Faltante'}
+                      </span>
+                      {req.documentoActual?.expiresAt && (
+                        <span className='text-xs text-gray-500'>
+                          {new Date(req.documentoActual.expiresAt).toLocaleDateString('es-AR')}
+                        </span>
+                      )}
+                      {(req.estado === 'FALTANTE' || req.estado === 'VENCIDO') && (
+                        <Button
+                          variant='outline'
+                          size='sm'
+                          onClick={() => navigate(`/documentos/equipos`)}
+                        >
+                          Subir
+                        </Button>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        ))}
+        
+        {(!requisitos || requisitos.length === 0) && (
+          <div className='text-gray-500 text-sm text-center py-4'>
+            No hay requisitos documentales configurados para los clientes de este equipo.
+          </div>
+        )}
+      </Card>
+      
       {/* Nota informativa */}
       <div className='bg-blue-50 border border-blue-200 rounded-lg p-4 text-sm text-blue-800'>
         <strong>💡 Nota:</strong> Al cambiar una entidad (chofer, camión, acoplado), el sistema
         verificará que los documentos correspondientes estén disponibles. Si la nueva entidad
-        ya tiene documentos vigentes, se reutilizarán automáticamente.
+        ya tiene documentos vigentes, se reutilizarán automáticamente. Los documentos
+        faltantes o vencidos deben subirse desde la página de Alta de Equipos.
       </div>
     </div>
   );

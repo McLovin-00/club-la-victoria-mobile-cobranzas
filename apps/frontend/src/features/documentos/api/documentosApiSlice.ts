@@ -466,6 +466,54 @@ export const documentosApiSlice = createApi({
     }),
 
     // =================================
+    // EDICIÓN DE EQUIPOS - Nuevos endpoints
+    // =================================
+    updateEquipoEntidades: builder.mutation<
+      any,
+      { equipoId: number; choferId?: number; camionId?: number; acopladoId?: number | null; empresaTransportistaId?: number }
+    >({
+      query: ({ equipoId, ...body }) => ({ url: `/equipos/${equipoId}/entidades`, method: 'PUT', body }),
+      transformResponse: (response: any) => response?.data,
+      invalidatesTags: ['Equipos'],
+    }),
+    addEquipoCliente: builder.mutation<any, { equipoId: number; clienteId: number }>({
+      query: ({ equipoId, clienteId }) => ({ url: `/equipos/${equipoId}/clientes`, method: 'POST', body: { clienteId } }),
+      transformResponse: (response: any) => response?.data,
+      invalidatesTags: ['Equipos'],
+    }),
+    removeEquipoClienteWithArchive: builder.mutation<{ removed: boolean; archivedDocuments: number }, { equipoId: number; clienteId: number }>({
+      query: ({ equipoId, clienteId }) => ({ url: `/equipos/${equipoId}/clientes/${clienteId}`, method: 'DELETE' }),
+      transformResponse: (response: any) => response?.data,
+      invalidatesTags: ['Equipos'],
+    }),
+    transferirEquipo: builder.mutation<any, { equipoId: number; nuevoDadorCargaId: number; motivo?: string }>({
+      query: ({ equipoId, ...body }) => ({ url: `/equipos/${equipoId}/transferir`, method: 'POST', body }),
+      transformResponse: (response: any) => response?.data,
+      invalidatesTags: ['Equipos'],
+    }),
+    getEquipoRequisitos: builder.query<
+      Array<{
+        templateId: number;
+        templateName: string;
+        entityType: string;
+        entityId: number | null;
+        obligatorio: boolean;
+        requeridoPor: Array<{ clienteId: number; clienteName: string }>;
+        documentoActual?: { id: number; status: string; expiresAt: string | null; estado: string };
+        estado: string;
+      }>,
+      { equipoId: number }
+    >({
+      query: ({ equipoId }) => ({ url: `/equipos/${equipoId}/requisitos` }),
+      transformResponse: (response: any) => response?.data ?? [],
+      providesTags: ['Equipos'],
+    }),
+    getEquipoAuditHistory: builder.query<any[], { equipoId: number }>({
+      query: ({ equipoId }) => ({ url: `/equipos/${equipoId}/audit` }),
+      transformResponse: (response: any) => response?.data ?? [],
+    }),
+
+    // =================================
     // BÚSQUEDA UNIFICADA
     // =================================
     searchEquipos: builder.query<
@@ -920,6 +968,13 @@ export const {
   // Equipos attach/detach
   useAttachEquipoComponentsMutation,
   useDetachEquipoComponentsMutation,
+  // Edición de equipos
+  useUpdateEquipoEntidadesMutation,
+  useAddEquipoClienteMutation,
+  useRemoveEquipoClienteWithArchiveMutation,
+  useTransferirEquipoMutation,
+  useGetEquipoRequisitosQuery,
+  useGetEquipoAuditHistoryQuery,
   // Auditoría
   useGetAuditLogsQuery,
 } = documentosApiSlice;

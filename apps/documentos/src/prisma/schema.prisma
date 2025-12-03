@@ -93,6 +93,12 @@ model Document {
   validationData Json?         @map("validation_data")
   expiresAt     DateTime?      @map("expires_at")
   
+  // Archivado (para documentos que ya no aplican)
+  archived      Boolean        @default(false)
+  archivedAt    DateTime?      @map("archived_at")
+  archivedBy    Int?           @map("archived_by")
+  archiveReason String?        @map("archive_reason") @db.VarChar(50)
+  
   // Timestamps
   uploadedAt    DateTime       @default(now()) @map("uploaded_at")
   validatedAt   DateTime?      @map("validated_at")
@@ -106,6 +112,7 @@ model Document {
   @@index([tenantEmpresaId, dadorCargaId, entityType, entityId])
   @@index([status, expiresAt])
   @@index([templateId])
+  @@index([archived])
   @@map("documents")
 }
 
@@ -273,6 +280,7 @@ model Equipo {
 
   clientes EquipoCliente[]
   history  EquipoHistory[]
+  auditLogs EquipoAuditLog[]
   dador    DadorCarga?          @relation(fields: [dadorCargaId], references: [id])
   empresaTransportista EmpresaTransportista? @relation(fields: [empresaTransportistaId], references: [id])
 
@@ -433,4 +441,26 @@ model AuditLog {
   @@index([userId, createdAt])
   @@index([accion, createdAt])
   @@map("audit_logs")
+}
+
+// =================================
+// AUDITORÍA ESPECÍFICA DE EQUIPOS
+// =================================
+model EquipoAuditLog {
+  id              Int      @id @default(autoincrement())
+  equipoId        Int      @map("equipo_id")
+  usuarioId       Int      @map("usuario_id")
+  accion          String   @db.VarChar(32) // CREAR, EDITAR, ELIMINAR, TRANSFERIR
+  campoModificado String?  @map("campo_modificado") @db.VarChar(50)
+  valorAnterior   Json?    @map("valor_anterior")
+  valorNuevo      Json?    @map("valor_nuevo")
+  motivo          String?  @db.Text
+  createdAt       DateTime @default(now()) @map("created_at")
+
+  equipo Equipo @relation(fields: [equipoId], references: [id])
+
+  @@index([equipoId])
+  @@index([usuarioId])
+  @@index([createdAt])
+  @@map("equipo_audit_logs")
 }

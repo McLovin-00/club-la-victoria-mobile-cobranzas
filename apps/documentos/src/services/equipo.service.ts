@@ -1,5 +1,7 @@
 import { prisma } from '../config/database';
 import { createError } from '../middlewares/error.middleware';
+import { AuditService } from './audit.service';
+import { DocumentArchiveService } from './document-archive.service';
 
 function normalizeDni(dni: string): string {
   return (dni || '').replace(/\D+/g, '');
@@ -901,6 +903,437 @@ export class EquipoService {
       return { success: true, message: 'Rollback completado exitosamente' };
     });
   }
+
+  /**
+   * Actualizar equipo (cambiar entidades)
+   * Valida permisos y documentos existentes
+   */
+  static async updateEquipo(input: {
+    equipoId: number;
+    usuarioId: number;
+    tenantEmpresaId: number;
+    choferId?: number;
+    camionId?: number;
+    acopladoId?: number | null;
+    empresaTransportistaId?: number;
+  }) {
+    const equipo = await prisma.equipo.findUnique({
+      where: { id: input.equipoId },
+      include: { clientes: { where: { asignadoHasta: null } } },
+    });
+
+    if (!equipo || equipo.tenantEmpresaId !== input.tenantEmpresaId) {
+      throw createError('Equipo no encontrado', 404, 'EQUIPO_NOT_FOUND');
+    }
+
+    const updates: any = {};
+    const cambios: Array<{ campo: string; anterior: any; nuevo: any }> = [];
+
+    // Cambio de chofer
+    if (input.choferId !== undefined && input.choferId !== equipo.driverId) {
+      const nuevoChofer = await prisma.chofer.findUnique({ where: { id: input.choferId } });
+      if (!nuevoChofer || nuevoChofer.dadorCargaId !== equipo.dadorCargaId) {
+        throw createError('Chofer no válido para este dador de carga', 400, 'CHOFER_INVALIDO');
+      }
+      updates.driverId = input.choferId;
+      updates.driverDniNorm = nuevoChofer.dniNorm;
+      cambios.push({ campo: 'chofer', anterior: equipo.driverId, nuevo: input.choferId });
+    }
+
+    // Cambio de camión
+    if (input.camionId !== undefined && input.camionId !== equipo.truckId) {
+      const nuevoCamion = await prisma.camion.findUnique({ where: { id: input.camionId } });
+      if (!nuevoCamion || nuevoCamion.dadorCargaId !== equipo.dadorCargaId) {
+        throw createError('Camión no válido para este dador de carga', 400, 'CAMION_INVALIDO');
+      }
+      updates.truckId = input.camionId;
+      updates.truckPlateNorm = nuevoCamion.patenteNorm;
+      cambios.push({ campo: 'camion', anterior: equipo.truckId, nuevo: input.camionId });
+    }
+
+    // Cambio de acoplado
+    if (input.acopladoId !== undefined && input.acopladoId !== equipo.trailerId) {
+      if (input.acopladoId !== null) {
+        const nuevoAcoplado = await prisma.acoplado.findUnique({ where: { id: input.acopladoId } });
+        if (!nuevoAcoplado || nuevoAcoplado.dadorCargaId !== equipo.dadorCargaId) {
+          throw createError('Acoplado no válido para este dador de carga', 400, 'ACOPLADO_INVALIDO');
+        }
+        updates.trailerId = input.acopladoId;
+        updates.trailerPlateNorm = nuevoAcoplado.patenteNorm;
+      } else {
+        updates.trailerId = null;
+        updates.trailerPlateNorm = null;
+      }
+      cambios.push({ campo: 'acoplado', anterior: equipo.trailerId, nuevo: input.acopladoId });
+    }
+
+    // Cambio de empresa transportista
+    if (input.empresaTransportistaId !== undefined && input.empresaTransportistaId !== equipo.empresaTransportistaId) {
+      const nuevaEmpresa = await prisma.empresaTransportista.findUnique({ where: { id: input.empresaTransportistaId } });
+      if (!nuevaEmpresa || nuevaEmpresa.dadorCargaId !== equipo.dadorCargaId) {
+        throw createError('Empresa transportista no válida para este dador de carga', 400, 'EMPRESA_INVALIDA');
+      }
+      updates.empresaTransportistaId = input.empresaTransportistaId;
+      cambios.push({ campo: 'empresaTransportista', anterior: equipo.empresaTransportistaId, nuevo: input.empresaTransportistaId });
+    }
+
+    if (Object.keys(updates).length === 0) {
+      return equipo;
+    }
+
+    // Actualizar equipo
+    const updated = await prisma.equipo.update({
+      where: { id: input.equipoId },
+      data: updates,
+    });
+
+    // Registrar auditoría
+    for (const cambio of cambios) {
+      await AuditService.logEquipoChange({
+        equipoId: input.equipoId,
+        usuarioId: input.usuarioId,
+        accion: 'EDITAR',
+        campoModificado: cambio.campo,
+        valorAnterior: cambio.anterior,
+        valorNuevo: cambio.nuevo,
+      });
+    }
+
+    // Registrar en historial
+    await prisma.equipoHistory.create({
+      data: {
+        equipoId: input.equipoId,
+        action: 'edit',
+        component: cambios.map(c => c.campo).join(','),
+        payload: { cambios } as any,
+      },
+    });
+
+    return updated;
+  }
+
+  /**
+   * Agregar cliente a equipo
+   */
+  static async addClienteToEquipo(input: {
+    equipoId: number;
+    clienteId: number;
+    usuarioId: number;
+    tenantEmpresaId: number;
+  }) {
+    const equipo = await prisma.equipo.findUnique({
+      where: { id: input.equipoId },
+    });
+
+    if (!equipo || equipo.tenantEmpresaId !== input.tenantEmpresaId) {
+      throw createError('Equipo no encontrado', 404, 'EQUIPO_NOT_FOUND');
+    }
+
+    // Verificar que el cliente existe
+    const cliente = await prisma.cliente.findUnique({ where: { id: input.clienteId } });
+    if (!cliente) {
+      throw createError('Cliente no encontrado', 404, 'CLIENTE_NOT_FOUND');
+    }
+
+    // Verificar que no esté ya asociado
+    const existente = await prisma.equipoCliente.findFirst({
+      where: { equipoId: input.equipoId, clienteId: input.clienteId, asignadoHasta: null },
+    });
+
+    if (existente) {
+      throw createError('El cliente ya está asociado a este equipo', 409, 'CLIENTE_YA_ASOCIADO');
+    }
+
+    // Crear asociación
+    const asociacion = await prisma.equipoCliente.create({
+      data: {
+        equipoId: input.equipoId,
+        clienteId: input.clienteId,
+        asignadoDesde: new Date(),
+        asignadoHasta: null,
+      },
+    });
+
+    // Auditoría
+    await AuditService.logEquipoChange({
+      equipoId: input.equipoId,
+      usuarioId: input.usuarioId,
+      accion: 'AGREGAR_CLIENTE',
+      campoModificado: 'cliente',
+      valorNuevo: { clienteId: input.clienteId, clienteNombre: cliente.razonSocial },
+    });
+
+    return asociacion;
+  }
+
+  /**
+   * Quitar cliente de equipo con archivado de documentos exclusivos
+   */
+  static async removeClienteFromEquipo(input: {
+    equipoId: number;
+    clienteId: number;
+    usuarioId: number;
+    tenantEmpresaId: number;
+  }) {
+    const equipo = await prisma.equipo.findUnique({
+      where: { id: input.equipoId },
+    });
+
+    if (!equipo || equipo.tenantEmpresaId !== input.tenantEmpresaId) {
+      throw createError('Equipo no encontrado', 404, 'EQUIPO_NOT_FOUND');
+    }
+
+    // Validar que quede al menos 1 cliente después de quitar
+    const clientesActuales = await prisma.equipoCliente.count({
+      where: { equipoId: input.equipoId, asignadoHasta: null },
+    });
+
+    if (clientesActuales <= 1) {
+      throw createError('No se puede quitar el último cliente. El equipo debe tener al menos un cliente.', 400, 'MIN_CLIENTE_REQUIRED');
+    }
+
+    // Obtener otros clientes para identificar documentos exclusivos
+    const otrosClientes = await prisma.equipoCliente.findMany({
+      where: { 
+        equipoId: input.equipoId, 
+        asignadoHasta: null,
+        clienteId: { not: input.clienteId },
+      },
+      select: { clienteId: true },
+    });
+
+    const otherClienteIds = otrosClientes.map(c => c.clienteId);
+
+    // Buscar documentos exclusivos del cliente que se va
+    const exclusiveDocIds = await DocumentArchiveService.findDocumentsExclusiveToClient({
+      equipoId: input.equipoId,
+      clienteId: input.clienteId,
+      otherClienteIds,
+    });
+
+    // Archivar documentos exclusivos
+    if (exclusiveDocIds.length > 0) {
+      await DocumentArchiveService.archiveDocuments({
+        documentIds: exclusiveDocIds,
+        reason: 'CLIENTE_REMOVIDO',
+        userId: input.usuarioId,
+      });
+    }
+
+    // Cerrar asociación
+    const asociacion = await prisma.equipoCliente.findFirst({
+      where: { equipoId: input.equipoId, clienteId: input.clienteId, asignadoHasta: null },
+      orderBy: { asignadoDesde: 'desc' },
+    });
+
+    if (!asociacion) {
+      throw createError('El cliente no está asociado a este equipo', 404, 'CLIENTE_NO_ASOCIADO');
+    }
+
+    await prisma.equipoCliente.update({
+      where: { 
+        equipoId_clienteId_asignadoDesde: { 
+          equipoId: input.equipoId, 
+          clienteId: input.clienteId, 
+          asignadoDesde: asociacion.asignadoDesde,
+        },
+      },
+      data: { asignadoHasta: new Date() },
+    });
+
+    // Auditoría
+    await AuditService.logEquipoChange({
+      equipoId: input.equipoId,
+      usuarioId: input.usuarioId,
+      accion: 'QUITAR_CLIENTE',
+      campoModificado: 'cliente',
+      valorAnterior: { clienteId: input.clienteId },
+      motivo: exclusiveDocIds.length > 0 ? `${exclusiveDocIds.length} documentos archivados` : undefined,
+    });
+
+    return { removed: true, archivedDocuments: exclusiveDocIds.length };
+  }
+
+  /**
+   * Transferir equipo a otro dador de carga (solo admin interno)
+   */
+  static async transferirEquipo(input: {
+    equipoId: number;
+    nuevoDadorCargaId: number;
+    usuarioId: number;
+    tenantEmpresaId: number;
+    motivo?: string;
+  }) {
+    const equipo = await prisma.equipo.findUnique({
+      where: { id: input.equipoId },
+    });
+
+    if (!equipo || equipo.tenantEmpresaId !== input.tenantEmpresaId) {
+      throw createError('Equipo no encontrado', 404, 'EQUIPO_NOT_FOUND');
+    }
+
+    if (equipo.dadorCargaId === input.nuevoDadorCargaId) {
+      throw createError('El equipo ya pertenece a este dador de carga', 400, 'MISMO_DADOR');
+    }
+
+    // Verificar que el nuevo dador existe
+    const nuevoDador = await prisma.dadorCarga.findUnique({ where: { id: input.nuevoDadorCargaId } });
+    if (!nuevoDador || nuevoDador.tenantEmpresaId !== input.tenantEmpresaId) {
+      throw createError('Dador de carga no válido', 400, 'DADOR_INVALIDO');
+    }
+
+    const dadorAnterior = equipo.dadorCargaId;
+
+    // Actualizar equipo
+    const updated = await prisma.equipo.update({
+      where: { id: input.equipoId },
+      data: { dadorCargaId: input.nuevoDadorCargaId },
+    });
+
+    // Auditoría
+    await AuditService.logEquipoChange({
+      equipoId: input.equipoId,
+      usuarioId: input.usuarioId,
+      accion: 'TRANSFERIR',
+      campoModificado: 'dadorCarga',
+      valorAnterior: dadorAnterior,
+      valorNuevo: input.nuevoDadorCargaId,
+      motivo: input.motivo,
+    });
+
+    // Historial
+    await prisma.equipoHistory.create({
+      data: {
+        equipoId: input.equipoId,
+        action: 'transfer',
+        component: 'dador',
+        payload: { 
+          dadorAnterior, 
+          dadorNuevo: input.nuevoDadorCargaId,
+          motivo: input.motivo,
+        } as any,
+      },
+    });
+
+    return updated;
+  }
+
+  /**
+   * Obtener requisitos consolidados de un equipo
+   */
+  static async getRequisitosEquipo(equipoId: number, tenantEmpresaId: number) {
+    const equipo = await prisma.equipo.findUnique({
+      where: { id: equipoId },
+      include: {
+        clientes: {
+          where: { asignadoHasta: null },
+          include: { cliente: true },
+        },
+      },
+    });
+
+    if (!equipo || equipo.tenantEmpresaId !== tenantEmpresaId) {
+      throw createError('Equipo no encontrado', 404, 'EQUIPO_NOT_FOUND');
+    }
+
+    const clienteIds = equipo.clientes.map(c => c.clienteId);
+
+    // Obtener todos los requisitos de todos los clientes
+    const requisitos = await prisma.clienteDocumentRequirement.findMany({
+      where: { clienteId: { in: clienteIds } },
+      include: { 
+        template: true,
+        cliente: { select: { id: true, razonSocial: true } },
+      },
+    });
+
+    // Consolidar requisitos (mismo template + entityType = un solo requisito)
+    const consolidado: Map<string, {
+      templateId: number;
+      templateName: string;
+      entityType: string;
+      obligatorio: boolean;
+      requeridoPor: Array<{ clienteId: number; clienteName: string }>;
+      documentoActual?: any;
+    }> = new Map();
+
+    for (const req of requisitos) {
+      const key = `${req.templateId}-${req.entityType}`;
+      if (!consolidado.has(key)) {
+        consolidado.set(key, {
+          templateId: req.templateId,
+          templateName: req.template.name,
+          entityType: req.entityType,
+          obligatorio: req.obligatorio,
+          requeridoPor: [],
+        });
+      }
+      const item = consolidado.get(key)!;
+      item.requeridoPor.push({ 
+        clienteId: req.cliente.id, 
+        clienteName: req.cliente.razonSocial,
+      });
+      if (req.obligatorio) item.obligatorio = true;
+    }
+
+    // Buscar documentos actuales para cada requisito
+    const resultado = [];
+    for (const [, req] of consolidado) {
+      let entityId: number | null = null;
+      switch (req.entityType) {
+        case 'CHOFER': entityId = equipo.driverId; break;
+        case 'CAMION': entityId = equipo.truckId; break;
+        case 'ACOPLADO': entityId = equipo.trailerId; break;
+        case 'EMPRESA_TRANSPORTISTA': entityId = equipo.empresaTransportistaId; break;
+      }
+
+      let documentoActual = null;
+      if (entityId) {
+        const doc = await prisma.document.findFirst({
+          where: {
+            entityType: req.entityType as any,
+            entityId,
+            templateId: req.templateId,
+            archived: false,
+          },
+          orderBy: { uploadedAt: 'desc' },
+        });
+
+        if (doc) {
+          const now = new Date();
+          let estado: 'VIGENTE' | 'PROXIMO_VENCER' | 'VENCIDO' | 'PENDIENTE' = 'VIGENTE';
+          
+          if (doc.status !== 'APROBADO') {
+            estado = 'PENDIENTE';
+          } else if (doc.expiresAt) {
+            const expires = new Date(doc.expiresAt);
+            if (expires < now) {
+              estado = 'VENCIDO';
+            } else {
+              const diasRestantes = Math.ceil((expires.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+              if (diasRestantes <= 30) {
+                estado = 'PROXIMO_VENCER';
+              }
+            }
+          }
+
+          documentoActual = {
+            id: doc.id,
+            status: doc.status,
+            expiresAt: doc.expiresAt,
+            estado,
+          };
+        }
+      }
+
+      resultado.push({
+        ...req,
+        entityId,
+        documentoActual,
+        estado: documentoActual?.estado ?? 'FALTANTE',
+      });
+    }
+
+    return resultado;
+  }
 }
-
-

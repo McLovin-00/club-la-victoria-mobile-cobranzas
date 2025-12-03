@@ -15,6 +15,16 @@ type AuditPayload = {
   details?: unknown;
 };
 
+type EquipoAuditPayload = {
+  equipoId: number;
+  usuarioId: number;
+  accion: 'CREAR' | 'EDITAR' | 'ELIMINAR' | 'TRANSFERIR' | 'AGREGAR_CLIENTE' | 'QUITAR_CLIENTE';
+  campoModificado?: string;
+  valorAnterior?: unknown;
+  valorNuevo?: unknown;
+  motivo?: string;
+};
+
 /**
  * AuditService
  * - Registra acciones relevantes de forma segura.
@@ -49,6 +59,52 @@ export class AuditService {
       }
     } catch {
       // No-op: nunca romper por auditoría
+    }
+  }
+
+  /**
+   * Registra cambios específicos de equipos
+   */
+  static async logEquipoChange(event: EquipoAuditPayload): Promise<void> {
+    try {
+      AppLogger.info('🧾 EQUIPO_AUDIT', event);
+
+      const { db } = await import('../config/database');
+      const client: any = db.getClient?.();
+      if (client?.equipoAuditLog?.create) {
+        await client.equipoAuditLog.create({
+          data: {
+            equipoId: event.equipoId,
+            usuarioId: event.usuarioId,
+            accion: event.accion,
+            campoModificado: event.campoModificado ?? null,
+            valorAnterior: event.valorAnterior ? JSON.stringify(event.valorAnterior) : null,
+            valorNuevo: event.valorNuevo ? JSON.stringify(event.valorNuevo) : null,
+            motivo: event.motivo ?? null,
+          },
+        });
+      }
+    } catch (err) {
+      AppLogger.error('Error registrando auditoría de equipo', { error: err, event });
+    }
+  }
+
+  /**
+   * Obtiene historial de cambios de un equipo
+   */
+  static async getEquipoHistory(equipoId: number): Promise<unknown[]> {
+    try {
+      const { db } = await import('../config/database');
+      const client: any = db.getClient?.();
+      if (client?.equipoAuditLog?.findMany) {
+        return await client.equipoAuditLog.findMany({
+          where: { equipoId },
+          orderBy: { createdAt: 'desc' },
+        });
+      }
+      return [];
+    } catch {
+      return [];
     }
   }
 }

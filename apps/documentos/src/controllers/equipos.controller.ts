@@ -235,6 +235,94 @@ export class EquiposController {
     const rows = await prisma.equipoHistory.findMany({ where: { equipoId }, orderBy: { createdAt: 'desc' }, take: limit });
     res.json({ success: true, data: rows });
   }
+
+  /**
+   * Actualizar entidades del equipo (chofer, camión, acoplado, empresa)
+   */
+  static async updateEntidades(req: AuthRequest, res: Response) {
+    const equipoId = Number(req.params.id);
+    const input = {
+      equipoId,
+      usuarioId: req.user?.userId ?? 0,
+      tenantEmpresaId: req.tenantId!,
+      choferId: req.body.choferId !== undefined ? Number(req.body.choferId) : undefined,
+      camionId: req.body.camionId !== undefined ? Number(req.body.camionId) : undefined,
+      acopladoId: req.body.acopladoId !== undefined ? (req.body.acopladoId === null ? null : Number(req.body.acopladoId)) : undefined,
+      empresaTransportistaId: req.body.empresaTransportistaId !== undefined ? Number(req.body.empresaTransportistaId) : undefined,
+    };
+
+    const data = await EquipoService.updateEquipo(input);
+    res.json({ success: true, data });
+  }
+
+  /**
+   * Agregar cliente a equipo
+   */
+  static async addCliente(req: AuthRequest, res: Response) {
+    const equipoId = Number(req.params.id);
+    const clienteId = Number(req.body.clienteId);
+
+    const data = await EquipoService.addClienteToEquipo({
+      equipoId,
+      clienteId,
+      usuarioId: req.user?.userId ?? 0,
+      tenantEmpresaId: req.tenantId!,
+    });
+
+    res.status(201).json({ success: true, data });
+  }
+
+  /**
+   * Quitar cliente de equipo (con archivado de documentos exclusivos)
+   */
+  static async removeClienteWithArchive(req: AuthRequest, res: Response) {
+    const equipoId = Number(req.params.id);
+    const clienteId = Number(req.params.clienteId);
+
+    const data = await EquipoService.removeClienteFromEquipo({
+      equipoId,
+      clienteId,
+      usuarioId: req.user?.userId ?? 0,
+      tenantEmpresaId: req.tenantId!,
+    });
+
+    res.json({ success: true, data });
+  }
+
+  /**
+   * Transferir equipo a otro dador de carga (solo admin interno)
+   */
+  static async transferir(req: AuthRequest, res: Response) {
+    const equipoId = Number(req.params.id);
+    const nuevoDadorCargaId = Number(req.body.nuevoDadorCargaId);
+    const motivo = req.body.motivo ? String(req.body.motivo) : undefined;
+
+    const data = await EquipoService.transferirEquipo({
+      equipoId,
+      nuevoDadorCargaId,
+      usuarioId: req.user?.userId ?? 0,
+      tenantEmpresaId: req.tenantId!,
+      motivo,
+    });
+
+    res.json({ success: true, data });
+  }
+
+  /**
+   * Obtener requisitos consolidados del equipo
+   */
+  static async getRequisitos(req: AuthRequest, res: Response) {
+    const equipoId = Number(req.params.id);
+    const data = await EquipoService.getRequisitosEquipo(equipoId, req.tenantId!);
+    res.json({ success: true, data });
+  }
+
+  /**
+   * Obtener historial de auditoría del equipo
+   */
+  static async getAuditHistory(req: AuthRequest, res: Response) {
+    const equipoId = Number(req.params.id);
+    const data = await AuditService.getEquipoHistory(equipoId);
+    res.json({ success: true, data });
+  }
 }
-
-
