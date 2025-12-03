@@ -11,6 +11,7 @@ const getStatusConfig = (state?: string) => {
   const v = String(state || '').toUpperCase();
   switch (v) {
     case 'OK':
+    case 'VIGENTE':
       return { label: 'Vigente', color: 'bg-green-100 text-green-800 border-green-200', icon: CheckCircleIcon };
     case 'PROXIMO':
       return { label: 'Por vencer', color: 'bg-yellow-100 text-yellow-800 border-yellow-200', icon: ClockIcon };
@@ -18,6 +19,10 @@ const getStatusConfig = (state?: string) => {
       return { label: 'Faltante', color: 'bg-red-100 text-red-800 border-red-200', icon: XCircleIcon };
     case 'VENCIDO':
       return { label: 'Vencido', color: 'bg-orange-100 text-orange-800 border-orange-200', icon: ExclamationTriangleIcon };
+    case 'PENDIENTE':
+      return { label: 'Pendiente', color: 'bg-blue-100 text-blue-800 border-blue-200', icon: ClockIcon };
+    case 'RECHAZADO':
+      return { label: 'Rechazado', color: 'bg-red-100 text-red-800 border-red-200', icon: XCircleIcon };
     default:
       return { label: v || '-', color: 'bg-gray-100 text-gray-800 border-gray-200', icon: DocumentTextIcon };
   }
@@ -39,7 +44,7 @@ const Section: React.FC<{ title: string; items: Array<{ templateId: number; temp
 
   const totalCount = items.length;
   const faltantes = items.filter(item => item.state?.toUpperCase() === 'FALTANTE').length;
-  const vigentes = items.filter(item => item.state?.toUpperCase() === 'OK').length;
+  const vigentes = items.filter(item => ['OK', 'VIGENTE'].includes(item.state?.toUpperCase())).length;
   const porVencer = items.filter(item => item.state?.toUpperCase() === 'PROXIMO').length;
   const vencidos = items.filter(item => item.state?.toUpperCase() === 'VENCIDO').length;
 
@@ -195,7 +200,7 @@ export const EstadoEquipoPage: React.FC = () => {
       if (!only || only === 'ALL' || only === 'TODOS') return arr;
       const state = (x: any) => String(x.state || '').toUpperCase();
       if (only === 'VENCIDOS' || only === 'VENCIDO') return arr.filter((x) => state(x) === 'VENCIDO');
-      if (only === 'VIGENTES' || only === 'OK' || only === 'VIGENTE') return arr.filter((x) => state(x) === 'OK');
+      if (only === 'VIGENTES' || only === 'OK' || only === 'VIGENTE') return arr.filter((x) => ['OK', 'VIGENTE'].includes(state(x)));
       if (only === 'POR_VENCER' || only === 'PROXIMO' || only === 'PRÓXIMO') return arr.filter((x) => state(x) === 'PROXIMO');
       if (only === 'FALTANTES' || only === 'FALTANTE') return arr.filter((x) => state(x) === 'FALTANTE');
       return arr;
@@ -223,7 +228,7 @@ export const EstadoEquipoPage: React.FC = () => {
 
   const totalDocs = Object.values(complianceByEntidad).flat().length;
   const faltantesTotal = Object.values(complianceByEntidad).flat().filter(r => r.state?.toUpperCase() === 'FALTANTE').length;
-  const vigentesTotal = Object.values(complianceByEntidad).flat().filter(r => r.state?.toUpperCase() === 'OK').length;
+  const vigentesTotal = Object.values(complianceByEntidad).flat().filter(r => ['OK', 'VIGENTE'].includes(r.state?.toUpperCase())).length;
   const porVencerTotal = Object.values(complianceByEntidad).flat().filter(r => r.state?.toUpperCase() === 'PROXIMO').length;
   const vencidosTotal = Object.values(complianceByEntidad).flat().filter(r => r.state?.toUpperCase() === 'VENCIDO').length;
 

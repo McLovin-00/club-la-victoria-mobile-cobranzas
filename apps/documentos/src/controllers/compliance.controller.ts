@@ -38,10 +38,10 @@ export class ComplianceController {
       orderBy: { asignadoDesde: 'desc' },
     });
 
-    // Compliance por cliente
+    // Compliance por cliente (usamos método detallado para preservar estados VENCIDO, PENDIENTE, etc.)
     const perCliente = [] as Array<{ clienteId: number; compliance: any[] }>;
     for (const c of clientes) {
-      const comp = await ComplianceService.evaluateEquipoCliente(equipoId, c.clienteId);
+      const comp = await ComplianceService.evaluateEquipoClienteDetailed(equipoId, c.clienteId);
       perCliente.push({ clienteId: c.clienteId, compliance: comp });
     }
 
