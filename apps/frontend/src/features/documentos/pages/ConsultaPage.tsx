@@ -487,8 +487,16 @@ const EquipoSemaforo: React.FC<{ equipoId: number }> = ({ equipoId }) => {
   const now = Date.now();
   let faltantes = 0, vencidos = 0, porVencer = 0, vigentes = 0;
   const docsByEntity: Record<string, any[]> = data?.documents || {};
+  
+  // Set para deduplicar por entityType-templateId (evita contar múltiples veces por cliente)
+  const processedTemplates = new Set<string>();
 
   const bumpFromCompliance = (entityType: 'EMPRESA_TRANSPORTISTA'|'CHOFER'|'CAMION'|'ACOPLADO', r: any) => {
+    // Deduplicar: si ya procesamos este template para esta entidad, ignorar
+    const key = `${entityType}-${r.templateId}`;
+    if (processedTemplates.has(key)) return;
+    processedTemplates.add(key);
+    
     const state = String(r.state || '').toUpperCase();
     if (state === 'OK') { vigentes++; return; }
     if (state === 'PROXIMO') { porVencer++; return; }
