@@ -79,37 +79,37 @@ async function main(): Promise<void> {
 
   // Documentos demo para compliance (solo si las plantillas existen)
   if (licenciaTplId && vtvTplId) {
-    await prisma.document.create({
-      data: {
-        tenantEmpresaId: tenantId,
-        templateId: licenciaTplId,
-        entityType: EntityType.CHOFER,
-        entityId: 101,
-        dadorCargaId: dadorId,
-        fileName: 'licencia.pdf',
-        filePath: `documentos-empresa-t${tenantId}/chofer/101/licencia/seed.pdf`,
-        fileSize: 12345,
-        mimeType: 'application/pdf',
-        status: DocumentStatus.APROBADO,
-        expiresAt: new Date(now.getTime() + 90 * dayMs),
-      },
-    });
+  await prisma.document.create({
+    data: {
+      tenantEmpresaId: tenantId,
+      templateId: licenciaTplId,
+      entityType: EntityType.CHOFER,
+      entityId: 101,
+      dadorCargaId: dadorId,
+      fileName: 'licencia.pdf',
+      filePath: `documentos-empresa-t${tenantId}/chofer/101/licencia/seed.pdf`,
+      fileSize: 12345,
+      mimeType: 'application/pdf',
+      status: DocumentStatus.APROBADO,
+      expiresAt: new Date(now.getTime() + 90 * dayMs),
+    },
+  });
 
-    await prisma.document.create({
-      data: {
-        tenantEmpresaId: tenantId,
-        templateId: vtvTplId,
-        entityType: EntityType.CAMION,
-        entityId: 201,
-        dadorCargaId: dadorId,
-        fileName: 'vtv.pdf',
-        filePath: `documentos-empresa-t${tenantId}/camion/201/vtv/seed.pdf`,
-        fileSize: 23456,
-        mimeType: 'application/pdf',
-        status: DocumentStatus.APROBADO,
-        expiresAt: new Date(now.getTime() + 15 * dayMs),
-      },
-    });
+  await prisma.document.create({
+    data: {
+      tenantEmpresaId: tenantId,
+      templateId: vtvTplId,
+      entityType: EntityType.CAMION,
+      entityId: 201,
+      dadorCargaId: dadorId,
+      fileName: 'vtv.pdf',
+      filePath: `documentos-empresa-t${tenantId}/camion/201/vtv/seed.pdf`,
+      fileSize: 23456,
+      mimeType: 'application/pdf',
+      status: DocumentStatus.APROBADO,
+      expiresAt: new Date(now.getTime() + 15 * dayMs),
+    },
+  });
   } else {
     console.log('⚠️ Plantillas no encontradas. Saltando creación de documentos demo.');
   }

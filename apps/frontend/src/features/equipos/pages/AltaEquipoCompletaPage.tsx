@@ -245,7 +245,7 @@ const AltaEquipoCompletaPage: React.FC = () => {
       };
 
       equipoCreado = await createEquipoCompleto(payload).unwrap();
-      
+
       const equipoId = equipoCreado?.id;
       const driverId = equipoCreado?.driverId;
       const truckId = equipoCreado?.truckId;
@@ -364,9 +364,9 @@ const AltaEquipoCompletaPage: React.FC = () => {
         // ÉXITO COMPLETO
         // ═══════════════════════════════════════════════════════════════════
         setMessage({ type: 'success', text: '✅ Equipo creado exitosamente con todos sus documentos' });
-        setTimeout(() => {
+      setTimeout(() => {
           navigate(getBackRoute());
-        }, 2000);
+      }, 2000);
       }
     } catch (error: any) {
       // ═══════════════════════════════════════════════════════════════════

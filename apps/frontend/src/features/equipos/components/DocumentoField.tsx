@@ -153,21 +153,21 @@ export const DocumentoField: React.FC<DocumentoFieldProps> = ({
             />
 
             {!selectOnlyMode && (
-              <button
-                type='button'
-                onClick={handleUpload}
-                disabled={!file || uploading || disabled}
-                className='inline-flex items-center gap-1 px-3 py-1.5 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors'
-              >
-                {uploading ? (
-                  <>Subiendo...</>
-                ) : (
-                  <>
-                    <ArrowUpTrayIcon className='h-4 w-4' />
-                    Subir
-                  </>
-                )}
-              </button>
+            <button
+              type='button'
+              onClick={handleUpload}
+              disabled={!file || uploading || disabled}
+              className='inline-flex items-center gap-1 px-3 py-1.5 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors'
+            >
+              {uploading ? (
+                <>Subiendo...</>
+              ) : (
+                <>
+                  <ArrowUpTrayIcon className='h-4 w-4' />
+                  Subir
+                </>
+              )}
+            </button>
             )}
           </div>
 

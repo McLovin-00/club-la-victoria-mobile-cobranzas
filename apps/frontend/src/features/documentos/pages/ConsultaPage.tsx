@@ -305,11 +305,11 @@ export const ConsultaPage: React.FC = () => {
         {/* Filtros adicionales por DNI/Patentes */}
         <div className='mb-3'>
           <Label className='text-sm mb-1 block'>Filtros adicionales (opcionales)</Label>
-          <div className='grid grid-cols-1 md:grid-cols-3 gap-2'>
-            <Input placeholder='DNI Chofer' value={dni} onChange={(e) => setDni(e.target.value)} />
-            <Input placeholder='Patente Camión' value={truckPlate} onChange={(e) => setTruckPlate(e.target.value)} />
-            <Input placeholder='Patente Acoplado' value={trailerPlate} onChange={(e) => setTrailerPlate(e.target.value)} />
-          </div>
+        <div className='grid grid-cols-1 md:grid-cols-3 gap-2'>
+          <Input placeholder='DNI Chofer' value={dni} onChange={(e) => setDni(e.target.value)} />
+          <Input placeholder='Patente Camión' value={truckPlate} onChange={(e) => setTruckPlate(e.target.value)} />
+          <Input placeholder='Patente Acoplado' value={trailerPlate} onChange={(e) => setTrailerPlate(e.target.value)} />
+        </div>
         </div>
 
         {/* Botones de Acción */}
@@ -409,6 +409,14 @@ export const ConsultaPage: React.FC = () => {
               </div>
 
               <div className='flex flex-wrap justify-end items-center gap-2'>
+                <Button
+                  variant='default'
+                  size='sm'
+                  onClick={() => navigate(`/documentos/equipos/${eq.id}/editar`)}
+                  className='bg-blue-600 hover:bg-blue-700 text-white'
+                >
+                  ✏️ Editar
+                </Button>
                 <Button
                   variant='outline'
                   size='sm'
