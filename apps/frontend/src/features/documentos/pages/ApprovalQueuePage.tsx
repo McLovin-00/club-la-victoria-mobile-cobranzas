@@ -136,15 +136,18 @@ export default function ApprovalQueuePage() {
                 <tr key={row.id} className="border-b hover:bg-muted/30">
                   <td className="py-2 pr-3">{row.id}</td>
                   <td className="py-2 pr-3">{row.classification?.detectedEntityType ?? row.entityType}</td>
-                  <td className="py-2 pr-3">{row.classification?.detectedEntityId ?? row.entityId}</td>
-                  <td className="py-2 pr-3">{row.classification?.detectedDocumentType ?? '-'}</td>
+                  <td className="py-2 pr-3">{(row as any).entityNaturalId ?? row.classification?.detectedEntityId ?? row.entityId}</td>
+                  <td className="py-2 pr-3">{row.classification?.detectedDocumentType ?? (row as any).template?.name ?? '-'}</td>
                   <td className="py-2 pr-3">{formatDateTime(row.uploadedAt)}</td>
                   <td className="py-2 pr-3">
                     {(() => {
+                      // Prioridad: clasificación IA > expiresAt del documento
                       const detected = (row as any)?.classification?.detectedExpiration as string | undefined;
+                      const docExpires = (row as any)?.expiresAt as string | undefined;
+                      const dateStr = detected || docExpires;
                       const detectedYmd = (() => {
-                        if (!detected) return '';
-                        try { const d = new Date(detected); if (isNaN(d.getTime())) return ''; const yyyy = d.getFullYear(); const mm = String(d.getMonth()+1).padStart(2,'0'); const dd = String(d.getDate()).padStart(2,'0'); return `${yyyy}-${mm}-${dd}`; } catch { return ''; }
+                        if (!dateStr) return '';
+                        try { const d = new Date(dateStr); if (isNaN(d.getTime())) return ''; const yyyy = d.getFullYear(); const mm = String(d.getMonth()+1).padStart(2,'0'); const dd = String(d.getDate()).padStart(2,'0'); return `${yyyy}-${mm}-${dd}`; } catch { return ''; }
                       })();
                       const valueYmd = (selectedExpires as any)[row.id] ?? detectedYmd;
                       const valueDmy = toDmy(valueYmd);

@@ -31,7 +31,53 @@ export class ApprovalService {
       db.getClient().document.count({ where }),
     ]);
 
-    return { data: documents, pagination: { page, limit, total, pages: Math.ceil(total / limit) } };
+    // Enriquecer documentos con entityNaturalId (CUIT/DNI/Patente)
+    const enrichedDocs = await Promise.all(
+      documents.map(async (doc) => {
+        let entityNaturalId: string | null = null;
+        try {
+          switch (doc.entityType) {
+            case 'EMPRESA_TRANSPORTISTA': {
+              const empresa = await db.getClient().empresaTransportista.findUnique({
+                where: { id: doc.entityId },
+                select: { cuit: true },
+              });
+              entityNaturalId = empresa?.cuit || null;
+              break;
+            }
+            case 'CHOFER': {
+              const chofer = await db.getClient().chofer.findUnique({
+                where: { id: doc.entityId },
+                select: { dni: true },
+              });
+              entityNaturalId = chofer?.dni || null;
+              break;
+            }
+            case 'CAMION': {
+              const camion = await db.getClient().camion.findUnique({
+                where: { id: doc.entityId },
+                select: { patente: true },
+              });
+              entityNaturalId = camion?.patente || null;
+              break;
+            }
+            case 'ACOPLADO': {
+              const acoplado = await db.getClient().acoplado.findUnique({
+                where: { id: doc.entityId },
+                select: { patente: true },
+              });
+              entityNaturalId = acoplado?.patente || null;
+              break;
+            }
+          }
+        } catch {
+          // Si falla, entityNaturalId queda null
+        }
+        return { ...doc, entityNaturalId };
+      })
+    );
+
+    return { data: enrichedDocs, pagination: { page, limit, total, pages: Math.ceil(total / limit) } };
   }
 
   static async getPendingDocument(documentId: number, tenantEmpresaId: number): Promise<any | null> {
