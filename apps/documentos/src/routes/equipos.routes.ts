@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import { authenticate, authorize, validate } from '../middlewares/auth.middleware';
+import { ownsEquipo, canModifyEquipo, canTransferEquipo } from '../middlewares/ownership.middleware';
 import { equipoHistoryQuerySchema } from '../schemas/validation.schemas';
 // Usamos literales para roles para evitar dependencia directa en enum como valor
 import { EquiposController } from '../controllers/equipos.controller';
@@ -13,7 +14,7 @@ const router = Router();
 
 router.use(authenticate);
 router.get('/', validate(equipoListQuerySchema), EquiposController.list);
-router.get('/:id', EquiposController.getById);
+router.get('/:id', ownsEquipo(), EquiposController.getById);
 router.post('/', authorize(['ADMIN' as any, 'SUPERADMIN' as any, 'ADMIN_INTERNO' as any]), validate(createEquipoSchema), EquiposController.create);
 
 // Alta mínima desde identificadores para Dadores/Transportistas
@@ -80,7 +81,7 @@ const updateEntidadesSchema = z.object({
     empresaTransportistaId: z.number().int().positive().optional(),
   }),
 });
-router.put('/:id/entidades', authorize(['ADMIN' as any, 'SUPERADMIN' as any, 'ADMIN_INTERNO' as any]), validate(updateEntidadesSchema), EquiposController.updateEntidades);
+router.put('/:id/entidades', canModifyEquipo(), validate(updateEntidadesSchema), EquiposController.updateEntidades);
 
 // Gestión de clientes del equipo
 const addClienteSchema = z.object({
@@ -88,8 +89,8 @@ const addClienteSchema = z.object({
     clienteId: z.number().int().positive(),
   }),
 });
-router.post('/:id/clientes', authorize(['ADMIN' as any, 'SUPERADMIN' as any, 'ADMIN_INTERNO' as any]), validate(addClienteSchema), EquiposController.addCliente);
-router.delete('/:id/clientes/:clienteId', authorize(['ADMIN' as any, 'SUPERADMIN' as any, 'ADMIN_INTERNO' as any]), EquiposController.removeClienteWithArchive);
+router.post('/:id/clientes', canModifyEquipo(), validate(addClienteSchema), EquiposController.addCliente);
+router.delete('/:id/clientes/:clienteId', canModifyEquipo(), EquiposController.removeClienteWithArchive);
 
 // Transferir equipo a otro dador de carga (solo admin interno)
 const transferirSchema = z.object({
@@ -98,7 +99,7 @@ const transferirSchema = z.object({
     motivo: z.string().max(500).optional(),
   }),
 });
-router.post('/:id/transferir', authorize(['ADMIN_INTERNO' as any]), validate(transferirSchema), EquiposController.transferir);
+router.post('/:id/transferir', canTransferEquipo(), validate(transferirSchema), EquiposController.transferir);
 
 // Rutas legacy para compatibilidad
 router.post('/:equipoId/clientes/:clienteId', authorize(['ADMIN' as any, 'SUPERADMIN' as any, 'ADMIN_INTERNO' as any]), validate(equipoClienteAssocSchema), EquiposController.associateCliente);
