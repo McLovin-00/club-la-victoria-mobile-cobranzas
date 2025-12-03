@@ -189,6 +189,37 @@ export class DocumentsController {
         finalMime
       );
 
+      // Extraer fecha de vencimiento de planilla.vencimientos si existe
+      let expiresAtDate: Date | null = null;
+      try {
+        const planilla = (req.body as any).planilla;
+        const vencimientos = planilla?.vencimientos || {};
+        const rawExpiry = vencimientos[templateId] || vencimientos[String(templateIdNum)];
+        if (rawExpiry && typeof rawExpiry === 'string') {
+          // Soportar formatos: yyyy-mm-dd (ISO), dd/mm/yyyy (locale), o ISO completo
+          let parsed: Date | null = null;
+          if (/^\d{4}-\d{2}-\d{2}/.test(rawExpiry)) {
+            // Formato ISO: yyyy-mm-dd o yyyy-mm-ddTHH:mm:ss
+            parsed = new Date(rawExpiry);
+          } else if (/^\d{2}\/\d{2}\/\d{4}$/.test(rawExpiry)) {
+            // Formato dd/mm/yyyy → convertir a yyyy-mm-dd
+            const [dd, mm, yyyy] = rawExpiry.split('/');
+            parsed = new Date(`${yyyy}-${mm}-${dd}`);
+          } else if (/^\d{2}\/\d{2}\/\d{2}$/.test(rawExpiry)) {
+            // Formato dd/mm/yy → convertir a yyyy-mm-dd (asumir siglo 21)
+            const [dd, mm, yy] = rawExpiry.split('/');
+            const year = parseInt(yy, 10) < 50 ? `20${yy}` : `19${yy}`;
+            parsed = new Date(`${year}-${mm}-${dd}`);
+          }
+          if (parsed && !isNaN(parsed.getTime())) {
+            expiresAtDate = parsed;
+          }
+        }
+      } catch {
+        // Si falla el parseo, dejar expiresAt como null
+        AppLogger.warn('⚠️ No se pudo parsear la fecha de vencimiento');
+      }
+
       // Crear registro en base de datos con campos de archivo embebidos
       const document = await db.getClient().document.create({
         data: {
@@ -202,6 +233,7 @@ export class DocumentsController {
           mimeType: finalMime,
           fileSize: finalBuffer.length,
           filePath: `${uploadResult.bucketName}/${uploadResult.objectPath}`,
+          ...(expiresAtDate && { expiresAt: expiresAtDate }),
         },
         select: {
           id: true,
