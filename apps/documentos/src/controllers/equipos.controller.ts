@@ -13,6 +13,12 @@ export class EquiposController {
     res.json({ success: true, data });
   }
 
+  static async getById(req: AuthRequest, res: Response) {
+    const equipoId = Number(req.params.id);
+    const data = await EquipoService.getById(equipoId);
+    res.json({ success: true, data });
+  }
+
   // Alta mínima desde identificadores (dni + patentes)
   static async createMinimal(req: AuthRequest, res: Response) {
     // Permitir usar dador por defecto si no viene

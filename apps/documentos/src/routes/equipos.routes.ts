@@ -13,6 +13,7 @@ const router = Router();
 
 router.use(authenticate);
 router.get('/', validate(equipoListQuerySchema), EquiposController.list);
+router.get('/:id', EquiposController.getById);
 router.post('/', authorize(['ADMIN' as any, 'SUPERADMIN' as any, 'ADMIN_INTERNO' as any]), validate(createEquipoSchema), EquiposController.create);
 
 // Alta mínima desde identificadores para Dadores/Transportistas

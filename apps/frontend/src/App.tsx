@@ -38,6 +38,7 @@ import CamionesPage from './features/documentos/pages/CamionesPage';
 import AcopladosPage from './features/documentos/pages/AcopladosPage';
 import EstadoEquipoPage from './features/documentos/pages/EstadoEquipoPage';
 import AltaEquipoCompletaPage from './features/equipos/pages/AltaEquipoCompletaPage';
+import EditarEquipoPage from './features/equipos/pages/EditarEquipoPage';
 import { PerfilPage } from './pages/PerfilPage';
 import { AuthInitializer } from './components/AuthInitializer';
 import { ProtectedServiceRoute } from './components/ProtectedServiceRoute';
@@ -118,6 +119,11 @@ function App() {
                 <Route path='/documentos/equipos/:id/estado' element={
                   <ProtectedServiceRoute service="documentos">
                     <EstadoEquipoPage />
+                  </ProtectedServiceRoute>
+                } />
+                <Route path='/documentos/equipos/:id/editar' element={
+                  <ProtectedServiceRoute service="documentos">
+                    <EditarEquipoPage />
                   </ProtectedServiceRoute>
                 } />
                  {/* Eliminado: Empresas (Documentos) */}

@@ -387,6 +387,11 @@ export const documentosApiSlice = createApi({
       transformResponse: (response: any) => response?.data ?? [],
       providesTags: ['Equipos'],
     }),
+    getEquipoById: builder.query<any, { id: number }>({
+      query: ({ id }) => ({ url: `/equipos/${id}` }),
+      transformResponse: (response: any) => response?.data ?? response,
+      providesTags: ['Equipos'],
+    }),
     createEquipo: builder.mutation<
       any,
       { empresaId?: number; dadorCargaId?: number; driverId?: number; truckId?: number; trailerId?: number; empresaTransportistaId?: number; driverDni: string; truckPlate: string; trailerPlate?: string; validFrom: string; validTo?: string|null; choferPhones?: string[] }
@@ -852,6 +857,7 @@ export const {
   useTransportistasSearchMutation,
   // Nuevos hooks - Equipos
   useGetEquiposQuery,
+  useGetEquipoByIdQuery,
   useGetEquipoHistoryQuery,
   useCreateEquipoMutation,
   useCreateEquipoCompletoMutation,

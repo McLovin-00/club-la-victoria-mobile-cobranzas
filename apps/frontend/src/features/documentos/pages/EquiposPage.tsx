@@ -611,6 +611,14 @@ export const EquiposPage: React.FC = () => {
               {/* Columna derecha: Acciones */}
               <div className='flex flex-wrap justify-end items-center gap-2'>
                 <Button
+                  variant='default'
+                  size='sm'
+                  onClick={() => navigate(`/documentos/equipos/${eq.id}/editar`)}
+                  className='bg-blue-600 hover:bg-blue-700 text-white'
+                >
+                  ✏️ Editar
+                </Button>
+                <Button
                   variant='outline'
                   size='sm'
                   onClick={async ()=> {

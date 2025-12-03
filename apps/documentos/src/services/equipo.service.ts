@@ -22,6 +22,30 @@ export class EquipoService {
     });
   }
 
+  /**
+   * Obtener un equipo por ID con todos sus detalles
+   */
+  static async getById(equipoId: number) {
+    const equipo = await prisma.equipo.findUnique({
+      where: { id: equipoId },
+      include: {
+        chofer: true,
+        camion: true,
+        acoplado: true,
+        empresaTransportista: true,
+        dador: true,
+        clientes: {
+          where: { asignadoHasta: null },
+          include: { cliente: true },
+        },
+      },
+    });
+    if (!equipo) {
+      throw createError('Equipo no encontrado', 404, 'EQUIPO_NOT_FOUND');
+    }
+    return equipo;
+  }
+
   static async attachComponents(
     tenantEmpresaId: number,
     equipoId: number,
@@ -462,6 +486,14 @@ export class EquipoService {
   }
 
   static async removeCliente(tenantEmpresaId: number, equipoId: number, clienteId: number) {
+    // Validar que quede al menos 1 cliente después de quitar
+    const clientesActuales = await prisma.equipoCliente.count({
+      where: { equipoId, asignadoHasta: null },
+    });
+    if (clientesActuales <= 1) {
+      throw createError('No se puede quitar el último cliente. El equipo debe tener al menos un cliente.', 400, 'MIN_CLIENTE_REQUIRED');
+    }
+
     // Eliminar última asociación abierta
     const assoc = await prisma.equipoCliente.findFirst({
       where: { equipoId, clienteId, asignadoHasta: null },
