@@ -296,11 +296,22 @@ export default function ApprovalDetailPage() {
           <div className="rounded-xl border bg-card p-4 shadow-sm space-y-4">
             <Field label="Entidad detectada" value={classification?.detectedEntityType ?? meta?.entityType ?? '-'} />
             <Field label="Identidad detectada" value={meta?.entityNaturalId ?? classification?.detectedEntityId ?? '-'} />
-            <Field label="Tipo documento detectado" value={classification?.detectedDocumentType ?? '-'} />
+            <Field label="Tipo documento detectado" value={classification?.detectedDocumentType ?? meta?.template?.name ?? meta?.template?.nombre ?? '-'} />
             <Field label="Subido" value={meta?.uploadedAt ? formatDateTime(meta.uploadedAt) : '-'} />
             <Field 
               label="Vencimiento detectado" 
-              value={(classification as any)?.detectedExpiration ? (() => { try { const d = new Date(String((classification as any).detectedExpiration)); if (isNaN(d.getTime())) return '-'; const yyyy = d.getFullYear(); const mm = String(d.getMonth()+1).padStart(2,'0'); const dd = String(d.getDate()).padStart(2,'0'); return `${dd}/${mm}/${yyyy}`; } catch { return '-'; } })() : '-'} 
+              value={(() => {
+                const dateStr = (classification as any)?.detectedExpiration || meta?.expiresAt || (meta as any)?.expires_at;
+                if (!dateStr) return '-';
+                try { 
+                  const d = new Date(String(dateStr)); 
+                  if (isNaN(d.getTime())) return '-'; 
+                  const yyyy = d.getFullYear(); 
+                  const mm = String(d.getMonth()+1).padStart(2,'0'); 
+                  const dd = String(d.getDate()).padStart(2,'0'); 
+                  return `${dd}/${mm}/${yyyy}`; 
+                } catch { return '-'; } 
+              })()} 
             />
 
             <div className="pt-2 border-t" />
