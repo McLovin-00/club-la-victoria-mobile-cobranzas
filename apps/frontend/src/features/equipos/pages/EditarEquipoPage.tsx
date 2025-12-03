@@ -11,9 +11,7 @@ import {
   useAttachEquipoComponentsMutation,
   useUpdateEquipoMutation,
   useAssociateEquipoClienteMutation,
-  useRemoveEquipoClienteMutation,
   useGetEquipoRequisitosQuery,
-  useAddEquipoClienteMutation,
   useRemoveEquipoClienteWithArchiveMutation,
   useUploadDocumentMutation,
 } from '../../documentos/api/documentosApiSlice';
@@ -34,6 +32,17 @@ const EditarEquipoPage: React.FC = () => {
   const { confirm } = useContext(ConfirmContext);
   
   const role = useAppSelector((s) => (s as any).auth?.user?.role) as string | undefined;
+  
+  // Permisos basados en rol
+  const isAdmin = role === 'SUPERADMIN' || role === 'ADMIN_INTERNO';
+  const isDador = role === 'DADOR_DE_CARGA';
+  const isTransportista = role === 'TRANSPORTISTA';
+  const _isCliente = role === 'CLIENTE'; // Para uso futuro
+  
+  // Determinar qué puede hacer el usuario
+  const canEdit = isAdmin || isDador || isTransportista;
+  const canManageClients = isAdmin || isDador;
+  const canUploadDocs = isAdmin || isDador || isTransportista;
   
   // Cargar datos del equipo
   const { data: equipo, isLoading, refetch } = useGetEquipoByIdQuery(
@@ -60,8 +69,6 @@ const EditarEquipoPage: React.FC = () => {
   const [attachComponents, { isLoading: attaching }] = useAttachEquipoComponentsMutation();
   const [updateEquipo] = useUpdateEquipoMutation();
   const [associateCliente] = useAssociateEquipoClienteMutation();
-  const [removeCliente] = useRemoveEquipoClienteMutation();
-  const [addClienteNew] = useAddEquipoClienteMutation();
   const [removeClienteWithArchive] = useRemoveEquipoClienteWithArchiveMutation();
   const [uploadDocument, { isLoading: uploading }] = useUploadDocumentMutation();
   
@@ -147,7 +154,7 @@ const EditarEquipoPage: React.FC = () => {
     if (!selectedAcopladoId) {
       // Quitar acoplado
       try {
-        await updateEquipo({ id: equipoId, trailerId: null }).unwrap();
+        await updateEquipo({ id: equipoId, trailerId: 0 }).unwrap();
         setMessage({ type: 'success', text: 'Acoplado removido' });
         refetch();
       } catch (err: any) {
@@ -432,7 +439,8 @@ const EditarEquipoPage: React.FC = () => {
         </div>
       </Card>
       
-      {/* Editar Entidades */}
+      {/* Editar Entidades - Solo para usuarios con permiso de edición */}
+      {canEdit && (
       <Card className='p-4 mb-6'>
         <h2 className='text-lg font-semibold mb-4'>Modificar Entidades</h2>
         
@@ -538,8 +546,9 @@ const EditarEquipoPage: React.FC = () => {
           </div>
         </div>
       </Card>
+      )}
       
-      {/* Gestionar Clientes */}
+      {/* Gestionar Clientes - Solo para usuarios que pueden gestionar clientes */}
       <Card className='p-4 mb-6'>
         <h2 className='text-lg font-semibold mb-4'>Clientes Asociados</h2>
         
@@ -551,6 +560,7 @@ const EditarEquipoPage: React.FC = () => {
               className='flex items-center justify-between p-3 bg-gray-50 rounded border'
             >
               <span>{cliente.nombre}</span>
+              {canManageClients && (
               <Button
                 variant='outline'
                 size='sm'
@@ -560,6 +570,7 @@ const EditarEquipoPage: React.FC = () => {
               >
                 Quitar
               </Button>
+              )}
             </div>
           ))}
           {clientesActuales.length === 0 && (
@@ -567,7 +578,8 @@ const EditarEquipoPage: React.FC = () => {
           )}
         </div>
         
-        {/* Agregar cliente */}
+        {/* Agregar cliente - Solo para usuarios que pueden gestionar clientes */}
+        {canManageClients && (
         <div className='flex gap-2'>
           <select
             className='flex-1 border rounded px-3 py-2 bg-background'
@@ -583,10 +595,13 @@ const EditarEquipoPage: React.FC = () => {
             Agregar Cliente
           </Button>
         </div>
+        )}
         
+        {canManageClients && (
         <p className='text-xs text-gray-500 mt-2'>
           El equipo debe tener al menos un cliente asociado.
         </p>
+        )}
       </Card>
       
       {/* Documentación Requerida */}
@@ -631,7 +646,8 @@ const EditarEquipoPage: React.FC = () => {
                 const fileKey = `${req.templateId}-${req.entityType}-${req.entityId}`;
                 const selectedFile = selectedFiles[fileKey];
                 const isUploading = uploadingDoc === fileKey;
-                const canUpload = req.estado === 'FALTANTE' || req.estado === 'VENCIDO';
+                const docNeedsUpload = req.estado === 'FALTANTE' || req.estado === 'VENCIDO';
+                const canUpload = docNeedsUpload && canUploadDocs;
                 
                 return (
                   <div
