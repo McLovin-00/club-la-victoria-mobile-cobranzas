@@ -35,10 +35,60 @@ export class ApprovalService {
   }
 
   static async getPendingDocument(documentId: number, tenantEmpresaId: number): Promise<any | null> {
-    return db.getClient().document.findFirst({
+    const document = await db.getClient().document.findFirst({
       where: { id: documentId, tenantEmpresaId, status: 'PENDIENTE_APROBACION' as DocumentStatus },
       include: { template: true, classification: true },
     });
+    
+    if (!document) return null;
+    
+    // Obtener el identificador natural de la entidad (CUIT, DNI o Patente)
+    let entityNaturalId: string | null = null;
+    
+    try {
+      switch (document.entityType) {
+        case 'EMPRESA_TRANSPORTISTA': {
+          const empresa = await db.getClient().empresaTransportista.findUnique({
+            where: { id: document.entityId },
+            select: { cuit: true },
+          });
+          entityNaturalId = empresa?.cuit || null;
+          break;
+        }
+        case 'CHOFER': {
+          const chofer = await db.getClient().chofer.findUnique({
+            where: { id: document.entityId },
+            select: { dni: true },
+          });
+          entityNaturalId = chofer?.dni || null;
+          break;
+        }
+        case 'CAMION': {
+          const camion = await db.getClient().camion.findUnique({
+            where: { id: document.entityId },
+            select: { patente: true },
+          });
+          entityNaturalId = camion?.patente || null;
+          break;
+        }
+        case 'ACOPLADO': {
+          const acoplado = await db.getClient().acoplado.findUnique({
+            where: { id: document.entityId },
+            select: { patente: true },
+          });
+          entityNaturalId = acoplado?.patente || null;
+          break;
+        }
+      }
+    } catch (e) {
+      // Si falla la búsqueda del identificador natural, no es crítico
+      console.warn('No se pudo obtener el identificador natural de la entidad:', e);
+    }
+    
+    return {
+      ...document,
+      entityNaturalId, // CUIT, DNI o Patente según el tipo de entidad
+    };
   }
 
   static async approveDocument(

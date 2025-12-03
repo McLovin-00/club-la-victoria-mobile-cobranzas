@@ -182,13 +182,18 @@ export default function ApprovalDetailPage() {
       setEntityType(classEntityType);
     }
     
-    // 2. Pre-llenar entityId: primero del documento, luego de clasificación
-    const docEntityId = (meta as any)?.entityId || (meta as any)?.entity_id;
+    // 2. Pre-llenar entityId: usar el identificador natural (CUIT/DNI/Patente), NO el ID interno
+    // Prioridad: entityNaturalId > detectedEntityId > entityId (fallback)
+    const entityNaturalId = (meta as any)?.entityNaturalId; // CUIT, DNI o Patente del backend
     const classEntityId = (classification as any)?.detectedEntityId;
-    if (docEntityId) {
-      setEntityId(String(docEntityId));
+    const docEntityId = (meta as any)?.entityId || (meta as any)?.entity_id; // ID interno (fallback)
+    
+    if (entityNaturalId) {
+      setEntityId(String(entityNaturalId));
     } else if (classEntityId) {
       setEntityId(String(classEntityId));
+    } else if (docEntityId) {
+      setEntityId(String(docEntityId));
     }
     
     // 3. Pre-llenar templateId: primero del documento/template, luego por nombre detectado
@@ -290,7 +295,7 @@ export default function ApprovalDetailPage() {
         <div className="lg:col-span-1">
           <div className="rounded-xl border bg-card p-4 shadow-sm space-y-4">
             <Field label="Entidad detectada" value={classification?.detectedEntityType ?? meta?.entityType ?? '-'} />
-            <Field label="Identidad detectada" value={classification?.detectedEntityId ?? meta?.entityId ?? '-'} />
+            <Field label="Identidad detectada" value={meta?.entityNaturalId ?? classification?.detectedEntityId ?? '-'} />
             <Field label="Tipo documento detectado" value={classification?.detectedDocumentType ?? '-'} />
             <Field label="Subido" value={meta?.uploadedAt ? formatDateTime(meta.uploadedAt) : '-'} />
             <Field 
