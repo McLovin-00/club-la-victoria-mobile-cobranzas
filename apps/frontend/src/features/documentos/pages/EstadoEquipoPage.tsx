@@ -173,12 +173,19 @@ export const EstadoEquipoPage: React.FC = () => {
 
   const complianceByEntidad = useMemo(() => {
     const map: Record<string, Array<any>> = { EMPRESA_TRANSPORTISTA: [], CHOFER: [], CAMION: [], ACOPLADO: [] };
+    // Set para deduplicar por entityType + templateId
+    const seen: Record<string, Set<number>> = { EMPRESA_TRANSPORTISTA: new Set(), CHOFER: new Set(), CAMION: new Set(), ACOPLADO: new Set() };
     try {
       const clientes = (data?.clientes || []) as Array<{ clienteId: number; compliance: any[] }>;
       for (const c of clientes) {
         for (const r of c.compliance || []) {
           const list = (map[r.entityType] = map[r.entityType] || []);
-          list.push(r);
+          const seenSet = (seen[r.entityType] = seen[r.entityType] || new Set());
+          // Solo agregar si no hemos visto este templateId para esta entidad
+          if (!seenSet.has(r.templateId)) {
+            seenSet.add(r.templateId);
+            list.push(r);
+          }
         }
       }
     } catch (e) { /* noop */ }
