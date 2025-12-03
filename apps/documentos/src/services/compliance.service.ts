@@ -72,6 +72,7 @@ export class ComplianceService {
     const results: RequirementResultDetailed[] = [];
     for (const r of requisitos) {
       const entityId =
+        r.entityType === 'EMPRESA_TRANSPORTISTA' ? (equipo as any).empresaTransportistaId :
         r.entityType === 'CHOFER' ? (equipo as any).driverId :
         r.entityType === 'CAMION' ? (equipo as any).truckId :
         r.entityType === 'ACOPLADO' ? ((equipo as any).trailerId ?? 0) : 0;
