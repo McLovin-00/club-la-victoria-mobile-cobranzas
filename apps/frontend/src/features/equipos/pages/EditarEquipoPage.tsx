@@ -15,6 +15,7 @@ import {
   useGetEquipoRequisitosQuery,
   useAddEquipoClienteMutation,
   useRemoveEquipoClienteWithArchiveMutation,
+  useUploadDocumentMutation,
 } from '../../documentos/api/documentosApiSlice';
 import { Button } from '../../../components/ui/button';
 import { Card } from '../../../components/ui/card';
@@ -62,6 +63,11 @@ const EditarEquipoPage: React.FC = () => {
   const [removeCliente] = useRemoveEquipoClienteMutation();
   const [addClienteNew] = useAddEquipoClienteMutation();
   const [removeClienteWithArchive] = useRemoveEquipoClienteWithArchiveMutation();
+  const [uploadDocument, { isLoading: uploading }] = useUploadDocumentMutation();
+  
+  // Estado para archivos seleccionados (key: templateId-entityType-entityId)
+  const [selectedFiles, setSelectedFiles] = useState<Record<string, { file: File; expiresAt?: string }>>({});
+  const [uploadingDoc, setUploadingDoc] = useState<string | null>(null);
   
   // Estados locales para edición
   const [selectedChoferId, setSelectedChoferId] = useState<number | ''>('');
@@ -282,6 +288,75 @@ const EditarEquipoPage: React.FC = () => {
     ACOPLADO: 'Acoplado',
     EMPRESA_TRANSPORTISTA: 'Empresa Transportista',
     DADOR: 'Dador de Carga',
+  };
+  
+  // Función para seleccionar archivo
+  const handleFileSelect = (templateId: number, entityType: string, entityId: number, file: File) => {
+    const key = `${templateId}-${entityType}-${entityId}`;
+    setSelectedFiles(prev => ({
+      ...prev,
+      [key]: { file, expiresAt: undefined },
+    }));
+  };
+  
+  // Función para establecer fecha de vencimiento
+  const handleExpiresAtChange = (templateId: number, entityType: string, entityId: number, date: string) => {
+    const key = `${templateId}-${entityType}-${entityId}`;
+    setSelectedFiles(prev => {
+      if (!prev[key]) return prev;
+      return {
+        ...prev,
+        [key]: { ...prev[key], expiresAt: date },
+      };
+    });
+  };
+  
+  // Función para subir documento
+  const handleUploadDocument = async (templateId: number, entityType: string, entityId: number) => {
+    const key = `${templateId}-${entityType}-${entityId}`;
+    const selected = selectedFiles[key];
+    if (!selected?.file) return;
+    
+    setUploadingDoc(key);
+    try {
+      const formData = new FormData();
+      formData.append('document', selected.file);
+      formData.append('templateId', String(templateId));
+      formData.append('entityType', entityType);
+      formData.append('entityId', String(entityId));
+      formData.append('dadorCargaId', String(dadorId));
+      formData.append('confirmNewVersion', 'true');
+      if (selected.expiresAt) {
+        formData.append('expiresAt', selected.expiresAt);
+      }
+      
+      await uploadDocument(formData).unwrap();
+      setMessage({ type: 'success', text: 'Documento subido correctamente. Pendiente de aprobación.' });
+      
+      // Limpiar archivo seleccionado
+      setSelectedFiles(prev => {
+        const next = { ...prev };
+        delete next[key];
+        return next;
+      });
+      
+      // Refrescar requisitos
+      refetchRequisitos();
+    } catch (err: any) {
+      setMessage({ type: 'error', text: err?.data?.message || 'Error al subir documento' });
+    } finally {
+      setUploadingDoc(null);
+    }
+  };
+  
+  // Quitar archivo seleccionado
+  const handleRemoveFile = (templateId: number, entityType: string, entityId: number) => {
+    const key = `${templateId}-${entityType}-${entityId}`;
+    setSelectedFiles(prev => {
+      const next = { ...prev };
+      delete next[key];
+      return next;
+    });
   };
   
   if (isLoading) {
@@ -553,43 +628,101 @@ const EditarEquipoPage: React.FC = () => {
               {reqs.map((req) => {
                 const style = getEstadoStyle(req.estado);
                 const IconComponent = style.icon;
+                const fileKey = `${req.templateId}-${req.entityType}-${req.entityId}`;
+                const selectedFile = selectedFiles[fileKey];
+                const isUploading = uploadingDoc === fileKey;
+                const canUpload = req.estado === 'FALTANTE' || req.estado === 'VENCIDO';
+                
                 return (
                   <div
-                    key={`${req.templateId}-${req.entityType}`}
-                    className={`flex items-center justify-between p-3 rounded border ${style.bg}`}
+                    key={fileKey}
+                    className={`p-3 rounded border ${style.bg}`}
                   >
-                    <div className='flex items-center gap-3'>
-                      <IconComponent className={`h-5 w-5 ${style.text}`} />
-                      <div>
-                        <div className='font-medium'>{req.templateName}</div>
-                        <div className='text-xs text-gray-500'>
-                          Requerido por: {req.requeridoPor.map(c => c.clienteName).join(', ')}
+                    <div className='flex items-center justify-between'>
+                      <div className='flex items-center gap-3'>
+                        <IconComponent className={`h-5 w-5 ${style.text}`} />
+                        <div>
+                          <div className='font-medium'>{req.templateName}</div>
+                          <div className='text-xs text-gray-500'>
+                            Requerido por: {req.requeridoPor.map(c => c.clienteName).join(', ')}
+                          </div>
                         </div>
                       </div>
-                    </div>
-                    <div className='flex items-center gap-3'>
-                      <span className={`text-sm font-medium ${style.text}`}>
-                        {req.estado === 'VIGENTE' && 'Vigente'}
-                        {req.estado === 'PROXIMO_VENCER' && 'Próximo a vencer'}
-                        {req.estado === 'VENCIDO' && 'Vencido'}
-                        {req.estado === 'PENDIENTE' && 'Pendiente'}
-                        {req.estado === 'FALTANTE' && 'Faltante'}
-                      </span>
-                      {req.documentoActual?.expiresAt && (
-                        <span className='text-xs text-gray-500'>
-                          {new Date(req.documentoActual.expiresAt).toLocaleDateString('es-AR')}
+                      <div className='flex items-center gap-3'>
+                        <span className={`text-sm font-medium ${style.text}`}>
+                          {req.estado === 'VIGENTE' && 'Vigente'}
+                          {req.estado === 'PROXIMO_VENCER' && 'Próximo a vencer'}
+                          {req.estado === 'VENCIDO' && 'Vencido'}
+                          {req.estado === 'PENDIENTE' && 'Pendiente'}
+                          {req.estado === 'FALTANTE' && 'Faltante'}
                         </span>
-                      )}
-                      {(req.estado === 'FALTANTE' || req.estado === 'VENCIDO') && (
-                        <Button
-                          variant='outline'
-                          size='sm'
-                          onClick={() => navigate(`/documentos/equipos`)}
-                        >
-                          Subir
-                        </Button>
-                      )}
+                        {req.documentoActual?.expiresAt && (
+                          <span className='text-xs text-gray-500'>
+                            {new Date(req.documentoActual.expiresAt).toLocaleDateString('es-AR')}
+                          </span>
+                        )}
+                      </div>
                     </div>
+                    
+                    {/* Sección de subida para docs faltantes o vencidos */}
+                    {canUpload && (
+                      <div className='mt-3 pt-3 border-t border-gray-200'>
+                        {!selectedFile ? (
+                          <label className='flex items-center justify-center w-full h-12 border-2 border-dashed border-gray-300 rounded cursor-pointer hover:border-blue-500 hover:bg-blue-50 transition-colors'>
+                            <input
+                              type='file'
+                              accept='.pdf,.jpg,.jpeg,.png'
+                              className='hidden'
+                              onChange={(e) => {
+                                const file = e.target.files?.[0];
+                                if (file && req.entityId) {
+                                  handleFileSelect(req.templateId, req.entityType, req.entityId, file);
+                                }
+                              }}
+                            />
+                            <span className='text-sm text-gray-500'>
+                              📎 Seleccionar archivo (PDF o imagen)
+                            </span>
+                          </label>
+                        ) : (
+                          <div className='flex flex-col gap-2'>
+                            <div className='flex items-center justify-between bg-white p-2 rounded border'>
+                              <div className='flex items-center gap-2'>
+                                <span className='text-sm font-medium truncate max-w-xs'>
+                                  {selectedFile.file.name}
+                                </span>
+                                <span className='text-xs text-gray-500'>
+                                  ({(selectedFile.file.size / 1024).toFixed(1)} KB)
+                                </span>
+                              </div>
+                              <button
+                                type='button'
+                                className='text-red-500 hover:text-red-700'
+                                onClick={() => req.entityId && handleRemoveFile(req.templateId, req.entityType, req.entityId)}
+                              >
+                                ✕
+                              </button>
+                            </div>
+                            <div className='flex items-center gap-2'>
+                              <label className='text-xs text-gray-600'>Vencimiento:</label>
+                              <input
+                                type='date'
+                                className='border rounded px-2 py-1 text-sm'
+                                value={selectedFile.expiresAt || ''}
+                                onChange={(e) => req.entityId && handleExpiresAtChange(req.templateId, req.entityType, req.entityId, e.target.value)}
+                              />
+                              <Button
+                                size='sm'
+                                onClick={() => req.entityId && handleUploadDocument(req.templateId, req.entityType, req.entityId)}
+                                disabled={isUploading || uploading}
+                              >
+                                {isUploading ? 'Subiendo...' : 'Subir'}
+                              </Button>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    )}
                   </div>
                 );
               })}
@@ -606,10 +739,9 @@ const EditarEquipoPage: React.FC = () => {
       
       {/* Nota informativa */}
       <div className='bg-blue-50 border border-blue-200 rounded-lg p-4 text-sm text-blue-800'>
-        <strong>💡 Nota:</strong> Al cambiar una entidad (chofer, camión, acoplado), el sistema
-        verificará que los documentos correspondientes estén disponibles. Si la nueva entidad
-        ya tiene documentos vigentes, se reutilizarán automáticamente. Los documentos
-        faltantes o vencidos deben subirse desde la página de Alta de Equipos.
+        <strong>💡 Nota:</strong> Los documentos subidos quedan pendientes de aprobación.
+        Al cambiar una entidad, si la nueva entidad ya tiene documentos vigentes,
+        se reutilizarán automáticamente.
       </div>
     </div>
   );
