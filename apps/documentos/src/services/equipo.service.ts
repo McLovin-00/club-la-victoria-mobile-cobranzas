@@ -29,9 +29,6 @@ export class EquipoService {
     const equipo = await prisma.equipo.findUnique({
       where: { id: equipoId },
       include: {
-        chofer: true,
-        camion: true,
-        acoplado: true,
         empresaTransportista: true,
         dador: true,
         clientes: {
@@ -43,7 +40,20 @@ export class EquipoService {
     if (!equipo) {
       throw createError('Equipo no encontrado', 404, 'EQUIPO_NOT_FOUND');
     }
-    return equipo;
+
+    // Obtener datos de chofer, camión y acoplado por separado
+    const [chofer, camion, acoplado] = await Promise.all([
+      prisma.chofer.findUnique({ where: { id: equipo.driverId } }),
+      prisma.camion.findUnique({ where: { id: equipo.truckId } }),
+      equipo.trailerId ? prisma.acoplado.findUnique({ where: { id: equipo.trailerId } }) : null,
+    ]);
+
+    return {
+      ...equipo,
+      chofer,
+      camion,
+      acoplado,
+    };
   }
 
   static async attachComponents(
