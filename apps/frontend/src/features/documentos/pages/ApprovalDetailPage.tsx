@@ -160,30 +160,35 @@ export default function ApprovalDetailPage() {
   const classification = info?.classification || (info as any)?.data?.classification;
   const meta = (info as any)?.data ?? info;
 
+  // Bandera para indicar si ya se pre-llenaron los campos (solo una vez por documento)
+  const [prefilled, setPrefilled] = useState<number | null>(null);
+
   // Prefill entity, template and expiration from DOCUMENT DATA FIRST, then classification as fallback
+  // Se ejecuta UNA SOLA VEZ cuando los datos del documento están disponibles
   useEffect(() => {
-    if (!meta) return;
+    if (!meta || !meta.id) return;
+    // Solo pre-llenar una vez por documento
+    if (prefilled === meta.id) return;
+    
+    // Marcar como pre-llenado para este documento
+    setPrefilled(meta.id);
     
     // 1. Pre-llenar entityType: primero del documento, luego de clasificación
-    if (!entityType) {
-      const docEntityType = (meta as any)?.entityType || (meta as any)?.entity_type;
-      const classEntityType = (classification as any)?.detectedEntityType;
-      if (docEntityType) {
-        setEntityType(docEntityType);
-      } else if (classEntityType) {
-        setEntityType(classEntityType);
-      }
+    const docEntityType = (meta as any)?.entityType || (meta as any)?.entity_type;
+    const classEntityType = (classification as any)?.detectedEntityType;
+    if (docEntityType) {
+      setEntityType(docEntityType);
+    } else if (classEntityType) {
+      setEntityType(classEntityType);
     }
     
     // 2. Pre-llenar entityId: primero del documento, luego de clasificación
-    if (!entityId) {
-      const docEntityId = (meta as any)?.entityId || (meta as any)?.entity_id;
-      const classEntityId = (classification as any)?.detectedEntityId;
-      if (docEntityId) {
-        setEntityId(String(docEntityId));
-      } else if (classEntityId) {
-        setEntityId(String(classEntityId));
-      }
+    const docEntityId = (meta as any)?.entityId || (meta as any)?.entity_id;
+    const classEntityId = (classification as any)?.detectedEntityId;
+    if (docEntityId) {
+      setEntityId(String(docEntityId));
+    } else if (classEntityId) {
+      setEntityId(String(classEntityId));
     }
     
     // 3. Pre-llenar templateId: primero del documento/template, luego por nombre detectado
@@ -192,47 +197,43 @@ export default function ApprovalDetailPage() {
     const existingTemplateName: string | undefined = 
       ((meta as any)?.template?.name || (meta as any)?.template?.nombre) as any;
     
-    if (!templateId) {
-      // Intentar primero con el templateId existente del documento
-      if (existingTemplateId && String(existingTemplateName || '').toUpperCase() !== 'AUTO') {
-        setTemplateId(existingTemplateId);
-      } 
-      // Si no hay o es AUTO, intentar mapear por tipo detectado
-      else if ((classification as any)?.detectedDocumentType && Array.isArray(templatesAll)) {
-        const detected = normalizeLabel((classification as any).detectedDocumentType);
-        const t = templatesAll.find((tpl: any) => {
-          const nm = normalizeLabel((tpl.name ?? tpl.nombre) as any);
-          return nm === detected;
-        });
-        if (t) {
-          setTemplateId(Number(t.id));
-        }
+    // Intentar primero con el templateId existente del documento
+    if (existingTemplateId && String(existingTemplateName || '').toUpperCase() !== 'AUTO') {
+      setTemplateId(existingTemplateId);
+    } 
+    // Si no hay o es AUTO, intentar mapear por tipo detectado
+    else if ((classification as any)?.detectedDocumentType && Array.isArray(templatesAll)) {
+      const detected = normalizeLabel((classification as any).detectedDocumentType);
+      const t = templatesAll.find((tpl: any) => {
+        const nm = normalizeLabel((tpl.name ?? tpl.nombre) as any);
+        return nm === detected;
+      });
+      if (t) {
+        setTemplateId(Number(t.id));
       }
     }
     
     // 4. Pre-llenar expiresAt: primero del documento, luego de clasificación
-    if (!expiresAt) {
-      const docExpiresAt = (meta as any)?.expiresAt || (meta as any)?.expires_at;
-      const classExpiration = (classification as any)?.detectedExpiration;
-      const isoDate = docExpiresAt || classExpiration;
-      
-      if (isoDate) {
-        try {
-          const d = new Date(String(isoDate));
-          if (!isNaN(d.getTime())) {
-            const yyyy = d.getFullYear();
-            const mm = String(d.getMonth() + 1).padStart(2, '0');
-            const dd = String(d.getDate()).padStart(2, '0');
-            const ymd = `${yyyy}-${mm}-${dd}`;
-            setExpiresAt(ymd);
-            setExpiresRaw(toDmy(ymd));
-          }
-        } catch {
-          // ignore parse errors
+    const docExpiresAt = (meta as any)?.expiresAt || (meta as any)?.expires_at;
+    const classExpiration = (classification as any)?.detectedExpiration;
+    const isoDate = docExpiresAt || classExpiration;
+    
+    if (isoDate) {
+      try {
+        const d = new Date(String(isoDate));
+        if (!isNaN(d.getTime())) {
+          const yyyy = d.getFullYear();
+          const mm = String(d.getMonth() + 1).padStart(2, '0');
+          const dd = String(d.getDate()).padStart(2, '0');
+          const ymd = `${yyyy}-${mm}-${dd}`;
+          setExpiresAt(ymd);
+          setExpiresRaw(toDmy(ymd));
         }
+      } catch {
+        // ignore parse errors
       }
     }
-  }, [meta, classification, entityType, entityId, expiresAt, templateId, templatesAll]);
+  }, [meta, classification, templatesAll, prefilled]);
 
   // Requiere elegir plantilla si está en AUTO o no hay tipo detectado
   const mustChooseTemplate = useMemo(() => {
