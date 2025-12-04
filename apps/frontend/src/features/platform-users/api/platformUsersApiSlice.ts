@@ -1,13 +1,22 @@
 import { apiSlice } from '../../../store/apiSlice';
 
+// Todos los roles del sistema
+type UserRole = 'SUPERADMIN' | 'ADMIN' | 'ADMIN_INTERNO' | 'OPERATOR' | 'OPERADOR_INTERNO' | 'DADOR_DE_CARGA' | 'TRANSPORTISTA' | 'CHOFER' | 'CLIENTE';
+
 export interface PlatformUser {
   id: number;
   email: string;
-  role: 'SUPERADMIN' | 'ADMIN' | 'OPERATOR';
+  role: UserRole;
   nombre?: string;
   apellido?: string;
   empresaId?: number | null;
   empresa?: { id: number; nombre: string } | null;
+  // Asociaciones por rol
+  dadorCargaId?: number | null;
+  empresaTransportistaId?: number | null;
+  choferId?: number | null;
+  clienteId?: number | null;
+  creadoPorId?: number | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -15,10 +24,15 @@ export interface PlatformUser {
 export interface RegisterUserPayload {
   email: string;
   password: string;
-  role?: 'SUPERADMIN' | 'ADMIN' | 'OPERATOR';
+  role?: UserRole;
   empresaId?: number;
   nombre?: string;
   apellido?: string;
+  // Asociaciones por rol
+  dadorCargaId?: number;
+  empresaTransportistaId?: number;
+  choferId?: number;
+  clienteId?: number;
 }
 
 export const platformUsersApiSlice = apiSlice.injectEndpoints({
