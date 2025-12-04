@@ -23,7 +23,7 @@ export default function DashboardPage() {
     // Redirecciones desde raíz según rol
     switch (user.role) {
       case 'ADMIN_INTERNO':
-        return <Navigate to='/documentos' replace />;
+        return <Navigate to='/portal/admin-interno' replace />;
       case 'DADOR_DE_CARGA':
         return <Navigate to='/dador' replace />;
       case 'TRANSPORTISTA':
