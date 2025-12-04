@@ -71,4 +71,14 @@ router.get(
   DashboardController.getApprovalKpis
 );
 
+/**
+ * GET /api/docs/dashboard/stats-por-rol - Stats personalizados por rol
+ * Acceso: Todos los usuarios autenticados
+ */
+router.get(
+  '/stats-por-rol',
+  authorize([UserRole.SUPERADMIN, UserRole.ADMIN, UserRole.ADMIN_INTERNO, UserRole.DADOR_DE_CARGA, UserRole.TRANSPORTISTA, UserRole.CLIENTE]),
+  DashboardController.getStatsPorRol
+);
+
 export default router;

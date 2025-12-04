@@ -411,4 +411,125 @@ export class DashboardController {
       res.status(500).json({ success: false, message: 'Error obteniendo KPIs de aprobación', code: 'KPIS_ERROR' });
     }
   }
+
+  /**
+   * GET /api/docs/dashboard/stats-por-rol - Stats personalizados por rol
+   * Retorna información relevante según el rol del usuario
+   */
+  static async getStatsPorRol(req: AuthRequest, res: Response): Promise<void> {
+    try {
+      const tenantEmpresaId = req.tenantId!;
+      const user = req.user!;
+      const { db } = await import('../config/database');
+      const prisma = db.getClient();
+      
+      const now = new Date();
+      const in30Days = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
+      
+      // Stats base (comunes a todos)
+      const baseStats = {
+        role: user.role,
+        asOf: now.toISOString(),
+      };
+      
+      // Stats específicos por rol
+      let roleStats: any = {};
+      
+      if (user.role === 'SUPERADMIN' || user.role === 'ADMIN_INTERNO') {
+        // Admin: ve todo
+        const [totalEquipos, totalDocumentos, pendientesAprobacion, vencidosHoy, rechazados] = await Promise.all([
+          prisma.equipo.count({ where: { tenantEmpresaId } }),
+          prisma.document.count({ where: { tenantEmpresaId, archived: false } }),
+          prisma.document.count({ where: { tenantEmpresaId, status: 'PENDIENTE_APROBACION' as any } }),
+          prisma.document.count({ where: { tenantEmpresaId, status: 'APROBADO' as any, expiresAt: { lte: now } } }),
+          prisma.document.count({ where: { tenantEmpresaId, status: 'RECHAZADO' as any, archived: false } }),
+        ]);
+        
+        roleStats = {
+          totalEquipos,
+          totalDocumentos,
+          pendientesAprobacion,
+          vencidosHoy,
+          rechazados,
+        };
+      } else if (user.role === 'DADOR_DE_CARGA') {
+        // Dador: ve sus equipos y docs
+        const [misEquipos, pendientesAprobacion, proximosVencer, transportistasActivos] = await Promise.all([
+          prisma.equipo.count({ where: { tenantEmpresaId } }),
+          prisma.document.count({ where: { tenantEmpresaId, status: 'PENDIENTE_APROBACION' as any } }),
+          prisma.document.count({ 
+            where: { 
+              tenantEmpresaId, 
+              status: 'APROBADO' as any, 
+              expiresAt: { gte: now, lte: in30Days } 
+            } 
+          }),
+          prisma.empresaTransportista.count({ where: { tenantEmpresaId } }),
+        ]);
+        
+        roleStats = {
+          misEquipos,
+          pendientesAprobacion,
+          proximosVencer,
+          transportistasActivos,
+        };
+      } else if (user.role === 'TRANSPORTISTA' || user.role === 'EMPRESA_TRANSPORTISTA') {
+        // Transportista: ve sus docs
+        const [misEquipos, documentosRechazados, documentosFaltantes, proximosVencer] = await Promise.all([
+          prisma.equipo.count({ where: { tenantEmpresaId, empresaTransportistaId: { not: null } } }),
+          prisma.document.count({ where: { tenantEmpresaId, status: 'RECHAZADO' as any, archived: false } }),
+          0, // TODO: calcular faltantes
+          prisma.document.count({ 
+            where: { 
+              tenantEmpresaId, 
+              status: 'APROBADO' as any, 
+              expiresAt: { gte: now, lte: in30Days } 
+            } 
+          }),
+        ]);
+        
+        roleStats = {
+          misEquipos,
+          documentosRechazados,
+          documentosFaltantes,
+          proximosVencer,
+        };
+      } else if (user.role === 'CLIENTE') {
+        // Cliente: ve solo equipos asignados
+        const clienteId = user.empresaId;
+        const [equiposAsignados] = await Promise.all([
+          prisma.equipoCliente.count({ where: { clienteId, asignadoHasta: null } }),
+        ]);
+        
+        // Calcular estados de equipos
+        const equipos = await prisma.equipoCliente.findMany({
+          where: { clienteId, asignadoHasta: null },
+          include: { equipo: true },
+        });
+        
+        let vigentes = 0, proximosVencer = 0, vencidos = 0;
+        for (const ec of equipos) {
+          const estado = ec.equipo.estado?.toUpperCase();
+          if (estado === 'VIGENTE' || estado === 'OK') vigentes++;
+          else if (estado === 'PROXIMO_VENCER' || estado === 'WARNING') proximosVencer++;
+          else if (estado === 'VENCIDO' || estado === 'EXPIRED') vencidos++;
+        }
+        
+        roleStats = {
+          equiposAsignados,
+          vigentes,
+          proximosVencer,
+          vencidos,
+        };
+      }
+      
+      res.json({
+        success: true,
+        data: { ...baseStats, ...roleStats },
+      });
+    } catch (error) {
+      AppLogger.error('💥 Error obteniendo stats por rol:', error);
+      res.status(500).json({ success: false, message: 'Error obteniendo estadísticas', code: 'STATS_ERROR' });
+    }
+  }
 }

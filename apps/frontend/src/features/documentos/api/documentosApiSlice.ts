@@ -966,6 +966,12 @@ export const documentosApiSlice = createApi({
       },
       invalidatesTags: ['Documents', 'Equipos'],
     }),
+    
+    // Stats por rol (dashboard personalizado)
+    getStatsPorRol: builder.query<any, void>({
+      query: () => '/dashboard/stats-por-rol',
+      transformResponse: (r: any) => r?.data ?? {},
+    }),
   }),
 });
 
@@ -1087,4 +1093,6 @@ export const {
   useGetPortalTransportistaDocumentosPendientesQuery,
   // Resubir documento
   useResubmitDocumentMutation,
+  // Stats por rol
+  useGetStatsPorRolQuery,
 } = documentosApiSlice;

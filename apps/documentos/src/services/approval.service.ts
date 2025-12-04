@@ -373,6 +373,10 @@ export class ApprovalService {
     tenantEmpresaId: number,
     reviewData: { reviewedBy: number; reason: string; reviewNotes?: string }
   ): Promise<any> {
+    if (!reviewData.reason || reviewData.reason.trim().length < 3) {
+      throw new Error('Debe especificar un motivo de rechazo');
+    }
+    
     return db.getClient().$transaction(async (tx) => {
       const document = await tx.document.findFirst({
         where: { id: documentId, tenantEmpresaId, status: 'PENDIENTE_APROBACION' as DocumentStatus },
@@ -387,7 +391,20 @@ export class ApprovalService {
         });
       }
 
-      return tx.document.update({ where: { id: documentId }, data: { status: 'RECHAZADO' as DocumentStatus, validatedAt: new Date() } });
+      return tx.document.update({
+        where: { id: documentId },
+        data: {
+          status: 'RECHAZADO' as DocumentStatus,
+          validatedAt: new Date(),
+          rejectedAt: new Date(),
+          rejectedBy: reviewData.reviewedBy,
+          rejectionReason: reviewData.reason.trim(),
+          rejectionCount: { increment: 1 },
+          reviewedAt: new Date(),
+          reviewedBy: reviewData.reviewedBy,
+          reviewNotes: reviewData.reviewNotes,
+        },
+      });
     });
   }
 
