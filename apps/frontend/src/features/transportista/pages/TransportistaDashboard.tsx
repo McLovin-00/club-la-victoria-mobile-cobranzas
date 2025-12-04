@@ -1,6 +1,6 @@
-import React from 'react';
+import React, { useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useGetPortalTransportistaMisEntidadesQuery, useGetPortalTransportistaDocumentosRechazadosQuery } from '../../documentos/api/documentosApiSlice';
+import { useGetPortalTransportistaMisEntidadesQuery, useGetPortalTransportistaDocumentosRechazadosQuery, useResubmitDocumentMutation } from '../../documentos/api/documentosApiSlice';
 import { Card } from '../../../components/ui/card';
 import { Button } from '../../../components/ui/button';
 import { 
@@ -21,7 +21,32 @@ const TransportistaDashboard: React.FC = () => {
   const navigate = useNavigate();
   
   const { data: entidadesData, isLoading: entidadesLoading } = useGetPortalTransportistaMisEntidadesQuery();
-  const { data: rechazadosData, isLoading: rechazadosLoading } = useGetPortalTransportistaDocumentosRechazadosQuery();
+  const { data: rechazadosData, isLoading: rechazadosLoading, refetch: refetchRechazados } = useGetPortalTransportistaDocumentosRechazadosQuery();
+  const [resubmitDocument, { isLoading: isResubmitting }] = useResubmitDocumentMutation();
+  
+  const [resubmitingId, setResubmitingId] = useState<number | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  
+  const handleResubmit = async (docId: number) => {
+    setResubmitingId(docId);
+    fileInputRef.current?.click();
+  };
+  
+  const handleFileSelected = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !resubmitingId) return;
+    
+    try {
+      await resubmitDocument({ documentId: resubmitingId, file }).unwrap();
+      alert('Documento resubido correctamente. Pendiente de aprobación.');
+      refetchRechazados();
+    } catch (err: any) {
+      alert(err?.data?.message || 'Error al resubir documento');
+    } finally {
+      setResubmitingId(null);
+      if (fileInputRef.current) fileInputRef.current.value = '';
+    }
+  };
   
   const entidades = entidadesData || { empresas: [], choferes: [], camiones: [], acoplados: [], contadores: { pendientes: 0, rechazados: 0, porVencer: 0 } };
   const rechazados = rechazadosData || [];
@@ -160,6 +185,15 @@ const TransportistaDashboard: React.FC = () => {
         </Card>
       </div>
       
+      {/* Input oculto para seleccionar archivo */}
+      <input
+        type='file'
+        ref={fileInputRef}
+        className='hidden'
+        accept='.pdf,.jpg,.jpeg,.png'
+        onChange={handleFileSelected}
+      />
+      
       {/* Documentos Rechazados (si hay) */}
       {rechazados.length > 0 && (
         <Card className='p-6'>
@@ -181,9 +215,10 @@ const TransportistaDashboard: React.FC = () => {
                 <Button 
                   variant='outline' 
                   size='sm'
-                  onClick={() => navigate('/documentos/equipos/alta-completa')}
+                  onClick={() => handleResubmit(doc.id)}
+                  disabled={isResubmitting && resubmitingId === doc.id}
                 >
-                  Resubir
+                  {isResubmitting && resubmitingId === doc.id ? 'Subiendo...' : 'Resubir'}
                 </Button>
               </div>
             ))}

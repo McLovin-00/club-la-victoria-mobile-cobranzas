@@ -138,4 +138,19 @@ router.delete(
   DocumentsController.deleteDocument
 );
 
+/**
+ * POST /api/docs/documents/:id/resubmit - Resubir documento rechazado
+ * Acceso: Transportistas, Dadores, Admins
+ */
+router.post(
+  '/:id/resubmit',
+  authenticate,
+  authorize([UserRole.SUPERADMIN, UserRole.ADMIN, UserRole.ADMIN_INTERNO, UserRole.DADOR_DE_CARGA, UserRole.TRANSPORTISTA]),
+  uploadMiddleware.fields([
+    { name: 'documents', maxCount: 1 },
+    { name: 'document', maxCount: 1 },
+  ]),
+  DocumentsController.resubmitDocument
+);
+
 export default router;

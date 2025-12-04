@@ -795,6 +795,149 @@ export class DocumentsController {
       throw createError('Error al eliminar documento', 500, 'DELETE_DOCUMENT_ERROR');
     }
   }
+
+  /**
+   * POST /api/docs/documents/:id/resubmit - Resubir documento rechazado
+   * Permite a transportistas resubir un documento que fue rechazado
+   */
+  static async resubmitDocument(req: AuthRequest, res: Response): Promise<void> {
+    try {
+      const documentId = parseInt(req.params.id);
+      const tenantId = req.tenantId!;
+      
+      // Obtener documento actual
+      const document = await db.getClient().document.findFirst({
+        where: { 
+          id: documentId, 
+          tenantEmpresaId: tenantId,
+          status: 'RECHAZADO' as any,
+        },
+        include: { template: true },
+      });
+      
+      if (!document) {
+        throw createError('Documento no encontrado o no está rechazado', 404, 'DOCUMENT_NOT_FOUND');
+      }
+      
+      // Obtener archivo
+      const anyReq: any = req as any;
+      const docsA: Express.Multer.File[] = Array.isArray(anyReq.files?.documents) ? anyReq.files.documents : [];
+      const docsB: Express.Multer.File[] = Array.isArray(anyReq.files?.document) ? anyReq.files.document : (anyReq.file ? [anyReq.file] : []);
+      const files: Express.Multer.File[] = [...docsA, ...docsB];
+      
+      if (files.length === 0) {
+        throw createError('Se requiere un archivo', 400, 'FILE_REQUIRED');
+      }
+      
+      const file = files[0];
+      
+      // Preparar buffer final (convertir a PDF si es imagen)
+      let finalBuffer: Buffer;
+      let finalFileName: string;
+      const finalMime = 'application/pdf';
+      
+      if (/^application\/pdf$/i.test(file.mimetype)) {
+        finalBuffer = file.buffer;
+        finalFileName = file.originalname.replace(/\.[^.]+$/, '.pdf');
+      } else {
+        // Convertir imagen a PDF
+        const PDFDocument = (await import('pdfkit')).default;
+        const doc = new PDFDocument({ autoFirstPage: false });
+        const chunks: Buffer[] = [];
+        doc.on('data', (chunk: Buffer) => chunks.push(chunk));
+        
+        const sharp = (await import('sharp')).default;
+        const imgMeta = await sharp(file.buffer).metadata();
+        const width = imgMeta.width || 595;
+        const height = imgMeta.height || 842;
+        doc.addPage({ size: [width, height], margin: 0 });
+        doc.image(file.buffer, 0, 0, { width, height });
+        doc.end();
+        
+        await new Promise<void>((resolve) => doc.on('end', resolve));
+        finalBuffer = Buffer.concat(chunks);
+        finalFileName = file.originalname.replace(/\.[^.]+$/, '.pdf');
+      }
+      
+      // Eliminar archivo anterior de MinIO
+      try {
+        const [oldBucket, ...oldPathParts] = document.filePath.split('/');
+        await minioService.deleteDocument(oldBucket, oldPathParts.join('/'));
+      } catch {
+        AppLogger.warn('⚠️ No se pudo eliminar archivo anterior');
+      }
+      
+      // Subir nuevo archivo
+      const uploadResult = await minioService.uploadDocument(
+        tenantId,
+        document.dadorCargaId,
+        document.entityType,
+        document.entityId,
+        finalBuffer,
+        finalFileName,
+        finalMime
+      );
+      
+      // Actualizar documento
+      const updated = await db.getClient().document.update({
+        where: { id: documentId },
+        data: {
+          status: 'PENDIENTE_APROBACION' as any,
+          fileName: finalFileName,
+          fileSize: finalBuffer.length,
+          filePath: `${uploadResult.bucketName}/${uploadResult.objectPath}`,
+          uploadedAt: new Date(),
+          validatedAt: null,
+        },
+      });
+      
+      // Limpiar clasificación anterior si existe
+      await db.getClient().documentClassification.deleteMany({
+        where: { documentId },
+      });
+      
+      // Encolar para clasificación
+      try {
+        await queueService.enqueueDocumentValidation({
+          documentId: updated.id,
+          tenantId,
+          dadorId: document.dadorCargaId,
+        });
+      } catch {}
+      
+      AppLogger.info('📄 Documento resubido', {
+        documentId: updated.id,
+        templateName: document.template.name,
+        userId: req.user?.userId,
+      });
+      
+      // Audit
+      void AuditService.log({
+        tenantEmpresaId: tenantId,
+        userId: req.user?.userId,
+        userRole: req.user?.role,
+        method: req.method,
+        path: req.originalUrl || req.path,
+        statusCode: 200,
+        action: 'DOCUMENT_RESUBMIT',
+        entityType: 'DOCUMENT',
+        entityId: updated.id,
+        details: { templateName: document.template.name },
+      });
+      
+      res.json({
+        success: true,
+        message: 'Documento resubido correctamente. Pendiente de aprobación.',
+        data: updated,
+      });
+    } catch (error) {
+      AppLogger.error('💥 Error al resubir documento:', error);
+      if (error instanceof Error && 'code' in error) {
+        throw error;
+      }
+      throw createError('Error al resubir documento', 500, 'RESUBMIT_ERROR');
+    }
+  }
 }
 
 /**

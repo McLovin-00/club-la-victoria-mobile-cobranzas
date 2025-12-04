@@ -952,6 +952,20 @@ export const documentosApiSlice = createApi({
       transformResponse: (r: any) => r?.data ?? [],
       providesTags: ['Documents'],
     }),
+    
+    // Resubir documento rechazado
+    resubmitDocument: builder.mutation<any, { documentId: number; file: File }>({
+      query: ({ documentId, file }) => {
+        const formData = new FormData();
+        formData.append('document', file);
+        return {
+          url: `/documents/${documentId}/resubmit`,
+          method: 'POST',
+          body: formData,
+        };
+      },
+      invalidatesTags: ['Documents', 'Equipos'],
+    }),
   }),
 });
 
@@ -1071,4 +1085,6 @@ export const {
   useGetPortalTransportistaEquiposQuery,
   useGetPortalTransportistaDocumentosRechazadosQuery,
   useGetPortalTransportistaDocumentosPendientesQuery,
+  // Resubir documento
+  useResubmitDocumentMutation,
 } = documentosApiSlice;
