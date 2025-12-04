@@ -9,6 +9,11 @@ export interface AuthPayload {
   email: string;
   role: UserRole;
   empresaId?: number | null;
+  // Asociaciones por rol
+  dadorCargaId?: number | null;
+  empresaTransportistaId?: number | null;
+  choferId?: number | null;
+  clienteId?: number | null;
 }
 
 // Servicio de autenticación minimalista
@@ -59,6 +64,10 @@ export class DocumentosAuthService {
         email: decoded.email,
         role: decoded.role,
         empresaId: decoded.empresaId || null,
+        dadorCargaId: decoded.dadorCargaId || null,
+        empresaTransportistaId: decoded.empresaTransportistaId || null,
+        choferId: decoded.choferId || null,
+        clienteId: decoded.clienteId || null,
       };
 
       AppLogger.debug('✅ Token JWT verificado exitosamente', {
@@ -83,6 +92,10 @@ export class DocumentosAuthService {
             email: decoded.email,
             role: decoded.role,
             empresaId: decoded.empresaId || null,
+            dadorCargaId: decoded.dadorCargaId || null,
+            empresaTransportistaId: decoded.empresaTransportistaId || null,
+            choferId: decoded.choferId || null,
+            clienteId: decoded.clienteId || null,
           };
           AppLogger.warn('⚠️ Token HS256 aceptado por compatibilidad temporal');
           return payload;

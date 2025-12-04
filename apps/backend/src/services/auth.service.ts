@@ -43,6 +43,11 @@ export interface TokenPayload {
   email: string;
   role: UserRole;
   empresaId?: number | null;
+  // Asociaciones por rol
+  dadorCargaId?: number | null;
+  empresaTransportistaId?: number | null;
+  choferId?: number | null;
+  clienteId?: number | null;
 }
 
 /**
@@ -123,12 +128,16 @@ class AuthService extends BaseService<User, UserCreateInput, UserUpdateInput> {
         throw new Error('Credenciales inválidas');
       }
 
-      // Generar token JWT
+      // Generar token JWT con asociaciones por rol
       const token = this.generateToken({
         userId: user.id,
         email: user.email,
         role: user.role,
         empresaId: user.empresaId ?? null,
+        dadorCargaId: (user as any).dadorCargaId ?? null,
+        empresaTransportistaId: (user as any).empresaTransportistaId ?? null,
+        choferId: (user as any).choferId ?? null,
+        clienteId: (user as any).clienteId ?? null,
       });
 
       // Formatear respuesta del usuario
@@ -203,6 +212,11 @@ class AuthService extends BaseService<User, UserCreateInput, UserUpdateInput> {
         userId: newUser.id,
         email: newUser.email,
         role: newUser.role,
+        empresaId: (newUser as any).empresaId ?? null,
+        dadorCargaId: (newUser as any).dadorCargaId ?? null,
+        empresaTransportistaId: (newUser as any).empresaTransportistaId ?? null,
+        choferId: (newUser as any).choferId ?? null,
+        clienteId: (newUser as any).clienteId ?? null,
       });
 
       const authUserResponse = this.formatAuthUser(newUser);
@@ -313,12 +327,16 @@ class AuthService extends BaseService<User, UserCreateInput, UserUpdateInput> {
       // Obtener información actualizada del usuario
       const user = await this.getProfile(decoded.userId);
 
-      // Generar nuevo token
+      // Generar nuevo token con asociaciones
       const newToken = this.generateToken({
         userId: user.userId,
         email: user.email,
         role: user.role,
         empresaId: user.empresaId ?? null,
+        dadorCargaId: (user as any).dadorCargaId ?? null,
+        empresaTransportistaId: (user as any).empresaTransportistaId ?? null,
+        choferId: (user as any).choferId ?? null,
+        clienteId: (user as any).clienteId ?? null,
       });
 
       return {
@@ -424,6 +442,11 @@ class AuthService extends BaseService<User, UserCreateInput, UserUpdateInput> {
         userId: updatedUser.id,
         email: updatedUser.email,
         role: updatedUser.role,
+        empresaId: updatedUser.empresaId ?? null,
+        dadorCargaId: (updatedUser as any).dadorCargaId ?? null,
+        empresaTransportistaId: (updatedUser as any).empresaTransportistaId ?? null,
+        choferId: (updatedUser as any).choferId ?? null,
+        clienteId: (updatedUser as any).clienteId ?? null,
       });
 
       // Formatear respuesta del usuario

@@ -193,17 +193,26 @@ model User {
   createdAt       DateTime   @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt       DateTime   @updatedAt @map("updated_at") @db.Timestamptz(6)
   
+  // Asociaciones por rol (IDs de entidades en microservicio documentos)
+  dadorCargaId          Int?  @map("dador_carga_id")
+  empresaTransportistaId Int? @map("empresa_transportista_id")
+  choferId              Int?  @map("chofer_id")
+  clienteId             Int?  @map("cliente_id")
+  
+  // Auditoría de creación
+  creadoPorId           Int?  @map("creado_por_id")
+  
   // Relations
   adminActions    AuditLog[] @relation("PlatformAdminActions")
   permisos        Permiso[]
   empresa         Empresa?   @relation(fields: [empresaId], references: [id])
-  // manualExecutionsRequested eliminado (migrado a microservicio chat)
-  // manualExecutionsCancelled eliminado (migrado a microservicio chat)
 
   @@index([createdAt], map: "idx_users_created_at")
   @@index([email], map: "idx_users_email")
   @@index([empresaId], map: "idx_users_empresa_id")
   @@index([role], map: "idx_users_role")
+  @@index([dadorCargaId], map: "idx_users_dador_carga_id")
+  @@index([empresaTransportistaId], map: "idx_users_empresa_transportista_id")
   @@map("platform_users")
 }
 

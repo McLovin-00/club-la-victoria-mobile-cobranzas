@@ -32,6 +32,11 @@ export interface RegisterData {
   empresaId?: number | null;
   nombre?: string;
   apellido?: string;
+  // Asociaciones por rol
+  dadorCargaId?: number | null;
+  empresaTransportistaId?: number | null;
+  choferId?: number | null;
+  clienteId?: number | null;
 }
 
 export interface PlatformUserProfile {
@@ -203,7 +208,7 @@ export class PlatformAuthService {
     this.validateRegistrationPermissions(createdBy, registerData.role || 'OPERATOR');
 
     const prisma = prismaService.getClient();
-    const { email, password, role, empresaId, nombre, apellido } = registerData;
+    const { email, password, role, empresaId, nombre, apellido, dadorCargaId, empresaTransportistaId, choferId, clienteId } = registerData;
 
     const existingUser = await prisma.user.findUnique({
       where: { email: email.toLowerCase().trim() },
@@ -224,8 +229,12 @@ export class PlatformAuthService {
         empresaId: finalEmpresaId,
         nombre,
         apellido,
+        dadorCargaId: dadorCargaId ?? null,
+        empresaTransportistaId: empresaTransportistaId ?? null,
+        choferId: choferId ?? null,
+        clienteId: clienteId ?? null,
+        creadoPorId: createdBy.id,
       },
-
     });
 
     return {
@@ -337,9 +346,23 @@ export class PlatformAuthService {
     };
   }
 
+  // Matriz de permisos: quién puede crear qué rol
+  private static readonly PERMISOS_CREACION: Record<string, string[]> = {
+    SUPERADMIN: ['SUPERADMIN'],
+    ADMIN: ['SUPERADMIN'],
+    ADMIN_INTERNO: ['SUPERADMIN', 'ADMIN'],
+    OPERATOR: ['SUPERADMIN', 'ADMIN', 'ADMIN_INTERNO'],
+    OPERADOR_INTERNO: ['SUPERADMIN', 'ADMIN', 'ADMIN_INTERNO'],
+    DADOR_DE_CARGA: ['SUPERADMIN', 'ADMIN', 'ADMIN_INTERNO'],
+    TRANSPORTISTA: ['SUPERADMIN', 'ADMIN', 'ADMIN_INTERNO', 'DADOR_DE_CARGA'],
+    CHOFER: ['SUPERADMIN', 'ADMIN', 'ADMIN_INTERNO', 'DADOR_DE_CARGA', 'TRANSPORTISTA'],
+    CLIENTE: ['SUPERADMIN', 'ADMIN', 'ADMIN_INTERNO'],
+  };
+
   private static validateRegistrationPermissions(createdBy: PlatformUserProfile, role: UserRole): void {
-    if (createdBy.role === 'ADMIN' && (role === 'SUPERADMIN' || role === 'ADMIN')) {
-      throw new Error('Un administrador no puede crear otros administradores o superadministradores.');
+    const rolesPermitidos = this.PERMISOS_CREACION[role] || [];
+    if (!rolesPermitidos.includes(createdBy.role)) {
+      throw new Error(`El rol ${createdBy.role} no tiene permiso para crear usuarios con rol ${role}`);
     }
   }
 

@@ -42,19 +42,27 @@ router.post(
 /**
  * @route POST /api/platform/auth/register
  * @desc Registro de nuevo usuario de plataforma
- * @access Private (Admin/Superadmin)
+ * @access Private - Roles según matriz de permisos
  */
 router.post(
   '/register',
   authenticateUser,
-  authorizeRoles(['ADMIN', 'SUPERADMIN']),
+  authorizeRoles(['SUPERADMIN', 'ADMIN', 'ADMIN_INTERNO', 'DADOR_DE_CARGA', 'TRANSPORTISTA']),
   ValidationMiddleware.validateBody(z.object({
     email: z.string().email(),
     password: z.string().min(8).regex(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/),
-    role: z.enum(['ADMIN','OPERATOR','SUPERADMIN']).optional(),
+    role: z.enum([
+      'SUPERADMIN', 'ADMIN', 'ADMIN_INTERNO', 'OPERATOR', 'OPERADOR_INTERNO',
+      'DADOR_DE_CARGA', 'TRANSPORTISTA', 'CHOFER', 'CLIENTE'
+    ]).optional(),
     empresaId: z.number().int().positive().optional(),
     nombre: z.string().max(100).optional(),
     apellido: z.string().max(100).optional(),
+    // Asociaciones por rol
+    dadorCargaId: z.number().int().positive().optional(),
+    empresaTransportistaId: z.number().int().positive().optional(),
+    choferId: z.number().int().positive().optional(),
+    clienteId: z.number().int().positive().optional(),
   })),
   logAction('PLATFORM_USER_REGISTER'),
   PlatformAuthController.register
