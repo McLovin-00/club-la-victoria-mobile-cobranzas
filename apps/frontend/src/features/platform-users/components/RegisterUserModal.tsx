@@ -5,7 +5,7 @@ import { Spinner } from '../../../components/ui/spinner';
 import { showToast } from '../../../components/ui/Toast.utils';
 import { useRegisterPlatformUserMutation } from '../api/platformUsersApiSlice';
 import { useGetEmpresasQuery } from '../../empresas/api/empresasApiSlice';
-import { useGetDadoresQuery, useGetEmpresasTransportistasQuery, useGetChoferesQuery, useGetClientsQuery } from '../../documentos/api/documentosApiSlice';
+import { useGetDadoresQuery, useGetEmpresasTransportistasQuery, useGetEmpresaTransportistaChoferesQuery, useGetClientsQuery } from '../../documentos/api/documentosApiSlice';
 import { useAppSelector } from '../../../store/hooks';
 import { selectCurrentUser } from '../../auth/authSlice';
 
@@ -59,24 +59,32 @@ export const RegisterUserModal: React.FC<RegisterUserModalProps> = ({ isOpen, on
   // Estado para filtrar transportistas por dador (para rol TRANSPORTISTA)
   const [selectedDadorForTransportista, setSelectedDadorForTransportista] = useState<number | ''>('');
   
-  // Estado para filtrar choferes por dador (para rol CHOFER)
+  // Estados para cascada Dador → Transportista → Chofer (para rol CHOFER)
   const [selectedDadorForChofer, setSelectedDadorForChofer] = useState<number | ''>('');
+  const [selectedTransportistaForChofer, setSelectedTransportistaForChofer] = useState<number | ''>('');
   
-  // Query de transportistas filtrado por dador seleccionado
+  // Query de transportistas filtrado por dador seleccionado (para TRANSPORTISTA)
   const { data: transportistasResp } = useGetEmpresasTransportistasQuery(
     { dadorCargaId: selectedDadorForTransportista ? Number(selectedDadorForTransportista) : undefined },
     { skip: !selectedDadorForTransportista }
   );
   
-  // Query de choferes filtrado por dador seleccionado
-  const { data: choferesResp } = useGetChoferesQuery(
-    { empresaId: selectedDadorForChofer ? Number(selectedDadorForChofer) : 0 },
+  // Query de transportistas para CHOFER (cuando se selecciona dador)
+  const { data: transportistasForChoferResp } = useGetEmpresasTransportistasQuery(
+    { dadorCargaId: selectedDadorForChofer ? Number(selectedDadorForChofer) : undefined },
     { skip: !selectedDadorForChofer }
+  );
+  
+  // Query de choferes filtrado por empresa transportista seleccionada
+  const { data: choferesResp } = useGetEmpresaTransportistaChoferesQuery(
+    { id: selectedTransportistaForChofer ? Number(selectedTransportistaForChofer) : 0 },
+    { skip: !selectedTransportistaForChofer }
   );
   
   const dadores = useMemo(() => (dadoresResp as any)?.list ?? dadoresResp ?? [], [dadoresResp]);
   const transportistas = useMemo(() => (transportistasResp as any)?.list ?? transportistasResp ?? [], [transportistasResp]);
-  const choferes = useMemo(() => (choferesResp as any)?.data ?? [], [choferesResp]);
+  const transportistasForChofer = useMemo(() => (transportistasForChoferResp as any)?.list ?? transportistasForChoferResp ?? [], [transportistasForChoferResp]);
+  const choferes = useMemo(() => choferesResp ?? [], [choferesResp]);
   const clientes = useMemo(() => (clientesResp as any)?.list ?? clientesResp ?? [], [clientesResp]);
   
   const [registerUser, { isLoading }] = useRegisterPlatformUserMutation();
@@ -110,6 +118,7 @@ export const RegisterUserModal: React.FC<RegisterUserModalProps> = ({ isOpen, on
     }
     if (selectedRole !== 'CHOFER') {
       setSelectedDadorForChofer('');
+      setSelectedTransportistaForChofer('');
     }
   }, [selectedRole]);
 
@@ -117,6 +126,7 @@ export const RegisterUserModal: React.FC<RegisterUserModalProps> = ({ isOpen, on
     if (!isOpen) {
       setSelectedDadorForTransportista('');
       setSelectedDadorForChofer('');
+      setSelectedTransportistaForChofer('');
     }
   }, [isOpen]);
 
@@ -292,7 +302,7 @@ export const RegisterUserModal: React.FC<RegisterUserModalProps> = ({ isOpen, on
                 </>
               )}
 
-              {/* Asociación: Chofer (primero seleccionar Dador) */}
+              {/* Asociación: Chofer (Dador → Transportista → Chofer) */}
               {selectedRole === 'CHOFER' && (
                 <>
                   <div className="col-span-2">
@@ -302,12 +312,30 @@ export const RegisterUserModal: React.FC<RegisterUserModalProps> = ({ isOpen, on
                       value={selectedDadorForChofer}
                       onChange={(e) => {
                         setSelectedDadorForChofer(e.target.value ? Number(e.target.value) : '');
-                        setValue('choferId', ''); // Reset chofer al cambiar dador
+                        setSelectedTransportistaForChofer(''); // Reset transportista
+                        setValue('choferId', ''); // Reset chofer
                       }}
                     >
                       <option value="">Seleccionar dador...</option>
                       {dadores.map((d: any) => (
                         <option key={d.id} value={d.id}>{d.razonSocial || d.nombre} ({d.cuit})</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="col-span-2">
+                    <label className="block text-sm font-medium mb-1">Empresa Transportista *</label>
+                    <select 
+                      className="w-full px-3 py-2 border rounded-md"
+                      value={selectedTransportistaForChofer}
+                      onChange={(e) => {
+                        setSelectedTransportistaForChofer(e.target.value ? Number(e.target.value) : '');
+                        setValue('choferId', ''); // Reset chofer
+                      }}
+                      disabled={!selectedDadorForChofer}
+                    >
+                      <option value="">{selectedDadorForChofer ? 'Seleccionar transportista...' : 'Primero seleccione un dador'}</option>
+                      {transportistasForChofer.map((t: any) => (
+                        <option key={t.id} value={t.id}>{t.razonSocial || t.nombre} ({t.cuit})</option>
                       ))}
                     </select>
                   </div>
@@ -321,9 +349,9 @@ export const RegisterUserModal: React.FC<RegisterUserModalProps> = ({ isOpen, on
                         <select 
                           className="w-full px-3 py-2 border rounded-md" 
                           {...field}
-                          disabled={!selectedDadorForChofer}
+                          disabled={!selectedTransportistaForChofer}
                         >
-                          <option value="">{selectedDadorForChofer ? 'Seleccionar...' : 'Primero seleccione un dador'}</option>
+                          <option value="">{selectedTransportistaForChofer ? 'Seleccionar...' : 'Primero seleccione una transportista'}</option>
                           {choferes.map((c: any) => (
                             <option key={c.id} value={c.id}>{c.apellido}, {c.nombre} (DNI: {c.dni})</option>
                           ))}
