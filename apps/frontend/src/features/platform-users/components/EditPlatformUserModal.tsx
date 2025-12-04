@@ -5,7 +5,7 @@ import { Spinner } from '../../../components/ui/spinner';
 import { showToast } from '../../../components/ui/Toast.utils';
 import { useGetEmpresasQuery } from '../../empresas/api/empresasApiSlice';
 import { useUpdatePlatformUserMutation } from '../api/platformUsersApiSlice';
-import { useGetDadoresQuery, useGetEmpresasTransportistasQuery, useGetChoferesQuery, useGetClientsQuery } from '../../documentos/api/documentosApiSlice';
+import { useGetDadoresQuery, useGetEmpresasTransportistasQuery, useGetEmpresaTransportistaByIdQuery, useGetChoferesQuery, useGetClientsQuery } from '../../documentos/api/documentosApiSlice';
 import { useAppSelector } from '../../../store/hooks';
 import { selectCurrentUser } from '../../auth/authSlice';
 
@@ -65,9 +65,11 @@ const EditPlatformUserModal: React.FC<Props> = ({ isOpen, onClose, user }) => {
   const [selectedDadorForTransportista, setSelectedDadorForTransportista] = useState<number | ''>('');
   const [initialLoadDone, setInitialLoadDone] = useState(false);
   
-  // Query para obtener TODAS las transportistas (para encontrar el dador de la transportista actual)
-  const { data: allTransportistasResp } = useGetEmpresasTransportistasQuery({});
-  const allTransportistas = useMemo(() => (allTransportistasResp as any)?.list ?? allTransportistasResp ?? [], [allTransportistasResp]);
+  // Query para obtener la transportista actual por ID (para saber su dadorCargaId)
+  const { data: transportistaActual } = useGetEmpresaTransportistaByIdQuery(
+    { id: user.empresaTransportistaId! },
+    { skip: !user.empresaTransportistaId || user.role !== 'TRANSPORTISTA' }
+  );
   
   // Query de transportistas filtrado por dador seleccionado
   const { data: transportistasResp } = useGetEmpresasTransportistasQuery(
@@ -82,14 +84,11 @@ const EditPlatformUserModal: React.FC<Props> = ({ isOpen, onClose, user }) => {
   
   // Efecto para cargar el dador de la transportista actual cuando se abre el modal
   useEffect(() => {
-    if (isOpen && user.role === 'TRANSPORTISTA' && user.empresaTransportistaId && allTransportistas.length > 0 && !initialLoadDone) {
-      const transportistaActual = allTransportistas.find((t: any) => t.id === user.empresaTransportistaId);
-      if (transportistaActual?.dadorCargaId) {
-        setSelectedDadorForTransportista(transportistaActual.dadorCargaId);
-        setInitialLoadDone(true);
-      }
+    if (isOpen && user.role === 'TRANSPORTISTA' && transportistaActual?.dadorCargaId && !initialLoadDone) {
+      setSelectedDadorForTransportista(transportistaActual.dadorCargaId);
+      setInitialLoadDone(true);
     }
-  }, [isOpen, user.role, user.empresaTransportistaId, allTransportistas, initialLoadDone]);
+  }, [isOpen, user.role, transportistaActual, initialLoadDone]);
   
   const [updateUser, { isLoading }] = useUpdatePlatformUserMutation();
 

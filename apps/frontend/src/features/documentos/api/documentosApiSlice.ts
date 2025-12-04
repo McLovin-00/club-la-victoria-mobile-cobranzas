@@ -808,6 +808,10 @@ export const documentosApiSlice = createApi({
       transformResponse: (r: any) => r?.list ?? r?.data ?? [],
       providesTags: ['EmpresasTransportistas'],
     }),
+    getEmpresaTransportistaById: builder.query<EmpresaTransportista & { dadorCargaId?: number }, { id: number }>({
+      query: ({ id }) => ({ url: `/empresas-transportistas/${id}` }),
+      transformResponse: (r: any) => r?.data ?? r,
+    }),
     createEmpresaTransportista: builder.mutation<EmpresaTransportista, { dadorCargaId: number; razonSocial: string; cuit: string; activo?: boolean; notas?: string }>({
       query: (body) => ({ url: `/empresas-transportistas`, method: 'POST', body }),
       invalidatesTags: ['EmpresasTransportistas'],
@@ -1066,6 +1070,7 @@ export const {
   useLazyGetEquipoComplianceQuery,
   // Empresas Transportistas
   useGetEmpresasTransportistasQuery,
+  useGetEmpresaTransportistaByIdQuery,
   useCreateEmpresaTransportistaMutation,
   useUpdateEmpresaTransportistaMutation,
   useDeleteEmpresaTransportistaMutation,
