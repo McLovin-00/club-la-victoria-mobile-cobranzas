@@ -6,7 +6,7 @@ import { showToast } from '../../../components/ui/Toast.utils';
 import { useRegisterPlatformUserMutation } from '../api/platformUsersApiSlice';
 import { useGetEmpresasQuery } from '../../empresas/api/empresasApiSlice';
 import { useGetDadoresQuery, useGetEmpresasTransportistasQuery, useGetChoferesQuery, useGetClientsQuery } from '../../documentos/api/documentosApiSlice';
-import { useAppSelector } from '../../../hooks/redux';
+import { useAppSelector } from '../../../store/hooks';
 import { selectCurrentUser } from '../../auth/authSlice';
 
 interface RegisterUserModalProps {
