@@ -36,6 +36,18 @@ export const MaestrosService = {
   },
 
   // CHOFERES
+  async getChoferById(tenantEmpresaId: number, id: number) {
+    const chofer = await prisma.chofer.findFirst({
+      where: { tenantEmpresaId, id },
+      include: {
+        empresaTransportista: {
+          select: { id: true, razonSocial: true, dadorCargaId: true },
+        },
+      },
+    });
+    return chofer;
+  },
+
   async listChoferes(tenantEmpresaId: number, dadorCargaId: number, q?: string, activo?: boolean, page = 1, limit = 10) {
     const where: any = {
       tenantEmpresaId,

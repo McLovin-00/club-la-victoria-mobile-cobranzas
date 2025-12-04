@@ -301,6 +301,13 @@ export const documentosApiSlice = createApi({
       transformResponse: (r: any) => ({ data: r?.data ?? [], pagination: r?.pagination }),
       providesTags: ['Maestros'],
     }),
+    getChoferById: builder.query<
+      { id: number; dni: string; nombre?: string; apellido?: string; empresaTransportistaId?: number; empresaTransportista?: { id: number; razonSocial: string; dadorCargaId: number } },
+      { id: number }
+    >({
+      query: ({ id }) => ({ url: `/maestros/choferes/${id}` }),
+      transformResponse: (r: any) => r?.data ?? r,
+    }),
     createChofer: builder.mutation<any, { dadorCargaId: number; dni: string; nombre?: string; apellido?: string; activo?: boolean; phones: string[] }>({
       query: (body) => ({ url: '/maestros/choferes', method: 'POST', body: { ...body, empresaId: undefined } }),
       transformResponse: (r: any) => r?.data,
@@ -1038,6 +1045,7 @@ export const {
   useDeleteDadorMutation,
   // Maestros
   useGetChoferesQuery,
+  useGetChoferByIdQuery,
   useCreateChoferMutation,
   useUpdateChoferMutation,
   useDeleteChoferMutation,

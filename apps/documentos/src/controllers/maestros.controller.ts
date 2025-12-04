@@ -45,6 +45,12 @@ export const MaestrosController = {
     );
     res.json({ success: true, data, pagination: { page, limit, total } });
   },
+  async getChoferById(req: AuthRequest, res: Response) {
+    const id = Number(req.params.id);
+    const data = await MaestrosService.getChoferById(req.tenantId!, id);
+    if (!data) throw createError('Chofer no encontrado', 404);
+    res.json({ success: true, data });
+  },
   async createChofer(req: AuthRequest, res: Response) {
     const data = await MaestrosService.createChofer({
       tenantEmpresaId: req.tenantId!,

@@ -5,7 +5,7 @@ import { Spinner } from '../../../components/ui/spinner';
 import { showToast } from '../../../components/ui/Toast.utils';
 import { useGetEmpresasQuery } from '../../empresas/api/empresasApiSlice';
 import { useUpdatePlatformUserMutation } from '../api/platformUsersApiSlice';
-import { useGetDadoresQuery, useGetEmpresasTransportistasQuery, useGetEmpresaTransportistaByIdQuery, useGetEmpresaTransportistaChoferesQuery, useGetChoferesQuery, useGetClientsQuery } from '../../documentos/api/documentosApiSlice';
+import { useGetDadoresQuery, useGetEmpresasTransportistasQuery, useGetEmpresaTransportistaByIdQuery, useGetEmpresaTransportistaChoferesQuery, useGetChoferByIdQuery, useGetClientsQuery } from '../../documentos/api/documentosApiSlice';
 import { useAppSelector } from '../../../store/hooks';
 import { selectCurrentUser } from '../../auth/authSlice';
 
@@ -69,10 +69,16 @@ const EditPlatformUserModal: React.FC<Props> = ({ isOpen, onClose, user }) => {
   const [selectedTransportistaForChofer, setSelectedTransportistaForChofer] = useState<number | ''>('');
   const [initialLoadDoneChofer, setInitialLoadDoneChofer] = useState(false);
   
-  // Query para obtener la transportista actual por ID (para TRANSPORTISTA y CHOFER)
+  // Query para obtener la transportista actual por ID (para TRANSPORTISTA)
   const { data: transportistaActual } = useGetEmpresaTransportistaByIdQuery(
     { id: user.empresaTransportistaId! },
-    { skip: !user.empresaTransportistaId || (user.role !== 'TRANSPORTISTA' && user.role !== 'CHOFER') }
+    { skip: !user.empresaTransportistaId || user.role !== 'TRANSPORTISTA' }
+  );
+  
+  // Query para obtener el chofer actual por ID (para CHOFER)
+  const { data: choferActual } = useGetChoferByIdQuery(
+    { id: user.choferId! },
+    { skip: !user.choferId || user.role !== 'CHOFER' }
   );
   
   // Query de transportistas filtrado por dador seleccionado (para TRANSPORTISTA)
@@ -107,14 +113,16 @@ const EditPlatformUserModal: React.FC<Props> = ({ isOpen, onClose, user }) => {
     }
   }, [isOpen, user.role, transportistaActual, initialLoadDoneTransportista]);
   
-  // Efecto para cargar dador y transportista para CHOFER
+  // Efecto para cargar dador y transportista para CHOFER (desde el chofer)
   useEffect(() => {
-    if (isOpen && user.role === 'CHOFER' && transportistaActual?.dadorCargaId && user.empresaTransportistaId && !initialLoadDoneChofer) {
-      setSelectedDadorForChofer(transportistaActual.dadorCargaId);
-      setSelectedTransportistaForChofer(user.empresaTransportistaId);
+    if (isOpen && user.role === 'CHOFER' && choferActual?.empresaTransportista && !initialLoadDoneChofer) {
+      const { dadorCargaId, id: transportistaId } = choferActual.empresaTransportista;
+      setSelectedDadorForChofer(dadorCargaId);
+      setSelectedTransportistaForChofer(transportistaId);
+      setValue('choferId', user.choferId ?? '');
       setInitialLoadDoneChofer(true);
     }
-  }, [isOpen, user.role, transportistaActual, user.empresaTransportistaId, initialLoadDoneChofer]);
+  }, [isOpen, user.role, choferActual, user.choferId, initialLoadDoneChofer, setValue]);
   
   const [updateUser, { isLoading }] = useUpdatePlatformUserMutation();
 
