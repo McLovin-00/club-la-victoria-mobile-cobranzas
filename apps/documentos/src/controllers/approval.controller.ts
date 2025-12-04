@@ -27,9 +27,19 @@ export class ApprovalController {
     try {
       const tenantEmpresaId = (req as any).tenantId as number;
       const userId = ((req as any).user?.id ?? (req as any).user?.userId) as number | undefined;
+      const userRole = ((req as any).user?.role) as string | undefined;
       const { ids, overrides } = (req.body || {}) as { ids: number[]; overrides?: { confirmedEntityType?: string; confirmedEntityId?: number; confirmedExpiration?: string; reviewNotes?: string } };
       if (!userId) {
         res.status(401).json({ success: false, message: 'Usuario no identificado', code: 'USER_NOT_IDENTIFIED' });
+        return;
+      }
+      // Transportistas no pueden aprobar documentos
+      if (userRole === 'TRANSPORTISTA' || userRole === 'EMPRESA_TRANSPORTISTA') {
+        res.status(403).json({ 
+          success: false, 
+          message: 'Las Empresas Transportistas no tienen permiso para aprobar documentos. Contacte al Dador de Carga.',
+          code: 'TRANSPORTISTA_CANNOT_APPROVE'
+        });
         return;
       }
       if (!Array.isArray(ids) || ids.length === 0) {
@@ -99,10 +109,20 @@ export class ApprovalController {
     try {
       const tenantEmpresaId = (req as any).tenantId as number;
       const userId = ((req as any).user?.id ?? (req as any).user?.userId) as number | undefined;
+      const userRole = ((req as any).user?.role) as string | undefined;
       const id = Number((req.params as any).id);
       const { confirmedEntityType, confirmedEntityId, confirmedExpiration, confirmedTemplateId, reviewNotes } = (req.body || {}) as any;
       if (!userId) {
         res.status(401).json({ success: false, message: 'Usuario no identificado', code: 'USER_NOT_IDENTIFIED' });
+        return;
+      }
+      // Transportistas no pueden aprobar documentos
+      if (userRole === 'TRANSPORTISTA' || userRole === 'EMPRESA_TRANSPORTISTA') {
+        res.status(403).json({ 
+          success: false, 
+          message: 'Las Empresas Transportistas no tienen permiso para aprobar documentos. Contacte al Dador de Carga.',
+          code: 'TRANSPORTISTA_CANNOT_APPROVE'
+        });
         return;
       }
       const doc = await ApprovalService.approveDocument(id, tenantEmpresaId, {
@@ -146,10 +166,20 @@ export class ApprovalController {
     try {
       const tenantEmpresaId = (req as any).tenantId as number;
       const userId = ((req as any).user?.id ?? (req as any).user?.userId) as number | undefined;
+      const userRole = ((req as any).user?.role) as string | undefined;
       const id = Number((req.params as any).id);
       const { reason, reviewNotes } = (req.body || {}) as any;
       if (!userId) {
         res.status(401).json({ success: false, message: 'Usuario no identificado', code: 'USER_NOT_IDENTIFIED' });
+        return;
+      }
+      // Transportistas no pueden rechazar documentos
+      if (userRole === 'TRANSPORTISTA' || userRole === 'EMPRESA_TRANSPORTISTA') {
+        res.status(403).json({ 
+          success: false, 
+          message: 'Las Empresas Transportistas no tienen permiso para rechazar documentos. Contacte al Dador de Carga.',
+          code: 'TRANSPORTISTA_CANNOT_REJECT'
+        });
         return;
       }
       const doc = await ApprovalService.rejectDocument(id, tenantEmpresaId, { reviewedBy: userId, reason, reviewNotes });
