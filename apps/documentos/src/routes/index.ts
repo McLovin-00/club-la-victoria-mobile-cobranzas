@@ -32,6 +32,7 @@ import { configRateLimit } from '../middlewares/rateLimiter.middleware';
 import complianceRoutes from './compliance.routes';
 import auditLogsRoutes from './audit.routes';
 import portalClienteRoutes from './portal-cliente.routes';
+import portalTransportistaRoutes from './portal-transportista.routes';
 
 const router = Router();
 
@@ -97,6 +98,9 @@ router.use('/api/docs/audit', authenticate, tenantResolver, auditLogsRoutes);
 
 // Portal Cliente (Solo lectura)
 router.use('/api/docs/portal-cliente', tenantResolver, portalClienteRoutes);
+
+// Portal Transportista
+router.use('/api/docs/portal-transportista', tenantResolver, portalTransportistaRoutes);
 
 // =================================
 // RUTA RAÍZ - Información del Servicio
