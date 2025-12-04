@@ -390,7 +390,27 @@ export default function ApprovalDetailPage() {
                 {rejecting ? 'Rechazando...' : 'Rechazar'}
               </button>
             </div>
-            <input className="mt-2 input input-bordered py-2 px-3 rounded-md bg-background border w-full" value={rejectReason} onChange={(e) => setRejectReason(e.target.value)} placeholder="Motivo de rechazo (opcional)" />
+            <div className="mt-2 flex gap-2">
+              <select 
+                className="input input-bordered py-2 px-3 rounded-md bg-background border flex-1"
+                value={rejectReason}
+                onChange={(e) => setRejectReason(e.target.value)}
+              >
+                <option value="">Seleccionar motivo de rechazo...</option>
+                <option value="Documento ilegible">Documento ilegible</option>
+                <option value="Documento vencido">Documento vencido</option>
+                <option value="Datos incorrectos">Datos incorrectos</option>
+                <option value="Documento incompleto">Documento incompleto</option>
+                <option value="No corresponde al tipo solicitado">No corresponde al tipo solicitado</option>
+                <option value="Firma o sello faltante">Firma o sello faltante</option>
+              </select>
+              <input 
+                className="input input-bordered py-2 px-3 rounded-md bg-background border flex-1" 
+                value={rejectReason} 
+                onChange={(e) => setRejectReason(e.target.value)} 
+                placeholder="O escribir motivo personalizado..." 
+              />
+            </div>
           </div>
         </div>
       </section>
