@@ -5,7 +5,7 @@ import { Spinner } from '../../../components/ui/spinner';
 import { showToast } from '../../../components/ui/Toast.utils';
 import { useGetEmpresasQuery } from '../../empresas/api/empresasApiSlice';
 import { useUpdatePlatformUserMutation } from '../api/platformUsersApiSlice';
-import { useGetDadoresQuery, useGetEmpresasTransportistasQuery, useGetEmpresaTransportistaByIdQuery, useGetChoferesQuery, useGetClientsQuery } from '../../documentos/api/documentosApiSlice';
+import { useGetDadoresQuery, useGetEmpresasTransportistasQuery, useGetEmpresaTransportistaByIdQuery, useGetEmpresaTransportistaChoferesQuery, useGetChoferesQuery, useGetClientsQuery } from '../../documentos/api/documentosApiSlice';
 import { useAppSelector } from '../../../store/hooks';
 import { selectCurrentUser } from '../../auth/authSlice';
 
@@ -58,37 +58,63 @@ const EditPlatformUserModal: React.FC<Props> = ({ isOpen, onClose, user }) => {
   const currentUser = useAppSelector(selectCurrentUser);
   const { data: empresas = [] } = useGetEmpresasQuery();
   const { data: dadoresResp } = useGetDadoresQuery({});
-  const { data: choferesResp } = useGetChoferesQuery({});
   const { data: clientesResp } = useGetClientsQuery({});
   
-  // Estado para filtrar transportistas por dador
+  // Estado para TRANSPORTISTA: filtrar transportistas por dador
   const [selectedDadorForTransportista, setSelectedDadorForTransportista] = useState<number | ''>('');
-  const [initialLoadDone, setInitialLoadDone] = useState(false);
+  const [initialLoadDoneTransportista, setInitialLoadDoneTransportista] = useState(false);
   
-  // Query para obtener la transportista actual por ID (para saber su dadorCargaId)
+  // Estados para CHOFER: cascada Dador → Transportista → Chofer
+  const [selectedDadorForChofer, setSelectedDadorForChofer] = useState<number | ''>('');
+  const [selectedTransportistaForChofer, setSelectedTransportistaForChofer] = useState<number | ''>('');
+  const [initialLoadDoneChofer, setInitialLoadDoneChofer] = useState(false);
+  
+  // Query para obtener la transportista actual por ID (para TRANSPORTISTA y CHOFER)
   const { data: transportistaActual } = useGetEmpresaTransportistaByIdQuery(
     { id: user.empresaTransportistaId! },
-    { skip: !user.empresaTransportistaId || user.role !== 'TRANSPORTISTA' }
+    { skip: !user.empresaTransportistaId || (user.role !== 'TRANSPORTISTA' && user.role !== 'CHOFER') }
   );
   
-  // Query de transportistas filtrado por dador seleccionado
+  // Query de transportistas filtrado por dador seleccionado (para TRANSPORTISTA)
   const { data: transportistasResp } = useGetEmpresasTransportistasQuery(
     { dadorCargaId: selectedDadorForTransportista ? Number(selectedDadorForTransportista) : undefined },
     { skip: !selectedDadorForTransportista }
   );
   
+  // Query de transportistas para CHOFER
+  const { data: transportistasForChoferResp } = useGetEmpresasTransportistasQuery(
+    { dadorCargaId: selectedDadorForChofer ? Number(selectedDadorForChofer) : undefined },
+    { skip: !selectedDadorForChofer }
+  );
+  
+  // Query de choferes filtrado por empresa transportista (para CHOFER)
+  const { data: choferesResp } = useGetEmpresaTransportistaChoferesQuery(
+    { id: selectedTransportistaForChofer ? Number(selectedTransportistaForChofer) : 0 },
+    { skip: !selectedTransportistaForChofer }
+  );
+  
   const dadores = useMemo(() => (dadoresResp as any)?.list ?? dadoresResp ?? [], [dadoresResp]);
   const transportistas = useMemo(() => (transportistasResp as any)?.list ?? transportistasResp ?? [], [transportistasResp]);
-  const choferes = useMemo(() => (choferesResp as any)?.list ?? choferesResp ?? [], [choferesResp]);
+  const transportistasForChofer = useMemo(() => (transportistasForChoferResp as any)?.list ?? transportistasForChoferResp ?? [], [transportistasForChoferResp]);
+  const choferes = useMemo(() => choferesResp ?? [], [choferesResp]);
   const clientes = useMemo(() => (clientesResp as any)?.list ?? clientesResp ?? [], [clientesResp]);
   
-  // Efecto para cargar el dador de la transportista actual cuando se abre el modal
+  // Efecto para cargar el dador de la transportista actual para TRANSPORTISTA
   useEffect(() => {
-    if (isOpen && user.role === 'TRANSPORTISTA' && transportistaActual?.dadorCargaId && !initialLoadDone) {
+    if (isOpen && user.role === 'TRANSPORTISTA' && transportistaActual?.dadorCargaId && !initialLoadDoneTransportista) {
       setSelectedDadorForTransportista(transportistaActual.dadorCargaId);
-      setInitialLoadDone(true);
+      setInitialLoadDoneTransportista(true);
     }
-  }, [isOpen, user.role, transportistaActual, initialLoadDone]);
+  }, [isOpen, user.role, transportistaActual, initialLoadDoneTransportista]);
+  
+  // Efecto para cargar dador y transportista para CHOFER
+  useEffect(() => {
+    if (isOpen && user.role === 'CHOFER' && transportistaActual?.dadorCargaId && user.empresaTransportistaId && !initialLoadDoneChofer) {
+      setSelectedDadorForChofer(transportistaActual.dadorCargaId);
+      setSelectedTransportistaForChofer(user.empresaTransportistaId);
+      setInitialLoadDoneChofer(true);
+    }
+  }, [isOpen, user.role, transportistaActual, user.empresaTransportistaId, initialLoadDoneChofer]);
   
   const [updateUser, { isLoading }] = useUpdatePlatformUserMutation();
 
@@ -130,16 +156,22 @@ const EditPlatformUserModal: React.FC<Props> = ({ isOpen, onClose, user }) => {
         choferId: user.choferId ?? '',
         clienteId: user.clienteId ?? '',
       });
-      // Reset el flag de carga inicial para que vuelva a buscar el dador
-      setInitialLoadDone(false);
+      // Reset los flags de carga inicial para que vuelva a buscar el dador
+      setInitialLoadDoneTransportista(false);
+      setInitialLoadDoneChofer(false);
     }
   }, [isOpen, user, reset]);
 
-  // Reset estado de dador cuando cambia el rol
+  // Reset estado cuando cambia el rol
   useEffect(() => {
     if (selectedRole !== 'TRANSPORTISTA') {
       setSelectedDadorForTransportista('');
-      setInitialLoadDone(false);
+      setInitialLoadDoneTransportista(false);
+    }
+    if (selectedRole !== 'CHOFER') {
+      setSelectedDadorForChofer('');
+      setSelectedTransportistaForChofer('');
+      setInitialLoadDoneChofer(false);
     }
   }, [selectedRole]);
 
@@ -147,7 +179,10 @@ const EditPlatformUserModal: React.FC<Props> = ({ isOpen, onClose, user }) => {
   useEffect(() => {
     if (!isOpen) {
       setSelectedDadorForTransportista('');
-      setInitialLoadDone(false);
+      setSelectedDadorForChofer('');
+      setSelectedTransportistaForChofer('');
+      setInitialLoadDoneTransportista(false);
+      setInitialLoadDoneChofer(false);
     }
   }, [isOpen]);
 
@@ -172,6 +207,7 @@ const EditPlatformUserModal: React.FC<Props> = ({ isOpen, onClose, user }) => {
         payload.empresaTransportistaId = data.empresaTransportistaId ? Number(data.empresaTransportistaId) : null;
       }
       if (data.role === 'CHOFER') {
+        payload.empresaTransportistaId = data.empresaTransportistaId ? Number(data.empresaTransportistaId) : null;
         payload.choferId = data.choferId ? Number(data.choferId) : null;
       }
       if (data.role === 'CLIENTE') {
@@ -180,7 +216,7 @@ const EditPlatformUserModal: React.FC<Props> = ({ isOpen, onClose, user }) => {
       
       // Limpiar asociaciones no relevantes al rol actual
       if (data.role !== 'DADOR_DE_CARGA') payload.dadorCargaId = null;
-      if (data.role !== 'TRANSPORTISTA') payload.empresaTransportistaId = null;
+      if (data.role !== 'TRANSPORTISTA' && data.role !== 'CHOFER') payload.empresaTransportistaId = null;
       if (data.role !== 'CHOFER') payload.choferId = null;
       if (data.role !== 'CLIENTE') payload.clienteId = null;
       
@@ -307,23 +343,63 @@ const EditPlatformUserModal: React.FC<Props> = ({ isOpen, onClose, user }) => {
                 </>
               )}
 
-              {/* Asociación: Chofer */}
+              {/* Asociación: Chofer - Cascada: Dador → Transportista → Chofer */}
               {selectedRole === 'CHOFER' && (
-                <div className="col-span-2">
-                  <label className="block text-sm font-medium mb-1">Chofer asociado</label>
-                  <Controller
-                    name="choferId"
-                    control={control}
-                    render={({ field }) => (
-                      <select className="w-full px-3 py-2 border rounded-md" {...field}>
-                        <option value="">Seleccionar...</option>
-                        {choferes.map((c: any) => (
-                          <option key={c.id} value={c.id}>{c.apellido}, {c.nombre} (DNI: {c.dni})</option>
-                        ))}
-                      </select>
-                    )}
-                  />
-                </div>
+                <>
+                  <div className="col-span-2">
+                    <label className="block text-sm font-medium mb-1">Dador de Carga</label>
+                    <select
+                      className="w-full px-3 py-2 border rounded-md"
+                      value={selectedDadorForChofer}
+                      onChange={(e) => {
+                        const val = e.target.value ? Number(e.target.value) : '';
+                        setSelectedDadorForChofer(val);
+                        setSelectedTransportistaForChofer('');
+                        setValue('empresaTransportistaId', '');
+                        setValue('choferId', '');
+                      }}
+                    >
+                      <option value="">Seleccionar Dador de Carga...</option>
+                      {dadores.map((d: any) => (
+                        <option key={d.id} value={d.id}>{d.razonSocial}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="col-span-2">
+                    <label className="block text-sm font-medium mb-1">Empresa Transportista</label>
+                    <select
+                      className="w-full px-3 py-2 border rounded-md"
+                      value={selectedTransportistaForChofer}
+                      onChange={(e) => {
+                        const val = e.target.value ? Number(e.target.value) : '';
+                        setSelectedTransportistaForChofer(val);
+                        setValue('empresaTransportistaId', val);
+                        setValue('choferId', '');
+                      }}
+                      disabled={!selectedDadorForChofer}
+                    >
+                      <option value="">Seleccionar Empresa Transportista...</option>
+                      {transportistasForChofer.map((t: any) => (
+                        <option key={t.id} value={t.id}>{t.razonSocial}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="col-span-2">
+                    <label className="block text-sm font-medium mb-1">Chofer asociado</label>
+                    <Controller
+                      name="choferId"
+                      control={control}
+                      render={({ field }) => (
+                        <select className="w-full px-3 py-2 border rounded-md" {...field} disabled={!selectedTransportistaForChofer}>
+                          <option value="">Seleccionar Chofer...</option>
+                          {choferes.map((c: any) => (
+                            <option key={c.id} value={c.id}>{c.apellido}, {c.nombre} (DNI: {c.dni})</option>
+                          ))}
+                        </select>
+                      )}
+                    />
+                  </div>
+                </>
               )}
 
               {/* Asociación: Cliente */}
