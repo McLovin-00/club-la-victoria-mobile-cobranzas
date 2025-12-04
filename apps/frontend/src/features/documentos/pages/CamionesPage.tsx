@@ -4,13 +4,13 @@ import { Card } from '../../../components/ui/card';
 import { Input } from '../../../components/ui/input';
 import { Pagination } from '../../../components/ui/Pagination';
 import { ArrowLeftIcon } from '@heroicons/react/24/outline';
-import { useNavigate } from 'react-router-dom';
 import { useCreateCamionMutation, useDeleteCamionMutation, useGetCamionesQuery, useUpdateCamionMutation, useGetDadoresQuery } from '../api/documentosApiSlice';
 import { useToast } from '../../../hooks/useToast';
 import type { Camion, DadorCarga } from '../types/entities';
+import { useRoleBasedNavigation } from '../../../hooks/useRoleBasedNavigation';
 
 const CamionesPage: React.FC = () => {
-  const navigate = useNavigate();
+  const { goBack } = useRoleBasedNavigation();
   const { show } = useToast();
   const { data: dadoresResp } = useGetDadoresQuery({});
   const dadores = useMemo<DadorCarga[]>(() => (dadoresResp?.list ?? []) as DadorCarga[], [dadoresResp]);
@@ -39,7 +39,7 @@ const CamionesPage: React.FC = () => {
     <div className='container mx-auto px-4 py-8'>
       <div className='flex items-center justify-between mb-2'>
         <div className='flex items-center gap-2'>
-          <Button variant='outline' size='sm' onClick={() => navigate('/documentos')} className='flex items-center'>
+          <Button variant='outline' size='sm' onClick={goBack} className='flex items-center'>
             <ArrowLeftIcon className='h-4 w-4 mr-2' />
             Volver
           </Button>

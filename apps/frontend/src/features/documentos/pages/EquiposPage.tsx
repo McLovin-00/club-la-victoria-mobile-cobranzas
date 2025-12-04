@@ -3,6 +3,7 @@ import { useSelector } from 'react-redux';
 import type { RootState } from '../../../store/store';
 import { useNavigate } from 'react-router-dom';
 import { Card } from '../../../components/ui/card';
+import { useRoleBasedNavigation } from '../../../hooks/useRoleBasedNavigation';
 import { Button } from '../../../components/ui/button';
 import { Input } from '../../../components/ui/input';
 import { Label } from '../../../components/ui/label';
@@ -15,6 +16,7 @@ import { ConfirmContext } from '../../../contexts/confirmContext';
 
 export const EquiposPage: React.FC = () => {
   const navigate = useNavigate();
+  const { goBack } = useRoleBasedNavigation();
   const show = (msg: string) => { try { alert(msg); } catch { console.log(msg); } };
   const { confirm } = useContext(ConfirmContext);
   const { data: dadoresResp } = useGetDadoresQuery({});
@@ -291,7 +293,7 @@ export const EquiposPage: React.FC = () => {
     <div className='container mx-auto px-4 py-8'>
       <div className='flex items-center justify-between mb-4'>
         <div className='flex items-center gap-2'>
-          <Button variant='outline' size='sm' onClick={() => navigate('/documentos')} className='flex items-center'>
+          <Button variant='outline' size='sm' onClick={goBack} className='flex items-center'>
             <ArrowLeftIcon className='h-4 w-4 mr-2' />
             Volver
           </Button>

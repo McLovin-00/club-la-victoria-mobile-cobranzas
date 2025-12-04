@@ -1,6 +1,7 @@
 import React, { useState, useMemo, useEffect, useContext } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useParams } from 'react-router-dom';
 import { useAppSelector } from '../../../store/hooks';
+import { useRoleBasedNavigation } from '../../../hooks/useRoleBasedNavigation';
 import {
   useGetEquipoByIdQuery,
   useGetClientsQuery,
@@ -26,7 +27,7 @@ import { ConfirmContext } from '../../../contexts/confirmContext';
  * Permite modificar las entidades (chofer, camión, acoplado, empresa) y clientes.
  */
 const EditarEquipoPage: React.FC = () => {
-  const navigate = useNavigate();
+  const { goBack } = useRoleBasedNavigation();
   const { id } = useParams<{ id: string }>();
   const equipoId = Number(id);
   const { confirm } = useContext(ConfirmContext);
@@ -390,7 +391,7 @@ const EditarEquipoPage: React.FC = () => {
           <Button
             variant='outline'
             size='sm'
-            onClick={() => navigate('/documentos/equipos')}
+            onClick={goBack}
             className='flex items-center'
           >
             <ArrowLeftIcon className='h-4 w-4 mr-2' />

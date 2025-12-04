@@ -1,5 +1,4 @@
 import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { Card } from '../../../components/ui/card';
 import { Button } from '../../../components/ui/button';
 import { Input } from '../../../components/ui/input';
@@ -8,6 +7,7 @@ import { useCreateDadorMutation, useDeleteDadorMutation, useGetDadoresQuery, use
 import { useSelector } from 'react-redux';
 import { RootState } from '../../../store/store';
 import type { DadorCarga } from '../types/entities';
+import { useRoleBasedNavigation } from '../../../hooks/useRoleBasedNavigation';
 
 const phoneRegex = /^\+?[1-9]\d{7,14}$/;
 
@@ -45,7 +45,7 @@ const DadorPhonesInline: React.FC<{ dadorId: number; initial: string[]; onSave: 
 };
 
 const DadoresPage: React.FC = () => {
-  const navigate = useNavigate();
+  const { goBack } = useRoleBasedNavigation();
   const { data: dadoresResp } = useGetDadoresQuery({});
   const dadores: DadorCarga[] = (dadoresResp?.list ?? []) as DadorCarga[];
   const { data: defaults } = useGetDefaultsQuery();
@@ -71,7 +71,7 @@ const DadoresPage: React.FC = () => {
     <div className='container mx-auto px-4 py-8'>
       <div className='flex items-center justify-between mb-6'>
         <div className='flex items-center gap-2'>
-          <Button variant='outline' size='sm' onClick={() => navigate('/documentos')} className='flex items-center'>
+          <Button variant='outline' size='sm' onClick={goBack} className='flex items-center'>
             <ArrowLeftIcon className='h-4 w-4 mr-2' />
             Volver
           </Button>

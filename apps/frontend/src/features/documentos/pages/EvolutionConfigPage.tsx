@@ -1,13 +1,13 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Card } from '../../../components/ui/card';
 import { Button } from '../../../components/ui/button';
-import { useNavigate } from 'react-router-dom';
 import { Input } from '../../../components/ui/input';
 import { useSelector } from 'react-redux';
 import { RootState } from '../../../store/store';
+import { useRoleBasedNavigation } from '../../../hooks/useRoleBasedNavigation';
 
 const EvolutionConfigPage: React.FC = () => {
-  const navigate = useNavigate();
+  const { goBack } = useRoleBasedNavigation();
   const [server, setServer] = useState('');
   const [token, setToken] = useState('');
   const [instance, setInstance] = useState('');
@@ -74,7 +74,7 @@ const EvolutionConfigPage: React.FC = () => {
   return (
     <div className='container mx-auto px-4 py-8'>
       <div className='flex items-center gap-2 mb-4'>
-        <Button variant='outline' size='sm' onClick={() => navigate('/documentos')} className='flex items-center'>
+        <Button variant='outline' size='sm' onClick={goBack} className='flex items-center'>
           <span className='mr-2'>←</span>
           Volver
         </Button>

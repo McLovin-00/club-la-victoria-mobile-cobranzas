@@ -4,10 +4,11 @@ import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { useGetDadoresQuery, useCreateEquipoMinimalMutation, useImportCsvEquiposMutation, useUploadBatchDocsDadorMutation, useGetJobStatusQuery, useGetChoferesQuery, useGetCamionesQuery, useGetAcopladosQuery, useGetEquiposQuery } from '../features/documentos/api/documentosApiSlice';
 import { showToast } from '../components/ui/Toast.utils';
-import { useNavigate } from 'react-router-dom';
 import { useRef } from 'react';
 import { useSelector } from 'react-redux';
 import { RootState } from '../store/store';
+import { useRoleBasedNavigation } from '../hooks/useRoleBasedNavigation';
+import { useNavigate } from 'react-router-dom';
 import { 
   BuildingOffice2Icon,
   TruckIcon,
@@ -21,6 +22,7 @@ import {
 
 export const DadoresPortalPage: React.FC = () => {
   const navigate = useNavigate();
+  const { goBack } = useRoleBasedNavigation();
   const { data: dadoresResp } = useGetDadoresQuery({});
   const dadores = useMemo(() => (dadoresResp as any)?.list ?? (Array.isArray(dadoresResp) ? dadoresResp : []), [dadoresResp]);
   const [dadorId, setDadorId] = useState<number | undefined>(dadores[0]?.id);
@@ -44,7 +46,7 @@ export const DadoresPortalPage: React.FC = () => {
             <Button 
               variant='outline' 
               size='sm' 
-              onClick={()=> navigate('/documentos')} 
+              onClick={goBack} 
               className='flex items-center gap-2 hover:bg-purple-50 transition-all duration-200 rounded-full px-4'
             >
               ← Volver

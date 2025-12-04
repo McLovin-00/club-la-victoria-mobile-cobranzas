@@ -1,12 +1,13 @@
 import { useMemo, useState, useEffect } from 'react';
-import { useNavigate, useParams, useLocation } from 'react-router-dom';
+import { useParams, useLocation } from 'react-router-dom';
 import { useApprovePendingDocumentMutation, useGetApprovalPendingByIdQuery, useRejectPendingDocumentMutation, useGetTemplatesQuery } from '../api/documentosApiSlice';
+import { useRoleBasedNavigation } from '../../../hooks/useRoleBasedNavigation';
 import { formatDateTime } from '../../../utils/formatters';
 import type { ApprovalPendingDocument, EntityType } from '../types/entities';
 
 export default function ApprovalDetailPage() {
   const { id } = useParams();
-  const navigate = useNavigate();
+  const { goBack } = useRoleBasedNavigation();
   const docId = Number(id);
   const { data, isFetching, error } = useGetApprovalPendingByIdQuery({ id: docId }, { skip: !docId });
   const [approve, { isLoading: approving }] = useApprovePendingDocumentMutation();
@@ -263,7 +264,7 @@ export default function ApprovalDetailPage() {
       <header className="flex items-center justify-between">
         <div className="flex items-center gap-3">
           <button 
-            onClick={() => navigate(-1)} 
+            onClick={goBack} 
             className="inline-flex items-center gap-2 border border-gray-300 text-gray-600 hover:bg-gray-50 font-medium px-4 py-2 rounded-lg transition-all duration-200"
           >
             ← Volver

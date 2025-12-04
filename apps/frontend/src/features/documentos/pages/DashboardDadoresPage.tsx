@@ -2,9 +2,9 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Card } from '../../../components/ui/card';
 import { Button } from '../../../components/ui/button';
 import { useGetApprovalKpisQuery, useUploadBatchDocsDadorMutation } from '../api/documentosApiSlice';
-import { useNavigate } from 'react-router-dom';
 import { useSelector } from 'react-redux';
 import { RootState } from '../../../store/store';
+import { useRoleBasedNavigation } from '../../../hooks/useRoleBasedNavigation';
 
 const baseUrl = `${import.meta.env.VITE_DOCUMENTOS_API_URL}/api/docs`;
 
@@ -34,7 +34,7 @@ type Semaforo = {
 };
 
 const DashboardDadoresPage: React.FC = () => {
-  const navigate = useNavigate();
+  const { goBack } = useRoleBasedNavigation();
   const authToken = useSelector((s: RootState) => s.auth?.token);
   const empresaId = useSelector((s: RootState) => s.auth?.user?.empresaId);
   const headers: HeadersInit = useMemo(() => ({
@@ -167,7 +167,7 @@ const DashboardDadoresPage: React.FC = () => {
     <div className='container mx-auto px-4 py-8'>
       <div className='flex items-center justify-between mb-6'>
         <div className='flex items-center gap-2'>
-          <Button variant='outline' size='sm' onClick={()=> navigate('/documentos')} className='flex items-center'><span className='mr-2'>←</span>Volver</Button>
+          <Button variant='outline' size='sm' onClick={goBack} className='flex items-center'><span className='mr-2'>←</span>Volver</Button>
           <h1 className='text-2xl font-bold'>Dashboard de Dadores</h1>
         </div>
         <div className='flex items-center gap-2'>

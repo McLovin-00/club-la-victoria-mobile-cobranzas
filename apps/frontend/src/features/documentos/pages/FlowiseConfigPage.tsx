@@ -1,9 +1,9 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { Button } from '../../../components/ui/button';
 import { Card } from '../../../components/ui/card';
 import { showToast } from '../../../components/ui/Toast.utils';
 import logger from '../../../utils/logger';
+import { useRoleBasedNavigation } from '../../../hooks/useRoleBasedNavigation';
 import {
   ArrowLeftIcon,
   CogIcon,
@@ -29,7 +29,7 @@ interface ConnectionStatus {
 }
 
 export const FlowiseConfigPage: React.FC = () => {
-  const navigate = useNavigate();
+  const { goBack } = useRoleBasedNavigation();
   const [config, setConfig] = useState<FlowiseConfig>({
     enabled: false,
     baseUrl: '',
@@ -300,7 +300,7 @@ export const FlowiseConfigPage: React.FC = () => {
             <Button
               variant="ghost"
               size="sm"
-              onClick={() => navigate('/documentos')}
+              onClick={goBack}
               className="text-muted-foreground hover:text-foreground"
             >
               <ArrowLeftIcon className="h-4 w-4 mr-2" />

@@ -3,13 +3,13 @@ import { Card } from '../../../components/ui/card';
 import { Button } from '../../../components/ui/button';
 import { Input } from '../../../components/ui/input';
 import { useSelector } from 'react-redux';
-import { useNavigate } from 'react-router-dom';
 import { RootState } from '../../../store/store';
+import { useRoleBasedNavigation } from '../../../hooks/useRoleBasedNavigation';
 
 type Unit = 'days' | 'weeks' | 'months';
 
 const NotificationsConfigPage: React.FC = () => {
-  const navigate = useNavigate();
+  const { goBack } = useRoleBasedNavigation();
   const baseUrl = `${import.meta.env.VITE_DOCUMENTOS_API_URL}/api/docs/notifications`;
   const token = useSelector((s: RootState) => s.auth?.token);
   const empresaId = useSelector((s: RootState) => s.auth?.user?.empresaId);
@@ -59,7 +59,7 @@ const NotificationsConfigPage: React.FC = () => {
   return (
     <div className='container mx-auto px-4 py-8'>
       <div className='flex items-center gap-2 mb-4'>
-        <Button variant='outline' size='sm' onClick={() => navigate('/documentos')} className='flex items-center'>
+        <Button variant='outline' size='sm' onClick={goBack} className='flex items-center'>
           <span className='mr-2'>←</span>
           Volver
         </Button>

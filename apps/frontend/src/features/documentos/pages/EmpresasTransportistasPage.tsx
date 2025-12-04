@@ -10,8 +10,10 @@ import {
   useUpdateEmpresaTransportistaMutation,
 } from '../api/documentosApiSlice';
 import type { DadorCarga, EmpresaTransportista } from '../types/entities';
+import { useRoleBasedNavigation } from '../../../hooks/useRoleBasedNavigation';
 
 export default function EmpresasTransportistasPage() {
+  const { goBack } = useRoleBasedNavigation();
   const show = (msg: string) => { try { alert(msg); } catch { console.log(msg); } };
   const [q, setQ] = useState('');
   const [page, setPage] = useState(1);
@@ -67,7 +69,7 @@ export default function EmpresasTransportistasPage() {
       <header className="flex flex-col md:flex-row md:items-end md:justify-between gap-3">
         <div className="flex items-center gap-3">
           <button 
-            onClick={() => window.history.length > 1 ? window.history.back() : (window.location.href = '/documentos')}
+            onClick={goBack}
             className="inline-flex items-center gap-2 border border-gray-300 text-gray-600 hover:bg-gray-50 font-medium px-4 py-2 rounded-lg transition-all duration-200"
           >
             ← Volver

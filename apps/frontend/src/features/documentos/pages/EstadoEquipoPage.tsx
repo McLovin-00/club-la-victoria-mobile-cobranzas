@@ -1,6 +1,7 @@
 import React, { useMemo, useCallback } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { Button } from '../../../components/ui/button';
+import { useRoleBasedNavigation } from '../../../hooks/useRoleBasedNavigation';
 import { Card } from '../../../components/ui/card';
 import { Badge } from '../../../components/ui/badge';
 import { ArrowLeftIcon, DocumentTextIcon, CheckCircleIcon, ExclamationTriangleIcon, XCircleIcon, ClockIcon } from '@heroicons/react/24/outline';
@@ -114,6 +115,7 @@ export const EstadoEquipoPage: React.FC = () => {
   const equipoId = Number(id);
   const navigate = useNavigate();
   const location = useLocation();
+  const { goBack } = useRoleBasedNavigation();
   const [textFilter, setTextFilter] = useState('');
   const onlyParam = useMemo(()=> {
     try { return new URLSearchParams(location.search).get('only') || ''; } catch { return ''; }
@@ -237,7 +239,7 @@ export const EstadoEquipoPage: React.FC = () => {
       <div className='container mx-auto px-3 sm:px-4 py-4 sm:py-8'>
         {/* Header */}
         <div className='flex flex-col gap-4 mb-6 sm:mb-8 sm:flex-row sm:items-center'>
-          <Button variant='outline' size='sm' onClick={() => navigate(-1)} className='flex items-center hover:bg-white self-start'>
+          <Button variant='outline' size='sm' onClick={goBack} className='flex items-center hover:bg-white self-start'>
             <ArrowLeftIcon className='h-4 w-4 mr-2' /> Volver
           </Button>
           <div className='flex-1'>

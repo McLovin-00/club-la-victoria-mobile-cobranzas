@@ -1,6 +1,7 @@
 import React, { useMemo } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams } from 'react-router-dom';
 import { useGetPortalClienteEquipoDetalleQuery } from '../../documentos/api/documentosApiSlice';
+import { useRoleBasedNavigation } from '../../../hooks/useRoleBasedNavigation';
 import { Card } from '../../../components/ui/card';
 import { Button } from '../../../components/ui/button';
 import { 
@@ -21,7 +22,7 @@ import {
  */
 const ClienteEquipoDetalle: React.FC = () => {
   const { id } = useParams<{ id: string }>();
-  const navigate = useNavigate();
+  const { goBack } = useRoleBasedNavigation();
   const equipoId = Number(id);
   
   const { data, isLoading, error } = useGetPortalClienteEquipoDetalleQuery(
@@ -151,7 +152,7 @@ const ClienteEquipoDetalle: React.FC = () => {
   if (error || !equipo) {
     return (
       <div className='container mx-auto px-4 py-8 max-w-4xl'>
-        <Button variant='outline' onClick={() => navigate('/cliente')} className='mb-4'>
+        <Button variant='outline' onClick={goBack} className='mb-4'>
           <ArrowLeftIcon className='h-4 w-4 mr-2' />
           Volver
         </Button>
@@ -169,7 +170,7 @@ const ClienteEquipoDetalle: React.FC = () => {
       {/* Header */}
       <div className='flex items-center justify-between mb-6'>
         <div className='flex items-center gap-4'>
-          <Button variant='outline' onClick={() => navigate('/cliente')}>
+          <Button variant='outline' onClick={goBack}>
             <ArrowLeftIcon className='h-4 w-4 mr-2' />
             Volver
           </Button>

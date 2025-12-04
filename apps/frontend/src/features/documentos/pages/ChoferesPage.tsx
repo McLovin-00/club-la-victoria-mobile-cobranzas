@@ -4,11 +4,11 @@ import { Card } from '../../../components/ui/card';
 import { Input } from '../../../components/ui/input';
 import { Pagination } from '../../../components/ui/Pagination';
 import { ArrowLeftIcon } from '@heroicons/react/24/outline';
-import { useNavigate } from 'react-router-dom';
 import { useCreateChoferMutation, useDeleteChoferMutation, useGetChoferesQuery, useUpdateChoferMutation, useGetDadoresQuery } from '../api/documentosApiSlice';
 import type { Chofer, DadorCarga } from '../types/entities';
 import { useToast } from '../../../hooks/useToast';
 import { validatePhone } from '../../../utils/validators';
+import { useRoleBasedNavigation } from '../../../hooks/useRoleBasedNavigation';
 
 const ChoferPhonesInline: React.FC<{ choferId: number; initial: string[]; onSave: (phones: string[])=>Promise<any> }>=({ choferId, initial, onSave })=>{
   const [phones, setPhones] = useState<string[]>(initial.length ? initial : ['']);
@@ -37,7 +37,7 @@ const ChoferPhonesInline: React.FC<{ choferId: number; initial: string[]; onSave
 };
 
 const ChoferesPage: React.FC = () => {
-  const navigate = useNavigate();
+  const { goBack } = useRoleBasedNavigation();
   const { show } = useToast();
   const { data: dadoresResp } = useGetDadoresQuery({});
   const dadores = useMemo<DadorCarga[]>(() => (dadoresResp?.list ?? []) as DadorCarga[], [dadoresResp]);
@@ -72,7 +72,7 @@ const ChoferesPage: React.FC = () => {
     <div className='container mx-auto px-4 py-8'>
       <div className='flex items-center justify-between mb-6'>
         <div className='flex items-center gap-2'>
-          <Button variant='outline' size='sm' onClick={() => navigate('/documentos')} className='flex items-center'>
+          <Button variant='outline' size='sm' onClick={goBack} className='flex items-center'>
             <ArrowLeftIcon className='h-4 w-4 mr-2' />
             Volver
           </Button>

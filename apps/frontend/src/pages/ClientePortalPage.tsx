@@ -4,8 +4,9 @@ import { Button } from '../components/ui/button';
 import { useGetClientsQuery } from '../features/documentos/api/documentosApiSlice';
 import type { Cliente, EquipoDocumento, EquipoWithExtras } from '../features/documentos/types/entities';
 import { useGetClienteEquiposQuery, useGetDocumentosPorEquipoQuery, useGetClientRequirementsQuery, useBulkSearchPlatesMutation, useRequestClientsBulkZipMutation, useGetClientsZipJobQuery } from '../features/documentos/api/documentosApiSlice';
-import { useNavigate } from 'react-router-dom';
 import { showToast } from '../components/ui/Toast.utils';
+import { useRoleBasedNavigation } from '../hooks/useRoleBasedNavigation';
+import { useNavigate } from 'react-router-dom';
 import { 
   BuildingOfficeIcon,
   TruckIcon,
@@ -23,6 +24,7 @@ import {
 
 export const ClientePortalPage: React.FC = () => {
   const navigate = useNavigate();
+  const { goBack } = useRoleBasedNavigation();
   const { data: clientsResp } = useGetClientsQuery({});
   const clients = useMemo<Cliente[]>(() => (clientsResp?.list ?? []) as Cliente[], [clientsResp]);
   const [clienteId, setClienteId] = useState<number | undefined>(clients[0]?.id);
@@ -126,7 +128,7 @@ export const ClientePortalPage: React.FC = () => {
             <Button 
               variant='outline' 
               size='sm' 
-              onClick={() => navigate('/documentos')} 
+              onClick={goBack} 
               className='flex items-center gap-2 hover:bg-emerald-50 transition-all duration-200 rounded-full px-4'
             >
               ← Volver

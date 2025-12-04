@@ -10,6 +10,7 @@ import {
   useGetClientsQuery,
 } from '../../documentos/api/documentosApiSlice';
 import { SeccionDocumentos, Template } from '../components/SeccionDocumentos';
+import { useRoleBasedNavigation } from '../../../hooks/useRoleBasedNavigation';
 
 /**
  * Página de Alta Completa de Equipo
@@ -26,23 +27,9 @@ import { SeccionDocumentos, Template } from '../components/SeccionDocumentos';
  */
 const AltaEquipoCompletaPage: React.FC = () => {
   const navigate = useNavigate();
+  const { goBack, getHomeRoute, user } = useRoleBasedNavigation();
   const empresaId = useAppSelector((s) => (s as any).auth?.user?.empresaId) as number | undefined;
-  const role = useAppSelector((s) => (s as any).auth?.user?.role) as string | undefined;
-  
-  // Determinar ruta de volver según el rol
-  const getBackRoute = () => {
-    switch (role) {
-      case 'ADMIN_INTERNO':
-        return '/portal/admin-interno';
-      case 'DADOR_DE_CARGA':
-        return '/portal/dadores';
-      case 'TRANSPORTISTA':
-      case 'CHOFER':
-        return '/portal/transportistas';
-      default:
-        return '/documentos';
-    }
-  };
+  const role = user?.role;
 
   // Queries y mutations del sistema existente
   const { data: templatesResp, isLoading: loadingTemplates } = useGetTemplatesQuery(undefined);
@@ -365,7 +352,7 @@ const AltaEquipoCompletaPage: React.FC = () => {
         // ═══════════════════════════════════════════════════════════════════
         setMessage({ type: 'success', text: '✅ Equipo creado exitosamente con todos sus documentos' });
       setTimeout(() => {
-          navigate(getBackRoute());
+          navigate(getHomeRoute());
       }, 2000);
       }
     } catch (error: any) {
@@ -424,7 +411,7 @@ const AltaEquipoCompletaPage: React.FC = () => {
       <div className='flex items-center justify-between mb-6'>
         <h1 className='text-3xl font-bold text-gray-900'>Alta Completa de Equipo</h1>
         <button
-          onClick={() => navigate(getBackRoute())}
+          onClick={goBack}
           className='px-4 py-2 text-sm border border-gray-300 rounded-md hover:bg-gray-50 transition-colors'
         >
           ← Volver

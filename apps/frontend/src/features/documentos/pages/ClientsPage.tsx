@@ -1,13 +1,13 @@
 import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { Card } from '../../../components/ui/card';
 import { Button } from '../../../components/ui/button';
 import { Input } from '../../../components/ui/input';
 import { useCreateClientMutation, useDeleteClientMutation, useGetClientsQuery, useUpdateClientMutation, useGetDefaultsQuery, useUpdateDefaultsMutation } from '../api/documentosApiSlice';
 import { ArrowLeftIcon } from '@heroicons/react/24/outline';
+import { useRoleBasedNavigation } from '../../../hooks/useRoleBasedNavigation';
 
 export const ClientsPage: React.FC = () => {
-  const navigate = useNavigate();
+  const { goBack } = useRoleBasedNavigation();
   // ya no dependemos de empresas
   const { data: clientsData } = useGetClientsQuery({});
   const clients = clientsData?.list ?? (Array.isArray(clientsData) ? clientsData : []);
@@ -25,7 +25,7 @@ export const ClientsPage: React.FC = () => {
     <div className='container mx-auto px-4 py-8'>
       <div className='flex items-center justify-between mb-6'>
         <div className='flex items-center gap-2'>
-          <Button variant='outline' size='sm' onClick={() => navigate('/documentos')} className='flex items-center'>
+          <Button variant='outline' size='sm' onClick={goBack} className='flex items-center'>
             <ArrowLeftIcon className='h-4 w-4 mr-2' />
             Volver
           </Button>
