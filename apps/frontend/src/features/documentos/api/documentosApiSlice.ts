@@ -866,6 +866,59 @@ export const documentosApiSlice = createApi({
       }),
       providesTags: ['Dashboard'],
     }),
+    
+    // =================================
+    // PORTAL CLIENTE (Solo Lectura)
+    // =================================
+    getPortalClienteEquipos: builder.query<{
+      equipos: Array<{
+        id: number;
+        identificador: string;
+        camion: { patente: string; marca?: string; modelo?: string } | null;
+        acoplado: { patente: string } | null;
+        chofer: { nombre: string; apellido: string; dni: string } | null;
+        empresaTransportista: { razonSocial: string; cuit: string } | null;
+        estadoCompliance: 'VIGENTE' | 'PROXIMO_VENCER' | 'VENCIDO' | 'INCOMPLETO';
+        proximoVencimiento: string | null;
+        asignadoDesde: string;
+      }>;
+      resumen: {
+        total: number;
+        vigentes: number;
+        proximosVencer: number;
+        vencidos: number;
+        incompletos: number;
+      };
+    }, void>({
+      query: () => ({ url: '/portal-cliente/equipos' }),
+      transformResponse: (r: any) => r?.data ?? { equipos: [], resumen: { total: 0, vigentes: 0, proximosVencer: 0, vencidos: 0, incompletos: 0 } },
+      providesTags: ['Equipos'],
+    }),
+    
+    getPortalClienteEquipoDetalle: builder.query<{
+      equipo: {
+        id: number;
+        camion: { patente: string; marca?: string; modelo?: string } | null;
+        acoplado: { patente: string; tipo?: string } | null;
+        chofer: { nombre: string; apellido: string; dni: string } | null;
+        empresaTransportista: { razonSocial: string; cuit: string } | null;
+        asignadoDesde: string;
+      };
+      documentos: Array<{
+        id: number;
+        templateName: string;
+        entityType: string;
+        entityName: string;
+        status: string;
+        expiresAt: string | null;
+        estado: 'VIGENTE' | 'PROXIMO_VENCER' | 'VENCIDO';
+        uploadedAt: string;
+      }>;
+    }, { id: number }>({
+      query: ({ id }) => ({ url: `/portal-cliente/equipos/${id}` }),
+      transformResponse: (r: any) => r?.data ?? { equipo: null, documentos: [] },
+      providesTags: ['Equipos'],
+    }),
   }),
 });
 
@@ -977,4 +1030,7 @@ export const {
   useGetEquipoAuditHistoryQuery,
   // Auditoría
   useGetAuditLogsQuery,
+  // Portal Cliente (Solo lectura)
+  useGetPortalClienteEquiposQuery,
+  useGetPortalClienteEquipoDetalleQuery,
 } = documentosApiSlice;

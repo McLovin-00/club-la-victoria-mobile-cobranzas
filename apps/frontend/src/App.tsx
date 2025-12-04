@@ -47,6 +47,9 @@ import ClientePortalPage from './pages/ClientePortalPage';
 import DadoresPortalPage from './pages/DadoresPortalPage';
 import TransportistasPortalPage from './pages/TransportistasPortalPage';
 import { AdminInternoPortalPage } from './pages/AdminInternoPortalPage';
+// Portal Cliente (nuevo - solo lectura)
+import ClienteDashboard from './features/cliente/pages/ClienteDashboard';
+import ClienteEquipoDetalle from './features/cliente/pages/ClienteEquipoDetalle';
 
 function App() {
   return (
@@ -218,6 +221,12 @@ function App() {
               {/* Portal de Admin Interno */}
               <Route element={<RequireAuth allowedRoles={['ADMIN_INTERNO', 'ADMIN', 'SUPERADMIN']} />}> 
                 <Route path='/portal/admin-interno' element={<AdminInternoPortalPage />} />
+              </Route>
+
+              {/* Portal Cliente (nuevo - solo lectura con endpoints dedicados) */}
+              <Route element={<RequireAuth allowedRoles={['CLIENTE', 'CLIENTE_TRANSPORTE', 'ADMIN', 'SUPERADMIN', 'ADMIN_INTERNO']} />}> 
+                <Route path='/cliente' element={<ClienteDashboard />} />
+                <Route path='/cliente/equipos/:id' element={<ClienteEquipoDetalle />} />
               </Route>
 
               {/* Ruta de Mi Perfil para todos los usuarios */}

@@ -31,6 +31,7 @@ import approvalRoutes from './approval.routes';
 import { configRateLimit } from '../middlewares/rateLimiter.middleware';
 import complianceRoutes from './compliance.routes';
 import auditLogsRoutes from './audit.routes';
+import portalClienteRoutes from './portal-cliente.routes';
 
 const router = Router();
 
@@ -93,6 +94,9 @@ router.use('/api/docs/empresas-transportistas', authenticate, tenantResolver, em
 router.use('/api/docs/approval', authenticate, tenantResolver, approvalRoutes);
 router.use('/api/docs/compliance', authenticate, tenantResolver, complianceRoutes);
 router.use('/api/docs/audit', authenticate, tenantResolver, auditLogsRoutes);
+
+// Portal Cliente (Solo lectura)
+router.use('/api/docs/portal-cliente', tenantResolver, portalClienteRoutes);
 
 // =================================
 // RUTA RAÍZ - Información del Servicio
