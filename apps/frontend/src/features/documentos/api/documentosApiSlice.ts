@@ -795,17 +795,17 @@ export const documentosApiSlice = createApi({
     // =================================
     // EMPRESAS TRANSPORTISTAS
     // =================================
-    getEmpresasTransportistas: builder.query<EmpresaTransportista[], { dadorCargaId: number; q?: string; page?: number; limit?: number }>({
+    getEmpresasTransportistas: builder.query<EmpresaTransportista[], { dadorCargaId?: number; q?: string; page?: number; limit?: number }>({
       query: ({ dadorCargaId, q, page, limit }) => {
         const params = new URLSearchParams();
-        params.set('dadorCargaId', String(dadorCargaId));
+        if (dadorCargaId) params.set('dadorCargaId', String(dadorCargaId));
         if (q) params.set('q', q);
         if (page) params.set('page', String(page));
         if (limit) params.set('limit', String(limit));
         const qs = params.toString();
         return { url: `/empresas-transportistas${qs ? `?${qs}` : ''}` };
       },
-      transformResponse: (r: any) => r?.data ?? [],
+      transformResponse: (r: any) => r?.list ?? r?.data ?? [],
       providesTags: ['EmpresasTransportistas'],
     }),
     createEmpresaTransportista: builder.mutation<EmpresaTransportista, { dadorCargaId: number; razonSocial: string; cuit: string; activo?: boolean; notas?: string }>({

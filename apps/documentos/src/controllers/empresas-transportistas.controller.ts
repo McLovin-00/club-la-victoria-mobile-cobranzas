@@ -7,13 +7,18 @@ export class EmpresasTransportistasController {
     try {
       const tenantEmpresaId = (req as any).tenantId as number;
       const { dadorCargaId, activo, q, page, limit } = req.query as any;
-      const result = await EmpresaTransportistaService.list(tenantEmpresaId, Number(dadorCargaId), {
-        activo: activo === 'true' ? true : activo === 'false' ? false : undefined,
-        q,
-        page: page ? parseInt(page, 10) : undefined,
-        limit: limit ? parseInt(limit, 10) : undefined,
-      });
-      res.json({ success: true, ...result });
+      const result = await EmpresaTransportistaService.list(
+        tenantEmpresaId, 
+        dadorCargaId ? Number(dadorCargaId) : undefined, 
+        {
+          activo: activo === 'true' ? true : activo === 'false' ? false : undefined,
+          q,
+          page: page ? parseInt(page, 10) : undefined,
+          limit: limit ? parseInt(limit, 10) : undefined,
+        }
+      );
+      // Agregar 'list' para compatibilidad con frontend
+      res.json({ success: true, ...result, list: result.data });
     } catch (error) {
       AppLogger.error('EmpresasTransportistasController.list error:', error);
       res.status(500).json({ success: false, message: 'Error interno del servidor', code: 'INTERNAL_ERROR' });

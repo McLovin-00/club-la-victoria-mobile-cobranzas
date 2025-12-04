@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
 import { useForm, Controller } from 'react-hook-form';
 import { Button } from '../../../components/ui/button';
 import { Spinner } from '../../../components/ui/spinner';
@@ -54,9 +54,17 @@ export const RegisterUserModal: React.FC<RegisterUserModalProps> = ({ isOpen, on
   const currentUser = useAppSelector(selectCurrentUser);
   const { data: empresas = [] } = useGetEmpresasQuery();
   const { data: dadoresResp } = useGetDadoresQuery({});
-  const { data: transportistasResp } = useGetEmpresasTransportistasQuery({});
   const { data: choferesResp } = useGetChoferesQuery({});
   const { data: clientesResp } = useGetClientsQuery({});
+  
+  // Estado para filtrar transportistas por dador
+  const [selectedDadorForTransportista, setSelectedDadorForTransportista] = useState<number | ''>('');
+  
+  // Query de transportistas filtrado por dador seleccionado
+  const { data: transportistasResp } = useGetEmpresasTransportistasQuery(
+    { dadorCargaId: selectedDadorForTransportista ? Number(selectedDadorForTransportista) : undefined },
+    { skip: !selectedDadorForTransportista }
+  );
   
   const dadores = useMemo(() => (dadoresResp as any)?.list ?? dadoresResp ?? [], [dadoresResp]);
   const transportistas = useMemo(() => (transportistasResp as any)?.list ?? transportistasResp ?? [], [transportistasResp]);
@@ -64,7 +72,7 @@ export const RegisterUserModal: React.FC<RegisterUserModalProps> = ({ isOpen, on
   const clientes = useMemo(() => (clientesResp as any)?.list ?? clientesResp ?? [], [clientesResp]);
   
   const [registerUser, { isLoading }] = useRegisterPlatformUserMutation();
-  const { control, handleSubmit, reset, watch, formState: { errors } } = useForm<FormData>({
+  const { control, handleSubmit, reset, watch, setValue, formState: { errors } } = useForm<FormData>({
     defaultValues: {
       email: '',
       password: '',
@@ -86,6 +94,19 @@ export const RegisterUserModal: React.FC<RegisterUserModalProps> = ({ isOpen, on
     if (!currentUser?.role) return [];
     return PERMISOS_CREACION[currentUser.role] || [];
   }, [currentUser?.role]);
+
+  // Reset estado de dador cuando cambia el rol o se cierra el modal
+  useEffect(() => {
+    if (selectedRole !== 'TRANSPORTISTA') {
+      setSelectedDadorForTransportista('');
+    }
+  }, [selectedRole]);
+
+  useEffect(() => {
+    if (!isOpen) {
+      setSelectedDadorForTransportista('');
+    }
+  }, [isOpen]);
 
   if (!isOpen) return null;
 
@@ -216,25 +237,47 @@ export const RegisterUserModal: React.FC<RegisterUserModalProps> = ({ isOpen, on
                 </div>
               )}
 
-              {/* Asociación: Empresa Transportista */}
+              {/* Asociación: Empresa Transportista (primero seleccionar Dador) */}
               {selectedRole === 'TRANSPORTISTA' && (
-                <div className="col-span-2">
-                  <label className="block text-sm font-medium mb-1">Empresa Transportista asociada *</label>
-                  <Controller
-                    name="empresaTransportistaId"
-                    control={control}
-                    rules={{ required: 'Debe seleccionar una empresa transportista' }}
-                    render={({ field }) => (
-                      <select className="w-full px-3 py-2 border rounded-md" {...field}>
-                        <option value="">Seleccionar...</option>
-                        {transportistas.map((t: any) => (
-                          <option key={t.id} value={t.id}>{t.razonSocial || t.nombre} ({t.cuit})</option>
-                        ))}
-                      </select>
-                    )}
-                  />
-                  {errors.empresaTransportistaId && <p className="text-red-500 text-xs mt-1">{errors.empresaTransportistaId.message}</p>}
-                </div>
+                <>
+                  <div className="col-span-2">
+                    <label className="block text-sm font-medium mb-1">Dador de Carga *</label>
+                    <select 
+                      className="w-full px-3 py-2 border rounded-md"
+                      value={selectedDadorForTransportista}
+                      onChange={(e) => {
+                        setSelectedDadorForTransportista(e.target.value ? Number(e.target.value) : '');
+                        setValue('empresaTransportistaId', ''); // Reset transportista al cambiar dador
+                      }}
+                    >
+                      <option value="">Seleccionar dador...</option>
+                      {dadores.map((d: any) => (
+                        <option key={d.id} value={d.id}>{d.razonSocial || d.nombre} ({d.cuit})</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="col-span-2">
+                    <label className="block text-sm font-medium mb-1">Empresa Transportista asociada *</label>
+                    <Controller
+                      name="empresaTransportistaId"
+                      control={control}
+                      rules={{ required: 'Debe seleccionar una empresa transportista' }}
+                      render={({ field }) => (
+                        <select 
+                          className="w-full px-3 py-2 border rounded-md" 
+                          {...field}
+                          disabled={!selectedDadorForTransportista}
+                        >
+                          <option value="">{selectedDadorForTransportista ? 'Seleccionar...' : 'Primero seleccione un dador'}</option>
+                          {transportistas.map((t: any) => (
+                            <option key={t.id} value={t.id}>{t.razonSocial || t.nombre} ({t.cuit})</option>
+                          ))}
+                        </select>
+                      )}
+                    />
+                    {errors.empresaTransportistaId && <p className="text-red-500 text-xs mt-1">{errors.empresaTransportistaId.message}</p>}
+                  </div>
+                </>
               )}
 
               {/* Asociación: Chofer */}

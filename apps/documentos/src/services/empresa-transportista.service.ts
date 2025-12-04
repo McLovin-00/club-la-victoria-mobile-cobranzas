@@ -4,15 +4,15 @@ import { AppLogger } from '../config/logger';
 export class EmpresaTransportistaService {
   static async list(
     tenantEmpresaId: number,
-    dadorCargaId: number,
+    dadorCargaId: number | undefined,
     filters: { activo?: boolean; q?: string; page?: number; limit?: number } = {}
-  ): Promise<{ data: any[]; pagination: { page: number; limit: number; total: number; pages: number } }> {
+  ): Promise<{ data: any[]; pagination: { page: number; limit: number; total: number; pages: number }; list?: any[] }> {
     const { activo, q, page = 1, limit = 10 } = filters;
     const skip = (page - 1) * limit;
 
     const where: any = {
       tenantEmpresaId,
-      dadorCargaId,
+      ...(dadorCargaId && { dadorCargaId }),
       ...(activo !== undefined && { activo }),
       ...(q && { OR: [{ razonSocial: { contains: q, mode: 'insensitive' } }, { cuit: { contains: q } }] }),
     };
