@@ -62,9 +62,12 @@ const EditPlatformUserModal: React.FC<Props> = ({ isOpen, onClose, user }) => {
   const { data: clientesResp } = useGetClientsQuery({});
   
   // Estado para filtrar transportistas por dador
-  const [selectedDadorForTransportista, setSelectedDadorForTransportista] = useState<number | ''>(
-    user.dadorCargaId ?? ''
-  );
+  const [selectedDadorForTransportista, setSelectedDadorForTransportista] = useState<number | ''>('');
+  const [initialLoadDone, setInitialLoadDone] = useState(false);
+  
+  // Query para obtener TODAS las transportistas (para encontrar el dador de la transportista actual)
+  const { data: allTransportistasResp } = useGetEmpresasTransportistasQuery({});
+  const allTransportistas = useMemo(() => (allTransportistasResp as any)?.list ?? allTransportistasResp ?? [], [allTransportistasResp]);
   
   // Query de transportistas filtrado por dador seleccionado
   const { data: transportistasResp } = useGetEmpresasTransportistasQuery(
@@ -76,6 +79,17 @@ const EditPlatformUserModal: React.FC<Props> = ({ isOpen, onClose, user }) => {
   const transportistas = useMemo(() => (transportistasResp as any)?.list ?? transportistasResp ?? [], [transportistasResp]);
   const choferes = useMemo(() => (choferesResp as any)?.list ?? choferesResp ?? [], [choferesResp]);
   const clientes = useMemo(() => (clientesResp as any)?.list ?? clientesResp ?? [], [clientesResp]);
+  
+  // Efecto para cargar el dador de la transportista actual cuando se abre el modal
+  useEffect(() => {
+    if (isOpen && user.role === 'TRANSPORTISTA' && user.empresaTransportistaId && allTransportistas.length > 0 && !initialLoadDone) {
+      const transportistaActual = allTransportistas.find((t: any) => t.id === user.empresaTransportistaId);
+      if (transportistaActual?.dadorCargaId) {
+        setSelectedDadorForTransportista(transportistaActual.dadorCargaId);
+        setInitialLoadDone(true);
+      }
+    }
+  }, [isOpen, user.role, user.empresaTransportistaId, allTransportistas, initialLoadDone]);
   
   const [updateUser, { isLoading }] = useUpdatePlatformUserMutation();
 
@@ -117,10 +131,8 @@ const EditPlatformUserModal: React.FC<Props> = ({ isOpen, onClose, user }) => {
         choferId: user.choferId ?? '',
         clienteId: user.clienteId ?? '',
       });
-      // Si es transportista, setear el dador para cargar transportistas
-      if (user.role === 'TRANSPORTISTA' && user.dadorCargaId) {
-        setSelectedDadorForTransportista(user.dadorCargaId);
-      }
+      // Reset el flag de carga inicial para que vuelva a buscar el dador
+      setInitialLoadDone(false);
     }
   }, [isOpen, user, reset]);
 
@@ -128,8 +140,17 @@ const EditPlatformUserModal: React.FC<Props> = ({ isOpen, onClose, user }) => {
   useEffect(() => {
     if (selectedRole !== 'TRANSPORTISTA') {
       setSelectedDadorForTransportista('');
+      setInitialLoadDone(false);
     }
   }, [selectedRole]);
+
+  // Limpiar estado cuando se cierra el modal
+  useEffect(() => {
+    if (!isOpen) {
+      setSelectedDadorForTransportista('');
+      setInitialLoadDone(false);
+    }
+  }, [isOpen]);
 
   if (!isOpen) return null;
 
