@@ -394,9 +394,16 @@ export const platformAuthValidation = {
   updateUser: [
     body('email').optional().isEmail().withMessage('Email inválido'),
     body('password').optional().isLength({ min: 8 }).withMessage('Contraseña debe tener al menos 8 caracteres'),
-    body('role').optional().isIn(['ADMIN','OPERATOR','SUPERADMIN']).withMessage('Rol inválido'),
+    body('role').optional().isIn([
+      'SUPERADMIN', 'ADMIN', 'ADMIN_INTERNO', 'OPERATOR', 'OPERADOR_INTERNO',
+      'DADOR_DE_CARGA', 'TRANSPORTISTA', 'CHOFER', 'CLIENTE'
+    ]).withMessage('Rol inválido'),
     body('empresaId').optional().isInt({ min: 1 }).withMessage('empresaId debe ser un número positivo'),
     body('nombre').optional().isLength({ max: 100 }),
     body('apellido').optional().isLength({ max: 100 }),
+    body('dadorCargaId').optional({ nullable: true }).isInt({ min: 1 }).withMessage('dadorCargaId debe ser un número positivo'),
+    body('empresaTransportistaId').optional({ nullable: true }).isInt({ min: 1 }).withMessage('empresaTransportistaId debe ser un número positivo'),
+    body('choferId').optional({ nullable: true }).isInt({ min: 1 }).withMessage('choferId debe ser un número positivo'),
+    body('clienteId').optional({ nullable: true }).isInt({ min: 1 }).withMessage('clienteId debe ser un número positivo'),
   ],
 }; 

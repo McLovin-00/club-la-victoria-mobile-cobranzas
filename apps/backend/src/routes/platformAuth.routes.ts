@@ -115,7 +115,7 @@ router.get(
 router.put(
   '/users/:id',
   authenticateUser,
-  authorizeRoles(['ADMIN', 'SUPERADMIN']),
+  authorizeRoles(['ADMIN', 'SUPERADMIN', 'ADMIN_INTERNO']),
   platformAuthValidation.updateUser,
   logAction('PLATFORM_USER_UPDATE'),
   PlatformAuthController.updateUser
@@ -142,7 +142,7 @@ router.delete(
 router.get(
   '/usuarios',
   authenticateUser,
-  authorizeRoles(['ADMIN', 'SUPERADMIN']),
+  authorizeRoles(['ADMIN', 'SUPERADMIN', 'ADMIN_INTERNO']),
   async (req: AuthRequest, res: Response): Promise<void> => {
     try {
       const user = req.user!;
@@ -195,6 +195,10 @@ router.get(
             nombre: true,
             apellido: true,
             empresaId: true,
+            dadorCargaId: true,
+            empresaTransportistaId: true,
+            choferId: true,
+            clienteId: true,
             createdAt: true,
             updatedAt: true,
             empresa: {
