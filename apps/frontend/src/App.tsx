@@ -32,7 +32,7 @@ import ApprovalQueuePage from './features/documentos/pages/ApprovalQueuePage';
 import ApprovalDetailPage from './features/documentos/pages/ApprovalDetailPage';
 import EmpresasTransportistasPage from './features/documentos/pages/EmpresasTransportistasPage';
 import EmpresaTransportistaDetailPage from './features/documentos/pages/EmpresaTransportistaDetailPage';
-import EmpresasDocPage from './features/documentos/pages/EmpresasDocPage';
+// Eliminado: EmpresasDocPage (no existe)
 import ChoferesPage from './features/documentos/pages/ChoferesPage';
 import CamionesPage from './features/documentos/pages/CamionesPage';
 import AcopladosPage from './features/documentos/pages/AcopladosPage';
@@ -50,6 +50,8 @@ import { AdminInternoPortalPage } from './pages/AdminInternoPortalPage';
 // Portal Cliente (nuevo - solo lectura)
 import ClienteDashboard from './features/cliente/pages/ClienteDashboard';
 import ClienteEquipoDetalle from './features/cliente/pages/ClienteEquipoDetalle';
+// Portal Transportista
+import TransportistaDashboard from './features/transportista/pages/TransportistaDashboard';
 
 function App() {
   return (
@@ -227,6 +229,11 @@ function App() {
               <Route element={<RequireAuth allowedRoles={['CLIENTE', 'CLIENTE_TRANSPORTE', 'ADMIN', 'SUPERADMIN', 'ADMIN_INTERNO']} />}> 
                 <Route path='/cliente' element={<ClienteDashboard />} />
                 <Route path='/cliente/equipos/:id' element={<ClienteEquipoDetalle />} />
+              </Route>
+
+              {/* Portal Transportista */}
+              <Route element={<RequireAuth allowedRoles={['TRANSPORTISTA', 'EMPRESA_TRANSPORTISTA', 'ADMIN', 'SUPERADMIN', 'ADMIN_INTERNO', 'DADOR_DE_CARGA']} />}> 
+                <Route path='/transportista' element={<TransportistaDashboard />} />
               </Route>
 
               {/* Ruta de Mi Perfil para todos los usuarios */}

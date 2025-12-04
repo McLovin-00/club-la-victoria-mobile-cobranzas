@@ -919,6 +919,39 @@ export const documentosApiSlice = createApi({
       transformResponse: (r: any) => r?.data ?? { equipo: null, documentos: [] },
       providesTags: ['Equipos'],
     }),
+    
+    // =================================
+    // PORTAL TRANSPORTISTA
+    // =================================
+    getPortalTransportistaMisEntidades: builder.query<{
+      empresas: any[];
+      choferes: any[];
+      camiones: any[];
+      acoplados: any[];
+      contadores: { pendientes: number; rechazados: number; porVencer: number };
+    }, void>({
+      query: () => ({ url: '/portal-transportista/mis-entidades' }),
+      transformResponse: (r: any) => r?.data ?? { empresas: [], choferes: [], camiones: [], acoplados: [], contadores: { pendientes: 0, rechazados: 0, porVencer: 0 } },
+      providesTags: ['Equipos'],
+    }),
+    
+    getPortalTransportistaEquipos: builder.query<any[], void>({
+      query: () => ({ url: '/portal-transportista/equipos' }),
+      transformResponse: (r: any) => r?.data ?? [],
+      providesTags: ['Equipos'],
+    }),
+    
+    getPortalTransportistaDocumentosRechazados: builder.query<any[], void>({
+      query: () => ({ url: '/portal-transportista/documentos/rechazados' }),
+      transformResponse: (r: any) => r?.data ?? [],
+      providesTags: ['Documents'],
+    }),
+    
+    getPortalTransportistaDocumentosPendientes: builder.query<any[], void>({
+      query: () => ({ url: '/portal-transportista/documentos/pendientes' }),
+      transformResponse: (r: any) => r?.data ?? [],
+      providesTags: ['Documents'],
+    }),
   }),
 });
 
@@ -1033,4 +1066,9 @@ export const {
   // Portal Cliente (Solo lectura)
   useGetPortalClienteEquiposQuery,
   useGetPortalClienteEquipoDetalleQuery,
+  // Portal Transportista
+  useGetPortalTransportistaMisEntidadesQuery,
+  useGetPortalTransportistaEquiposQuery,
+  useGetPortalTransportistaDocumentosRechazadosQuery,
+  useGetPortalTransportistaDocumentosPendientesQuery,
 } = documentosApiSlice;
