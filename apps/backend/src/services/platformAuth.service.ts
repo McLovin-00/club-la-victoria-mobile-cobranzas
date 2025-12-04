@@ -18,6 +18,11 @@ export interface AuthPayload {
   email: string;
   role: UserRole;
   empresaId?: number | null;
+  // Asociaciones por rol
+  dadorCargaId?: number | null;
+  empresaTransportistaId?: number | null;
+  choferId?: number | null;
+  clienteId?: number | null;
 }
 
 export interface LoginCredentials {
@@ -194,6 +199,11 @@ export class PlatformAuthService {
       email: platformUser.email,
       role: platformUser.role,
       empresaId: platformUser.empresaId,
+      // Asociaciones por rol
+      dadorCargaId: platformUser.dadorCargaId,
+      empresaTransportistaId: platformUser.empresaTransportistaId,
+      choferId: platformUser.choferId,
+      clienteId: platformUser.clienteId,
     };
     const token = this.generateToken(payload);
 
