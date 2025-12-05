@@ -5,9 +5,7 @@ import { useNavigate } from 'react-router-dom';
 import { 
   DocumentTextIcon, 
   TruckIcon, 
-  MagnifyingGlassIcon,
-  BuildingOfficeIcon,
-  ClipboardDocumentCheckIcon
+  MagnifyingGlassIcon
 } from '@heroicons/react/24/outline';
 
 /**
@@ -23,14 +21,11 @@ const DadorDashboard: React.FC = () => {
       <div className='w-full max-w-6xl'>
         {/* Header */}
         <div className='text-center mb-12'>
-          <div className='inline-flex items-center justify-center w-20 h-20 bg-indigo-600 rounded-2xl mb-6'>
-            <BuildingOfficeIcon className='h-12 w-12 text-white' />
-          </div>
-          <h1 className='text-4xl font-bold text-foreground mb-3'>
+          <h1 className='text-4xl font-bold text-foreground mb-3 italic'>
             Portal Dador de Carga
           </h1>
           <p className='text-lg text-muted-foreground'>
-            Gestión de equipos, documentación y aprobaciones
+            Gestión completa de equipos y documentación
           </p>
         </div>
 
@@ -39,12 +34,12 @@ const DadorDashboard: React.FC = () => {
           
           {/* 1. ALTA COMPLETA DE EQUIPO */}
           <Card 
-            className='group hover:shadow-2xl hover:scale-[1.02] transition-all duration-300 cursor-pointer border-2 hover:border-indigo-500'
+            className='group hover:shadow-2xl hover:scale-[1.02] transition-all duration-300 cursor-pointer border-2 hover:border-blue-500'
             onClick={() => navigate('/documentos/equipos/alta-completa')}
           >
             <CardHeader className='space-y-4 pb-4'>
               <div className='flex justify-center'>
-                <div className='p-6 bg-gradient-to-br from-indigo-500 to-indigo-600 rounded-2xl group-hover:scale-110 transition-transform duration-300'>
+                <div className='p-6 bg-gradient-to-br from-blue-500 to-blue-600 rounded-2xl group-hover:scale-110 transition-transform duration-300'>
                   <TruckIcon className='h-16 w-16 text-white' />
                 </div>
               </div>
@@ -58,21 +53,21 @@ const DadorDashboard: React.FC = () => {
               </p>
               <ul className='text-sm text-muted-foreground space-y-2 text-left'>
                 <li className='flex items-start gap-2'>
-                  <DocumentTextIcon className='h-5 w-5 text-indigo-500 mt-0.5 flex-shrink-0' />
+                  <DocumentTextIcon className='h-5 w-5 text-blue-500 mt-0.5 flex-shrink-0' />
                   <span>Carga de empresa transportista y chofer</span>
                 </li>
                 <li className='flex items-start gap-2'>
-                  <DocumentTextIcon className='h-5 w-5 text-indigo-500 mt-0.5 flex-shrink-0' />
+                  <DocumentTextIcon className='h-5 w-5 text-blue-500 mt-0.5 flex-shrink-0' />
                   <span>Registro de camión y acoplado</span>
                 </li>
                 <li className='flex items-start gap-2'>
-                  <DocumentTextIcon className='h-5 w-5 text-indigo-500 mt-0.5 flex-shrink-0' />
+                  <DocumentTextIcon className='h-5 w-5 text-blue-500 mt-0.5 flex-shrink-0' />
                   <span>Subida de todos los documentos requeridos</span>
                 </li>
               </ul>
               <Button 
                 size='lg' 
-                className='w-full mt-4 bg-indigo-600 hover:bg-indigo-700 text-lg h-12'
+                className='w-full mt-4 bg-blue-600 hover:bg-blue-700 text-lg h-12'
               >
                 Iniciar Alta Completa
               </Button>
@@ -122,27 +117,22 @@ const DadorDashboard: React.FC = () => {
           </Card>
         </div>
 
-        {/* Acceso Rápido - Aprobaciones */}
-        <Card className='bg-gradient-to-r from-amber-500 to-orange-500 border-0 shadow-lg hover:shadow-xl transition-shadow cursor-pointer'
-          onClick={() => navigate('/documentos/aprobacion')}
-        >
+        {/* Acceso Rápido Adicional - Sin Auditoría */}
+        <Card className='bg-slate-800 dark:bg-slate-900 border-slate-700'>
           <CardContent className='p-6'>
-            <div className='flex items-center justify-center gap-4'>
-              <ClipboardDocumentCheckIcon className='h-8 w-8 text-white' />
-              <div className='text-center'>
-                <span className='text-white font-bold text-lg'>Aprobaciones Pendientes</span>
-                <p className='text-amber-100 text-sm'>Revisar y aprobar documentos</p>
-              </div>
+            <div className='flex flex-wrap items-center justify-center gap-4'>
+              <span className='text-slate-300 font-medium'>Acceso rápido:</span>
+              <Button 
+                variant='outline' 
+                size='sm'
+                className='border-slate-600 hover:bg-slate-700'
+                onClick={() => navigate('/documentos/aprobacion')}
+              >
+                Aprobaciones Pendientes
+              </Button>
             </div>
           </CardContent>
         </Card>
-
-        {/* Info del rol */}
-        <div className='mt-8 text-center'>
-          <p className='text-sm text-muted-foreground'>
-            💡 Como Dador de Carga, puedes gestionar equipos, aprobar documentos y asignar equipos a clientes.
-          </p>
-        </div>
       </div>
     </div>
   );
