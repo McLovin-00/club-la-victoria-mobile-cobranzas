@@ -130,7 +130,7 @@ export const EstadoEquipoPage: React.FC = () => {
       navigate(val && val !== 'all' ? `${location.pathname}?only=${encodeURIComponent(val)}` : location.pathname);
     }
   };
-  const { data, isLoading, error } = useGetEquipoComplianceQuery({ id: equipoId }, { skip: !equipoId, refetchOnMountOrArgChange: true });
+  const { data, isLoading, error } = useGetEquipoComplianceQuery({ id: equipoId }, { skip: !equipoId, refetchOnMountOrArgChange: true, refetchOnFocus: true });
   const { data: templates = [] } = useGetTemplatesQuery();
   const token = typeof localStorage !== 'undefined' ? (localStorage.getItem('token') || '') : '';
 
