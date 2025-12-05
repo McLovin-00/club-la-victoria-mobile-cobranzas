@@ -1316,9 +1316,10 @@ export class EquipoService {
             // PENDIENTE, PENDIENTE_APROBACION, VALIDANDO, CLASIFICANDO, etc.
             estado = 'PENDIENTE';
           } else if (expires) {
-            // APROBADO con fecha de vencimiento
+            // APROBADO con fecha de vencimiento: usar diasAnticipacion del template
             const diasRestantes = Math.ceil((expires.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
-            if (diasRestantes <= 30) {
+            const diasAnticipacion = req.diasAnticipacion ?? 30;
+            if (diasRestantes <= diasAnticipacion) {
               estado = 'PROXIMO_VENCER';
             }
           }
