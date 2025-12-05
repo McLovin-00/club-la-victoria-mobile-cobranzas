@@ -774,15 +774,15 @@ export const documentosApiSlice = createApi({
           body: { ...rest, confirmedExpiration: iso, confirmedTemplateId: templateId },
         };
       },
-      invalidatesTags: ['Approval', 'Dashboard', 'Document'],
+      invalidatesTags: ['Approval', 'Dashboard', 'Document', 'Equipos'],
     }),
     rejectPendingDocument: builder.mutation<any, { id: number; reason: string; reviewNotes?: string | null }>({
       query: ({ id, ...body }) => ({ url: `/approval/pending/${id}/reject`, method: 'POST', body }),
-      invalidatesTags: ['Approval', 'Dashboard', 'Document'],
+      invalidatesTags: ['Approval', 'Dashboard', 'Document', 'Equipos'],
     }),
     batchApproveDocuments: builder.mutation<any, { items: Array<{ id: number; confirmedEntityType: string; confirmedEntityId: number; expiresAt?: string | null }>; reviewNotes?: string | null }>({
       query: (body) => ({ url: `/approval/pending/batch-approve`, method: 'POST', body }),
-      invalidatesTags: ['Approval', 'Dashboard'],
+      invalidatesTags: ['Approval', 'Dashboard', 'Equipos'],
     }),
     getApprovalStats: builder.query<ApprovalStats, void>({
       query: () => ({ url: `/approval/stats` }),
