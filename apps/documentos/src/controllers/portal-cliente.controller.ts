@@ -188,6 +188,7 @@ export class PortalClienteController {
   /**
    * GET /api/portal-cliente/equipos/:id
    * Detalle de equipo con documentos (solo lectura)
+   * Incluye documentos vencidos pero marcados como no descargables
    */
   static async getEquipoDetalle(req: AuthRequest, res: Response) {
     const tenantId = req.tenantId!;
@@ -239,7 +240,7 @@ export class PortalClienteController {
           : null,
       ]);
       
-      // Obtener documentos aprobados de las entidades del equipo
+      // Obtener TODOS los documentos aprobados (incluyendo vencidos)
       const entityConditions = [
         { entityType: 'CHOFER' as const, entityId: equipo.driverId },
         { entityType: 'CAMION' as const, entityId: equipo.truckId },
@@ -286,11 +287,13 @@ export class PortalClienteController {
       const now = new Date();
       const documentosFormateados = Array.from(docsPorTemplate.values()).map(doc => {
         let estado: 'VIGENTE' | 'PROXIMO_VENCER' | 'VENCIDO' = 'VIGENTE';
+        let descargable = true;
         
         if (doc.expiresAt) {
           const expires = new Date(doc.expiresAt);
           if (expires < now) {
             estado = 'VENCIDO';
+            descargable = false; // Documentos vencidos no se pueden descargar
           } else {
             const diasRestantes = Math.ceil((expires.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
             if (diasRestantes <= 30) {
@@ -324,9 +327,21 @@ export class PortalClienteController {
           status: doc.status,
           expiresAt: doc.expiresAt?.toISOString() || null,
           estado,
+          descargable, // Nuevo campo: indica si se puede descargar
           uploadedAt: doc.uploadedAt.toISOString(),
         };
       });
+      
+      // Calcular resumen de estados
+      const resumenDocs = {
+        total: documentosFormateados.length,
+        vigentes: documentosFormateados.filter(d => d.estado === 'VIGENTE').length,
+        proximosVencer: documentosFormateados.filter(d => d.estado === 'PROXIMO_VENCER').length,
+        vencidos: documentosFormateados.filter(d => d.estado === 'VENCIDO').length,
+      };
+      
+      // Verificar si hay documentos descargables para el botón de descarga masiva
+      const hayDocumentosDescargables = documentosFormateados.some(d => d.descargable);
       
       res.json({
         success: true,
@@ -354,6 +369,8 @@ export class PortalClienteController {
             asignadoDesde: asignacion.asignadoDesde,
           },
           documentos: documentosFormateados,
+          resumenDocs,
+          hayDocumentosDescargables,
         },
       });
     } catch (error) {
@@ -364,7 +381,7 @@ export class PortalClienteController {
   
   /**
    * GET /api/portal-cliente/equipos/:id/documentos/:docId/download
-   * Descargar un documento específico
+   * Descargar un documento específico (solo si no está vencido)
    */
   static async downloadDocumento(req: AuthRequest, res: Response) {
     const tenantId = req.tenantId!;
@@ -397,6 +414,14 @@ export class PortalClienteController {
         return res.status(404).json({ success: false, message: 'Documento no encontrado' });
       }
       
+      // Verificar que el documento no esté vencido
+      if (doc.expiresAt && new Date(doc.expiresAt) < new Date()) {
+        return res.status(403).json({ 
+          success: false, 
+          message: 'No se puede descargar un documento vencido' 
+        });
+      }
+      
       // Descargar desde MinIO
       const { minioService } = await import('../services/minio.service');
       
@@ -426,7 +451,9 @@ export class PortalClienteController {
   
   /**
    * GET /api/portal-cliente/equipos/:id/download-all
-   * Descargar ZIP con todos los documentos del equipo
+   * Descargar ZIP con todos los documentos vigentes del equipo
+   * Estructura: patente_camion/CUIT_empresa/, patente_camion/DNI_chofer/, 
+   *             patente_camion/patente_camion/, patente_camion/patente_acoplado/
    */
   static async downloadAllDocumentos(req: AuthRequest, res: Response) {
     const tenantId = req.tenantId!;
@@ -449,14 +476,26 @@ export class PortalClienteController {
         return res.status(403).json({ success: false, message: 'No tiene acceso' });
       }
       
-      // Obtener equipo
+      // Obtener equipo con datos relacionados
       const equipo = await prisma.equipo.findUnique({
         where: { id: equipoId },
+        include: {
+          empresaTransportista: true,
+        },
       });
       
       if (!equipo || equipo.tenantEmpresaId !== tenantId) {
         return res.status(404).json({ success: false, message: 'Equipo no encontrado' });
       }
+      
+      // Obtener chofer, camion, acoplado
+      const [chofer, camion, acoplado] = await Promise.all([
+        prisma.chofer.findUnique({ where: { id: equipo.driverId } }),
+        prisma.camion.findUnique({ where: { id: equipo.truckId } }),
+        equipo.trailerId 
+          ? prisma.acoplado.findUnique({ where: { id: equipo.trailerId } })
+          : null,
+      ]);
       
       // Obtener documentos
       const entityConditions = [
@@ -475,6 +514,7 @@ export class PortalClienteController {
         });
       }
       
+      const now = new Date();
       const documentos = await prisma.document.findMany({
         where: {
           tenantEmpresaId: tenantId,
@@ -486,9 +526,24 @@ export class PortalClienteController {
         orderBy: { uploadedAt: 'desc' },
       });
       
-      if (documentos.length === 0) {
-        return res.status(404).json({ success: false, message: 'No hay documentos para descargar' });
+      // Filtrar solo documentos vigentes (no vencidos)
+      const documentosVigentes = documentos.filter(doc => {
+        if (!doc.expiresAt) return true; // Sin fecha de vencimiento = vigente
+        return new Date(doc.expiresAt) >= now;
+      });
+      
+      if (documentosVigentes.length === 0) {
+        return res.status(404).json({ 
+          success: false, 
+          message: 'No hay documentos vigentes para descargar' 
+        });
       }
+      
+      // Preparar nombres de carpetas
+      const patenteCamion = (camion?.patente || equipo.truckPlateNorm || 'CAMION').replace(/[^a-zA-Z0-9]/g, '_');
+      const cuitEmpresa = equipo.empresaTransportista?.cuit?.replace(/[^0-9]/g, '') || 'EMPRESA';
+      const dniChofer = chofer?.dni?.replace(/[^0-9]/g, '') || 'CHOFER';
+      const patenteAcoplado = (acoplado?.patente || equipo.trailerPlateNorm || 'ACOPLADO').replace(/[^a-zA-Z0-9]/g, '_');
       
       // Preparar ZIP
       const archiver = (await import('archiver')).default;
@@ -498,12 +553,22 @@ export class PortalClienteController {
       res.setHeader('Content-Type', 'application/zip');
       res.setHeader(
         'Content-Disposition', 
-        `attachment; filename="equipo_${equipoId}_documentos.zip"`
+        `attachment; filename="${patenteCamion}_documentacion.zip"`
       );
       
       archive.pipe(res);
       
-      for (const doc of documentos) {
+      // Agrupar documentos por entidad para evitar duplicados
+      const docsPorEntidad = new Map<string, typeof documentosVigentes>();
+      for (const doc of documentosVigentes) {
+        const key = `${doc.entityType}-${doc.entityId}`;
+        if (!docsPorEntidad.has(key)) {
+          docsPorEntidad.set(key, []);
+        }
+        docsPorEntidad.get(key)!.push(doc);
+      }
+      
+      for (const doc of documentosVigentes) {
         try {
           let bucketName: string;
           let objectPath: string;
@@ -517,13 +582,34 @@ export class PortalClienteController {
             objectPath = doc.filePath;
           }
           
-          const stream = await minioService.getObject(bucketName, objectPath);
-          const safeName = `${doc.entityType}_${doc.template.name}_${doc.id}.pdf`
-            .replace(/[^a-z0-9_.-]/gi, '_');
+          // Determinar carpeta según tipo de entidad
+          let subFolder = '';
+          switch (doc.entityType) {
+            case 'EMPRESA_TRANSPORTISTA':
+              subFolder = cuitEmpresa;
+              break;
+            case 'CHOFER':
+              subFolder = dniChofer;
+              break;
+            case 'CAMION':
+              subFolder = patenteCamion;
+              break;
+            case 'ACOPLADO':
+              subFolder = patenteAcoplado;
+              break;
+          }
           
-          archive.append(stream as any, { name: safeName });
-        } catch {
-          AppLogger.warn(`No se pudo agregar doc ${doc.id} al ZIP`);
+          const stream = await minioService.getObject(bucketName, objectPath);
+          const safeTemplateName = doc.template.name.replace(/[^a-zA-Z0-9\s_.-]/gi, '_').trim();
+          const extension = doc.fileName.split('.').pop() || 'pdf';
+          const fileName = `${safeTemplateName}.${extension}`;
+          
+          // Estructura: patente_camion/subcarpeta/archivo
+          const fullPath = `${patenteCamion}/${subFolder}/${fileName}`;
+          
+          archive.append(stream as any, { name: fullPath });
+        } catch (err) {
+          AppLogger.warn(`No se pudo agregar doc ${doc.id} al ZIP: ${err}`);
         }
       }
       

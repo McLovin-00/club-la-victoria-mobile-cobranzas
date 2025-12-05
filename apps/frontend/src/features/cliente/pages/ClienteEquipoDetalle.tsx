@@ -14,11 +14,13 @@ import {
   TruckIcon,
   UserIcon,
   BuildingOfficeIcon,
+  NoSymbolIcon,
 } from '@heroicons/react/24/outline';
 
 /**
  * Detalle de Equipo para Portal Cliente
- * Vista de solo lectura con documentos descargables
+ * Vista de solo lectura con documentos
+ * Los documentos vencidos se muestran pero no se pueden descargar
  */
 const ClienteEquipoDetalle: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -32,6 +34,7 @@ const ClienteEquipoDetalle: React.FC = () => {
   
   const equipo = data?.equipo;
   const documentos = data?.documentos ?? [];
+  const hayDocumentosDescargables = data?.hayDocumentosDescargables ?? false;
   
   // Agrupar documentos por entidad
   const documentosPorEntidad = useMemo(() => {
@@ -46,15 +49,13 @@ const ClienteEquipoDetalle: React.FC = () => {
     return grupos;
   }, [documentos]);
   
-  // Resumen de estados
-  const resumenDocs = useMemo(() => {
-    return {
-      total: documentos.length,
-      vigentes: documentos.filter(d => d.estado === 'VIGENTE').length,
-      proximosVencer: documentos.filter(d => d.estado === 'PROXIMO_VENCER').length,
-      vencidos: documentos.filter(d => d.estado === 'VENCIDO').length,
-    };
-  }, [documentos]);
+  // Resumen de estados (usar del backend si existe, sino calcularlo)
+  const resumenDocs = data?.resumenDocs ?? {
+    total: documentos.length,
+    vigentes: documentos.filter(d => d.estado === 'VIGENTE').length,
+    proximosVencer: documentos.filter(d => d.estado === 'PROXIMO_VENCER').length,
+    vencidos: documentos.filter(d => d.estado === 'VENCIDO').length,
+  };
   
   // Estilo según estado
   const getEstadoStyle = (estado: string) => {
@@ -104,7 +105,14 @@ const ClienteEquipoDetalle: React.FC = () => {
     fetch(url, {
       headers: { Authorization: `Bearer ${token}` },
     })
-      .then(res => res.blob())
+      .then(res => {
+        if (!res.ok) {
+          return res.json().then(data => {
+            throw new Error(data.message || 'Error al descargar');
+          });
+        }
+        return res.blob();
+      })
       .then(blob => {
         const link = document.createElement('a');
         link.href = URL.createObjectURL(blob);
@@ -113,11 +121,11 @@ const ClienteEquipoDetalle: React.FC = () => {
       })
       .catch(err => {
         console.error('Error descargando:', err);
-        alert('Error al descargar el documento');
+        alert(err.message || 'Error al descargar el documento');
       });
   };
   
-  // Descargar todos como ZIP
+  // Descargar todos como ZIP (solo documentos vigentes)
   const handleDownloadAll = () => {
     const token = localStorage.getItem('token');
     const url = `/api/docs/portal-cliente/equipos/${equipoId}/download-all`;
@@ -125,16 +133,23 @@ const ClienteEquipoDetalle: React.FC = () => {
     fetch(url, {
       headers: { Authorization: `Bearer ${token}` },
     })
-      .then(res => res.blob())
+      .then(res => {
+        if (!res.ok) {
+          return res.json().then(data => {
+            throw new Error(data.message || 'Error al descargar');
+          });
+        }
+        return res.blob();
+      })
       .then(blob => {
         const link = document.createElement('a');
         link.href = URL.createObjectURL(blob);
-        link.download = `equipo_${equipoId}_documentos.zip`;
+        link.download = `${equipo?.camion?.patente || 'equipo'}_documentacion.zip`;
         link.click();
       })
       .catch(err => {
         console.error('Error descargando ZIP:', err);
-        alert('Error al descargar los documentos');
+        alert(err.message || 'Error al descargar los documentos');
       });
   };
   
@@ -175,14 +190,14 @@ const ClienteEquipoDetalle: React.FC = () => {
             Volver
           </Button>
           <div>
-            <h1 className='text-2xl font-bold text-gray-900'>
+            <h1 className='text-2xl font-bold text-gray-900 dark:text-gray-100'>
               Equipo {equipo.camion?.patente || 'Sin patente'}
             </h1>
-            <p className='text-gray-600'>Detalle de documentación</p>
+            <p className='text-gray-600 dark:text-gray-400'>Detalle de documentación</p>
           </div>
         </div>
         
-        {documentos.length > 0 && (
+        {hayDocumentosDescargables && (
           <Button onClick={handleDownloadAll}>
             <ArchiveBoxArrowDownIcon className='h-4 w-4 mr-2' />
             Descargar todo (ZIP)
@@ -225,22 +240,32 @@ const ClienteEquipoDetalle: React.FC = () => {
       {/* Resumen de Documentos */}
       <div className='grid grid-cols-4 gap-4 mb-6'>
         <Card className='p-3 text-center'>
-          <div className='text-2xl font-bold text-gray-800'>{resumenDocs.total}</div>
+          <div className='text-2xl font-bold text-gray-800 dark:text-gray-200'>{resumenDocs.total}</div>
           <div className='text-xs text-gray-500'>Total</div>
         </Card>
-        <Card className='p-3 text-center bg-green-50'>
+        <Card className='p-3 text-center bg-green-50 dark:bg-green-900/20'>
           <div className='text-2xl font-bold text-green-600'>{resumenDocs.vigentes}</div>
-          <div className='text-xs text-green-700'>Vigentes</div>
+          <div className='text-xs text-green-700 dark:text-green-400'>Vigentes</div>
         </Card>
-        <Card className='p-3 text-center bg-yellow-50'>
+        <Card className='p-3 text-center bg-yellow-50 dark:bg-yellow-900/20'>
           <div className='text-2xl font-bold text-yellow-600'>{resumenDocs.proximosVencer}</div>
-          <div className='text-xs text-yellow-700'>Próx. vencer</div>
+          <div className='text-xs text-yellow-700 dark:text-yellow-400'>Próx. vencer</div>
         </Card>
-        <Card className='p-3 text-center bg-red-50'>
+        <Card className='p-3 text-center bg-red-50 dark:bg-red-900/20'>
           <div className='text-2xl font-bold text-red-600'>{resumenDocs.vencidos}</div>
-          <div className='text-xs text-red-700'>Vencidos</div>
+          <div className='text-xs text-red-700 dark:text-red-400'>Vencidos</div>
         </Card>
       </div>
+      
+      {/* Aviso sobre documentos vencidos */}
+      {resumenDocs.vencidos > 0 && (
+        <div className='mb-6 p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg flex items-center gap-3'>
+          <NoSymbolIcon className='h-5 w-5 text-red-500 flex-shrink-0' />
+          <p className='text-sm text-red-700 dark:text-red-400'>
+            Los documentos vencidos se muestran para referencia pero no están disponibles para descarga.
+          </p>
+        </div>
+      )}
       
       {/* Documentos agrupados por entidad */}
       {Object.keys(documentosPorEntidad).length === 0 ? (
@@ -269,16 +294,17 @@ const ClienteEquipoDetalle: React.FC = () => {
                   {docs.map((doc) => {
                     const estilo = getEstadoStyle(doc.estado);
                     const IconoEstado = estilo.icon;
+                    const esDescargable = doc.descargable !== false && doc.estado !== 'VENCIDO';
                     
                     return (
                       <div 
                         key={doc.id} 
-                        className={`flex items-center justify-between p-3 rounded-lg ${estilo.bg}`}
+                        className={`flex items-center justify-between p-3 rounded-lg ${estilo.bg} dark:bg-opacity-20`}
                       >
                         <div className='flex items-center gap-3'>
                           <IconoEstado className={`h-5 w-5 ${estilo.text}`} />
                           <div>
-                            <div className='font-medium text-gray-900'>{doc.templateName}</div>
+                            <div className='font-medium text-gray-900 dark:text-gray-100'>{doc.templateName}</div>
                             <div className='text-xs text-gray-500'>
                               {doc.expiresAt 
                                 ? `Vence: ${new Date(doc.expiresAt).toLocaleDateString('es-AR')}`
@@ -291,13 +317,26 @@ const ClienteEquipoDetalle: React.FC = () => {
                           <span className={`text-sm font-medium ${estilo.text}`}>
                             {estilo.label}
                           </span>
-                          <Button 
-                            variant='outline' 
-                            size='sm'
-                            onClick={() => handleDownload(doc.id, `${doc.templateName}.pdf`)}
-                          >
-                            <DocumentArrowDownIcon className='h-4 w-4' />
-                          </Button>
+                          {esDescargable ? (
+                            <Button 
+                              variant='outline' 
+                              size='sm'
+                              onClick={() => handleDownload(doc.id, `${doc.templateName}.pdf`)}
+                              title='Descargar documento'
+                            >
+                              <DocumentArrowDownIcon className='h-4 w-4' />
+                            </Button>
+                          ) : (
+                            <Button 
+                              variant='outline' 
+                              size='sm'
+                              disabled
+                              className='opacity-50 cursor-not-allowed'
+                              title='Documento vencido - no disponible para descarga'
+                            >
+                              <NoSymbolIcon className='h-4 w-4' />
+                            </Button>
+                          )}
                         </div>
                       </div>
                     );
@@ -318,4 +357,3 @@ const ClienteEquipoDetalle: React.FC = () => {
 };
 
 export default ClienteEquipoDetalle;
-

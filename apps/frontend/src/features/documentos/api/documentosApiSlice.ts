@@ -942,11 +942,24 @@ export const documentosApiSlice = createApi({
         status: string;
         expiresAt: string | null;
         estado: 'VIGENTE' | 'PROXIMO_VENCER' | 'VENCIDO';
+        descargable: boolean;
         uploadedAt: string;
       }>;
+      resumenDocs: {
+        total: number;
+        vigentes: number;
+        proximosVencer: number;
+        vencidos: number;
+      };
+      hayDocumentosDescargables: boolean;
     }, { id: number }>({
       query: ({ id }) => ({ url: `/portal-cliente/equipos/${id}` }),
-      transformResponse: (r: any) => r?.data ?? { equipo: null, documentos: [] },
+      transformResponse: (r: any) => r?.data ?? { 
+        equipo: null, 
+        documentos: [], 
+        resumenDocs: { total: 0, vigentes: 0, proximosVencer: 0, vencidos: 0 },
+        hayDocumentosDescargables: false 
+      },
       providesTags: ['Equipos'],
     }),
     
