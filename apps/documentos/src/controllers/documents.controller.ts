@@ -189,30 +189,42 @@ export class DocumentsController {
         finalMime
       );
 
-      // Extraer fecha de vencimiento de planilla.vencimientos si existe
+      // Extraer fecha de vencimiento: primero del campo directo expiresAt, luego de planilla.vencimientos
       let expiresAtDate: Date | null = null;
       try {
-        const planilla = (req.body as any).planilla;
-        const vencimientos = planilla?.vencimientos || {};
-        const rawExpiry = vencimientos[templateId] || vencimientos[String(templateIdNum)];
-        if (rawExpiry && typeof rawExpiry === 'string') {
-          // Soportar formatos: yyyy-mm-dd (ISO), dd/mm/yyyy (locale), o ISO completo
-          let parsed: Date | null = null;
-          if (/^\d{4}-\d{2}-\d{2}/.test(rawExpiry)) {
-            // Formato ISO: yyyy-mm-dd o yyyy-mm-ddTHH:mm:ss
-            parsed = new Date(rawExpiry);
-          } else if (/^\d{2}\/\d{2}\/\d{4}$/.test(rawExpiry)) {
-            // Formato dd/mm/yyyy → convertir a yyyy-mm-dd
-            const [dd, mm, yyyy] = rawExpiry.split('/');
-            parsed = new Date(`${yyyy}-${mm}-${dd}`);
-          } else if (/^\d{2}\/\d{2}\/\d{2}$/.test(rawExpiry)) {
-            // Formato dd/mm/yy → convertir a yyyy-mm-dd (asumir siglo 21)
-            const [dd, mm, yy] = rawExpiry.split('/');
-            const year = parseInt(yy, 10) < 50 ? `20${yy}` : `19${yy}`;
-            parsed = new Date(`${year}-${mm}-${dd}`);
-          }
-          if (parsed && !isNaN(parsed.getTime())) {
+        // 1. Intentar leer expiresAt directo del body (enviado desde EditarEquipoPage)
+        const directExpiresAt = (req.body as any).expiresAt;
+        if (directExpiresAt && typeof directExpiresAt === 'string') {
+          const parsed = new Date(directExpiresAt);
+          if (!isNaN(parsed.getTime())) {
             expiresAtDate = parsed;
+          }
+        }
+        
+        // 2. Si no hay fecha directa, buscar en planilla.vencimientos (para alta de equipo)
+        if (!expiresAtDate) {
+          const planilla = (req.body as any).planilla;
+          const vencimientos = planilla?.vencimientos || {};
+          const rawExpiry = vencimientos[templateId] || vencimientos[String(templateIdNum)];
+          if (rawExpiry && typeof rawExpiry === 'string') {
+            // Soportar formatos: yyyy-mm-dd (ISO), dd/mm/yyyy (locale), o ISO completo
+            let parsed: Date | null = null;
+            if (/^\d{4}-\d{2}-\d{2}/.test(rawExpiry)) {
+              // Formato ISO: yyyy-mm-dd o yyyy-mm-ddTHH:mm:ss
+              parsed = new Date(rawExpiry);
+            } else if (/^\d{2}\/\d{2}\/\d{4}$/.test(rawExpiry)) {
+              // Formato dd/mm/yyyy → convertir a yyyy-mm-dd
+              const [dd, mm, yyyy] = rawExpiry.split('/');
+              parsed = new Date(`${yyyy}-${mm}-${dd}`);
+            } else if (/^\d{2}\/\d{2}\/\d{2}$/.test(rawExpiry)) {
+              // Formato dd/mm/yy → convertir a yyyy-mm-dd (asumir siglo 21)
+              const [dd, mm, yy] = rawExpiry.split('/');
+              const year = parseInt(yy, 10) < 50 ? `20${yy}` : `19${yy}`;
+              parsed = new Date(`${year}-${mm}-${dd}`);
+            }
+            if (parsed && !isNaN(parsed.getTime())) {
+              expiresAtDate = parsed;
+            }
           }
         }
       } catch {
