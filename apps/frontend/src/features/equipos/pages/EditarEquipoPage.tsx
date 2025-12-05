@@ -325,6 +325,22 @@ const EditarEquipoPage: React.FC = () => {
     const selected = selectedFiles[key];
     if (!selected?.file) return;
     
+    // Validar fecha de vencimiento obligatoria
+    if (!selected.expiresAt) {
+      setMessage({ type: 'error', text: 'Debe ingresar la fecha de vencimiento antes de subir el documento.' });
+      return;
+    }
+    
+    // Pedir confirmación antes de subir
+    const confirmed = await confirm({
+      title: 'Confirmar subida de documento',
+      message: `¿Está seguro que desea subir el documento "${selected.file.name}" con fecha de vencimiento ${new Date(selected.expiresAt).toLocaleDateString('es-AR')}?`,
+      confirmText: 'Subir',
+      cancelText: 'Cancelar',
+    });
+    
+    if (!confirmed) return;
+    
     setUploadingDoc(key);
     try {
       const formData = new FormData();
@@ -334,9 +350,7 @@ const EditarEquipoPage: React.FC = () => {
       formData.append('entityId', String(entityId));
       formData.append('dadorCargaId', String(dadorId));
       formData.append('confirmNewVersion', 'true');
-      if (selected.expiresAt) {
-        formData.append('expiresAt', selected.expiresAt);
-      }
+      formData.append('expiresAt', selected.expiresAt);
       
       await uploadDocument(formData).unwrap();
       setMessage({ type: 'success', text: 'Documento subido correctamente. Pendiente de aprobación.' });
@@ -721,21 +735,28 @@ const EditarEquipoPage: React.FC = () => {
                               </button>
                             </div>
                             <div className='flex items-center gap-2'>
-                              <label className='text-xs text-gray-600'>Vencimiento:</label>
+                              <label className='text-xs text-gray-600'>
+                                Vencimiento: <span className='text-red-500'>*</span>
+                              </label>
                               <input
                                 type='date'
-                                className='border rounded px-2 py-1 text-sm'
+                                className={`border rounded px-2 py-1 text-sm ${!selectedFile.expiresAt ? 'border-red-300 bg-red-50' : 'border-gray-300'}`}
                                 value={selectedFile.expiresAt || ''}
                                 onChange={(e) => req.entityId && handleExpiresAtChange(req.templateId, req.entityType, req.entityId, e.target.value)}
+                                required
                               />
                               <Button
                                 size='sm'
                                 onClick={() => req.entityId && handleUploadDocument(req.templateId, req.entityType, req.entityId)}
-                                disabled={isUploading || uploading}
+                                disabled={isUploading || uploading || !selectedFile.expiresAt}
+                                title={!selectedFile.expiresAt ? 'Debe ingresar fecha de vencimiento' : ''}
                               >
                                 {isUploading ? 'Subiendo...' : 'Subir'}
                               </Button>
                             </div>
+                            {!selectedFile.expiresAt && (
+                              <p className='text-xs text-red-500 mt-1'>⚠️ La fecha de vencimiento es obligatoria</p>
+                            )}
                           </div>
                         )}
                       </div>
