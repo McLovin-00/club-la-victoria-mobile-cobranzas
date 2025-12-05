@@ -149,19 +149,12 @@ export class PortalTransportistaController {
       const now = new Date();
       const in30Days = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
       
-      // Base where para documentos - similar lógica que entidades
+      // Base where para documentos - Document no tiene empresaTransportistaId, usar dadorCargaId
       const baseWhereDocumentos: any = {
         tenantEmpresaId: tenantId,
         archived: false,
+        dadorCargaId: { in: dadorIds },
       };
-      
-      if (user.role === 'TRANSPORTISTA' || user.role === 'EMPRESA_TRANSPORTISTA' || user.role === 'CHOFER') {
-        baseWhereDocumentos.empresaTransportistaId = { in: empresaIds };
-      } else if (user.role === 'DADOR_DE_CARGA') {
-        baseWhereDocumentos.dadorCargaId = { in: dadorIds };
-      } else {
-        baseWhereDocumentos.dadorCargaId = { in: dadorIds };
-      }
       
       const [pendientes, rechazados, porVencer] = await Promise.all([
         prisma.document.count({
@@ -300,7 +293,7 @@ export class PortalTransportistaController {
     const user = req.user!;
     
     try {
-      // Filtrar según el rol del usuario
+      // Filtrar según el rol del usuario - Document usa dadorCargaId, no empresaTransportistaId
       let whereDocumentos: any = {
         tenantEmpresaId: tenantId,
         status: 'RECHAZADO',
@@ -308,8 +301,20 @@ export class PortalTransportistaController {
       };
       
       if (user.role === 'TRANSPORTISTA' || user.role === 'EMPRESA_TRANSPORTISTA' || user.role === 'CHOFER') {
-        if (user.empresaTransportistaId) {
-          whereDocumentos.empresaTransportistaId = user.empresaTransportistaId;
+        // Usar dadorCargaId del usuario o buscar desde empresa transportista
+        if (user.dadorCargaId) {
+          whereDocumentos.dadorCargaId = user.dadorCargaId;
+        } else if (user.empresaTransportistaId) {
+          // Obtener dadorCargaId de la empresa transportista
+          const empresa = await prisma.empresaTransportista.findUnique({
+            where: { id: user.empresaTransportistaId },
+            select: { dadorCargaId: true },
+          });
+          if (empresa) {
+            whereDocumentos.dadorCargaId = empresa.dadorCargaId;
+          } else {
+            return res.json({ success: true, data: [] });
+          }
         } else {
           return res.json({ success: true, data: [] });
         }
@@ -385,7 +390,7 @@ export class PortalTransportistaController {
     const user = req.user!;
     
     try {
-      // Filtrar según el rol del usuario
+      // Filtrar según el rol del usuario - Document usa dadorCargaId, no empresaTransportistaId
       let whereDocumentos: any = {
         tenantEmpresaId: tenantId,
         status: 'PENDIENTE_APROBACION',
@@ -393,8 +398,19 @@ export class PortalTransportistaController {
       };
       
       if (user.role === 'TRANSPORTISTA' || user.role === 'EMPRESA_TRANSPORTISTA' || user.role === 'CHOFER') {
-        if (user.empresaTransportistaId) {
-          whereDocumentos.empresaTransportistaId = user.empresaTransportistaId;
+        // Usar dadorCargaId del usuario o buscar desde empresa transportista
+        if (user.dadorCargaId) {
+          whereDocumentos.dadorCargaId = user.dadorCargaId;
+        } else if (user.empresaTransportistaId) {
+          const empresa = await prisma.empresaTransportista.findUnique({
+            where: { id: user.empresaTransportistaId },
+            select: { dadorCargaId: true },
+          });
+          if (empresa) {
+            whereDocumentos.dadorCargaId = empresa.dadorCargaId;
+          } else {
+            return res.json({ success: true, data: [] });
+          }
         } else {
           return res.json({ success: true, data: [] });
         }
