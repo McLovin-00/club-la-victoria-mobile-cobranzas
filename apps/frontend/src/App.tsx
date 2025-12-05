@@ -75,14 +75,14 @@ function App() {
               {/* Dashboard explícito para SUPERADMIN y ADMIN */}
               <Route path='/dashboard' element={<DashboardPage />} />
 
-              {/* Rutas para admin y superadmin */}
-              <Route element={<RequireAuth allowedRoles={['ADMIN', 'SUPERADMIN']} />}>
-                {/* Ruta legacy '/usuarios' removida */}
+              {/* Rutas de gestión de usuarios - para roles que pueden crear/editar usuarios */}
+              <Route element={<RequireAuth allowedRoles={['ADMIN', 'SUPERADMIN', 'ADMIN_INTERNO', 'DADOR_DE_CARGA', 'TRANSPORTISTA']} />}>
                 <Route path='/platform-users' element={<PlatformUsersPageLazy />} />
-                <Route path='/end-users' element={<EndUsersPageLazy />} />
-                {/* Eliminado: instancias, gateway y chat-processor */}
-                
+              </Route>
 
+              {/* Rutas solo para admin y superadmin */}
+              <Route element={<RequireAuth allowedRoles={['ADMIN', 'SUPERADMIN']} />}>
+                <Route path='/end-users' element={<EndUsersPageLazy />} />
               </Route>
 
               {/* Rutas para superadmin */}

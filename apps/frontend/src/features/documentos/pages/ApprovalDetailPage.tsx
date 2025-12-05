@@ -1,5 +1,5 @@
 import { useMemo, useState, useEffect } from 'react';
-import { useParams, useLocation } from 'react-router-dom';
+import { useParams, useLocation, useNavigate } from 'react-router-dom';
 import { useApprovePendingDocumentMutation, useGetApprovalPendingByIdQuery, useRejectPendingDocumentMutation, useGetTemplatesQuery } from '../api/documentosApiSlice';
 import { useRoleBasedNavigation } from '../../../hooks/useRoleBasedNavigation';
 import { formatDateTime } from '../../../utils/formatters';
@@ -7,6 +7,7 @@ import type { ApprovalPendingDocument, EntityType } from '../types/entities';
 
 export default function ApprovalDetailPage() {
   const { id } = useParams();
+  const navigate = useNavigate();
   const { goBack } = useRoleBasedNavigation();
   const docId = Number(id);
   const { data, isFetching, error } = useGetApprovalPendingByIdQuery({ id: docId }, { skip: !docId });
