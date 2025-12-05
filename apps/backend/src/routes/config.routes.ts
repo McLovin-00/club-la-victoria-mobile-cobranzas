@@ -10,7 +10,7 @@ const router = Router();
  * Endpoint para obtener configuración de servicios habilitados
  * Acceso público (no requiere autenticación para configuración base)
  */
-router.get('/services', authenticateUser, authorizeRoles(['SUPERADMIN','ADMIN','ADMIN_INTERNO']), (req: Request, res: Response) => {
+router.get('/services', authenticateUser, authorizeRoles(['SUPERADMIN','ADMIN','ADMIN_INTERNO','DADOR_DE_CARGA','TRANSPORTISTA','CHOFER','CLIENTE']), (req: Request, res: Response) => {
   try {
     const serviceConfig = backendServiceConfig.getConfig();
     const enabledServices = backendServiceConfig.getEnabledServices();
