@@ -17,10 +17,52 @@ export class PortalTransportistaController {
     const user = req.user!;
     
     try {
-      // Obtener empresas transportistas del tenant del usuario
-      // Para un transportista, su empresaId puede estar relacionado con la empresa transportista
+      // Filtrar según el rol del usuario
+      let whereEmpresas: any = { tenantEmpresaId: tenantId };
+      
+      if (user.role === 'TRANSPORTISTA' || user.role === 'EMPRESA_TRANSPORTISTA') {
+        // Solo ver su propia empresa transportista
+        if (user.empresaTransportistaId) {
+          whereEmpresas.id = user.empresaTransportistaId;
+        } else {
+          // Si no tiene empresa asignada, no mostrar nada
+          return res.json({
+            success: true,
+            data: {
+              empresas: [],
+              choferes: [],
+              camiones: [],
+              acoplados: [],
+              contadores: { pendientes: 0, rechazados: 0, porVencer: 0 },
+            },
+          });
+        }
+      } else if (user.role === 'DADOR_DE_CARGA') {
+        // Solo ver empresas de su dador de carga
+        if (user.dadorCargaId) {
+          whereEmpresas.dadorCargaId = user.dadorCargaId;
+        }
+      } else if (user.role === 'CHOFER') {
+        // Un chofer ve su empresa transportista
+        if (user.empresaTransportistaId) {
+          whereEmpresas.id = user.empresaTransportistaId;
+        } else {
+          return res.json({
+            success: true,
+            data: {
+              empresas: [],
+              choferes: [],
+              camiones: [],
+              acoplados: [],
+              contadores: { pendientes: 0, rechazados: 0, porVencer: 0 },
+            },
+          });
+        }
+      }
+      // ADMIN, SUPERADMIN, ADMIN_INTERNO ven todo del tenant
+      
       const empresas = await prisma.empresaTransportista.findMany({
-        where: { tenantEmpresaId: tenantId },
+        where: whereEmpresas,
         select: {
           id: true,
           razonSocial: true,
@@ -43,53 +85,62 @@ export class PortalTransportistaController {
       }
       
       const dadorIds = [...new Set(empresas.map(e => e.dadorCargaId))];
+      const empresaIds = empresas.map(e => e.id);
+      
+      // Base where para entidades - filtrar por empresa transportista si el usuario es transportista/chofer
+      const baseWhereEntidades: any = {
+        tenantEmpresaId: tenantId,
+        activo: true,
+      };
+      
+      if (user.role === 'TRANSPORTISTA' || user.role === 'EMPRESA_TRANSPORTISTA' || user.role === 'CHOFER') {
+        // Filtrar por empresas transportistas del usuario
+        baseWhereEntidades.empresaTransportistaId = { in: empresaIds };
+      } else if (user.role === 'DADOR_DE_CARGA') {
+        // Filtrar por dador de carga
+        baseWhereEntidades.dadorCargaId = { in: dadorIds };
+      } else {
+        // Admin ve todo del tenant (filtrar por dadores de las empresas encontradas)
+        baseWhereEntidades.dadorCargaId = { in: dadorIds };
+      }
       
       // Obtener choferes
       const choferes = await prisma.chofer.findMany({
-        where: {
-          tenantEmpresaId: tenantId,
-          dadorCargaId: { in: dadorIds },
-          activo: true,
-        },
+        where: baseWhereEntidades,
         select: {
           id: true,
           dni: true,
           nombre: true,
           apellido: true,
           dadorCargaId: true,
+          empresaTransportistaId: true,
         },
         orderBy: { apellido: 'asc' },
       });
       
       // Obtener camiones
       const camiones = await prisma.camion.findMany({
-        where: {
-          tenantEmpresaId: tenantId,
-          dadorCargaId: { in: dadorIds },
-          activo: true,
-        },
+        where: baseWhereEntidades,
         select: {
           id: true,
           patente: true,
           marca: true,
           modelo: true,
           dadorCargaId: true,
+          empresaTransportistaId: true,
         },
         orderBy: { patente: 'asc' },
       });
       
       // Obtener acoplados
       const acoplados = await prisma.acoplado.findMany({
-        where: {
-          tenantEmpresaId: tenantId,
-          dadorCargaId: { in: dadorIds },
-          activo: true,
-        },
+        where: baseWhereEntidades,
         select: {
           id: true,
           patente: true,
           tipo: true,
           dadorCargaId: true,
+          empresaTransportistaId: true,
         },
         orderBy: { patente: 'asc' },
       });
@@ -98,29 +149,37 @@ export class PortalTransportistaController {
       const now = new Date();
       const in30Days = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
       
+      // Base where para documentos - similar lógica que entidades
+      const baseWhereDocumentos: any = {
+        tenantEmpresaId: tenantId,
+        archived: false,
+      };
+      
+      if (user.role === 'TRANSPORTISTA' || user.role === 'EMPRESA_TRANSPORTISTA' || user.role === 'CHOFER') {
+        baseWhereDocumentos.empresaTransportistaId = { in: empresaIds };
+      } else if (user.role === 'DADOR_DE_CARGA') {
+        baseWhereDocumentos.dadorCargaId = { in: dadorIds };
+      } else {
+        baseWhereDocumentos.dadorCargaId = { in: dadorIds };
+      }
+      
       const [pendientes, rechazados, porVencer] = await Promise.all([
         prisma.document.count({
           where: {
-            tenantEmpresaId: tenantId,
-            dadorCargaId: { in: dadorIds },
+            ...baseWhereDocumentos,
             status: 'PENDIENTE_APROBACION',
-            archived: false,
           },
         }),
         prisma.document.count({
           where: {
-            tenantEmpresaId: tenantId,
-            dadorCargaId: { in: dadorIds },
+            ...baseWhereDocumentos,
             status: 'RECHAZADO',
-            archived: false,
           },
         }),
         prisma.document.count({
           where: {
-            tenantEmpresaId: tenantId,
-            dadorCargaId: { in: dadorIds },
+            ...baseWhereDocumentos,
             status: 'APROBADO',
-            archived: false,
             expiresAt: {
               gte: now,
               lte: in30Days,
@@ -151,13 +210,29 @@ export class PortalTransportistaController {
    */
   static async getMisEquipos(req: AuthRequest, res: Response) {
     const tenantId = req.tenantId!;
+    const user = req.user!;
     
     try {
+      // Filtrar según el rol del usuario
+      let whereEquipos: any = {
+        tenantEmpresaId: tenantId,
+      };
+      
+      if (user.role === 'TRANSPORTISTA' || user.role === 'EMPRESA_TRANSPORTISTA' || user.role === 'CHOFER') {
+        if (user.empresaTransportistaId) {
+          whereEquipos.empresaTransportistaId = user.empresaTransportistaId;
+        } else {
+          return res.json({ success: true, data: [] });
+        }
+      } else if (user.role === 'DADOR_DE_CARGA') {
+        if (user.dadorCargaId) {
+          whereEquipos.dadorCargaId = user.dadorCargaId;
+        }
+      }
+      // Admin/Superadmin ven todo
+      
       const equipos = await prisma.equipo.findMany({
-        where: {
-          tenantEmpresaId: tenantId,
-          empresaTransportistaId: { not: null },
-        },
+        where: whereEquipos,
         include: {
           empresaTransportista: true,
           dador: true,
@@ -222,14 +297,31 @@ export class PortalTransportistaController {
    */
   static async getDocumentosRechazados(req: AuthRequest, res: Response) {
     const tenantId = req.tenantId!;
+    const user = req.user!;
     
     try {
+      // Filtrar según el rol del usuario
+      let whereDocumentos: any = {
+        tenantEmpresaId: tenantId,
+        status: 'RECHAZADO',
+        archived: false,
+      };
+      
+      if (user.role === 'TRANSPORTISTA' || user.role === 'EMPRESA_TRANSPORTISTA' || user.role === 'CHOFER') {
+        if (user.empresaTransportistaId) {
+          whereDocumentos.empresaTransportistaId = user.empresaTransportistaId;
+        } else {
+          return res.json({ success: true, data: [] });
+        }
+      } else if (user.role === 'DADOR_DE_CARGA') {
+        if (user.dadorCargaId) {
+          whereDocumentos.dadorCargaId = user.dadorCargaId;
+        }
+      }
+      // Admin/Superadmin ven todo
+      
       const documentos = await prisma.document.findMany({
-        where: {
-          tenantEmpresaId: tenantId,
-          status: 'RECHAZADO',
-          archived: false,
-        },
+        where: whereDocumentos,
         include: {
           template: true,
         },
@@ -290,14 +382,31 @@ export class PortalTransportistaController {
    */
   static async getDocumentosPendientes(req: AuthRequest, res: Response) {
     const tenantId = req.tenantId!;
+    const user = req.user!;
     
     try {
+      // Filtrar según el rol del usuario
+      let whereDocumentos: any = {
+        tenantEmpresaId: tenantId,
+        status: 'PENDIENTE_APROBACION',
+        archived: false,
+      };
+      
+      if (user.role === 'TRANSPORTISTA' || user.role === 'EMPRESA_TRANSPORTISTA' || user.role === 'CHOFER') {
+        if (user.empresaTransportistaId) {
+          whereDocumentos.empresaTransportistaId = user.empresaTransportistaId;
+        } else {
+          return res.json({ success: true, data: [] });
+        }
+      } else if (user.role === 'DADOR_DE_CARGA') {
+        if (user.dadorCargaId) {
+          whereDocumentos.dadorCargaId = user.dadorCargaId;
+        }
+      }
+      // Admin/Superadmin ven todo
+      
       const documentos = await prisma.document.findMany({
-        where: {
-          tenantEmpresaId: tenantId,
-          status: 'PENDIENTE_APROBACION',
-          archived: false,
-        },
+        where: whereDocumentos,
         include: {
           template: true,
         },

@@ -234,7 +234,7 @@ function App() {
               </Route>
 
               {/* Portal Transportista */}
-              <Route element={<RequireAuth allowedRoles={['TRANSPORTISTA', 'EMPRESA_TRANSPORTISTA', 'ADMIN', 'SUPERADMIN', 'ADMIN_INTERNO', 'DADOR_DE_CARGA']} />}> 
+              <Route element={<RequireAuth allowedRoles={['TRANSPORTISTA', 'EMPRESA_TRANSPORTISTA', 'CHOFER', 'ADMIN', 'SUPERADMIN', 'ADMIN_INTERNO', 'DADOR_DE_CARGA']} />}> 
                 <Route path='/transportista' element={<TransportistaDashboard />} />
               </Route>
 
