@@ -100,6 +100,8 @@ export const uploadDocumentSchema = z.object({
       .union([z.string(), z.boolean()])
       .transform((v) => (typeof v === 'string' ? v === 'true' : Boolean(v)))
       .optional(),
+    // Fecha de vencimiento del documento (formato yyyy-mm-dd o ISO)
+    expiresAt: z.string().optional(),
     // Modo de carga:
     // - initial: alta inicial, requiere planilla completa y puede crear equipo si corresponde
     // - renewal: renovación de un documento vencido
