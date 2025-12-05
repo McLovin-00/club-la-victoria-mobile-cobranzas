@@ -105,25 +105,6 @@ const EditPlatformUserModal: React.FC<Props> = ({ isOpen, onClose, user }) => {
   const choferes = useMemo(() => choferesResp ?? [], [choferesResp]);
   const clientes = useMemo(() => (clientesResp as any)?.list ?? clientesResp ?? [], [clientesResp]);
   
-  // Efecto para cargar el dador de la transportista actual para TRANSPORTISTA
-  useEffect(() => {
-    if (isOpen && user.role === 'TRANSPORTISTA' && transportistaActual?.dadorCargaId && !initialLoadDoneTransportista) {
-      setSelectedDadorForTransportista(transportistaActual.dadorCargaId);
-      setInitialLoadDoneTransportista(true);
-    }
-  }, [isOpen, user.role, transportistaActual, initialLoadDoneTransportista]);
-  
-  // Efecto para cargar dador y transportista para CHOFER (desde el chofer)
-  useEffect(() => {
-    if (isOpen && user.role === 'CHOFER' && choferActual?.empresaTransportista && !initialLoadDoneChofer) {
-      const { dadorCargaId, id: transportistaId } = choferActual.empresaTransportista;
-      setSelectedDadorForChofer(dadorCargaId);
-      setSelectedTransportistaForChofer(transportistaId);
-      setValue('choferId', user.choferId ?? '');
-      setInitialLoadDoneChofer(true);
-    }
-  }, [isOpen, user.role, choferActual, user.choferId, initialLoadDoneChofer, setValue]);
-  
   const [updateUser, { isLoading }] = useUpdatePlatformUserMutation();
 
   const { control, handleSubmit, watch, setValue, reset } = useForm<FormData>({
@@ -148,6 +129,24 @@ const EditPlatformUserModal: React.FC<Props> = ({ isOpen, onClose, user }) => {
     if (!currentUser?.role) return [];
     return PERMISOS_EDICION[currentUser.role] || [];
   }, [currentUser?.role]);
+
+  // Efecto para cargar el dador de la transportista actual para TRANSPORTISTA
+  useEffect(() => {
+    if (isOpen && user.role === 'TRANSPORTISTA' && transportistaActual?.dadorCargaId && !initialLoadDoneTransportista) {
+      setSelectedDadorForTransportista(transportistaActual.dadorCargaId);
+      setInitialLoadDoneTransportista(true);
+    }
+  }, [isOpen, user.role, transportistaActual, initialLoadDoneTransportista]);
+  
+  // Efecto para cargar dador y transportista para CHOFER (desde el chofer)
+  useEffect(() => {
+    if (isOpen && user.role === 'CHOFER' && choferActual?.empresaTransportista && !initialLoadDoneChofer) {
+      const { dadorCargaId, id: transportistaId } = choferActual.empresaTransportista;
+      setSelectedDadorForChofer(dadorCargaId);
+      setSelectedTransportistaForChofer(transportistaId);
+      setInitialLoadDoneChofer(true);
+    }
+  }, [isOpen, user.role, choferActual, initialLoadDoneChofer]);
 
   // Reset form cuando cambia el usuario
   useEffect(() => {
