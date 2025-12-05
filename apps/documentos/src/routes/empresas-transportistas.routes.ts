@@ -9,9 +9,9 @@ const router = Router();
 
 router.use(authenticate);
 
-router.get('/', authorize([UserRole.ADMIN, UserRole.SUPERADMIN, UserRole.ADMIN_INTERNO, UserRole.OPERADOR_INTERNO]), validate(empresaTransportistaListQuerySchema), EmpresasTransportistasController.list);
+router.get('/', authorize([UserRole.ADMIN, UserRole.SUPERADMIN, UserRole.ADMIN_INTERNO, UserRole.OPERADOR_INTERNO, UserRole.DADOR_DE_CARGA, UserRole.TRANSPORTISTA]), validate(empresaTransportistaListQuerySchema), EmpresasTransportistasController.list);
 router.post('/', authorize([UserRole.ADMIN, UserRole.SUPERADMIN]), validate(createEmpresaTransportistaSchema), EmpresasTransportistasController.create);
-router.get('/:id', authorize([UserRole.ADMIN, UserRole.SUPERADMIN, UserRole.OPERATOR, UserRole.ADMIN_INTERNO, UserRole.OPERADOR_INTERNO]), EmpresasTransportistasController.getById);
+router.get('/:id', authorize([UserRole.ADMIN, UserRole.SUPERADMIN, UserRole.OPERATOR, UserRole.ADMIN_INTERNO, UserRole.OPERADOR_INTERNO, UserRole.DADOR_DE_CARGA, UserRole.TRANSPORTISTA]), EmpresasTransportistasController.getById);
 router.put('/:id', authorize([UserRole.ADMIN, UserRole.SUPERADMIN]), validate(updateEmpresaTransportistaSchema), EmpresasTransportistasController.update);
 router.delete('/:id', authorize([UserRole.ADMIN, UserRole.SUPERADMIN]), EmpresasTransportistasController.delete);
 router.get('/:id/choferes', authorize([UserRole.ADMIN, UserRole.SUPERADMIN, UserRole.OPERATOR, UserRole.ADMIN_INTERNO, UserRole.OPERADOR_INTERNO]), EmpresasTransportistasController.getChoferes);
