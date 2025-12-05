@@ -63,7 +63,7 @@ const EditarEquipoPage: React.FC = () => {
   // Cargar requisitos del equipo
   const { data: requisitos, refetch: refetchRequisitos } = useGetEquipoRequisitosQuery(
     { equipoId },
-    { skip: !equipoId }
+    { skip: !equipoId, refetchOnMountOrArgChange: true }
   );
   
   // Mutations
