@@ -6,8 +6,8 @@ const router = Router();
 
 router.use(authenticate);
 
-// Roles que pueden acceder: TRANSPORTISTA y admins para pruebas
-const allowedRoles = ['TRANSPORTISTA', 'EMPRESA_TRANSPORTISTA', 'SUPERADMIN', 'ADMIN_INTERNO', 'ADMIN', 'DADOR_DE_CARGA'] as any[];
+// Roles que pueden acceder: TRANSPORTISTA, CHOFER y admins para pruebas
+const allowedRoles = ['TRANSPORTISTA', 'EMPRESA_TRANSPORTISTA', 'CHOFER', 'SUPERADMIN', 'ADMIN_INTERNO', 'ADMIN', 'DADOR_DE_CARGA'] as any[];
 
 // Mis entidades (choferes, camiones, acoplados)
 router.get('/mis-entidades', authorize(allowedRoles), PortalTransportistaController.getMisEntidades);
