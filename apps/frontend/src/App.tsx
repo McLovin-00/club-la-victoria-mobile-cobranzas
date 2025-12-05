@@ -91,8 +91,8 @@ function App() {
                 <Route path='/empresas' element={<EmpresasPageLazy />} />
               </Route>
 
-              {/* Rutas de Documentos para SUPERADMIN, ADMIN, OPERATOR y ADMIN_INTERNO */}
-              <Route element={<RequireAuth allowedRoles={['SUPERADMIN', 'ADMIN', 'OPERATOR', 'ADMIN_INTERNO', 'OPERADOR_INTERNO']} />}>
+              {/* Rutas de Documentos para todos los roles que usan el sistema */}
+              <Route element={<RequireAuth allowedRoles={['SUPERADMIN', 'ADMIN', 'OPERATOR', 'ADMIN_INTERNO', 'OPERADOR_INTERNO', 'DADOR_DE_CARGA', 'TRANSPORTISTA', 'CHOFER']} />}>
                 <Route path='/documentos' element={
                   <ProtectedServiceRoute service="documentos">
                     <DocumentosMainPage />
