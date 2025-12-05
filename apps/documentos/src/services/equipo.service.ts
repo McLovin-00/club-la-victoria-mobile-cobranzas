@@ -1253,6 +1253,7 @@ export class EquipoService {
       templateName: string;
       entityType: string;
       obligatorio: boolean;
+      diasAnticipacion: number;
       requeridoPor: Array<{ clienteId: number; clienteName: string }>;
       documentoActual?: any;
     }> = new Map();
@@ -1265,6 +1266,7 @@ export class EquipoService {
           templateName: req.template.name,
           entityType: req.entityType,
           obligatorio: req.obligatorio,
+          diasAnticipacion: req.diasAnticipacion ?? 30,
           requeridoPor: [],
         });
       }
