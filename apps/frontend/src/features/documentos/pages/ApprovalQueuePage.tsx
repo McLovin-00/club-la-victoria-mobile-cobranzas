@@ -45,10 +45,6 @@ export default function ApprovalQueuePage() {
   }, [pendingResp]);
   const total = (pendingResp as any)?.pagination?.total ?? list.length;
 
-  // Estado local de vencimientos seleccionados por fila (previo a aprobación)
-  const [selectedExpires, setSelectedExpires] = useState<Record<number, string>>({});
-  const setExpireFor = (id: number, value: string) => setSelectedExpires((m) => ({ ...m, [id]: value }));
-
   return (
     <div className="p-6 space-y-6">
       <header className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
@@ -126,31 +122,27 @@ export default function ApprovalQueuePage() {
                   <td className="py-2 pr-3">{formatDateTime(row.uploadedAt)}</td>
                   <td className="py-2 pr-3">
                     {(() => {
-                      // Prioridad: clasificación IA > expiresAt del documento
+                      // Mostrar fecha de vencimiento del documento
                       const detected = (row as any)?.classification?.detectedExpiration as string | undefined;
                       const docExpires = (row as any)?.expiresAt as string | undefined;
                       const dateStr = detected || docExpires;
-                      const detectedYmd = (() => {
-                        if (!dateStr) return '';
-                        try { const d = new Date(dateStr); if (isNaN(d.getTime())) return ''; const yyyy = d.getFullYear(); const mm = String(d.getMonth()+1).padStart(2,'0'); const dd = String(d.getDate()).padStart(2,'0'); return `${yyyy}-${mm}-${dd}`; } catch { return ''; }
-                      })();
-                      const valueYmd = (selectedExpires as any)[row.id] ?? detectedYmd;
-                      return (
-                        <input
-                          type="date"
-                          className="input input-bordered py-1 px-2 rounded-md bg-background border"
-                          value={valueYmd}
-                          onChange={(e) => {
-                            setExpireFor(row.id, e.target.value);
-                          }}
-                        />
-                      );
+                      if (!dateStr) return <span className="text-muted-foreground">-</span>;
+                      try {
+                        const d = new Date(dateStr);
+                        if (isNaN(d.getTime())) return <span className="text-muted-foreground">-</span>;
+                        const dd = String(d.getDate()).padStart(2, '0');
+                        const mm = String(d.getMonth() + 1).padStart(2, '0');
+                        const yyyy = d.getFullYear();
+                        return `${dd}/${mm}/${yyyy}`;
+                      } catch {
+                        return <span className="text-muted-foreground">-</span>;
+                      }
                     })()}
                   </td>
                   <td className="py-2 pr-3 text-right">
                     <Link
                       className="bg-gradient-to-r from-green-500 to-teal-500 hover:from-green-600 hover:to-teal-600 text-white text-xs px-4 py-2 rounded-lg shadow-md hover:shadow-lg transition-all duration-300 transform hover:scale-105"
-                      to={`/documentos/aprobacion/${row.id}${selectedExpires[row.id] ? `?expiresAt=${selectedExpires[row.id]}` : ''}`}
+                      to={`/documentos/aprobacion/${row.id}`}
                     >
                       Revisar
                     </Link>
