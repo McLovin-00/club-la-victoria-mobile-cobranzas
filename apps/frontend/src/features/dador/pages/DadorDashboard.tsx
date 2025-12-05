@@ -122,38 +122,17 @@ const DadorDashboard: React.FC = () => {
           </Card>
         </div>
 
-        {/* Acceso Rápido Adicional - Sin Auditoría */}
-        <Card className='bg-slate-800 dark:bg-slate-900 border-slate-700'>
+        {/* Acceso Rápido - Aprobaciones */}
+        <Card className='bg-gradient-to-r from-amber-500 to-orange-500 border-0 shadow-lg hover:shadow-xl transition-shadow cursor-pointer'
+          onClick={() => navigate('/documentos/aprobacion')}
+        >
           <CardContent className='p-6'>
-            <div className='flex flex-wrap items-center justify-center gap-4'>
-              <span className='text-slate-300 font-medium'>Acceso rápido:</span>
-              <Button 
-                variant='outline' 
-                size='sm'
-                className='border-slate-600 hover:bg-slate-700 text-slate-200'
-                onClick={() => navigate('/documentos/aprobacion')}
-              >
-                <ClipboardDocumentCheckIcon className='h-4 w-4 mr-2' />
-                Aprobaciones Pendientes
-              </Button>
-              <Button 
-                variant='outline' 
-                size='sm'
-                className='border-slate-600 hover:bg-slate-700 text-slate-200'
-                onClick={() => navigate('/documentos/equipos')}
-              >
-                <TruckIcon className='h-4 w-4 mr-2' />
-                Lista de Equipos
-              </Button>
-              <Button 
-                variant='outline' 
-                size='sm'
-                className='border-slate-600 hover:bg-slate-700 text-slate-200'
-                onClick={() => navigate('/documentos/empresas-transportistas')}
-              >
-                <BuildingOfficeIcon className='h-4 w-4 mr-2' />
-                Empresas Transportistas
-              </Button>
+            <div className='flex items-center justify-center gap-4'>
+              <ClipboardDocumentCheckIcon className='h-8 w-8 text-white' />
+              <div className='text-center'>
+                <span className='text-white font-bold text-lg'>Aprobaciones Pendientes</span>
+                <p className='text-amber-100 text-sm'>Revisar y aprobar documentos</p>
+              </div>
             </div>
           </CardContent>
         </Card>
