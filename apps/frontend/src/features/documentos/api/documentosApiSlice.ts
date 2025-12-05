@@ -627,7 +627,7 @@ export const documentosApiSlice = createApi({
           // noop: la invalidación de tags garantizará consistencia eventual
         }
       },
-      invalidatesTags: ['Document', 'Dashboard'],
+      invalidatesTags: ['Document', 'Dashboard', 'Equipos'],
     }),
 
     deleteDocument: builder.mutation<void, number>({
