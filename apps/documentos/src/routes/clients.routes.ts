@@ -29,14 +29,14 @@ async function getExcelJS() {
 const router = Router();
 
 router.use(authenticate);
-router.get('/', validate(clienteListQuerySchema), ClientsController.list);
-router.post('/', authorize([UserRole.ADMIN, UserRole.SUPERADMIN]), validate(createClienteSchema), ClientsController.create);
-router.put('/:id', authorize([UserRole.ADMIN, UserRole.SUPERADMIN]), validate(updateClienteSchema), ClientsController.update);
-router.delete('/:id', authorize([UserRole.ADMIN, UserRole.SUPERADMIN]), ClientsController.remove);
+router.get('/', authorize([UserRole.ADMIN, UserRole.SUPERADMIN, UserRole.ADMIN_INTERNO, UserRole.DADOR_DE_CARGA, UserRole.TRANSPORTISTA]), validate(clienteListQuerySchema), ClientsController.list);
+router.post('/', authorize([UserRole.ADMIN, UserRole.SUPERADMIN, UserRole.ADMIN_INTERNO, UserRole.DADOR_DE_CARGA]), validate(createClienteSchema), ClientsController.create);
+router.put('/:id', authorize([UserRole.ADMIN, UserRole.SUPERADMIN, UserRole.ADMIN_INTERNO, UserRole.DADOR_DE_CARGA]), validate(updateClienteSchema), ClientsController.update);
+router.delete('/:id', authorize([UserRole.ADMIN, UserRole.SUPERADMIN, UserRole.ADMIN_INTERNO]), ClientsController.remove);
 
-router.get('/:clienteId/requirements', ClientsController.listRequirements);
-router.post('/:clienteId/requirements', authorize([UserRole.ADMIN, UserRole.SUPERADMIN]), validate(addRequirementSchema), ClientsController.addRequirement);
-router.delete('/:clienteId/requirements/:requirementId', authorize([UserRole.ADMIN, UserRole.SUPERADMIN]), validate(removeRequirementSchema), ClientsController.removeRequirement);
+router.get('/:clienteId/requirements', authorize([UserRole.ADMIN, UserRole.SUPERADMIN, UserRole.ADMIN_INTERNO, UserRole.DADOR_DE_CARGA]), ClientsController.listRequirements);
+router.post('/:clienteId/requirements', authorize([UserRole.ADMIN, UserRole.SUPERADMIN, UserRole.ADMIN_INTERNO, UserRole.DADOR_DE_CARGA]), validate(addRequirementSchema), ClientsController.addRequirement);
+router.delete('/:clienteId/requirements/:requirementId', authorize([UserRole.ADMIN, UserRole.SUPERADMIN, UserRole.ADMIN_INTERNO, UserRole.DADOR_DE_CARGA]), validate(removeRequirementSchema), ClientsController.removeRequirement);
 
 // Listado de equipos habilitados para un cliente (portales de cliente)
 const listEquiposClienteSchema = z.object({

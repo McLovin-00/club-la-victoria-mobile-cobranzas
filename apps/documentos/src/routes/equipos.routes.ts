@@ -15,7 +15,7 @@ const router = Router();
 router.use(authenticate);
 router.get('/', validate(equipoListQuerySchema), EquiposController.list);
 router.get('/:id', ownsEquipo(), EquiposController.getById);
-router.post('/', authorize(['ADMIN' as any, 'SUPERADMIN' as any, 'ADMIN_INTERNO' as any]), validate(createEquipoSchema), EquiposController.create);
+router.post('/', authorize(['ADMIN' as any, 'SUPERADMIN' as any, 'ADMIN_INTERNO' as any, 'DADOR_DE_CARGA' as any]), validate(createEquipoSchema), EquiposController.create);
 
 // Alta mínima desde identificadores para Dadores/Transportistas
 const phoneRegex = /^\+?[1-9]\d{7,14}$/;
@@ -28,7 +28,7 @@ const createMinimalSchema = z.object({
     choferPhones: z.array(z.string().regex(phoneRegex, 'Formato WhatsApp inválido')).max(3).optional(),
   }),
 });
-router.post('/minimal', authorize(['ADMIN' as any, 'SUPERADMIN' as any, 'ADMIN_INTERNO' as any]), validate(createMinimalSchema), EquiposController.createMinimal);
+router.post('/minimal', authorize(['ADMIN' as any, 'SUPERADMIN' as any, 'ADMIN_INTERNO' as any, 'DADOR_DE_CARGA' as any]), validate(createMinimalSchema), EquiposController.createMinimal);
 
 // Alta Completa de Equipo - TRANSACCIONAL
 const createCompletoSchema = z.object({
@@ -53,7 +53,7 @@ const createCompletoSchema = z.object({
     clienteIds: z.array(z.number().int().positive()).optional(),
   }),
 });
-router.post('/alta-completa', authorize(['ADMIN' as any, 'SUPERADMIN' as any, 'ADMIN_INTERNO' as any]), validate(createCompletoSchema), EquiposController.createCompleto);
+router.post('/alta-completa', authorize(['ADMIN' as any, 'SUPERADMIN' as any, 'ADMIN_INTERNO' as any, 'DADOR_DE_CARGA' as any]), validate(createCompletoSchema), EquiposController.createCompleto);
 
 // Rollback de Alta Completa
 const rollbackCompletoSchema = z.object({
@@ -64,13 +64,13 @@ const rollbackCompletoSchema = z.object({
     deleteEmpresa: z.boolean().optional(),
   }),
 });
-router.post('/:id/rollback', authorize(['ADMIN' as any, 'SUPERADMIN' as any, 'ADMIN_INTERNO' as any]), validate(rollbackCompletoSchema), EquiposController.rollbackCompleto);
+router.post('/:id/rollback', authorize(['ADMIN' as any, 'SUPERADMIN' as any, 'ADMIN_INTERNO' as any, 'DADOR_DE_CARGA' as any]), validate(rollbackCompletoSchema), EquiposController.rollbackCompleto);
 
-router.put('/:id', authorize(['ADMIN' as any, 'SUPERADMIN' as any, 'ADMIN_INTERNO' as any]), validate(updateEquipoSchema), EquiposController.update);
-router.delete('/:id', authorize(['ADMIN' as any, 'SUPERADMIN' as any, 'ADMIN_INTERNO' as any]), EquiposController.delete);
-router.get('/:id/history', authorize(['ADMIN' as any, 'SUPERADMIN' as any, 'ADMIN_INTERNO' as any]), validate(equipoHistoryQuerySchema), EquiposController.history);
-router.get('/:id/audit', authorize(['ADMIN' as any, 'SUPERADMIN' as any, 'ADMIN_INTERNO' as any]), EquiposController.getAuditHistory);
-router.get('/:id/requisitos', authorize(['ADMIN' as any, 'SUPERADMIN' as any, 'ADMIN_INTERNO' as any]), EquiposController.getRequisitos);
+router.put('/:id', authorize(['ADMIN' as any, 'SUPERADMIN' as any, 'ADMIN_INTERNO' as any, 'DADOR_DE_CARGA' as any]), validate(updateEquipoSchema), EquiposController.update);
+router.delete('/:id', authorize(['ADMIN' as any, 'SUPERADMIN' as any, 'ADMIN_INTERNO' as any, 'DADOR_DE_CARGA' as any]), EquiposController.delete);
+router.get('/:id/history', authorize(['ADMIN' as any, 'SUPERADMIN' as any, 'ADMIN_INTERNO' as any, 'DADOR_DE_CARGA' as any]), validate(equipoHistoryQuerySchema), EquiposController.history);
+router.get('/:id/audit', authorize(['ADMIN' as any, 'SUPERADMIN' as any, 'ADMIN_INTERNO' as any, 'DADOR_DE_CARGA' as any]), EquiposController.getAuditHistory);
+router.get('/:id/requisitos', authorize(['ADMIN' as any, 'SUPERADMIN' as any, 'ADMIN_INTERNO' as any, 'DADOR_DE_CARGA' as any, 'TRANSPORTISTA' as any, 'CHOFER' as any]), EquiposController.getRequisitos);
 
 // Actualizar entidades del equipo (chofer, camión, acoplado, empresa)
 const updateEntidadesSchema = z.object({
@@ -102,11 +102,11 @@ const transferirSchema = z.object({
 router.post('/:id/transferir', canTransferEquipo(), validate(transferirSchema), EquiposController.transferir);
 
 // Rutas legacy para compatibilidad
-router.post('/:equipoId/clientes/:clienteId', authorize(['ADMIN' as any, 'SUPERADMIN' as any, 'ADMIN_INTERNO' as any]), validate(equipoClienteAssocSchema), EquiposController.associateCliente);
-router.delete('/:equipoId/clientes/:clienteId', authorize(['ADMIN' as any, 'SUPERADMIN' as any, 'ADMIN_INTERNO' as any]), EquiposController.removeCliente);
+router.post('/:equipoId/clientes/:clienteId', authorize(['ADMIN' as any, 'SUPERADMIN' as any, 'ADMIN_INTERNO' as any, 'DADOR_DE_CARGA' as any]), validate(equipoClienteAssocSchema), EquiposController.associateCliente);
+router.delete('/:equipoId/clientes/:clienteId', authorize(['ADMIN' as any, 'SUPERADMIN' as any, 'ADMIN_INTERNO' as any, 'DADOR_DE_CARGA' as any]), EquiposController.removeCliente);
 
 // Acciones de soporte para dadores/admin: revisar faltantes ahora y solicitar documentos (chofer)
-router.post('/:equipoId/check-missing-now', authorize(['ADMIN' as any, 'SUPERADMIN' as any, 'ADMIN_INTERNO' as any]), async (req, res) => {
+router.post('/:equipoId/check-missing-now', authorize(['ADMIN' as any, 'SUPERADMIN' as any, 'ADMIN_INTERNO' as any, 'DADOR_DE_CARGA' as any]), async (req, res) => {
   const equipoId = Number(req.params.equipoId);
   const { NotificationService } = await import('../services/notification.service');
   // resolver tenant actual del equipo para cumplir firma (tenantId, equipoId)
@@ -115,7 +115,7 @@ router.post('/:equipoId/check-missing-now', authorize(['ADMIN' as any, 'SUPERADM
   res.json({ success: true, data: { sent: count } });
 });
 
-router.post('/:equipoId/request-missing', authorize(['ADMIN' as any, 'SUPERADMIN' as any, 'ADMIN_INTERNO' as any]), async (req, res) => {
+router.post('/:equipoId/request-missing', authorize(['ADMIN' as any, 'SUPERADMIN' as any, 'ADMIN_INTERNO' as any, 'DADOR_DE_CARGA' as any]), async (req, res) => {
   const equipoId = Number(req.params.equipoId);
   const { prisma } = await import('../config/database');
   const { ComplianceService } = await import('../services/compliance.service');
@@ -156,7 +156,7 @@ router.get('/:id/estado', async (req, res) => {
 });
 
 // Asociar / Desasociar componentes del equipo
-router.post('/:id/attach', authorize(['ADMIN' as any, 'SUPERADMIN' as any, 'ADMIN_INTERNO' as any]), validate(equipoAttachSchema), async (req: any, res) => {
+router.post('/:id/attach', authorize(['ADMIN' as any, 'SUPERADMIN' as any, 'ADMIN_INTERNO' as any, 'DADOR_DE_CARGA' as any]), validate(equipoAttachSchema), async (req: any, res) => {
   const { EquipoService } = await import('../services/equipo.service');
   const result = await EquipoService.attachComponents(req.tenantId!, Number(req.params.id), req.body);
   const response = { success: true, data: result };
@@ -176,7 +176,7 @@ router.post('/:id/attach', authorize(['ADMIN' as any, 'SUPERADMIN' as any, 'ADMI
   return res.json(response);
 });
 
-router.post('/:id/detach', authorize(['ADMIN' as any, 'SUPERADMIN' as any]), validate(equipoDetachSchema), async (req: any, res) => {
+router.post('/:id/detach', authorize(['ADMIN' as any, 'SUPERADMIN' as any, 'ADMIN_INTERNO' as any, 'DADOR_DE_CARGA' as any]), validate(equipoDetachSchema), async (req: any, res) => {
   const { EquipoService } = await import('../services/equipo.service');
   const result = await EquipoService.detachComponents(req.tenantId!, Number(req.params.id), req.body);
   const response = { success: true, data: result };
@@ -233,7 +233,7 @@ async function getArchiver() {
 }
 
 const bulkZipSchema = z.object({ body: z.object({ equipoIds: z.array(z.number().int().positive()).min(1).max(500) }) });
-router.post('/download/vigentes', authorize(['ADMIN' as any, 'SUPERADMIN' as any]), validate(bulkZipSchema), async (req: any, res) => {
+router.post('/download/vigentes', authorize(['ADMIN' as any, 'SUPERADMIN' as any, 'ADMIN_INTERNO' as any, 'DADOR_DE_CARGA' as any]), validate(bulkZipSchema), async (req: any, res) => {
   const equipoIds: number[] = req.body.equipoIds || [];
   const now = new Date();
   res.setHeader('Content-Type', 'application/zip');

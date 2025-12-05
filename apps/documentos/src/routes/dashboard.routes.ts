@@ -21,7 +21,7 @@ router.get('/equipo-kpis', DashboardController.getEquipoKpis);
  */
 router.get(
   '/semaforos',
-  authorize([UserRole.SUPERADMIN, UserRole.ADMIN, UserRole.OPERATOR]),
+  authorize([UserRole.SUPERADMIN, UserRole.ADMIN, UserRole.OPERATOR, UserRole.ADMIN_INTERNO, UserRole.DADOR_DE_CARGA]),
   DashboardController.getSemaforosView
 );
 
@@ -31,14 +31,14 @@ router.get(
  */
 router.get(
   '/stats',
-  authorize([UserRole.SUPERADMIN, UserRole.ADMIN, UserRole.OPERATOR]),
+  authorize([UserRole.SUPERADMIN, UserRole.ADMIN, UserRole.OPERATOR, UserRole.ADMIN_INTERNO, UserRole.DADOR_DE_CARGA]),
   DashboardController.getGlobalStats
 );
 
 // Resumen de pendientes de aprobación
 router.get(
   '/pending/summary',
-  authorize([UserRole.SUPERADMIN, UserRole.ADMIN, UserRole.OPERATOR]),
+  authorize([UserRole.SUPERADMIN, UserRole.ADMIN, UserRole.OPERATOR, UserRole.ADMIN_INTERNO, UserRole.DADOR_DE_CARGA]),
   DashboardController.getPendingSummary
 );
 
@@ -48,7 +48,7 @@ router.get(
  */
 router.get(
   '/alerts',
-  authorize([UserRole.SUPERADMIN, UserRole.ADMIN, UserRole.OPERATOR]),
+  authorize([UserRole.SUPERADMIN, UserRole.ADMIN, UserRole.OPERATOR, UserRole.ADMIN_INTERNO, UserRole.DADOR_DE_CARGA]),
   DashboardController.getAlertsView
 );
 
@@ -58,7 +58,7 @@ router.get(
  */
 router.get(
   '/config',
-  authorize([UserRole.SUPERADMIN, UserRole.ADMIN, UserRole.OPERATOR]),
+  authorize([UserRole.SUPERADMIN, UserRole.ADMIN, UserRole.OPERATOR, UserRole.ADMIN_INTERNO, UserRole.DADOR_DE_CARGA, UserRole.TRANSPORTISTA, UserRole.CHOFER]),
   DashboardController.getFrontendConfig
 );
 
@@ -67,7 +67,7 @@ router.get(
  */
 router.get(
   '/approval-kpis',
-  authorize([UserRole.SUPERADMIN, UserRole.ADMIN, UserRole.OPERATOR, UserRole.ADMIN_INTERNO]),
+  authorize([UserRole.SUPERADMIN, UserRole.ADMIN, UserRole.OPERATOR, UserRole.ADMIN_INTERNO, UserRole.DADOR_DE_CARGA]),
   DashboardController.getApprovalKpis
 );
 

@@ -33,7 +33,7 @@ router.post('/normalize-expirations', authenticate, authorize([UserRole.ADMIN, U
 router.get(
   '/dador/:dadorId',
   authenticate,
-  authorize([UserRole.SUPERADMIN, UserRole.ADMIN, UserRole.OPERATOR]),
+  authorize([UserRole.SUPERADMIN, UserRole.ADMIN, UserRole.OPERATOR, UserRole.ADMIN_INTERNO, UserRole.DADOR_DE_CARGA]),
   validate(getDocumentsByDadorSchema),
   DocumentsController.getDocumentsByEmpresa
 );
@@ -64,7 +64,7 @@ router.post(
 router.get(
   '/status',
   authenticate,
-  authorize([UserRole.SUPERADMIN, UserRole.ADMIN, UserRole.OPERATOR, UserRole.ADMIN_INTERNO]),
+  authorize([UserRole.SUPERADMIN, UserRole.ADMIN, UserRole.OPERATOR, UserRole.ADMIN_INTERNO, UserRole.DADOR_DE_CARGA, UserRole.TRANSPORTISTA]),
   validate(getDocumentStatusSchema),
   DocumentsController.getDocumentStatus
 );
@@ -76,7 +76,7 @@ router.get(
 router.get(
   '/:id/preview',
   authenticate,
-  authorize([UserRole.SUPERADMIN, UserRole.ADMIN, UserRole.OPERATOR, UserRole.ADMIN_INTERNO]),
+  authorize([UserRole.SUPERADMIN, UserRole.ADMIN, UserRole.OPERATOR, UserRole.ADMIN_INTERNO, UserRole.DADOR_DE_CARGA, UserRole.TRANSPORTISTA, UserRole.CHOFER]),
   validate(getDocumentSchema),
   DocumentsController.getDocumentPreview
 );
@@ -88,7 +88,7 @@ router.get(
 router.get(
   '/:id/download',
   authenticate,
-  authorize([UserRole.SUPERADMIN, UserRole.ADMIN, UserRole.OPERATOR, UserRole.ADMIN_INTERNO]),
+  authorize([UserRole.SUPERADMIN, UserRole.ADMIN, UserRole.OPERATOR, UserRole.ADMIN_INTERNO, UserRole.DADOR_DE_CARGA, UserRole.TRANSPORTISTA, UserRole.CHOFER]),
   validate(getDocumentSchema),
   DocumentsController.downloadDocument
 );
@@ -99,7 +99,7 @@ router.get(
 router.get(
   '/:id/thumbnail',
   authenticate,
-  authorize([UserRole.SUPERADMIN, UserRole.ADMIN, UserRole.OPERATOR, UserRole.ADMIN_INTERNO]),
+  authorize([UserRole.SUPERADMIN, UserRole.ADMIN, UserRole.OPERATOR, UserRole.ADMIN_INTERNO, UserRole.DADOR_DE_CARGA, UserRole.TRANSPORTISTA, UserRole.CHOFER]),
   validate(getDocumentSchema),
   DocumentsController.getDocumentThumbnail
 );
@@ -110,7 +110,7 @@ router.get(
 router.post(
   '/:id/renew',
   authenticate,
-  authorize([UserRole.SUPERADMIN, UserRole.ADMIN, UserRole.OPERATOR]),
+  authorize([UserRole.SUPERADMIN, UserRole.ADMIN, UserRole.OPERATOR, UserRole.ADMIN_INTERNO, UserRole.DADOR_DE_CARGA, UserRole.TRANSPORTISTA]),
   validate(getDocumentSchema),
   DocumentsController.renewDocument
 );
@@ -121,7 +121,7 @@ router.post(
 router.get(
   '/:id/history',
   authenticate,
-  authorize([UserRole.SUPERADMIN, UserRole.ADMIN, UserRole.OPERATOR]),
+  authorize([UserRole.SUPERADMIN, UserRole.ADMIN, UserRole.OPERATOR, UserRole.ADMIN_INTERNO, UserRole.DADOR_DE_CARGA]),
   validate(getDocumentSchema),
   DocumentsController.getDocumentHistory
 );

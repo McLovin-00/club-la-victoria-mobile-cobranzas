@@ -10,8 +10,8 @@ const router = Router();
 
 router.use(authenticate);
 
-router.get('/pending', authorize([UserRole.ADMIN, UserRole.SUPERADMIN, UserRole.ADMIN_INTERNO]), validate(pendingDocumentsQuerySchema), ApprovalController.getPendingDocuments);
-router.get('/pending/:id', authorize([UserRole.ADMIN, UserRole.SUPERADMIN, UserRole.ADMIN_INTERNO]), ApprovalController.getPendingDocument);
+router.get('/pending', authorize([UserRole.ADMIN, UserRole.SUPERADMIN, UserRole.ADMIN_INTERNO, UserRole.DADOR_DE_CARGA]), validate(pendingDocumentsQuerySchema), ApprovalController.getPendingDocuments);
+router.get('/pending/:id', authorize([UserRole.ADMIN, UserRole.SUPERADMIN, UserRole.ADMIN_INTERNO, UserRole.DADOR_DE_CARGA]), ApprovalController.getPendingDocument);
 // Aprobar: permitir DADOR_DE_CARGA si flag habilitado para su dador, y ADMIN_INTERNO siempre
 router.post('/pending/:id/approve', authorize([UserRole.ADMIN, UserRole.SUPERADMIN, UserRole.ADMIN_INTERNO, UserRole.DADOR_DE_CARGA]), approvalRateLimit, validate(approveDocumentSchema), async (req: any, res, next) => {
   try {
@@ -32,10 +32,10 @@ router.post('/pending/:id/approve', authorize([UserRole.ADMIN, UserRole.SUPERADM
     next(e);
   }
 });
-// Rechazo para ADMIN / SUPERADMIN / ADMIN_INTERNO
-router.post('/pending/:id/reject', authorize([UserRole.ADMIN, UserRole.SUPERADMIN, UserRole.ADMIN_INTERNO]), approvalRateLimit, validate(rejectDocumentSchema), ApprovalController.rejectDocument);
-router.get('/stats', authorize([UserRole.ADMIN, UserRole.SUPERADMIN, UserRole.ADMIN_INTERNO]), ApprovalController.getStats);
-router.post('/pending/batch-approve', authorize([UserRole.ADMIN, UserRole.SUPERADMIN, UserRole.ADMIN_INTERNO]), approvalRateLimit, ApprovalController.batchApprove);
+// Rechazo para ADMIN / SUPERADMIN / ADMIN_INTERNO / DADOR_DE_CARGA
+router.post('/pending/:id/reject', authorize([UserRole.ADMIN, UserRole.SUPERADMIN, UserRole.ADMIN_INTERNO, UserRole.DADOR_DE_CARGA]), approvalRateLimit, validate(rejectDocumentSchema), ApprovalController.rejectDocument);
+router.get('/stats', authorize([UserRole.ADMIN, UserRole.SUPERADMIN, UserRole.ADMIN_INTERNO, UserRole.DADOR_DE_CARGA]), ApprovalController.getStats);
+router.post('/pending/batch-approve', authorize([UserRole.ADMIN, UserRole.SUPERADMIN, UserRole.ADMIN_INTERNO, UserRole.DADOR_DE_CARGA]), approvalRateLimit, ApprovalController.batchApprove);
 
 export default router;
 
