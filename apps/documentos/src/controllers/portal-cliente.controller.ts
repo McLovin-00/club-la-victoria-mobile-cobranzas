@@ -12,11 +12,18 @@ import { ComplianceService } from '../services/compliance.service';
 export class PortalClienteController {
   /**
    * GET /api/portal-cliente/equipos
-   * Lista equipos asignados al cliente autenticado
+   * Lista equipos asignados al cliente autenticado con paginación del lado del servidor
+   * Query params: page, limit, search, estado
    */
   static async getEquiposAsignados(req: AuthRequest, res: Response) {
     const tenantId = req.tenantId!;
     const user = req.user!;
+    
+    // Parámetros de paginación y filtro
+    const page = Math.max(1, parseInt(req.query.page as string) || 1);
+    const limit = Math.min(100, Math.max(1, parseInt(req.query.limit as string) || 10));
+    const search = (req.query.search as string)?.trim().toLowerCase() || '';
+    const estado = (req.query.estado as string) || '';
     
     // El clienteId viene del usuario autenticado
     // Por ahora asumimos que empresaId es el clienteId para rol CLIENTE
@@ -30,8 +37,8 @@ export class PortalClienteController {
     }
     
     try {
-      // Obtener equipos asignados al cliente
-      const equiposCliente = await prisma.equipoCliente.findMany({
+      // Obtener TODOS los equipos asignados para calcular el resumen global
+      const todosEquiposCliente = await prisma.equipoCliente.findMany({
         where: {
           clienteId,
           asignadoHasta: null, // Solo asignaciones vigentes
@@ -47,9 +54,9 @@ export class PortalClienteController {
         },
       });
       
-      // Obtener datos adicionales de cada equipo
-      const equiposConEstado = await Promise.all(
-        equiposCliente.map(async (ec) => {
+      // Obtener datos adicionales de TODOS los equipos para calcular resumen
+      const todosEquiposConEstado = await Promise.all(
+        todosEquiposCliente.map(async (ec) => {
           const equipo = ec.equipo;
           
           // Obtener chofer, camion, acoplado
@@ -120,20 +127,56 @@ export class PortalClienteController {
         })
       );
       
-      // Calcular resumen
+      // Calcular resumen global (sin filtros)
       const resumen = {
-        total: equiposConEstado.length,
-        vigentes: equiposConEstado.filter(e => e.estadoCompliance === 'VIGENTE').length,
-        proximosVencer: equiposConEstado.filter(e => e.estadoCompliance === 'PROXIMO_VENCER').length,
-        vencidos: equiposConEstado.filter(e => e.estadoCompliance === 'VENCIDO').length,
-        incompletos: equiposConEstado.filter(e => e.estadoCompliance === 'INCOMPLETO').length,
+        total: todosEquiposConEstado.length,
+        vigentes: todosEquiposConEstado.filter(e => e.estadoCompliance === 'VIGENTE').length,
+        proximosVencer: todosEquiposConEstado.filter(e => e.estadoCompliance === 'PROXIMO_VENCER').length,
+        vencidos: todosEquiposConEstado.filter(e => e.estadoCompliance === 'VENCIDO').length,
+        incompletos: todosEquiposConEstado.filter(e => e.estadoCompliance === 'INCOMPLETO').length,
       };
+      
+      // Aplicar filtros de búsqueda y estado
+      let equiposFiltrados = todosEquiposConEstado;
+      
+      if (search) {
+        equiposFiltrados = equiposFiltrados.filter(eq => {
+          return (
+            eq.identificador.toLowerCase().includes(search) ||
+            eq.camion?.patente?.toLowerCase().includes(search) ||
+            eq.acoplado?.patente?.toLowerCase().includes(search) ||
+            eq.chofer?.dni?.toLowerCase().includes(search) ||
+            eq.chofer?.nombre?.toLowerCase().includes(search) ||
+            eq.chofer?.apellido?.toLowerCase().includes(search) ||
+            eq.empresaTransportista?.razonSocial?.toLowerCase().includes(search) ||
+            eq.empresaTransportista?.cuit?.includes(search)
+          );
+        });
+      }
+      
+      if (estado && estado !== 'TODOS') {
+        equiposFiltrados = equiposFiltrados.filter(eq => eq.estadoCompliance === estado);
+      }
+      
+      // Paginación
+      const total = equiposFiltrados.length;
+      const totalPages = Math.ceil(total / limit);
+      const offset = (page - 1) * limit;
+      const equiposPaginados = equiposFiltrados.slice(offset, offset + limit);
       
       res.json({
         success: true,
         data: {
-          equipos: equiposConEstado,
+          equipos: equiposPaginados,
           resumen,
+          pagination: {
+            page,
+            limit,
+            total,
+            totalPages,
+            hasNext: page < totalPages,
+            hasPrev: page > 1,
+          },
         },
       });
     } catch (error) {
@@ -493,4 +536,3 @@ export class PortalClienteController {
     }
   }
 }
-

@@ -900,9 +900,28 @@ export const documentosApiSlice = createApi({
         vencidos: number;
         incompletos: number;
       };
-    }, void>({
-      query: () => ({ url: '/portal-cliente/equipos' }),
-      transformResponse: (r: any) => r?.data ?? { equipos: [], resumen: { total: 0, vigentes: 0, proximosVencer: 0, vencidos: 0, incompletos: 0 } },
+      pagination: {
+        page: number;
+        limit: number;
+        total: number;
+        totalPages: number;
+        hasNext: boolean;
+        hasPrev: boolean;
+      };
+    }, { page?: number; limit?: number; search?: string; estado?: string }>({
+      query: ({ page = 1, limit = 10, search = '', estado = '' }) => {
+        const params = new URLSearchParams();
+        params.append('page', String(page));
+        params.append('limit', String(limit));
+        if (search) params.append('search', search);
+        if (estado) params.append('estado', estado);
+        return { url: `/portal-cliente/equipos?${params.toString()}` };
+      },
+      transformResponse: (r: any) => r?.data ?? { 
+        equipos: [], 
+        resumen: { total: 0, vigentes: 0, proximosVencer: 0, vencidos: 0, incompletos: 0 },
+        pagination: { page: 1, limit: 10, total: 0, totalPages: 0, hasNext: false, hasPrev: false }
+      },
       providesTags: ['Equipos'],
     }),
     
