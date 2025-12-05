@@ -1301,19 +1301,25 @@ export class EquipoService {
 
         if (doc) {
           const now = new Date();
-          let estado: 'VIGENTE' | 'PROXIMO_VENCER' | 'VENCIDO' | 'PENDIENTE' = 'VIGENTE';
+          let estado: 'VIGENTE' | 'PROXIMO_VENCER' | 'VENCIDO' | 'PENDIENTE' | 'RECHAZADO' = 'VIGENTE';
           
-          if (doc.status !== 'APROBADO') {
+          // Primero verificar fecha de vencimiento (aplica a cualquier status)
+          const expires = doc.expiresAt ? new Date(doc.expiresAt) : null;
+          const estaVencidoPorFecha = expires && expires < now;
+          
+          // Determinar estado basado en status y fecha
+          if (doc.status === 'VENCIDO' || estaVencidoPorFecha) {
+            estado = 'VENCIDO';
+          } else if (doc.status === 'RECHAZADO') {
+            estado = 'RECHAZADO';
+          } else if (doc.status !== 'APROBADO') {
+            // PENDIENTE, PENDIENTE_APROBACION, VALIDANDO, CLASIFICANDO, etc.
             estado = 'PENDIENTE';
-          } else if (doc.expiresAt) {
-            const expires = new Date(doc.expiresAt);
-            if (expires < now) {
-              estado = 'VENCIDO';
-            } else {
-              const diasRestantes = Math.ceil((expires.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
-              if (diasRestantes <= 30) {
-                estado = 'PROXIMO_VENCER';
-              }
+          } else if (expires) {
+            // APROBADO con fecha de vencimiento
+            const diasRestantes = Math.ceil((expires.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+            if (diasRestantes <= 30) {
+              estado = 'PROXIMO_VENCER';
             }
           }
 

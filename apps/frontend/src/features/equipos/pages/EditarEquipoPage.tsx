@@ -647,8 +647,8 @@ const EditarEquipoPage: React.FC = () => {
                 const fileKey = `${req.templateId}-${req.entityType}-${req.entityId}`;
                 const selectedFile = selectedFiles[fileKey];
                 const isUploading = uploadingDoc === fileKey;
-                const docNeedsUpload = req.estado === 'FALTANTE' || req.estado === 'VENCIDO';
-                const canUpload = docNeedsUpload && canUploadDocs;
+                // Permitir subir documentos para CUALQUIER requisito (renovar antes de vencer, cambio de proveedor, etc.)
+                const canUpload = canUploadDocs;
                 
                 return (
                   <div

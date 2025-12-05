@@ -169,6 +169,12 @@ const SidebarContent = ({ closeSidebar }: SidebarContentProps) => {
   const user = useSelector(selectCurrentUser);
   const isSuperAdmin = user?.role === 'SUPERADMIN';
   const isAdmin = user?.role === 'ADMIN' || user?.role === 'SUPERADMIN';
+  const isAdminInterno = user?.role === 'ADMIN_INTERNO';
+  const isDadorDeCarga = user?.role === 'DADOR_DE_CARGA';
+  const isTransportista = user?.role === 'TRANSPORTISTA';
+  
+  // Roles que pueden gestionar usuarios (crear/editar)
+  const canManageUsers = isAdmin || isAdminInterno || isDadorDeCarga || isTransportista;
   
   // Obtener configuración de servicios
   const serviceFlags = useServiceFlags();
@@ -194,6 +200,23 @@ const SidebarContent = ({ closeSidebar }: SidebarContentProps) => {
         {/* Sección de gestión - Visible para todos los usuarios autenticados */}
         <div>{/* Sección de gestión removida - perfiles eliminados */}</div>
 
+        {/* Sección de usuarios - Para roles que pueden crear usuarios pero no son admin */}
+        {canManageUsers && !isAdmin && (
+          <div>
+            <h3 className='px-4 text-xs font-semibold text-muted-foreground uppercase tracking-wider'>
+              Gestión
+            </h3>
+            <div className='mt-3 space-y-1'>
+              <NavItem
+                to='/platform-users'
+                icon={UsersIcon}
+                text='Usuarios'
+                closeSidebar={closeSidebar}
+              />
+            </div>
+          </div>
+        )}
+
         {/* Sección de administración - Solo visible para admin/superadmin */}
         {isAdmin && (
           <div>
@@ -214,20 +237,24 @@ const SidebarContent = ({ closeSidebar }: SidebarContentProps) => {
               {/* Usuarios legacy eliminados */}
 
               {/* Usuarios de plataforma (admin/superadmin) */}
-              <NavItem
-                to='/platform-users'
-                icon={UsersIcon}
-                text='Usuarios (plataforma)'
-                closeSidebar={closeSidebar}
-              />
+              {canManageUsers && (
+                <NavItem
+                  to='/platform-users'
+                  icon={UsersIcon}
+                  text='Usuarios'
+                  closeSidebar={closeSidebar}
+                />
+              )}
 
               {/* Usuarios finales (admin/superadmin) */}
-              <NavItem
-                to='/end-users'
-                icon={UsersIcon}
-                text='Usuarios finales'
-                closeSidebar={closeSidebar}
-              />
+              {isSuperAdmin && (
+                <NavItem
+                  to='/end-users'
+                  icon={UsersIcon}
+                  text='Usuarios finales'
+                  closeSidebar={closeSidebar}
+                />
+              )}
 
               {/* Eliminado: Instancias, Gateway y Chat Processor */}
 
