@@ -355,18 +355,16 @@ export default function ApprovalDetailPage() {
             <div className="space-y-2">
               <label className="text-sm font-medium">Vencimiento</label>
               <input
-                type="text"
-                inputMode="numeric"
-                placeholder="dd/mm/aaaa"
+                type="date"
                 className="input input-bordered py-2 px-3 rounded-md bg-background border w-full"
-                value={expiresRaw}
+                value={expiresAt}
                 onChange={(e) => {
-                  const v = e.target.value;
-                  setExpiresRaw(v);
-                  const y = toYmd(v);
-                  if (y) setExpiresAt(y);
+                  const v = e.target.value; // formato yyyy-mm-dd
+                  setExpiresAt(v);
+                  setExpiresRaw(toDmy(v));
                 }}
               />
+              {expiresRaw && <span className="text-xs text-muted-foreground">{expiresRaw}</span>}
             </div>
 
             <div className="space-y-2">

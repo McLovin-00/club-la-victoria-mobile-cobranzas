@@ -49,21 +49,6 @@ export default function ApprovalQueuePage() {
   const [selectedExpires, setSelectedExpires] = useState<Record<number, string>>({});
   const setExpireFor = (id: number, value: string) => setSelectedExpires((m) => ({ ...m, [id]: value }));
 
-  // Helpers para convertir fechas
-  const toYmd = (dmy: string): string => {
-    const m = dmy.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
-    if (!m) return '';
-    const [_, dd, mm, yyyy] = m;
-    return `${yyyy}-${mm}-${dd}`;
-  };
-  const toDmy = (ymd: string): string => {
-    if (!ymd) return '';
-    const m = ymd.match(/^(\d{4})-(\d{2})-(\d{2})$/);
-    if (!m) return '';
-    const [_, yyyy, mm, dd] = m;
-    return `${dd}/${mm}/${yyyy}`;
-  };
-
   return (
     <div className="p-6 space-y-6">
       <header className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
@@ -150,17 +135,13 @@ export default function ApprovalQueuePage() {
                         try { const d = new Date(dateStr); if (isNaN(d.getTime())) return ''; const yyyy = d.getFullYear(); const mm = String(d.getMonth()+1).padStart(2,'0'); const dd = String(d.getDate()).padStart(2,'0'); return `${yyyy}-${mm}-${dd}`; } catch { return ''; }
                       })();
                       const valueYmd = (selectedExpires as any)[row.id] ?? detectedYmd;
-                      const valueDmy = toDmy(valueYmd);
                       return (
                         <input
-                          type="text"
-                          inputMode="numeric"
-                          placeholder="dd/mm/aaaa"
+                          type="date"
                           className="input input-bordered py-1 px-2 rounded-md bg-background border"
-                          value={valueDmy}
+                          value={valueYmd}
                           onChange={(e) => {
-                            const y = toYmd(e.target.value);
-                            setExpireFor(row.id, y);
+                            setExpireFor(row.id, e.target.value);
                           }}
                         />
                       );
