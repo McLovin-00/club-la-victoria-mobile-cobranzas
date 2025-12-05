@@ -13,6 +13,7 @@ import {
   ListBulletIcon,
   ChevronLeftIcon,
   ChevronRightIcon,
+  ArrowLeftIcon,
 } from '@heroicons/react/24/outline';
 
 /**
@@ -49,11 +50,16 @@ const ClienteDashboard: React.FC = () => {
   }, [searchInput]);
   
   // Manejar Enter en el input
-  const handleKeyPress = useCallback((e: React.KeyboardEvent) => {
+  const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
     if (e.key === 'Enter') {
       handleSearch();
     }
   }, [handleSearch]);
+  
+  // Volver atrás
+  const handleBack = useCallback(() => {
+    navigate(-1);
+  }, [navigate]);
   
   // Listar todos
   const handleListAll = useCallback(() => {
@@ -104,8 +110,16 @@ const ClienteDashboard: React.FC = () => {
   
   return (
     <div className='container mx-auto px-4 py-8 max-w-6xl'>
-      {/* Header */}
+      {/* Header con botón volver */}
       <div className='mb-8'>
+        <Button 
+          variant='ghost' 
+          onClick={handleBack}
+          className='mb-4 text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-100'
+        >
+          <ArrowLeftIcon className='h-4 w-4 mr-2' />
+          Volver
+        </Button>
         <h1 className='text-3xl font-bold text-gray-900 dark:text-gray-100 mb-2'>Portal Cliente</h1>
         <p className='text-gray-600 dark:text-gray-400'>Consulta el estado documental de tus equipos asignados</p>
       </div>
@@ -149,7 +163,7 @@ const ClienteDashboard: React.FC = () => {
                 className='w-full pl-10 pr-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-800 dark:border-gray-600 dark:text-gray-100'
                 value={searchInput}
                 onChange={(e) => setSearchInput(e.target.value)}
-                onKeyPress={handleKeyPress}
+                onKeyDown={handleKeyDown}
               />
             </div>
             <Button onClick={handleSearch} className='whitespace-nowrap'>

@@ -96,14 +96,14 @@ export default function ApprovalDetailPage() {
           const controller = new AbortController();
           const timeoutId = setTimeout(() => controller.abort(), 15000); // 15s timeout por intento
           
-          const resp = await fetch(effectivePreviewUrl, {
-            headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` },
+        const resp = await fetch(effectivePreviewUrl, {
+          headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` },
             signal: controller.signal,
-          });
+        });
           
           clearTimeout(timeoutId);
           
-          if (!resp.ok) {
+        if (!resp.ok) {
             // Si es 429 (rate limit), esperar más tiempo antes de reintentar
             if (resp.status === 429 && attempt < 3) {
               const waitTime = Math.pow(2, attempt) * 1000; // 2s, 4s, 8s
@@ -111,18 +111,18 @@ export default function ApprovalDetailPage() {
               continue;
             }
             
-            let msg = `Error ${resp.status}: ${resp.statusText}`;
-            try { const t = await resp.text(); if (t) msg = t; } catch (e) { /* noop */ }
-            throw new Error(msg);
-          }
+          let msg = `Error ${resp.status}: ${resp.statusText}`;
+          try { const t = await resp.text(); if (t) msg = t; } catch (e) { /* noop */ }
+          throw new Error(msg);
+        }
           
-          const blob = await resp.blob();
-          if (cancelled) return;
-          const url = URL.createObjectURL(blob);
-          setPreviewBlobUrl(url);
+        const blob = await resp.blob();
+        if (cancelled) return;
+        const url = URL.createObjectURL(blob);
+        setPreviewBlobUrl(url);
           return; // Éxito, salir
           
-        } catch (e: any) {
+      } catch (e: any) {
           lastError = e;
           
           // Si es abort o timeout, reintentar
@@ -154,7 +154,7 @@ export default function ApprovalDetailPage() {
     })().catch((e: any) => {
       if (!cancelled) setPreviewError(e?.message || 'Error al cargar preview después de 3 intentos');
     }).finally(() => {
-      if (!cancelled) setLoadingPreview(false);
+        if (!cancelled) setLoadingPreview(false);
     });
 
     return () => { cancelled = true; };
