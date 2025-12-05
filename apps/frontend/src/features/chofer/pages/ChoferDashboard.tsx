@@ -6,16 +6,15 @@ import {
   DocumentTextIcon, 
   TruckIcon, 
   MagnifyingGlassIcon,
-  BuildingOffice2Icon
+  UserIcon
 } from '@heroicons/react/24/outline';
 
 /**
- * Dashboard del Portal Dador de Carga
- * Mismo look & feel que Admin Interno
- * SIN: Auditoría, crear admin_internos o dadores de carga
- * CON: Aprobaciones, crear transportistas y choferes
+ * Dashboard del Portal Chofer
+ * Mismo look & feel que Admin Interno / Dador de Carga / Transportista
+ * SIN: Auditoría, Aprobaciones, crear usuarios de ningún tipo
  */
-const DadorDashboard: React.FC = () => {
+const ChoferDashboard: React.FC = () => {
   const navigate = useNavigate();
 
   return (
@@ -23,14 +22,14 @@ const DadorDashboard: React.FC = () => {
       <div className='w-full max-w-6xl'>
         {/* Header - Mismo estilo que Admin Interno */}
         <div className='text-center mb-12'>
-          <div className='inline-flex items-center justify-center w-20 h-20 bg-amber-600 rounded-2xl mb-6'>
-            <BuildingOffice2Icon className='h-12 w-12 text-white' />
+          <div className='inline-flex items-center justify-center w-20 h-20 bg-emerald-600 rounded-2xl mb-6'>
+            <UserIcon className='h-12 w-12 text-white' />
           </div>
           <h1 className='text-4xl font-bold text-foreground mb-3'>
-            Portal Dador de Carga
+            Portal Chofer
           </h1>
           <p className='text-lg text-muted-foreground'>
-            Gestión completa de equipos y documentación
+            Gestión de equipos y documentación
           </p>
         </div>
 
@@ -57,10 +56,6 @@ const DadorDashboard: React.FC = () => {
                 Registrar nuevo equipo con toda su documentación
               </p>
               <ul className='text-sm text-muted-foreground space-y-2 text-left'>
-                <li className='flex items-start gap-2'>
-                  <DocumentTextIcon className='h-5 w-5 text-blue-500 mt-0.5 flex-shrink-0' />
-                  <span>Carga de empresa transportista y chofer</span>
-                </li>
                 <li className='flex items-start gap-2'>
                   <DocumentTextIcon className='h-5 w-5 text-blue-500 mt-0.5 flex-shrink-0' />
                   <span>Registro de camión y acoplado</span>
@@ -122,19 +117,13 @@ const DadorDashboard: React.FC = () => {
           </Card>
         </div>
 
-        {/* Acceso Rápido - CON Aprobaciones, SIN Auditoría */}
+        {/* Nota informativa - SIN Aprobaciones, SIN Auditoría */}
         <Card className='bg-slate-800 dark:bg-slate-900 border-slate-700'>
           <CardContent className='p-6'>
-            <div className='flex flex-wrap items-center justify-center gap-4'>
-              <span className='text-slate-300 font-medium'>Acceso rápido:</span>
-              <Button 
-                variant='outline' 
-                size='sm'
-                className='border-slate-600 hover:bg-slate-700'
-                onClick={() => navigate('/documentos/aprobacion')}
-              >
-                Aprobaciones Pendientes
-              </Button>
+            <div className='text-center text-slate-300'>
+              <p>
+                💡 Los documentos que subas quedan pendientes de aprobación por el Dador de Carga.
+              </p>
             </div>
           </CardContent>
         </Card>
@@ -143,4 +132,5 @@ const DadorDashboard: React.FC = () => {
   );
 };
 
-export default DadorDashboard;
+export default ChoferDashboard;
+

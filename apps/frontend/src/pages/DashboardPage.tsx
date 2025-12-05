@@ -28,8 +28,9 @@ export default function DashboardPage() {
         return <Navigate to='/dador' replace />;
       case 'TRANSPORTISTA':
       case 'EMPRESA_TRANSPORTISTA':
-      case 'CHOFER':
         return <Navigate to='/transportista' replace />;
+      case 'CHOFER':
+        return <Navigate to='/chofer' replace />;
       case 'CLIENTE':
       case 'CLIENTE_TRANSPORTE':
         return <Navigate to='/cliente' replace />;

@@ -24,8 +24,9 @@ export function useRoleBasedNavigation() {
         return '/dador';
       case 'TRANSPORTISTA':
       case 'EMPRESA_TRANSPORTISTA':
-      case 'CHOFER':
         return '/transportista';
+      case 'CHOFER':
+        return '/chofer';
       case 'CLIENTE':
       case 'CLIENTE_TRANSPORTE':
         return '/cliente';
@@ -70,8 +71,9 @@ export function useRoleBasedNavigation() {
         return '/cliente';
       case 'TRANSPORTISTA':
       case 'EMPRESA_TRANSPORTISTA':
-      case 'CHOFER':
         return '/transportista';
+      case 'CHOFER':
+        return '/chofer';
       case 'DADOR_DE_CARGA':
         return '/dador';
       case 'ADMIN_INTERNO':

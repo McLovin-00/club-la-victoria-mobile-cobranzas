@@ -54,6 +54,8 @@ import ClienteEquipoDetalle from './features/cliente/pages/ClienteEquipoDetalle'
 import TransportistaDashboard from './features/transportista/pages/TransportistaDashboard';
 // Portal Dador de Carga
 import DadorDashboard from './features/dador/pages/DadorDashboard';
+// Portal Chofer
+import ChoferDashboard from './features/chofer/pages/ChoferDashboard';
 
 function App() {
   return (
@@ -241,6 +243,11 @@ function App() {
               {/* Portal Dador de Carga */}
               <Route element={<RequireAuth allowedRoles={['DADOR_DE_CARGA', 'ADMIN', 'SUPERADMIN', 'ADMIN_INTERNO']} />}> 
                 <Route path='/dador' element={<DadorDashboard />} />
+              </Route>
+
+              {/* Portal Chofer */}
+              <Route element={<RequireAuth allowedRoles={['CHOFER', 'ADMIN', 'SUPERADMIN', 'ADMIN_INTERNO', 'DADOR_DE_CARGA', 'TRANSPORTISTA']} />}> 
+                <Route path='/chofer' element={<ChoferDashboard />} />
               </Route>
 
               {/* Ruta de Mi Perfil para todos los usuarios */}
