@@ -22,12 +22,17 @@ export function authorizeTransportista(req: AuthRequest, res: Response, next: Ne
       return;
     }
 
+    // Buscar en metadata (legacy) o directamente en user (nuevo formato JWT)
     const meta = (user as any).metadata || {};
     const empresaTransportistaId: number | undefined =
-      typeof meta.empresaTransportistaId === 'number' ? meta.empresaTransportistaId : undefined;
-    const choferId: number | undefined = typeof meta.choferId === 'number' ? meta.choferId : undefined;
+      typeof meta.empresaTransportistaId === 'number' ? meta.empresaTransportistaId :
+      typeof user.empresaTransportistaId === 'number' ? user.empresaTransportistaId : undefined;
+    const choferId: number | undefined = 
+      typeof meta.choferId === 'number' ? meta.choferId :
+      typeof user.choferId === 'number' ? user.choferId : undefined;
     const choferDniNorm: string | undefined =
-      typeof meta.choferDniNorm === 'string' ? String(meta.choferDniNorm) : undefined;
+      typeof meta.choferDniNorm === 'string' ? String(meta.choferDniNorm) :
+      typeof user.choferDniNorm === 'string' ? String(user.choferDniNorm) : undefined;
 
     if (!empresaTransportistaId && !choferId && !choferDniNorm) {
       AppLogger.warn('Transportista/Chofer sin metadata de alcance');
