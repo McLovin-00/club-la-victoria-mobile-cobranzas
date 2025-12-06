@@ -49,8 +49,15 @@ export const ChangePasswordForm = () => {
       return false;
     }
 
-    if (formData.newPassword.length < 6) {
-      showToast('La nueva contraseña debe tener al menos 6 caracteres', 'error');
+    if (formData.newPassword.length < 8) {
+      showToast('La nueva contraseña debe tener al menos 8 caracteres', 'error');
+      return false;
+    }
+
+    // Validar que tenga mayúscula, minúscula y número
+    const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/;
+    if (!passwordRegex.test(formData.newPassword)) {
+      showToast('La contraseña debe contener al menos una mayúscula, una minúscula y un número', 'error');
       return false;
     }
 
@@ -76,7 +83,7 @@ export const ChangePasswordForm = () => {
 
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch('/api/auth/change-password', {
+      const response = await fetch('/api/platform/auth/change-password', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -160,7 +167,7 @@ export const ChangePasswordForm = () => {
             value={formData.newPassword}
             onChange={handleChange}
             required
-            minLength={6}
+            minLength={8}
             autoComplete='new-password'
             className='w-full px-3 py-2 pr-10 border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent bg-background text-foreground'
             placeholder='Ingrese su nueva contraseña'
@@ -177,7 +184,7 @@ export const ChangePasswordForm = () => {
             )}
           </button>
         </div>
-        <p className='mt-1 text-xs text-muted-foreground'>Mínimo 6 caracteres</p>
+        <p className='mt-1 text-xs text-muted-foreground'>Mínimo 8 caracteres, con mayúscula, minúscula y número</p>
       </div>
 
       <div>
