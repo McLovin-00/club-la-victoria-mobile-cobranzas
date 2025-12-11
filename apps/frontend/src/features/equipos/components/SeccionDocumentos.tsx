@@ -21,14 +21,10 @@ export interface SeccionDocumentosProps {
   onFileSelect?: (templateId: number, file: File | null, expiryDate?: string) => void;
 }
 
-// Templates que requieren fecha de vencimiento
-const TEMPLATES_WITH_EXPIRY = [
-  'DNI',
-  'Licencia',
-  'RTO',
-  'Póliza',
-  'Seguro de Vida',
-  'A.R.T.',
+// TODOS los documentos requieren fecha de vencimiento
+// Solo se exceptúan documentos que explícitamente no vencen
+const TEMPLATES_WITHOUT_EXPIRY = [
+  // Agregar aquí templates que NO requieren vencimiento (si los hay)
 ];
 
 /**
@@ -66,7 +62,8 @@ export const SeccionDocumentos: React.FC<SeccionDocumentosProps> = ({
       ) : (
         <div className='space-y-2'>
           {templates.map((template) => {
-            const requiresExpiry = TEMPLATES_WITH_EXPIRY.some((keyword) =>
+            // TODOS requieren vencimiento EXCEPTO los que están explícitamente excluidos
+            const requiresExpiry = !TEMPLATES_WITHOUT_EXPIRY.some((keyword) =>
               template.name.includes(keyword)
             );
 

@@ -532,7 +532,9 @@ export class DocumentsController {
 
       // Para evitar problemas de proxy/firmas en visores embebidos, usar el stream del backend
       // como URL de preview (inline). Esto funciona igual desde dentro/afuera.
-      const backendPreviewUrl = `${req.protocol}://${req.get('host')}/api/docs/documents/${document.id}/download?inline=1`;
+      // Usar X-Forwarded-Proto si está disponible (proxy/MikroTik), sino req.protocol
+      const protocol = req.get('X-Forwarded-Proto') || req.protocol;
+      const backendPreviewUrl = `${protocol}://${req.get('host')}/api/docs/documents/${document.id}/download?inline=1`;
 
       AppLogger.debug('🔗 URL de preview generada', {
         documentId: document.id,

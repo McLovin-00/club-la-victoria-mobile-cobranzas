@@ -247,12 +247,34 @@ router.post('/download/vigentes', authorize(['ADMIN' as any, 'SUPERADMIN' as any
   try {
     const { minioService } = await import('../services/minio.service');
     for (const equipoId of equipoIds) {
+      // Cargar equipo con relaciones para obtener CUIT y patentes
       const equipo = await prisma.equipo.findUnique({
         where: { id: equipoId },
-        select: { id: true, tenantEmpresaId: true, dadorCargaId: true, driverId: true, truckId: true, trailerId: true, truckPlateNorm: true, trailerPlateNorm: true, driverDniNorm: true },
+        include: {
+          empresaTransportista: { select: { id: true, cuit: true } },
+        },
       });
       if (!equipo) continue;
+
+      // Obtener datos adicionales de las entidades
+      const transportistaCuit = equipo.empresaTransportista?.cuit || 'SIN_CUIT';
+      const choferDni = equipo.driverDniNorm || 'SIN_DNI';
+      const tractorPatente = equipo.truckPlateNorm || 'SIN_PATENTE';
+      const acopladoPatente = equipo.trailerPlateNorm || 'SIN_PATENTE';
+
+      // Carpeta principal: equipo_{id}_DNI_{dni}_{patente_tractor}
+      const mainFolder = `equipo_${equipo.id}_DNI_${choferDni}_${tractorPatente}`;
+
+      // Subcarpetas por tipo de entidad
+      const subfolders: Record<string, string> = {
+        'EMPRESA_TRANSPORTISTA': `Empresa_Transportista_${transportistaCuit}`,
+        'CHOFER': `Chofer_${choferDni}`,
+        'CAMION': `Tractor_${tractorPatente}`,
+        'ACOPLADO': `Semi_Acoplado_${acopladoPatente}`,
+      };
+
       const clauses: any[] = [];
+      if (equipo.empresaTransportistaId) clauses.push({ entityType: 'EMPRESA_TRANSPORTISTA' as any, entityId: equipo.empresaTransportistaId });
       if (equipo.driverId) clauses.push({ entityType: 'CHOFER' as any, entityId: equipo.driverId });
       if (equipo.truckId) clauses.push({ entityType: 'CAMION' as any, entityId: equipo.truckId });
       if (equipo.trailerId) clauses.push({ entityType: 'ACOPLADO' as any, entityId: equipo.trailerId });
@@ -261,8 +283,10 @@ router.post('/download/vigentes', authorize(['ADMIN' as any, 'SUPERADMIN' as any
           tenantEmpresaId: equipo.tenantEmpresaId,
           dadorCargaId: equipo.dadorCargaId,
           status: 'APROBADO' as any,
-          OR: clauses.length ? clauses : undefined,
-          OR2: [{ expiresAt: null }, { expiresAt: { gt: now } }] as any,
+          AND: [
+            clauses.length ? { OR: clauses } : {},
+            { OR: [{ expiresAt: null }, { expiresAt: { gt: now } }] },
+          ],
         } as any,
         select: { id: true, filePath: true, entityType: true, entityId: true, template: { select: { name: true } } },
         orderBy: { uploadedAt: 'desc' },
@@ -280,9 +304,11 @@ router.post('/download/vigentes', authorize(['ADMIN' as any, 'SUPERADMIN' as any
           objectPath = d.filePath as any;
         }
         const stream = await minioService.getObject(bucketName, objectPath);
-        const folder = `equipo_${equipo.id}_DNI_${equipo.driverDniNorm || ''}`.replace(/_+$/,'');
+        
+        // Determinar subcarpeta según entityType
+        const subfolder = subfolders[d.entityType] || 'otros';
         const safeTpl = String(d.template?.name || 'documento').replace(/[^a-z0-9_-]/gi,'_');
-        const name = `${folder}/${safeTpl}_${d.id}.pdf`;
+        const name = `${mainFolder}/${subfolder}/${safeTpl}_${d.id}.pdf`;
         archive.append(stream as any, { name });
       }
     }
@@ -305,6 +331,68 @@ router.post('/download/vigentes', authorize(['ADMIN' as any, 'SUPERADMIN' as any
     entityType: 'ZIP_STREAM',
     details: { equipos: equipoIds.length, generatedAt: now.toISOString() },
   });
+});
+
+// Excel resumen de documentos por equipo
+const equipoSummarySchema = z.object({
+  params: z.object({ id: z.string().transform((v) => Number(v)) }),
+});
+router.get('/:id/summary.xlsx', validate(equipoSummarySchema), async (req: any, res) => {
+  try {
+    const equipoId = Number(req.params.id);
+    const equipo = await prisma.equipo.findUnique({
+      where: { id: equipoId },
+      select: { id: true, tenantEmpresaId: true, dadorCargaId: true, driverId: true, truckId: true, trailerId: true, empresaTransportistaId: true },
+    });
+    if (!equipo) return res.status(404).json({ success: false, message: 'Equipo no encontrado' });
+    
+    const clauses: any[] = [];
+    if (equipo.empresaTransportistaId) clauses.push({ entityType: 'EMPRESA_TRANSPORTISTA' as any, entityId: equipo.empresaTransportistaId });
+    if (equipo.driverId) clauses.push({ entityType: 'CHOFER' as any, entityId: equipo.driverId });
+    if (equipo.truckId) clauses.push({ entityType: 'CAMION' as any, entityId: equipo.truckId });
+    if (equipo.trailerId) clauses.push({ entityType: 'ACOPLADO' as any, entityId: equipo.trailerId });
+    
+    const docs = await prisma.document.findMany({
+      where: {
+        tenantEmpresaId: equipo.tenantEmpresaId,
+        dadorCargaId: equipo.dadorCargaId,
+        ...(clauses.length ? { OR: clauses } : {}),
+      } as any,
+      include: { template: { select: { name: true, entityType: true } } },
+      orderBy: [{ uploadedAt: 'desc' }],
+    });
+    
+    const ExcelJS = (await import('exceljs')).default;
+    const wb = new ExcelJS.Workbook();
+    const ws = wb.addWorksheet('Documentos');
+    ws.columns = [
+      { header: 'ID', key: 'id', width: 8 },
+      { header: 'Entidad', key: 'entityType', width: 18 },
+      { header: 'Entidad ID', key: 'entityId', width: 12 },
+      { header: 'Plantilla', key: 'templateName', width: 28 },
+      { header: 'Estado', key: 'status', width: 16 },
+      { header: 'Subido', key: 'uploadedAt', width: 20 },
+      { header: 'Vence', key: 'expiresAt', width: 20 },
+    ];
+    for (const d of docs) {
+      ws.addRow({
+        id: d.id,
+        entityType: d.entityType,
+        entityId: d.entityId,
+        templateName: d.template?.name || '',
+        status: d.status,
+        uploadedAt: d.uploadedAt ? new Date(d.uploadedAt).toISOString() : '',
+        expiresAt: d.expiresAt ? new Date(d.expiresAt).toISOString() : '',
+      });
+    }
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader('Content-Disposition', `attachment; filename=equipo_${equipo.id}_documentos.xlsx`);
+    await wb.xlsx.write(res);
+    res.end();
+  } catch (err) {
+    AppLogger.error('Error generando Excel de equipo', err);
+    res.status(500).json({ success: false, message: 'Error generando Excel' });
+  }
 });
 
 export default router;

@@ -187,6 +187,7 @@ export class DocumentZipService {
             id: true,
             tenantEmpresaId: true,
             dadorCargaId: true,
+            empresaTransportistaId: true,
             driverId: true,
             truckId: true,
             trailerId: true,
@@ -204,6 +205,7 @@ export class DocumentZipService {
         }
 
         const entityClauses: any[] = [];
+        if (equipo.empresaTransportistaId) entityClauses.push({ entityType: 'EMPRESA_TRANSPORTISTA' as any, entityId: equipo.empresaTransportistaId });
         if (equipo.driverId) entityClauses.push({ entityType: 'CHOFER' as any, entityId: equipo.driverId });
         if (equipo.truckId) entityClauses.push({ entityType: 'CAMION' as any, entityId: equipo.truckId });
         if (equipo.trailerId) entityClauses.push({ entityType: 'ACOPLADO' as any, entityId: equipo.trailerId });
@@ -213,8 +215,10 @@ export class DocumentZipService {
             tenantEmpresaId: tenantEmpresaId,
             dadorCargaId: equipo.dadorCargaId,
             status: 'APROBADO' as any,
-            OR: entityClauses.length ? entityClauses : undefined,
-            OR2: [{ expiresAt: null }, { expiresAt: { gt: now } }] as any,
+            AND: [
+              entityClauses.length ? { OR: entityClauses } : {},
+              { OR: [{ expiresAt: null }, { expiresAt: { gt: now } }] },
+            ],
           } as any,
           include: { template: { select: { name: true } } },
           orderBy: { uploadedAt: 'desc' },

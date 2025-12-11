@@ -4,7 +4,7 @@ import { Button } from '../../../components/ui/button';
 import { useRoleBasedNavigation } from '../../../hooks/useRoleBasedNavigation';
 import { Card } from '../../../components/ui/card';
 import { Badge } from '../../../components/ui/badge';
-import { ArrowLeftIcon, DocumentTextIcon, CheckCircleIcon, ExclamationTriangleIcon, XCircleIcon, ClockIcon } from '@heroicons/react/24/outline';
+import { ArrowLeftIcon, DocumentTextIcon, CheckCircleIcon, ExclamationTriangleIcon, XCircleIcon, ClockIcon, EyeIcon } from '@heroicons/react/24/outline';
 import { useGetEquipoComplianceQuery, useGetTemplatesQuery } from '../api/documentosApiSlice';
 import { useState } from 'react';
 
@@ -29,7 +29,7 @@ const getStatusConfig = (state?: string) => {
   }
 };
 
-const Section: React.FC<{ title: string; items: Array<{ templateId: number; templateName?: string; state?: string; expiresAt?: string | null; documentId?: number; id?: number }> }> = ({ title, items }) => {
+const Section: React.FC<{ title: string; items: Array<{ templateId: number; templateName?: string; state?: string; expiresAt?: string | null; documentId?: number; id?: number }>; onPreview?: (docId: number) => void }> = ({ title, items, onPreview }) => {
   const formatDate = (dateStr?: string | null) => {
     if (!dateStr) return null;
     try {
@@ -78,6 +78,8 @@ const Section: React.FC<{ title: string; items: Array<{ templateId: number; temp
             {items.map((item, idx) => {
               const config = getStatusConfig(item.state);
               const Icon = config.icon;
+              const docId = item.documentId || item.id;
+              const canPreview = docId && item.state?.toUpperCase() !== 'FALTANTE';
               
               return (
                 <div key={idx} className='group flex flex-col sm:flex-row sm:items-center justify-between p-3 sm:p-4 rounded-lg border hover:shadow-sm transition-all duration-200 hover:border-blue-200 gap-3'>
@@ -95,7 +97,16 @@ const Section: React.FC<{ title: string; items: Array<{ templateId: number; temp
                     </div>
                   </div>
                   
-                  <div className='flex items-center gap-3 flex-shrink-0'>
+                  <div className='flex items-center gap-2 flex-shrink-0'>
+                    {canPreview && onPreview && (
+                      <button
+                        onClick={() => onPreview(docId!)}
+                        className='p-1.5 rounded-full hover:bg-blue-100 text-blue-600 transition-colors'
+                        title='Ver documento'
+                      >
+                        <EyeIcon className='h-4 w-4 sm:h-5 sm:w-5' />
+                      </button>
+                    )}
                     <Badge variant="outline" className={`${config.color} text-xs sm:text-sm`}>
                       {config.label}
                     </Badge>
@@ -116,7 +127,52 @@ export const EstadoEquipoPage: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { goBack } = useRoleBasedNavigation();
+  const token = typeof localStorage !== 'undefined' ? (localStorage.getItem('token') || '') : '';
   const [textFilter, setTextFilter] = useState('');
+  const [previewDocId, setPreviewDocId] = useState<number | null>(null);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [previewLoading, setPreviewLoading] = useState(false);
+  const prevUrlRef = React.useRef<string | null>(null);
+
+  // Cargar preview cuando se selecciona un documento
+  React.useEffect(() => {
+    // Limpiar URL anterior si existe
+    if (prevUrlRef.current) {
+      try { URL.revokeObjectURL(prevUrlRef.current); } catch {}
+      prevUrlRef.current = null;
+    }
+
+    if (!previewDocId) {
+      setPreviewUrl(null);
+      return;
+    }
+
+    let cancelled = false;
+    const loadPreview = async () => {
+      setPreviewLoading(true);
+      setPreviewUrl(null);
+      try {
+        const resp = await fetch(
+          `${import.meta.env.VITE_DOCUMENTOS_API_URL || ''}/api/docs/documents/${previewDocId}/download?inline=1`,
+          { headers: { Authorization: `Bearer ${token}` } }
+        );
+        if (!resp.ok) throw new Error('Error cargando documento');
+        const blob = await resp.blob();
+        if (!cancelled) {
+          const url = URL.createObjectURL(blob);
+          prevUrlRef.current = url;
+          setPreviewUrl(url);
+        }
+      } catch {
+        if (!cancelled) setPreviewUrl(null);
+      } finally {
+        if (!cancelled) setPreviewLoading(false);
+      }
+    };
+    loadPreview();
+
+    return () => { cancelled = true; };
+  }, [previewDocId, token]);
   const onlyParam = useMemo(()=> {
     try { return new URLSearchParams(location.search).get('only') || ''; } catch { return ''; }
   }, [location.search]);
@@ -132,7 +188,6 @@ export const EstadoEquipoPage: React.FC = () => {
   };
   const { data, isLoading, error } = useGetEquipoComplianceQuery({ id: equipoId }, { skip: !equipoId, refetchOnMountOrArgChange: true, refetchOnFocus: true });
   const { data: templates = [] } = useGetTemplatesQuery();
-  const token = typeof localStorage !== 'undefined' ? (localStorage.getItem('token') || '') : '';
 
   const downloadZipVigentes = async () => {
     try {
@@ -325,10 +380,46 @@ export const EstadoEquipoPage: React.FC = () => {
         {/* Secciones por entidad */}
         {!isLoading && data && (
           <div className='grid grid-cols-1 xl:grid-cols-2 gap-4 sm:gap-6'>
-            <Section title='Empresa Transportista' items={(complianceByEntidad['EMPRESA_TRANSPORTISTA'] || []).map((r: any)=> ({ ...r, templateName: templateNameById.get(r.templateId) }))} />
-            <Section title='Chofer' items={(complianceByEntidad['CHOFER'] || []).map((r: any)=> ({ ...r, templateName: templateNameById.get(r.templateId) }))} />
-            <Section title='Camión' items={(complianceByEntidad['CAMION'] || []).map((r: any)=> ({ ...r, templateName: templateNameById.get(r.templateId) }))} />
-            <Section title='Acoplado' items={(complianceByEntidad['ACOPLADO'] || []).map((r: any)=> ({ ...r, templateName: templateNameById.get(r.templateId) }))} />
+            <Section title='Empresa Transportista' items={(complianceByEntidad['EMPRESA_TRANSPORTISTA'] || []).map((r: any)=> ({ ...r, templateName: templateNameById.get(r.templateId) }))} onPreview={setPreviewDocId} />
+            <Section title='Chofer' items={(complianceByEntidad['CHOFER'] || []).map((r: any)=> ({ ...r, templateName: templateNameById.get(r.templateId) }))} onPreview={setPreviewDocId} />
+            <Section title='Camión' items={(complianceByEntidad['CAMION'] || []).map((r: any)=> ({ ...r, templateName: templateNameById.get(r.templateId) }))} onPreview={setPreviewDocId} />
+            <Section title='Acoplado' items={(complianceByEntidad['ACOPLADO'] || []).map((r: any)=> ({ ...r, templateName: templateNameById.get(r.templateId) }))} onPreview={setPreviewDocId} />
+          </div>
+        )}
+        
+        {/* Modal de vista previa simple por ID */}
+        {previewDocId && (
+          <div className='fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4' onClick={() => setPreviewDocId(null)}>
+            <div className='bg-white rounded-lg shadow-xl max-w-5xl w-full h-[85vh] flex flex-col' onClick={(e) => e.stopPropagation()}>
+              <div className='flex items-center justify-between p-4 border-b bg-gray-50'>
+                <h2 className='font-semibold text-gray-900'>Vista Previa del Documento</h2>
+                <button onClick={() => setPreviewDocId(null)} className='p-2 hover:bg-gray-200 rounded-full text-xl'>
+                  ✕
+                </button>
+              </div>
+              <div className='flex-1 overflow-hidden bg-gray-100'>
+                {previewLoading && (
+                  <div className='flex items-center justify-center h-full'>
+                    <div className='text-center'>
+                      <div className='animate-spin rounded-full h-10 w-10 border-b-2 border-blue-600 mx-auto mb-3'></div>
+                      <p className='text-gray-600'>Cargando documento...</p>
+                    </div>
+                  </div>
+                )}
+                {!previewLoading && previewUrl && (
+                  <iframe
+                    src={previewUrl}
+                    className='w-full h-full border-0'
+                    title='Vista previa del documento'
+                  />
+                )}
+                {!previewLoading && !previewUrl && (
+                  <div className='flex items-center justify-center h-full'>
+                    <p className='text-gray-600'>No se pudo cargar el documento</p>
+                  </div>
+                )}
+              </div>
+            </div>
           </div>
         )}
 

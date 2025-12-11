@@ -144,34 +144,78 @@ export const ConsultaPage: React.FC = () => {
     // No cargar desde sessionStorage para evitar búsquedas automáticas
   }, [searchParams]);
 
-  const csvInputRef = React.useRef<HTMLInputElement>(null);
-  const onCsvFile = async (file: File) => {
+  // Estado para búsqueda por texto (DNIs o Patentes)
+  const [searchText, setSearchText] = useState('');
+  const [showSearchModal, setShowSearchModal] = useState(false);
+  const [isDownloading, setIsDownloading] = useState(false);
+  const [isDownloadingSingle, setIsDownloadingSingle] = useState<number | null>(null);
+
+  const onSearchByText = async () => {
     try {
-      const text = await file.text();
-      const lines = text.split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
-      const hasHeader = /dni/i.test(lines[0]);
-      const body = hasHeader ? lines.slice(1) : lines;
-      const dnis = body.map((l) => (l.split(',')[0] || '').replace(/\D+/g, '')).filter(Boolean);
-      setCsvInfo({ name: file.name, count: dnis.length });
-      if (dnis.length === 0) { show('El CSV no contiene DNIs válidos', 'info'); return; }
-      const resp = await searchByDnis({ dnis }).unwrap();
-      // Uniformar a la forma esperada por el render: { equipo, clientes }
-      const wrapped = (resp || []).map((eq: any) => ({ equipo: eq, clientes: [] }));
-      setCsvResults(wrapped);
-      setHasSearched(true); // Marcar como búsqueda realizada
-      show(`Se encontraron ${wrapped.length} equipos para ${dnis.length} DNI(s)`, 'success');
+      if (!searchText.trim()) { show('Ingrese al menos un DNI o patente'); return; }
+      // Parsear el texto: puede ser DNIs o patentes separados por coma, espacio o salto de línea
+      const items = searchText.split(/[,\s\n]+/).map((l) => l.trim().toUpperCase()).filter(Boolean);
+      if (items.length === 0) { show('No se encontraron valores válidos'); return; }
+      
+      // Detectar si son DNIs (solo números) o patentes (alfanuméricos)
+      const dnis = items.filter((i) => /^\d{7,8}$/.test(i.replace(/\D/g, '')));
+      const patentes = items.filter((i) => /^[A-Z0-9]{5,10}$/.test(i));
+      
+      if (dnis.length > 0) {
+        // Buscar por DNIs
+        const cleanDnis = dnis.map((d) => d.replace(/\D/g, ''));
+        setCsvInfo({ name: `${cleanDnis.length} DNIs ingresados`, count: cleanDnis.length });
+        const resp = await searchByDnis({ dnis: cleanDnis }).unwrap();
+        const wrapped = (resp || []).map((eq: any) => ({ equipo: eq, clientes: [] }));
+        setCsvResults(wrapped);
+        setSearchText(''); // Limpiar textarea
+        setShowSearchModal(false);
+        if (wrapped.length === 0) {
+          setHasSearched(false);
+          show(`No se encontraron equipos para los DNIs ingresados`);
+        } else {
+          setHasSearched(true);
+          show(`Se encontraron ${wrapped.length} equipos para ${cleanDnis.length} DNI(s)`);
+        }
+      } else if (patentes.length > 0) {
+        // Buscar por patentes (una por una con el filtro de truckPlate)
+        const results: any[] = [];
+        for (const patente of patentes) {
+          const resp = await (trigger as any)({ truckPlate: patente }, false);
+          if (resp?.data) {
+            results.push(...resp.data);
+          }
+        }
+        const wrapped = results.map((eq: any) => ({ equipo: eq.equipo || eq, clientes: eq.clientes || [] }));
+        setCsvResults(wrapped);
+        setSearchText(''); // Limpiar textarea
+        setShowSearchModal(false);
+        setCsvInfo({ name: `${patentes.length} patentes ingresadas`, count: patentes.length });
+        if (wrapped.length === 0) {
+          setHasSearched(false);
+          show(`No se encontraron equipos para las patentes ingresadas`);
+        } else {
+          setHasSearched(true);
+          show(`Se encontraron ${wrapped.length} equipos para ${patentes.length} patente(s)`);
+        }
+      } else {
+        show('No se reconocieron DNIs ni patentes válidas');
+      }
     } catch {
-      show('Error leyendo el CSV de DNIs', 'error');
+      show('Error al buscar');
     }
   };
 
-  const displayResults: Array<any> = csvResults.length > 0 ? csvResults : (data as any[]);
+  // Solo mostrar resultados si el usuario ha buscado
+  const displayResults: Array<any> = !hasSearched ? [] : (csvResults.length > 0 ? csvResults : (data as any[]));
 
   const downloadAllVigentes = async () => {
     try {
-      if (!Array.isArray(displayResults) || displayResults.length === 0) { show('No hay equipos para descargar', 'info'); return; }
+      if (!Array.isArray(displayResults) || displayResults.length === 0) { show('No hay equipos para descargar'); return; }
       const ids = displayResults.map((it: any) => (it?.equipo?.id ?? it?.id)).filter((v: any) => typeof v === 'number');
-      if (!ids.length) { show('Sin IDs válidos de equipos', 'info'); return; }
+      if (!ids.length) { show('Sin IDs válidos de equipos'); return; }
+      
+      setIsDownloading(true);
       const blob = await downloadBulk({ equipoIds: ids }).unwrap();
       const url = URL.createObjectURL(blob as any);
       const a = document.createElement('a');
@@ -183,7 +227,9 @@ export const ConsultaPage: React.FC = () => {
       a.remove();
       URL.revokeObjectURL(url);
     } catch {
-      show('No fue posible iniciar la descarga masiva', 'error');
+      show('No fue posible iniciar la descarga masiva');
+    } finally {
+      setIsDownloading(false);
     }
   };
 
@@ -358,18 +404,57 @@ export const ConsultaPage: React.FC = () => {
                 setFilterType('dador');
                 setParams({}); 
                 setCsvResults([]);
+                setCsvInfo({});
+                setSearchText('');
                 setHasSearched(false);
+                setSearchParams({});
               }}
             >
               Limpiar
             </Button>
           </div>
-          <div className='flex gap-2 items-center'>
-            <input ref={csvInputRef} id='csvDnis' type='file' accept='.csv' className='hidden' onChange={(e)=> { const f = e.target.files?.[0]; if (f) onCsvFile(f); }} />
-            <Button type='button' variant='outline' onClick={()=> csvInputRef.current?.click()} size='sm'>Seleccionar CSV DNIs</Button>
-            {csvInfo?.name && <span className='text-xs text-muted-foreground'>Cargado: {csvInfo.name} ({csvInfo.count || 0} DNIs)</span>}
-            <Button type='button' variant='outline' onClick={downloadAllVigentes} disabled={(displayResults || []).length === 0} size='sm'>Bajar documentación vigente (ZIP)</Button>
+          <div className='flex gap-2 items-center flex-wrap'>
+            <Button type='button' variant='outline' onClick={() => setShowSearchModal(true)} size='sm'>
+              🔍 Buscar por DNIs o Patentes
+            </Button>
+            {csvInfo?.name && <span className='text-xs text-muted-foreground'>{csvInfo.name}</span>}
+            <Button 
+              type='button' 
+              variant='outline' 
+              onClick={downloadAllVigentes} 
+              disabled={(displayResults || []).length === 0 || isDownloading} 
+              size='sm'
+            >
+              {isDownloading ? '⏳ Preparando archivos...' : 'Bajar documentación vigente (ZIP)'}
+            </Button>
           </div>
+          
+          {/* Modal de búsqueda por texto */}
+          {showSearchModal && (
+            <div className='fixed inset-0 bg-black/50 flex items-center justify-center z-50' onClick={() => setShowSearchModal(false)}>
+              <div className='bg-white dark:bg-slate-900 rounded-lg p-6 w-full max-w-md shadow-xl' onClick={(e) => e.stopPropagation()}>
+                <h3 className='text-lg font-semibold mb-4'>Buscar Equipos por DNIs o Patentes</h3>
+                <p className='text-sm text-muted-foreground mb-3'>
+                  Ingrese uno o más DNIs de choferes o patentes de camiones, separados por coma, espacio o salto de línea.
+                </p>
+                <textarea
+                  className='w-full h-32 border rounded-md p-3 text-sm resize-none'
+                  placeholder='Ej: 40219122, 35123456&#10;o: MHB277, ABC123'
+                  value={searchText}
+                  onChange={(e) => setSearchText(e.target.value)}
+                  autoFocus
+                />
+                <div className='flex justify-end gap-2 mt-4'>
+                  <Button variant='outline' onClick={() => { setShowSearchModal(false); setSearchText(''); }}>
+                    Cancelar
+                  </Button>
+                  <Button onClick={onSearchByText} disabled={loadingCsvSearch || !searchText.trim()}>
+                    {loadingCsvSearch ? 'Buscando...' : 'Buscar'}
+                  </Button>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       </Card>
 
@@ -420,15 +505,17 @@ export const ConsultaPage: React.FC = () => {
                 <Button
                   variant='outline'
                   size='sm'
+                  disabled={isDownloadingSingle === eq.id}
                   onClick={async ()=>{
                     try {
+                      setIsDownloadingSingle(eq.id);
                       const complianceResp = await getCompliance({ id: eq.id }).unwrap();
                       const docsByEntity: Record<string, any[]> = (complianceResp?.documents || {}) as Record<string, any[]>;
                       const approvedDocs: Array<number> = [];
                       Object.values(docsByEntity).forEach((arr: any[]) => {
                         arr.forEach((d: any) => { if (String(d.status).toUpperCase() === 'APROBADO') approvedDocs.push(d.id); });
                       });
-                      if (approvedDocs.length === 0) { show('No hay documentación vigente para descargar', 'info'); return; }
+                      if (approvedDocs.length === 0) { show('No hay documentación vigente para descargar'); setIsDownloadingSingle(null); return; }
                       const { default: JSZip } = await import('jszip');
                       const zip = new JSZip();
                       const parseFileName = (cd: string | null): string | null => {
@@ -461,10 +548,12 @@ export const ConsultaPage: React.FC = () => {
                       a.remove();
                       window.URL.revokeObjectURL(url);
                     } catch {
-                      show('No fue posible iniciar la descarga', 'error');
+                      show('No fue posible iniciar la descarga');
+                    } finally {
+                      setIsDownloadingSingle(null);
                     }
                   }}
-                >Bajar documentación</Button>
+                >{isDownloadingSingle === eq.id ? '⏳ Preparando...' : 'Bajar documentación'}</Button>
                 <Button variant='outline' size='sm' onClick={()=> navigate(`/documentos/equipos/${eq.id}/estado`)}>Ver estado</Button>
                 <Button variant='destructive' size='sm' onClick={async ()=>{
                   const ok = await confirm({ title: 'Eliminar equipo', message: `¿Eliminar equipo #${eq.id}? Esta acción es irreversible.`, confirmText: 'Eliminar', variant: 'danger' });

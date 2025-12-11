@@ -1,12 +1,14 @@
 import { useForm } from 'react-hook-form';
 import { useDispatch } from 'react-redux';
-import { useNavigate, useLocation } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { useLoginMutation } from '../api/authApiSlice';
-import { setCredentials } from '../authSlice';
+import { setCredentials, logout } from '../authSlice';
 import { Credentials } from '../types';
 import { Button } from '../../../components/ui/button';
 import { Input } from '../../../components/ui/input';
 import { Logger } from '../../../lib/utils';
+import { apiSlice } from '../../../store/apiSlice';
+import { documentosApiSlice } from '../../documentos/api/documentosApiSlice';
 
 export const LoginForm = () => {
   const {
@@ -17,41 +19,44 @@ export const LoginForm = () => {
   } = useForm<Credentials>();
   const dispatch = useDispatch();
   const navigate = useNavigate();
-  const location = useLocation();
 
-  const from = location.state?.from?.pathname || '/';
   const [login, { isLoading }] = useLoginMutation();
 
   const onSubmit = async (credentials: Credentials) => {
     try {
+      // Limpiar estado anterior antes de hacer login (importante para cambio de usuario)
+      dispatch(logout());
+      dispatch(apiSlice.util.resetApiState());
+      dispatch(documentosApiSlice.util.resetApiState());
+
       const response = await login(credentials).unwrap();
       dispatch(setCredentials(response));
 
       // Si el usuario tiene un rol válido y está autorizado, redirigir según el rol
       if (response.data?.role) {
-        // Determinar la ruta de destino según el rol del usuario
-        let destination = from;
+        // SIEMPRE redirigir al portal según el rol (no usar from para evitar datos del usuario anterior)
+        let destination: string;
         
-        // Si viene de login (from === '/'), redirigir al portal según el rol
-        if (from === '/') {
-          switch (response.data.role) {
-            case 'ADMIN_INTERNO':
-              destination = '/portal/admin-interno';
-              break;
-            case 'DADOR_DE_CARGA':
-              destination = '/portal/dadores';
-              break;
-            case 'TRANSPORTISTA':
-            case 'CHOFER':
-              destination = '/portal/transportistas';
-              break;
-            case 'CLIENTE':
-              destination = '/portal/cliente';
-              break;
-            default:
-              destination = '/';
-              break;
-          }
+        switch (response.data.role) {
+          case 'ADMIN_INTERNO':
+            destination = '/portal/admin-interno';
+            break;
+          case 'DADOR_DE_CARGA':
+            destination = '/portal/dadores';
+            break;
+          case 'TRANSPORTISTA':
+          case 'CHOFER':
+            destination = '/portal/transportistas';
+            break;
+          case 'CLIENTE':
+            destination = '/portal/cliente';
+            break;
+          case 'SUPERADMIN':
+            destination = '/dashboard';
+            break;
+          default:
+            destination = '/';
+            break;
         }
         
         Logger.debug('Login exitoso, redirigiendo a:', destination);

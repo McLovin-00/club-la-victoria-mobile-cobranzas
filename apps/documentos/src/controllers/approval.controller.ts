@@ -97,7 +97,9 @@ export class ApprovalController {
         return;
       }
       // Generar URL de preview servida por el backend para evitar problemas de firmas/CORS en iframes
-      const backendPreviewUrl = `${req.protocol}://${req.get('host')}/api/docs/documents/${document.id}/download?inline=1`;
+      // Usar X-Forwarded-Proto si está disponible (proxy/MikroTik), sino req.protocol
+      const protocol = req.get('X-Forwarded-Proto') || req.protocol;
+      const backendPreviewUrl = `${protocol}://${req.get('host')}/api/docs/documents/${document.id}/download?inline=1`;
       res.json({ success: true, data: { ...document, previewUrl: backendPreviewUrl } });
     } catch (error) {
       AppLogger.error('ApprovalController.getPendingDocument error:', error);

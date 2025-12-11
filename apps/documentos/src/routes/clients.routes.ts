@@ -147,12 +147,13 @@ router.get('/equipos/:equipoId/documentos', validate(listDocsEquipoSchema), asyn
   // Buscar equipo para obtener sus entidades (chofer/camión/acoplado)
   const equipo = await prisma.equipo.findUnique({
     where: { id: equipoId },
-    select: { id: true, tenantEmpresaId: true, dadorCargaId: true, driverId: true, truckId: true, trailerId: true },
+    select: { id: true, tenantEmpresaId: true, dadorCargaId: true, driverId: true, truckId: true, trailerId: true, empresaTransportistaId: true },
   });
   if (!equipo) {
     return res.json({ success: true, data: [] });
   }
   const orClauses: any[] = [];
+  if (equipo.empresaTransportistaId) orClauses.push({ entityType: 'EMPRESA_TRANSPORTISTA' as any, entityId: equipo.empresaTransportistaId });
   if (equipo.driverId) orClauses.push({ entityType: 'CHOFER' as any, entityId: equipo.driverId });
   if (equipo.truckId) orClauses.push({ entityType: 'CAMION' as any, entityId: equipo.truckId });
   if (equipo.trailerId) orClauses.push({ entityType: 'ACOPLADO' as any, entityId: equipo.trailerId });
@@ -174,12 +175,13 @@ router.get('/equipos/:equipoId/zip', validate(listDocsEquipoSchema), async (req,
   const equipoId = Number((req.params as any).equipoId);
   const equipo = await prisma.equipo.findUnique({
     where: { id: equipoId },
-    select: { id: true, tenantEmpresaId: true, dadorCargaId: true, driverId: true, truckId: true, trailerId: true, truckPlateNorm: true, trailerPlateNorm: true, driverDniNorm: true },
+    select: { id: true, tenantEmpresaId: true, dadorCargaId: true, driverId: true, truckId: true, trailerId: true, empresaTransportistaId: true, truckPlateNorm: true, trailerPlateNorm: true, driverDniNorm: true },
   });
   if (!equipo) return res.status(404).json({ success: false, message: 'Equipo no encontrado' });
 
   const now = new Date();
   const clauses: any[] = [];
+  if (equipo.empresaTransportistaId) clauses.push({ entityType: 'EMPRESA_TRANSPORTISTA' as any, entityId: equipo.empresaTransportistaId });
   if (equipo.driverId) clauses.push({ entityType: 'CHOFER' as any, entityId: equipo.driverId });
   if (equipo.truckId) clauses.push({ entityType: 'CAMION' as any, entityId: equipo.truckId });
   if (equipo.trailerId) clauses.push({ entityType: 'ACOPLADO' as any, entityId: equipo.trailerId });
@@ -188,8 +190,10 @@ router.get('/equipos/:equipoId/zip', validate(listDocsEquipoSchema), async (req,
       tenantEmpresaId: equipo.tenantEmpresaId,
       dadorCargaId: equipo.dadorCargaId,
       status: 'APROBADO' as any,
-      OR: clauses.length ? clauses : undefined,
-      OR2: [{ expiresAt: null }, { expiresAt: { gt: now } }] as any,
+      AND: [
+        clauses.length ? { OR: clauses } : {},
+        { OR: [{ expiresAt: null }, { expiresAt: { gt: now } }] },
+      ],
     } as any,
     include: { template: { select: { name: true } } },
     orderBy: { uploadedAt: 'desc' },
@@ -232,10 +236,11 @@ router.get('/equipos/:equipoId/summary.xlsx', validate(listDocsEquipoSchema), as
   const equipoId = Number((req.params as any).equipoId);
   const equipo = await prisma.equipo.findUnique({
     where: { id: equipoId },
-    select: { id: true, tenantEmpresaId: true, dadorCargaId: true, driverId: true, truckId: true, trailerId: true },
+    select: { id: true, tenantEmpresaId: true, dadorCargaId: true, driverId: true, truckId: true, trailerId: true, empresaTransportistaId: true },
   });
   if (!equipo) return res.status(404).json({ success: false, message: 'Equipo no encontrado' });
   const clauses: any[] = [];
+  if (equipo.empresaTransportistaId) clauses.push({ entityType: 'EMPRESA_TRANSPORTISTA' as any, entityId: equipo.empresaTransportistaId });
   if (equipo.driverId) clauses.push({ entityType: 'CHOFER' as any, entityId: equipo.driverId });
   if (equipo.truckId) clauses.push({ entityType: 'CAMION' as any, entityId: equipo.truckId });
   if (equipo.trailerId) clauses.push({ entityType: 'ACOPLADO' as any, entityId: equipo.trailerId });

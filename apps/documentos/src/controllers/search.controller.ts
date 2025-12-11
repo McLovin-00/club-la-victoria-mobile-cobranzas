@@ -13,6 +13,8 @@ function normalizePlate(plate: string): string {
 
 export class SearchController {
   static async search(req: AuthRequest, res: Response) {
+    console.log('🔍 SearchController: query params recibidos:', req.query);
+    
     const empresaIdRaw = req.query.dadorCargaId;
     const empresaId = empresaIdRaw !== undefined && empresaIdRaw !== null && String(empresaIdRaw).trim() !== ''
       ? Number(empresaIdRaw)
@@ -25,6 +27,8 @@ export class SearchController {
     const empresaTransportistaId = empresaTransportistaIdRaw !== undefined && empresaTransportistaIdRaw !== null && String(empresaTransportistaIdRaw).trim() !== ''
       ? Number(empresaTransportistaIdRaw)
       : undefined;
+    
+    console.log('🔍 SearchController: filtros parseados:', { empresaId, clienteId, empresaTransportistaId });
     const dni = req.query.dni ? normalizeDni(String(req.query.dni)) : undefined;
     const truckPlate = req.query.truckPlate ? normalizePlate(String(req.query.truckPlate)) : undefined;
     const trailerPlate = req.query.trailerPlate ? normalizePlate(String(req.query.trailerPlate)) : undefined;
@@ -43,6 +47,8 @@ export class SearchController {
         { validTo: { gte: new Date() } },
       ],
     };
+    
+    console.log('🔍 SearchController: where clause:', JSON.stringify(where, null, 2));
 
     // Si filtramos por cliente, necesitamos una subconsulta
     let equipos: any[];

@@ -152,7 +152,7 @@ services:
     command: [
       "node",
       "--max-old-space-size=3072",
-      "dist/src/server.js"
+      "apps/backend/dist/src/server.js"
     ]
     environment:
       NODE_ENV: production
@@ -173,9 +173,9 @@ services:
       # JWT
       JWT_PRIVATE_KEY_PATH: /run/secrets/jwt_private.pem
       JWT_PUBLIC_KEY_PATH: /run/secrets/jwt_public.pem
-      # CORS
-      FRONTEND_URLS: http://10.8.10.20:8550
-      CORS_ORIGIN: http://10.8.10.20:8550
+      # CORS - Incluye dominio público HTTPS y acceso interno
+      FRONTEND_URLS: "https://bca-group.microsyst.com.ar,https://bca.microsyst.com.ar,http://10.8.10.20:8550,http://localhost:8550"
+      CORS_ORIGIN: "https://bca-group.microsyst.com.ar,https://bca.microsyst.com.ar,http://10.8.10.20:8550,http://localhost:8550"
       # Features
       ENABLE_BACKEND: "true"
       ENABLE_FRONTEND: "true"
@@ -232,9 +232,9 @@ services:
       MINIO_INTERNAL_BASE_URL: http://10.8.10.20:9000
       # Redis
       REDIS_URL: redis://redis:6379
-      SEED: "true"
-      # CORS Configuration
-      FRONTEND_URLS: "https://bca.microsyst.com.ar,https://doc.microsyst.com.ar,http://10.3.0.244:8550,http://localhost:8550,http://10.8.10.20:8550"
+      SEED: "false"
+      # CORS Configuration - Incluye todos los dominios públicos y acceso interno
+      FRONTEND_URLS: "https://bca-group.microsyst.com.ar,https://bca.microsyst.com.ar,https://doc.microsyst.com.ar,http://10.3.0.244:8550,http://localhost:8550,http://10.8.10.20:8550"
       # Flowise
       FLOWISE_ENDPOINT: http://10.8.10.20:3005/api/v1/extract
       FLOWISE_API_KEY: ""
@@ -342,22 +342,14 @@ services:
       context: ../..
       dockerfile: ./deploy/stack-ip-192.168.15.136/Dockerfile.frontend
       args:
-        VITE_API_URL: http://10.8.10.20:4800
-        VITE_API_BASE_URL: http://10.8.10.20:4800
-        VITE_DOCUMENTOS_API_URL: http://10.8.10.20:4802
-        VITE_DOCUMENTOS_WS_URL: http://10.8.10.20:4802
+        # URLs relativas - Nginx proxy interno enruta a los servicios
+        VITE_API_URL: ""
+        VITE_API_BASE_URL: ""
+        VITE_DOCUMENTOS_API_URL: ""
+        VITE_DOCUMENTOS_WS_URL: ""
         VITE_APP_TITLE: Empresa Management System
     image: bca/frontend:latest
     container_name: bca_frontend
-    command: ["-port","8550","-enable-health"]
-    environment:
-      SERVER_PORT: 8550
-      SERVER_ROOT: /public
-      SERVER_CORS: "true"
-      # Performance optimizations for static serving
-      GOSTATIC_ENABLE_GZIP: "true"
-      GOSTATIC_CACHE_CONTROL: "public, max-age=31536000"
-      GOSTATIC_CORS_ORIGIN: "*"
     ports:
       - "8550:8550"
     depends_on:
@@ -367,16 +359,17 @@ services:
       resources:
         reservations:
           cpus: "0.1"
-          memory: "1G"
+          memory: "512M"
         limits:
           cpus: "0.5"
           memory: "1G"
     healthcheck:
-      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8550/"]
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8550/health"]
       interval: 30s
       timeout: 5s
       retries: 3
     networks:
+      - core_net
       - edge_net
 
 

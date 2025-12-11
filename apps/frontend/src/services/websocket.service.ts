@@ -39,17 +39,22 @@ class WebSocketService {
     try {
       console.log('🔗 Creando nueva conexión WebSocket...');
       
-      const wsUrl = import.meta.env.VITE_DOCUMENTOS_WS_URL;
+      // Determinar URL del WebSocket
+      let wsUrl = import.meta.env.VITE_DOCUMENTOS_WS_URL;
+      
+      // Si no está configurada, construir automáticamente desde el host actual
       if (!wsUrl) {
-        console.warn('⚠️ VITE_DOCUMENTOS_WS_URL no está configurada. WebSocket desactivado.');
-        this.isConnecting = false;
-        return;
+        const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+        wsUrl = `${protocol}//${window.location.host}`;
+        console.log('🔗 WebSocket URL construida automáticamente:', wsUrl);
       }
+      
       this.socket = io(wsUrl, {
         auth: {
           token,
         },
-        transports: ['websocket', 'polling'],
+        // Solo polling - MikroTik no soporta upgrade a WebSocket nativo
+        transports: ['polling'],
         timeout: 10000,
         forceNew: true, // Forzar nueva conexión para evitar duplicados
         autoConnect: true,

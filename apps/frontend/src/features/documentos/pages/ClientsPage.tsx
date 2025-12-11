@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Card } from '../../../components/ui/card';
 import { Button } from '../../../components/ui/button';
 import { Input } from '../../../components/ui/input';
@@ -7,6 +8,7 @@ import { ArrowLeftIcon } from '@heroicons/react/24/outline';
 import { useRoleBasedNavigation } from '../../../hooks/useRoleBasedNavigation';
 
 export const ClientsPage: React.FC = () => {
+  const navigate = useNavigate();
   const { goBack } = useRoleBasedNavigation();
   // ya no dependemos de empresas
   const { data: clientsData } = useGetClientsQuery({});

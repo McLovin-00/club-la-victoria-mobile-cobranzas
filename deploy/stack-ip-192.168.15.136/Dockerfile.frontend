@@ -1,26 +1,38 @@
+# Build stage - compilar el frontend
 FROM node:20-alpine AS build
+
 WORKDIR /app
+
+# Copiar archivos de dependencias
 COPY package*.json ./
+
+# Copiar el código fuente
 COPY . .
-# Instalar dependencias de todos los workspaces (incluye apps/frontend y Vite)
-RUN --mount=type=cache,target=/root/.npm sh -c "if [ -f package-lock.json ]; then npm ci --workspaces; else npm install --workspaces; fi"
-# Pasar variables de build de Vite
+
+# Instalar dependencias y compilar
+RUN --mount=type=cache,target=/root/.npm npm install --workspaces --legacy-peer-deps
 ARG VITE_API_URL
 ARG VITE_API_BASE_URL
 ARG VITE_DOCUMENTOS_API_URL
 ARG VITE_DOCUMENTOS_WS_URL
 ARG VITE_APP_TITLE
-ENV VITE_API_URL=$VITE_API_URL \
-    VITE_API_BASE_URL=$VITE_API_BASE_URL \
-    VITE_DOCUMENTOS_API_URL=$VITE_DOCUMENTOS_API_URL \
-    VITE_DOCUMENTOS_WS_URL=$VITE_DOCUMENTOS_WS_URL \
-    VITE_APP_TITLE=$VITE_APP_TITLE
 RUN npm run -w apps/frontend build
 
-FROM pierrezemb/gostatic:latest
-COPY --from=build /app/apps/frontend/dist /srv/http
+# Production stage - Nginx como proxy inverso
+FROM nginx:alpine
+
+# Copiar configuración personalizada de Nginx
+COPY deploy/stack-ip-192.168.15.136/nginx.conf /etc/nginx/nginx.conf
+
+# Copiar los archivos estáticos del build
+COPY --from=build /app/apps/frontend/dist /usr/share/nginx/html
+
+# Exponer puerto
 EXPOSE 8550
-# Flags válidas en goStatic
-CMD ["-port","8550","-enable-health"]
 
+# Health check
+HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
+  CMD wget --no-verbose --tries=1 --spider http://localhost:8550/health || exit 1
 
+# Iniciar Nginx
+CMD ["nginx", "-g", "daemon off;"]

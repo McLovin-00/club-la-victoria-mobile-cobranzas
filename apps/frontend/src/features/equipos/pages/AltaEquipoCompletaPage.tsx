@@ -148,9 +148,21 @@ const AltaEquipoCompletaPage: React.FC = () => {
     return ids;
   }, [templatesPorTipo, semiPatente]);
 
-  // Verificar si todos los documentos obligatorios están SELECCIONADOS
+  // Verificar si todos los documentos obligatorios están SELECCIONADOS Y tienen fecha de vencimiento
   const todosDocumentosSeleccionados = useMemo(() => {
-    return templateIdsObligatorios.every((id) => selectedFiles.has(id));
+    return templateIdsObligatorios.every((id) => {
+      const fileData = selectedFiles.get(id);
+      // Debe tener archivo Y fecha de vencimiento
+      return fileData && fileData.file && fileData.expiryDate;
+    });
+  }, [templateIdsObligatorios, selectedFiles]);
+
+  // Documentos sin fecha de vencimiento (para mostrar error específico)
+  const documentosSinVencimiento = useMemo(() => {
+    return templateIdsObligatorios.filter((id) => {
+      const fileData = selectedFiles.get(id);
+      return fileData && fileData.file && !fileData.expiryDate;
+    });
   }, [templateIdsObligatorios, selectedFiles]);
 
   // Progreso
@@ -186,7 +198,11 @@ const AltaEquipoCompletaPage: React.FC = () => {
     }
 
     if (!todosDocumentosSeleccionados) {
-      setMessage({ type: 'error', text: 'Seleccioná todos los documentos obligatorios antes de crear el equipo' });
+      if (documentosSinVencimiento.length > 0) {
+        setMessage({ type: 'error', text: `Hay ${documentosSinVencimiento.length} documento(s) sin fecha de vencimiento. Todos los documentos requieren fecha de vencimiento.` });
+      } else {
+        setMessage({ type: 'error', text: 'Seleccioná todos los documentos obligatorios antes de crear el equipo' });
+      }
       return;
     }
 
@@ -806,9 +822,17 @@ const AltaEquipoCompletaPage: React.FC = () => {
       </div>
 
       {!todosDocumentosSeleccionados && datosBasicosCompletos && (
-        <p className='text-center text-sm text-gray-600 mt-4'>
-          Seleccioná {templateIdsObligatorios.length - templateIdsObligatorios.filter((id) => selectedFiles.has(id)).length} documentos más para habilitar la creación del equipo
-        </p>
+        <div className='text-center mt-4'>
+          {documentosSinVencimiento.length > 0 ? (
+            <p className='text-sm text-red-600 font-medium'>
+              ⚠️ {documentosSinVencimiento.length} documento(s) sin fecha de vencimiento. Todos los documentos requieren fecha de vencimiento.
+            </p>
+          ) : (
+            <p className='text-sm text-gray-600'>
+              Seleccioná {templateIdsObligatorios.length - templateIdsObligatorios.filter((id) => selectedFiles.has(id)).length} documentos más para habilitar la creación del equipo
+            </p>
+          )}
+        </div>
       )}
     </div>
   );

@@ -2,7 +2,7 @@ FROM node:20-alpine AS deps
 WORKDIR /app
 COPY package.json ./
 # Instalar dependencias completas para compilación
-RUN --mount=type=cache,target=/root/.npm sh -c "if [ -f package-lock.json ]; then npm ci; else npm install; fi"
+RUN --mount=type=cache,target=/root/.npm npm install --legacy-peer-deps
 
 FROM node:20-alpine AS builder
 WORKDIR /app
