@@ -179,6 +179,27 @@ router.get('/equipos/:equipoId/zip', validate(listDocsEquipoSchema), async (req,
   });
   if (!equipo) return res.status(404).json({ success: false, message: 'Equipo no encontrado' });
 
+  // Obtener datos de entidades para nombres de carpetas
+  const [empresaTransp, chofer, camion, acoplado] = await Promise.all([
+    equipo.empresaTransportistaId ? prisma.empresaTransportista.findUnique({ where: { id: equipo.empresaTransportistaId }, select: { cuit: true } }) : null,
+    equipo.driverId ? prisma.chofer.findUnique({ where: { id: equipo.driverId }, select: { dni: true } }) : null,
+    equipo.truckId ? prisma.camion.findUnique({ where: { id: equipo.truckId }, select: { patente: true } }) : null,
+    equipo.trailerId ? prisma.acoplado.findUnique({ where: { id: equipo.trailerId }, select: { patente: true } }) : null,
+  ]);
+
+  // Construir nombres de carpetas ordenados
+  const empresaCuit = empresaTransp?.cuit?.replace(/\D/g, '') || 'SIN_CUIT';
+  const choferDni = chofer?.dni || equipo.driverDniNorm || 'SIN_DNI';
+  const camionPatente = (camion?.patente || equipo.truckPlateNorm || 'SIN_PATENTE').replace(/\s+/g, '');
+  const acopladoPatente = (acoplado?.patente || equipo.trailerPlateNorm || 'SIN_PATENTE').replace(/\s+/g, '');
+
+  const folderNames: Record<string, string> = {
+    EMPRESA_TRANSPORTISTA: `1_Empresa_Transportista_${empresaCuit}`,
+    CHOFER: `2_Chofer_${choferDni}`,
+    CAMION: `3_Tractor_${camionPatente}`,
+    ACOPLADO: `4_Semi_Acoplado_${acopladoPatente}`,
+  };
+
   const now = new Date();
   const clauses: any[] = [];
   if (equipo.empresaTransportistaId) clauses.push({ entityType: 'EMPRESA_TRANSPORTISTA' as any, entityId: equipo.empresaTransportistaId });
@@ -199,16 +220,16 @@ router.get('/equipos/:equipoId/zip', validate(listDocsEquipoSchema), async (req,
     orderBy: { uploadedAt: 'desc' },
   });
 
+  // Nombre del ZIP con DNI y patente del tractor
+  const zipFileName = `equipo_${equipo.id}_DNI_${choferDni}_${camionPatente}.zip`;
   res.setHeader('Content-Type', 'application/zip');
-  res.setHeader('Content-Disposition', `attachment; filename=equipo_${equipo.id}_vigentes.zip`);
+  res.setHeader('Content-Disposition', `attachment; filename=${zipFileName}`);
   const archiver = await getArchiver();
   const archive = archiver('zip', { zlib: { level: 9 } });
   archive.on('error', (err: any) => res.status(500).end(String(err)));
   archive.pipe(res);
 
-  // eliminar bloque inválido que referenciaba minioService antes de import
-
-  // Stream desde MinIO
+  // Stream desde MinIO con estructura de carpetas ordenada
   const { minioService } = await import('../services/minio.service');
   for (const d of docs) {
     let bucketName: string;
@@ -218,14 +239,16 @@ router.get('/equipos/:equipoId/zip', validate(listDocsEquipoSchema), async (req,
       bucketName = d.filePath.slice(0, idx);
       objectPath = d.filePath.slice(idx + 1);
     } else {
-      // Fallback: usar bucket del tenant y el filePath tal cual
       bucketName = `docs-t${equipo.tenantEmpresaId}`;
       objectPath = d.filePath as any;
     }
     const stream = await minioService.getObject(bucketName, objectPath);
-    const folder = d.entityType === 'CHOFER' ? 'chofer' : d.entityType === 'CAMION' ? 'camion' : 'acoplado';
-    const idLabel = d.entityType === 'CHOFER' ? (equipo.driverDniNorm || d.entityId) : (d.entityType === 'CAMION' ? (equipo.truckPlateNorm || d.entityId) : (equipo.trailerPlateNorm || d.entityId));
-    const name = `${folder}/${idLabel}_${(d.template?.name || 'documento').replace(/[^a-z0-9_-]/gi,'_')}_${d.id}`;
+    
+    // Usar carpeta según tipo de entidad
+    const folder = folderNames[d.entityType as string] || 'otros';
+    const templateName = (d.template?.name || 'documento').replace(/[^a-z0-9_-]/gi, '_');
+    const ext = d.fileName?.split('.').pop() || 'pdf';
+    const name = `${folder}/${templateName}.${ext}`;
     archive.append(stream as any, { name });
   }
   archive.finalize();
