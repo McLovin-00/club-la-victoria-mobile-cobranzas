@@ -265,12 +265,12 @@ router.post('/download/vigentes', authorize(['ADMIN' as any, 'SUPERADMIN' as any
       // Carpeta principal: equipo_{id}_DNI_{dni}_{patente_tractor}
       const mainFolder = `equipo_${equipo.id}_DNI_${choferDni}_${tractorPatente}`;
 
-      // Subcarpetas por tipo de entidad
+      // Subcarpetas por tipo de entidad (ordenadas numéricamente)
       const subfolders: Record<string, string> = {
-        'EMPRESA_TRANSPORTISTA': `Empresa_Transportista_${transportistaCuit}`,
-        'CHOFER': `Chofer_${choferDni}`,
-        'CAMION': `Tractor_${tractorPatente}`,
-        'ACOPLADO': `Semi_Acoplado_${acopladoPatente}`,
+        'EMPRESA_TRANSPORTISTA': `1_Empresa_Transportista_${transportistaCuit}`,
+        'CHOFER': `2_Chofer_${choferDni}`,
+        'CAMION': `3_Tractor_${tractorPatente}`,
+        'ACOPLADO': `4_Semi_Acoplado_${acopladoPatente}`,
       };
 
       const clauses: any[] = [];
