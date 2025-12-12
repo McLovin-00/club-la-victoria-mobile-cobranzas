@@ -1,0 +1,126 @@
+============================================================
+EXTRACCIÓN RÁPIDA DE DATOS DNI
+============================================================
+OCR inicializado con 4 workers
+
+Carpetas: 105, Filas: 206
+🔄 Procesando ID1 (1/105)...⚠️ ID1: Sin DNI - Carmona, Marina (carpeta)   
+🔄 Procesando ID2 (2/105)...✅ ID2: 31800894 - GALLARDO, DIEGO ANGEL              
+🔄 Procesando ID3 (3/105)...⚠️ ID3: Sin DNI - Carmona, Ezequiel Federico (carpeta)   
+🔄 Procesando ID4 (4/105)...Image too small to scale!! (1x36 vs min width of 3)
+⚠️ ID4: Sin DNI - PEREYRA, GUSTAVO SERVANDO (carpeta)   
+🔄 Procesando ID5 (5/105)...Line cannot be recognized!!
+✅ ID5: 51429687 - MOYANO, FERNANDO MATIAS              
+🔄 Procesando ID6 (6/105)...⚠️ ID6: Sin DNI - MARIO, FABIÁN BALDO (carpeta)   
+🔄 Procesando ID7 (7/105)...⚠️ ID7: Sin DNI - BEROISA, NESTOR FABIAN (carpeta)   
+🔄 Procesando ID8 (8/105)...⚠️ ID8: Sin DNI - SOTO, FERNANDO MANUEL (carpeta)   
+🔄 Procesando ID9 (9/105)...⚠️ ID9: Sin DNI - GONZALEZ, JOSE REMIGIO (carpeta)   
+🔄 Procesando ID10 (10/105)...⚠️ ID10: Sin DNI - GUSTAVO, MATIAS ARCE (carpeta)   
+🔄 Procesando ID11 (11/105)...⚠️ ID11: Sin DNI - FERNANDEZ, ALEJANDRO AGUSTIN (carpeta)   
+🔄 Procesando ID12 (12/105)...⚠️ ID12: Sin DNI - RODRIGUEZ, MARIO ARMANDO (carpeta)   
+🔄 Procesando ID13 (13/105)...⚠️ ID13: Sin DNI - GUGLIOTTI, MAURICIO GASTON (carpeta)   
+🔄 Procesando ID14 (14/105)...⚠️ ID14: Sin DNI - LAUREL, PABLO FABIAN (carpeta)   
+🔄 Procesando ID15 (15/105)...⚠️ ID15: Sin DNI - ITALIANO, MARCELO ALEJANDRO (carpeta)   
+🔄 Procesando ID16 (16/105)...✅ ID16: 32369875 - Sebastián, HUGO SEBASTIAN              
+🔄 Procesando ID17 (17/105)...⚠️ ID17: Sin DNI - Santarossa, Adrian Alexis (carpeta)   
+🔄 Procesando ID18 (18/105)...⚠️ ID18: Sin DNI - Augusto, Andrés José (carpeta)   
+🔄 Procesando ID19 (19/105)...⚠️ ID19: Sin DNI - Perez, Carlos Matias (carpeta)   
+🔄 Procesando ID20 (20/105)...✅ ID20: 25349465 - JUAREZ, MARIO DANIEL              
+🔄 Procesando ID21 (21/105)...⚠️ ID21: Sin DNI - Perez, Carlos Alberto (carpeta)   
+🔄 Procesando ID22 (22/105)...✅ ID22: 24049968 - ESPINOZA, Edgardo Gabriel              
+🔄 Procesando ID23 (23/105)...⚠️ ID23: Sin DNI - RAMON, ARIEL LUJAN (carpeta)   
+🔄 Procesando ID24 (24/105)...⚠️ ID24: Sin DNI - Moreno, Osvaldo (carpeta)   
+🔄 Procesando ID25 (25/105)...⚠️ ID25: Sin DNI - PERALTA, JOVAN MANUEL (carpeta)   
+🔄 Procesando ID26 (26/105)...⚠️ ID26: Sin DNI - RETAMAL, ALEJANDRO FEDERICO (carpeta)   
+🔄 Procesando ID27 (27/105)...✅ ID27: 20909142 - ROBERTO, JAVIER SANITA              
+🔄 Procesando ID28 (28/105)...✅ ID28: 24058155 - Guzman, Y am MIGUEL RODOLFO              
+🔄 Procesando ID29 (29/105)...✅ ID29: 44140365 - E, Y              
+🔄 Procesando ID30 (30/105)...⚠️ ID30: Sin DNI - Raul, Maon Cristian (carpeta)   
+🔄 Procesando ID31 (31/105)...⚠️ ID31: Sin DNI - ESCOBAR, QUIROGA ADRIEL DAVID (carpeta)   
+🔄 Procesando ID32 (32/105)...⚠️ ID32: Sin DNI - AVILA, DANTE OMAR (carpeta)   
+🔄 Procesando ID33 (33/105)...⚠️ ID33: Sin DNI - Alejandro, Corradi Gabriel (carpeta)   
+🔄 Procesando ID34 (34/105)...⚠️ ID34: Sin DNI - MUÑOZ, DIEGO LEONARDO (carpeta)   
+🔄 Procesando ID35 (35/105)...✅ ID35: 20836472 - CORTEZ, OSCAR PIO              
+🔄 Procesando ID36 (36/105)...⚠️ ID36: Sin DNI - DIAZ, RICARDO (carpeta)   
+🔄 Procesando ID37 (37/105)...✅ ID37: 23409043 - rubio, Noe              
+🔄 Procesando ID38 (38/105)...✅ ID38: 23709853 - IYARRA, NELSON JAVIER              
+🔄 Procesando ID39 (39/105)...✅ ID39: 40690151 - ADRIAN, E              
+🔄 Procesando ID40 (40/105)...✅ ID40: 2040172 - VITALI, FABIAN ALBERTO              
+🔄 Procesando ID41 (41/105)...⚠️ ID41: Sin DNI - LOPARDO, GUSTAVO ADOLFO (carpeta)   
+🔄 Procesando ID42 (42/105)...✅ ID42: 25378509 - MIGUEL, FERNANDEZ              
+🔄 Procesando ID43 (43/105)...✅ ID43: 20909142 - SANITA, JAVIER              
+🔄 Procesando ID44 (44/105)...✅ ID44: 27892206 - L, No              
+🔄 Procesando ID45 (45/105)...✅ ID45: 1397775 - LUCAS, NAHUEL CAMARGO              
+🔄 Procesando ID46 (46/105)...⚠️ ID46: Sin DNI - MARCELO, HEREDIA - MARTIN VILLAR - SANTIAGO OROSCO - FRANCO ROS (carpeta)   
+🔄 Procesando ID47 (47/105)...⚠️ ID47: Sin DNI - NIEVAS, JONATAN GABRIEL (carpeta)   
+🔄 Procesando ID48 (48/105)...⚠️ ID48: Sin DNI - MEDINA, CARLOS GABRIEL (carpeta)   
+🔄 Procesando ID49 (49/105)...⚠️ ID49: Sin DNI - MARCOS, GIMENEZ (carpeta)   
+🔄 Procesando ID50 (50/105)...⚠️ ID50: Sin DNI - LEANDRO, RUBEN BENAVIDES (carpeta)   
+🔄 Procesando ID51 (51/105)...⚠️ ID51: Sin DNI - MONTERO, DAVID EDGARDO (carpeta)   
+🔄 Procesando ID52 (52/105)...✅ ID52: 34792519 - FERNANDEZ, ORLANDO RAUL              
+🔄 Procesando ID53 (53/105)...⚠️ ID53: Sin DNI - MARTIN, VILLAR (carpeta)   
+🔄 Procesando ID54 (54/105)...⚠️ ID54: Sin DNI - Sola, Flavio Alejandro (carpeta)   
+🔄 Procesando ID55 (55/105)...⚠️ ID55: Sin DNI - MARCELO, ARIEL HEREDIA CASTAÑEDA (carpeta)   
+🔄 Procesando ID56 (56/105)...⚠️ ID56: Sin DNI - SANTIAGO, OROSCO NICOLAS (carpeta)   
+🔄 Procesando ID57 (57/105)...✅ ID57: 36711923 - FRANCO, ALEJANDRO ROS              
+🔄 Procesando ID58 (58/105)...⚠️ ID58: Sin DNI - Castro, José Gastón (carpeta)   
+🔄 Procesando ID59 (59/105)...⚠️ ID59: Sin DNI - Cordero, Victor Hugo (carpeta)   
+🔄 Procesando ID60 (60/105)...✅ ID60: 41661015 - Segura, Hugo Gabriel              
+🔄 Procesando ID61 (61/105)...⚠️ ID61: Sin DNI - RIOS,, MIGUEL NICOLAS (carpeta)   
+🔄 Procesando ID62 (62/105)...Image too small to scale!! (2x36 vs min width of 3)
+Line cannot be recognized!!
+Image too small to scale!! (2x36 vs min width of 3)
+Line cannot be recognized!!
+Image too small to scale!! (1x36 vs min width of 3)
+Line cannot be recognized!!
+Image too small to scale!! (2x36 vs min width of 3)
+Line cannot be recognized!!
+⚠️ ID62: Sin DNI - alejandro, Reyes gabriel (carpeta)   
+🔄 Procesando ID63 (63/105)...✅ ID63: 24571195 - á, Aldo Ambrosio              
+🔄 Procesando ID64 (64/105)...Image too small to scale!! (2x36 vs min width of 3)
+Line cannot be recognized!!
+Image too small to scale!! (2x36 vs min width of 3)
+Line cannot be recognized!!
+Image too small to scale!! (1x36 vs min width of 3)
+Line cannot be recognized!!
+Image too small to scale!! (2x36 vs min width of 3)
+Line cannot be recognized!!
+⚠️ ID64: Sin DNI - alejandro, Reyes Gabriel (carpeta)   
+🔄 Procesando ID65 (65/105)...⚠️ ID65: Sin DNI - VILLONE, CARLOS FERNANDO (carpeta)   
+🔄 Procesando ID66 (66/105)...⚠️ ID66: Sin DNI - GARCIA, JUAN MANUEL (carpeta)   
+🔄 Procesando ID67 (67/105)...⚠️ ID67: Sin DNI - LOBOS, CORDOBA LEONARDO JUAN (carpeta)   
+🔄 Procesando ID68 (68/105)...Image too small to scale!! (2x36 vs min width of 3)
+✅ ID68: 25442515 - FREDES, RAFAEL OSVALDO              
+🔄 Procesando ID69 (69/105)...Line cannot be recognized!!
+Image too small to scale!! (2x36 vs min width of 3)
+Line cannot be recognized!!
+✅ ID69: 25442515 - FREDES, RAFAEL OSVALDO              
+🔄 Procesando ID70 (70/105)...⚠️ ID70: Sin DNI - Alessandrello, Pablo German (carpeta)   
+🔄 Procesando ID71 (71/105)...⚠️ ID71: Sin DNI - BLANQUEZ, DARIO GERMAN (carpeta)   
+🔄 Procesando ID72 (72/105)...⚠️ ID72: Sin DNI - German, Alessandrello, Pablo (carpeta)   
+🔄 Procesando ID73 (73/105)...⚠️ ID73: Sin DNI - German, Alessandrello, Pablo (carpeta)   
+🔄 Procesando ID74 (74/105)...⚠️ ID74: Sin DNI - VICTOR, MANUEL LIZARRAGA (carpeta)   
+🔄 Procesando ID75 (75/105)...⚠️ ID75: Sin DNI - Cordero, Victor Hugo (carpeta)   
+🔄 Procesando ID76 (76/105)...✅ ID76: 26361097 - ue, Luis              
+🔄 Procesando ID77 (77/105)...✅ ID77: 33631133 - ALANIZ, WALTER DANIEL              
+🔄 Procesando ID78 (78/105)...✅ ID78: 25547537 - ABREGO, L              
+🔄 Procesando ID79 (79/105)...⚠️ ID79: Sin DNI - Abrego, Diego Nicolas (carpeta)   
+🔄 Procesando ID80 (80/105)...⚠️ ID80: Sin DNI - RAMON, ARIEL LUJAN (carpeta)   
+🔄 Procesando ID81 (81/105)...⚠️ ID81: Sin DNI - Augusto, Andrés José (carpeta)   
+🔄 Procesando ID82 (82/105)...✅ ID82: 27877743 - BRITOS, ALBERTO RAMON              
+🔄 Procesando ID83 (83/105)...⚠️ ID83: Sin DNI - MUÑOZ, CARLOS DARIO (carpeta)   
+🔄 Procesando ID84 (84/105)...⚠️ ID84: Sin DNI - ESCOBAR, JAIRO ROSELINDO (carpeta)   
+🔄 Procesando ID85 (85/105)...✅ ID85: 37214016 - TSON, NICOLAS              
+🔄 Procesando ID86 (86/105)...Image too small to scale!! (2x36 vs min width of 3)
+⚠️ ID86: Sin DNI - Ariel, Bravo Miguel (carpeta)   
+🔄 Procesando ID87 (87/105)...Line cannot be recognized!!
+Image too small to scale!! (2x36 vs min width of 3)
+Line cannot be recognized!!
+⚠️ ID87: Sin DNI - JOSE, CEFERINO SOSA (carpeta)   
+🔄 Procesando ID88 (88/105)...✅ ID88: 10802745 - Venturi, Ruben Oscar              
+🔄 Procesando ID89 (89/105)...Image too small to scale!! (2x36 vs min width of 3)
+⚠️ ID89: Sin DNI - ROCA, LUIS NICOLAS (carpeta)   
+🔄 Procesando ID90 (90/105)...Line cannot be recognized!!
+✅ ID90: 21625971 - CABANEZ, FELIPE MARCELO              
+🔄 Procesando ID91 (91/105)...✅ ID91: 43465502 - Giménez, Mauricio Ezequiel Cristalde              
+🔄 Procesando ID92 (92/105)...

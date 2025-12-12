@@ -1,0 +1,10 @@
+============================================================
+EXTRACCIÓN DE DATOS DNI
+============================================================
+
+Carpetas encontradas: 105
+Filas en planilla: 206
+📄 Procesando ID1 (1/206)...⚠️ ID1: DNI no detectado, usando nombre de carpeta: Marina, Carmona          
+📄 Procesando ID2 (2/206)...✅ ID2: DNI=31800894, GALLARDO, DIEGO ANGEL          
+📄 Procesando ID3 (3/206)...✅ ID3: DNI=35627277, CARMONA, EZEQUIEL FEDERICO          
+📄 Procesando ID4 (4/206)...

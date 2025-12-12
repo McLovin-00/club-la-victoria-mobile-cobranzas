@@ -166,8 +166,8 @@ export const ConsultaPage: React.FC = () => {
         const cleanDnis = dnis.map((d) => d.replace(/\D/g, ''));
         setCsvInfo({ name: `${cleanDnis.length} DNIs ingresados`, count: cleanDnis.length });
         const resp = await searchByDnis({ dnis: cleanDnis }).unwrap();
-        const wrapped = (resp || []).map((eq: any) => ({ equipo: eq, clientes: [] }));
-        setCsvResults(wrapped);
+      const wrapped = (resp || []).map((eq: any) => ({ equipo: eq, clientes: [] }));
+      setCsvResults(wrapped);
         setSearchText(''); // Limpiar textarea
         setShowSearchModal(false);
         if (wrapped.length === 0) {
