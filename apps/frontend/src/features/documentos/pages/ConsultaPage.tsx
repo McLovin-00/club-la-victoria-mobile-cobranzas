@@ -65,7 +65,17 @@ export const ConsultaPage: React.FC = () => {
   const [dni, setDni] = useState('');
   const [truckPlate, setTruckPlate] = useState('');
   const [trailerPlate, setTrailerPlate] = useState('');
-  const [params, setParams] = useState<{ empresaId?: number; clienteId?: number; empresaTransportistaId?: number; dni?: string; truckPlate?: string; trailerPlate?: string }>({});
+  const [params, setParams] = useState<{
+    empresaId?: number;
+    clienteId?: number;
+    empresaTransportistaId?: number;
+    // Búsqueda masiva (DNI/patentes), separado por "|"
+    search?: string;
+    // filtros individuales
+    dni?: string;
+    truckPlate?: string;
+    trailerPlate?: string;
+  }>({});
   const [hasSearched, setHasSearched] = useState(false);
   const [searchParams, setSearchParams] = useSearchParams();
   
@@ -80,6 +90,7 @@ export const ConsultaPage: React.FC = () => {
     dadorCargaId: params.empresaId,
     clienteId: params.clienteId,
     empresaTransportistaId: params.empresaTransportistaId,
+    search: params.search,
     dni: params.dni,
     truckPlate: params.truckPlate,
     trailerPlate: params.trailerPlate,
@@ -177,51 +188,26 @@ export const ConsultaPage: React.FC = () => {
       // Parsear el texto: puede ser DNIs o patentes separados por coma, espacio o salto de línea
       const items = searchText.split(/[,\s\n]+/).map((l) => l.trim().toUpperCase()).filter(Boolean);
       if (items.length === 0) { show('No se encontraron valores válidos'); return; }
-      
-      // Detectar si son DNIs (solo números) o patentes (alfanuméricos)
-      const dnis = items.filter((i) => /^\d{7,8}$/.test(i.replace(/\D/g, '')));
-      const patentes = items.filter((i) => /^[A-Z0-9]{5,10}$/.test(i));
-      
-      if (dnis.length > 0) {
-        // Buscar por DNIs
-        const cleanDnis = dnis.map((d) => d.replace(/\D/g, ''));
-        setCsvInfo({ name: `${cleanDnis.length} DNIs ingresados`, count: cleanDnis.length });
-        const resp = await searchByDnis({ dnis: cleanDnis }).unwrap();
-      const wrapped = (resp || []).map((eq: any) => ({ equipo: eq, clientes: [] }));
-      setCsvResults(wrapped);
-        setSearchText(''); // Limpiar textarea
-        setShowSearchModal(false);
-        if (wrapped.length === 0) {
-          setHasSearched(false);
-          show(`No se encontraron equipos para los DNIs ingresados`);
-        } else {
-          setHasSearched(true);
-          show(`Se encontraron ${wrapped.length} equipos para ${cleanDnis.length} DNI(s)`);
-        }
-      } else if (patentes.length > 0) {
-        // Buscar por patentes (una por una con el filtro de truckPlate)
-        const results: any[] = [];
-        for (const patente of patentes) {
-          const resp = await (trigger as any)({ truckPlate: patente }, false);
-          if (resp?.data) {
-            results.push(...resp.data);
-          }
-        }
-        const wrapped = results.map((eq: any) => ({ equipo: eq.equipo || eq, clientes: eq.clientes || [] }));
-        setCsvResults(wrapped);
-        setSearchText(''); // Limpiar textarea
-        setShowSearchModal(false);
-        setCsvInfo({ name: `${patentes.length} patentes ingresadas`, count: patentes.length });
-        if (wrapped.length === 0) {
-          setHasSearched(false);
-          show(`No se encontraron equipos para las patentes ingresadas`);
-        } else {
-          setHasSearched(true);
-          show(`Se encontraron ${wrapped.length} equipos para ${patentes.length} patente(s)`);
-        }
-      } else {
-        show('No se reconocieron DNIs ni patentes válidas');
-      }
+
+      // Usar búsqueda paginada del servidor (como cliente): search=VAL1|VAL2|...
+      // Esto soporta DNIs y patentes mezclados.
+      const search = items.join('|');
+
+      // Mantener filtros de entidad actuales (dador/cliente/empresa transp) + reemplazar búsqueda masiva
+      const p: any = { ...params, search };
+      // Limpiar filtros individuales para evitar mezclar señales
+      p.dni = undefined;
+      p.truckPlate = undefined;
+      p.trailerPlate = undefined;
+
+      setCsvResults([]);
+      setCsvInfo({ name: `${items.length} valores ingresados`, count: items.length });
+      setSearchText('');
+      setShowSearchModal(false);
+      setPage(1);
+      setHasSearched(true);
+      setParams(p);
+      show(`Búsqueda masiva aplicada (${items.length} valores). Resultados paginados.`);
     } catch {
       show('Error al buscar');
     }
@@ -485,6 +471,7 @@ export const ConsultaPage: React.FC = () => {
                 setCsvInfo({});
                 setSearchText('');
                 setHasSearched(false);
+                setPage(1);
                 setSearchParams({});
               }}
             >
