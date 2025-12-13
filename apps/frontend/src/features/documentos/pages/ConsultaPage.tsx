@@ -245,6 +245,8 @@ export const ConsultaPage: React.FC = () => {
           if (params.empresaId) sp.set('dadorCargaId', String(params.empresaId));
           if (params.clienteId) sp.set('clienteId', String(params.clienteId));
           if (params.empresaTransportistaId) sp.set('empresaTransportistaId', String(params.empresaTransportistaId));
+          // Importante: si la búsqueda fue por lista (DNI/patentes), está en params.search
+          if (params.search) sp.set('search', String(params.search));
           if (params.dni) sp.set('dni', String(params.dni));
           if (params.truckPlate) sp.set('truckPlate', String(params.truckPlate));
           if (params.trailerPlate) sp.set('trailerPlate', String(params.trailerPlate));
