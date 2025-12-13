@@ -101,51 +101,81 @@ const ClienteDashboard: React.FC = () => {
   
   // Estado para descarga ZIP
   const [isDownloading, setIsDownloading] = useState(false);
+  const [downloadProgress, setDownloadProgress] = useState(0);
   
-  // Descargar ZIP usando ventana nueva (evita problemas de memoria con archivos grandes)
-  // Envía el searchTerm para que el backend busque TODOS los equipos, no solo los paginados
-  const handleDownloadZip = useCallback(() => {
+  // Descargar ZIP usando fetch con progreso (sin abrir ventana nueva)
+  const handleDownloadZip = useCallback(async () => {
     if (pagination.total === 0) return;
     
     const token = localStorage.getItem('token');
+    if (!token) {
+      showToast('Error: No hay sesión activa');
+      return;
+    }
     
     setIsDownloading(true);
+    setDownloadProgress(0);
     showToast(`Generando ZIP de ${pagination.total} equipos...`);
     
-    // Crear un formulario oculto que envíe los datos por POST
-    const form = document.createElement('form');
-    form.method = 'POST';
-    form.action = `${import.meta.env.VITE_DOCUMENTOS_API_URL}/api/docs/portal-cliente/equipos/bulk-download-form`;
-    form.target = '_blank';
-    
-    // Campo para el searchTerm (el backend buscará todos los que coincidan)
-    const inputSearch = document.createElement('input');
-    inputSearch.type = 'hidden';
-    inputSearch.name = 'searchTerm';
-    inputSearch.value = searchTerm || '';
-    form.appendChild(inputSearch);
-    
-    // Campo para el filtro de estado
-    const inputEstado = document.createElement('input');
-    inputEstado.type = 'hidden';
-    inputEstado.name = 'estado';
-    inputEstado.value = filtroEstado === 'TODOS' ? '' : filtroEstado;
-    form.appendChild(inputEstado);
-    
-    // Campo para el token
-    const inputToken = document.createElement('input');
-    inputToken.type = 'hidden';
-    inputToken.name = 'token';
-    inputToken.value = token || '';
-    form.appendChild(inputToken);
-    
-    document.body.appendChild(form);
-    form.submit();
-    document.body.removeChild(form);
-    
-    setTimeout(() => {
+    try {
+      const response = await fetch(
+        `${import.meta.env.VITE_DOCUMENTOS_API_URL}/api/docs/portal-cliente/equipos/bulk-download-form`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+          body: new URLSearchParams({
+            token,
+            searchTerm: searchTerm || '',
+            estado: filtroEstado === 'TODOS' ? '' : filtroEstado,
+          }),
+        }
+      );
+      
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(errorText || 'Error al generar ZIP');
+      }
+      
+      // Obtener tamaño total si está disponible
+      const contentLength = response.headers.get('content-length');
+      const total = contentLength ? parseInt(contentLength, 10) : 0;
+      
+      // Leer el stream con progreso
+      const reader = response.body?.getReader();
+      if (!reader) throw new Error('No se pudo leer la respuesta');
+      
+      const chunks: Uint8Array[] = [];
+      let received = 0;
+      
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        chunks.push(value);
+        received += value.length;
+        if (total > 0) {
+          setDownloadProgress(Math.round((received / total) * 100));
+        }
+      }
+      
+      // Crear blob y descargar
+      const blob = new Blob(chunks, { type: 'application/zip' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `documentos_${pagination.total}_equipos.zip`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      
+      showToast('✅ Descarga completada');
+    } catch (error) {
+      console.error('Error descargando ZIP:', error);
+      showToast(`Error: ${error instanceof Error ? error.message : 'Error desconocido'}`);
+    } finally {
       setIsDownloading(false);
-    }, 3000);
+      setDownloadProgress(0);
+    }
   }, [pagination.total, searchTerm, filtroEstado]);
   
   // Cambiar filtro de estado
@@ -405,10 +435,12 @@ TZI127
                 <Button 
                   onClick={handleDownloadZip}
                   disabled={isDownloading}
-                  className='bg-blue-600 hover:bg-blue-700 text-white disabled:opacity-50'
+                  className='bg-blue-600 hover:bg-blue-700 text-white disabled:opacity-50 disabled:cursor-not-allowed min-w-[200px]'
                 >
                   <ArrowDownTrayIcon className='h-5 w-5 mr-2' />
-                  {isDownloading ? 'Descargando...' : `Descargar ZIP (${pagination.total} equipos)`}
+                  {isDownloading 
+                    ? (downloadProgress > 0 ? `Descargando ${downloadProgress}%` : 'Generando ZIP...')
+                    : `Descargar ZIP (${pagination.total} equipos)`}
                 </Button>
               </div>
               
