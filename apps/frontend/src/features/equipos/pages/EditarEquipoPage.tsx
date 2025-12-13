@@ -38,12 +38,13 @@ const EditarEquipoPage: React.FC = () => {
   const isAdmin = role === 'SUPERADMIN' || role === 'ADMIN_INTERNO';
   const isDador = role === 'DADOR_DE_CARGA';
   const isTransportista = role === 'TRANSPORTISTA';
+  const isChofer = role === 'CHOFER';
   const _isCliente = role === 'CLIENTE'; // Para uso futuro
   
   // Determinar qué puede hacer el usuario
   const canEdit = isAdmin || isDador || isTransportista;
   const canManageClients = isAdmin || isDador;
-  const canUploadDocs = isAdmin || isDador || isTransportista;
+  const canUploadDocs = isAdmin || isDador || isTransportista || isChofer;
   
   // Cargar datos del equipo
   const { data: equipo, isLoading, refetch } = useGetEquipoByIdQuery(

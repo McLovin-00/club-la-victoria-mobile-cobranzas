@@ -1,4 +1,5 @@
 import React from 'react';
+import { useAppSelector } from '../../../store/hooks';
 import { Card, CardContent, CardHeader, CardTitle } from '../../../components/ui/card';
 import { Button } from '../../../components/ui/button';
 import { useNavigate } from 'react-router-dom';
@@ -16,6 +17,8 @@ import {
  */
 const ChoferDashboard: React.FC = () => {
   const navigate = useNavigate();
+  const role = useAppSelector((s) => (s as any).auth?.user?.role) as string | undefined;
+  const isChofer = role === 'CHOFER';
 
   return (
     <div className='min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-900 dark:to-slate-800 flex items-center justify-center p-4'>
@@ -34,45 +37,47 @@ const ChoferDashboard: React.FC = () => {
         </div>
 
         {/* Dos Acciones Principales */}
-        <div className='grid grid-cols-1 md:grid-cols-2 gap-8 mb-8'>
+        <div className={`grid grid-cols-1 ${isChofer ? '' : 'md:grid-cols-2'} gap-8 mb-8`}>
           
           {/* 1. ALTA COMPLETA DE EQUIPO */}
-          <Card 
-            className='group hover:shadow-2xl hover:scale-[1.02] transition-all duration-300 cursor-pointer border-2 hover:border-blue-500'
-            onClick={() => navigate('/documentos/equipos/alta-completa')}
-          >
-            <CardHeader className='space-y-4 pb-4'>
-              <div className='flex justify-center'>
-                <div className='p-6 bg-gradient-to-br from-blue-500 to-blue-600 rounded-2xl group-hover:scale-110 transition-transform duration-300'>
-                  <TruckIcon className='h-16 w-16 text-white' />
+          {!isChofer && (
+            <Card 
+              className='group hover:shadow-2xl hover:scale-[1.02] transition-all duration-300 cursor-pointer border-2 hover:border-blue-500'
+              onClick={() => navigate('/documentos/equipos/alta-completa')}
+            >
+              <CardHeader className='space-y-4 pb-4'>
+                <div className='flex justify-center'>
+                  <div className='p-6 bg-gradient-to-br from-blue-500 to-blue-600 rounded-2xl group-hover:scale-110 transition-transform duration-300'>
+                    <TruckIcon className='h-16 w-16 text-white' />
+                  </div>
                 </div>
-              </div>
-              <CardTitle className='text-center text-2xl font-bold'>
-                Alta Completa de Equipo
-              </CardTitle>
-            </CardHeader>
-            <CardContent className='text-center space-y-4'>
-              <p className='text-muted-foreground text-lg'>
-                Registrar nuevo equipo con toda su documentación
-              </p>
-              <ul className='text-sm text-muted-foreground space-y-2 text-left'>
-                <li className='flex items-start gap-2'>
-                  <DocumentTextIcon className='h-5 w-5 text-blue-500 mt-0.5 flex-shrink-0' />
-                  <span>Registro de camión y acoplado</span>
-                </li>
-                <li className='flex items-start gap-2'>
-                  <DocumentTextIcon className='h-5 w-5 text-blue-500 mt-0.5 flex-shrink-0' />
-                  <span>Subida de todos los documentos requeridos</span>
-                </li>
-              </ul>
-              <Button 
-                size='lg' 
-                className='w-full mt-4 bg-blue-600 hover:bg-blue-700 text-lg h-12'
-              >
-                Iniciar Alta Completa
-              </Button>
-            </CardContent>
-          </Card>
+                <CardTitle className='text-center text-2xl font-bold'>
+                  Alta Completa de Equipo
+                </CardTitle>
+              </CardHeader>
+              <CardContent className='text-center space-y-4'>
+                <p className='text-muted-foreground text-lg'>
+                  Registrar nuevo equipo con toda su documentación
+                </p>
+                <ul className='text-sm text-muted-foreground space-y-2 text-left'>
+                  <li className='flex items-start gap-2'>
+                    <DocumentTextIcon className='h-5 w-5 text-blue-500 mt-0.5 flex-shrink-0' />
+                    <span>Registro de camión y acoplado</span>
+                  </li>
+                  <li className='flex items-start gap-2'>
+                    <DocumentTextIcon className='h-5 w-5 text-blue-500 mt-0.5 flex-shrink-0' />
+                    <span>Subida de todos los documentos requeridos</span>
+                  </li>
+                </ul>
+                <Button 
+                  size='lg' 
+                  className='w-full mt-4 bg-blue-600 hover:bg-blue-700 text-lg h-12'
+                >
+                  Iniciar Alta Completa
+                </Button>
+              </CardContent>
+            </Card>
+          )}
 
           {/* 2. CONSULTA Y ACTUALIZACIÓN */}
           <Card 

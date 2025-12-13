@@ -46,7 +46,7 @@ router.get(
 router.post(
   '/upload',
   authenticate,
-  authorize([UserRole.SUPERADMIN, UserRole.ADMIN, UserRole.OPERATOR, UserRole.ADMIN_INTERNO, UserRole.DADOR_DE_CARGA, UserRole.TRANSPORTISTA]),
+  authorize([UserRole.SUPERADMIN, UserRole.ADMIN, UserRole.OPERATOR, UserRole.ADMIN_INTERNO, UserRole.DADOR_DE_CARGA, UserRole.TRANSPORTISTA, UserRole.CHOFER]),
   uploadRateLimit,
   // Aceptar compatibilidad: 'documents' (múltiples) y 'document' (único)
   uploadMiddleware.fields([

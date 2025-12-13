@@ -16,6 +16,7 @@ type FilterType = 'todos' | 'dador' | 'cliente' | 'empresa';
 export const ConsultaPage: React.FC = () => {
   const navigate = useNavigate();
   const userRole = useAppSelector((s) => (s as any).auth?.user?.role) as string | undefined;
+  const isChofer = userRole === 'CHOFER';
   
   // Determinar ruta de volver según el rol
   const getBackRoute = () => {
@@ -34,10 +35,10 @@ export const ConsultaPage: React.FC = () => {
   
   const show = (msg: string) => { try { alert(msg); } catch { console.log(msg); } };
   const { confirm } = useContext(ConfirmContext);
-  const { data: dadoresResp } = useGetDadoresQuery({});
+  const { data: dadoresResp } = useGetDadoresQuery({}, { skip: isChofer } as any);
   const dadores = dadoresResp?.list ?? (Array.isArray(dadoresResp) ? dadoresResp : []);
-  const { data: templates = [] } = useGetTemplatesQuery();
-  const { data: clientsResp } = useGetClientsQuery({});
+  const { data: templates = [] } = useGetTemplatesQuery(undefined as any, { skip: isChofer } as any);
+  const { data: clientsResp } = useGetClientsQuery({}, { skip: isChofer } as any);
   const clients = clientsResp?.list ?? (Array.isArray(clientsResp) ? clientsResp : []);
   const empresaIdFromAuth = useSelector((s: RootState) => s.auth?.user?.empresaId) as number | undefined;
   const { data: defaults } = useGetDefaultsQuery();
@@ -59,7 +60,7 @@ export const ConsultaPage: React.FC = () => {
       q: empresaSearchText || undefined,
       limit: 100 // Traer hasta 100 empresas que coincidan
     },
-    { skip: false }
+    { skip: isChofer }
   );
   
   const [dni, setDni] = useState('');
@@ -444,7 +445,9 @@ export const ConsultaPage: React.FC = () => {
                   truckPlate: truckPlate || undefined,
                   trailerPlate: trailerPlate || undefined
                 };
-                if (filterType === 'todos') {
+                if (isChofer) {
+                  // Para CHOFER el backend filtra automáticamente por choferId
+                } else if (filterType === 'todos') {
                   // Para "todos", usar el dador por defecto o dejar sin filtro de entidad
                   p.empresaId = dadorIdForSearch;
                 } else if (filterType === 'dador') {
@@ -460,6 +463,9 @@ export const ConsultaPage: React.FC = () => {
                 setParams(p);
               }}
               disabled={
+                isChofer
+                  ? false
+                  :
                 (filterType === 'dador' && !selectedDadorId) ||
                 (filterType === 'cliente' && !selectedClienteId) ||
                 (filterType === 'empresa' && !selectedEmpresaTranspId)
