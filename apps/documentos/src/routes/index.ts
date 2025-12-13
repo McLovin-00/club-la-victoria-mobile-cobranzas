@@ -89,18 +89,20 @@ router.use('/api/docs/notifications', authenticate, tenantResolver, notification
 router.use('/api/docs/defaults', authenticate, tenantResolver, defaultsRoutes);
 router.use('/api/docs/dadores', authenticate, tenantResolver, dadoresRoutes);
 router.use('/api/docs/maestros', authenticate, tenantResolver, autoFilterByDador, authorizeTransportista, maestrosRoutes);
+
+// IMPORTANTE: Portal Cliente y Transportista van ANTES de /api/docs genérico
+// porque manejan su propia autenticación internamente para bulk-download-form
+router.use('/api/docs/portal-cliente', portalClienteRoutes);
+router.use('/api/docs/portal-transportista', portalTransportistaRoutes);
+
+// Ruta genérica de batch (debe ir DESPUÉS de rutas específicas)
 router.use('/api/docs', authenticate, tenantResolver, batchRoutes);
+
 router.use('/api/docs/transportistas', authenticate, tenantResolver, authorizeTransportista, transportistasRoutes);
 router.use('/api/docs/empresas-transportistas', authenticate, tenantResolver, empresasTransportistasRoutes);
 router.use('/api/docs/approval', authenticate, tenantResolver, approvalRoutes);
 router.use('/api/docs/compliance', authenticate, tenantResolver, complianceRoutes);
 router.use('/api/docs/audit', authenticate, tenantResolver, auditLogsRoutes);
-
-// Portal Cliente (Solo lectura)
-router.use('/api/docs/portal-cliente', tenantResolver, portalClienteRoutes);
-
-// Portal Transportista
-router.use('/api/docs/portal-transportista', tenantResolver, portalTransportistaRoutes);
 
 // =================================
 // RUTA RAÍZ - Información del Servicio

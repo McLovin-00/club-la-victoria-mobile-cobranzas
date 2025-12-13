@@ -140,17 +140,29 @@ export class PortalClienteController {
       let equiposFiltrados = todosEquiposConEstado;
       
       if (search) {
+        // Soportar múltiples valores separados por | para búsqueda OR
+        const searchTerms = search.includes('|') 
+          ? search.split('|').map(s => s.trim().toLowerCase()).filter(Boolean)
+          : [search];
+        
         equiposFiltrados = equiposFiltrados.filter(eq => {
-          return (
-            eq.identificador.toLowerCase().includes(search) ||
-            eq.camion?.patente?.toLowerCase().includes(search) ||
-            eq.acoplado?.patente?.toLowerCase().includes(search) ||
-            eq.chofer?.dni?.toLowerCase().includes(search) ||
-            eq.chofer?.nombre?.toLowerCase().includes(search) ||
-            eq.chofer?.apellido?.toLowerCase().includes(search) ||
-            eq.empresaTransportista?.razonSocial?.toLowerCase().includes(search) ||
-            eq.empresaTransportista?.cuit?.includes(search)
-          );
+          // Buscar coincidencia con CUALQUIERA de los términos
+          return searchTerms.some(term => {
+            // Normalizar patentes quitando guiones/espacios para comparar
+            const patenteNorm = (p: string | undefined | null) => (p || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+            const termNorm = term.replace(/[^a-z0-9]/g, '');
+            
+            return (
+              eq.identificador.toLowerCase().includes(term) ||
+              patenteNorm(eq.camion?.patente).includes(termNorm) ||
+              patenteNorm(eq.acoplado?.patente).includes(termNorm) ||
+              eq.chofer?.dni?.toLowerCase().includes(term) ||
+              eq.chofer?.nombre?.toLowerCase().includes(term) ||
+              eq.chofer?.apellido?.toLowerCase().includes(term) ||
+              eq.empresaTransportista?.razonSocial?.toLowerCase().includes(term) ||
+              eq.empresaTransportista?.cuit?.includes(term)
+            );
+          });
         });
       }
       
@@ -240,7 +252,7 @@ export class PortalClienteController {
           : null,
       ]);
       
-      // Obtener TODOS los documentos aprobados (incluyendo vencidos)
+      // Obtener TODOS los documentos aprobados y vencidos
       const entityConditions = [
         { entityType: 'CHOFER' as const, entityId: equipo.driverId },
         { entityType: 'CAMION' as const, entityId: equipo.truckId },
@@ -260,7 +272,7 @@ export class PortalClienteController {
       const documentos = await prisma.document.findMany({
         where: {
           tenantEmpresaId: tenantId,
-          status: 'APROBADO',
+          status: { in: ['APROBADO', 'VENCIDO'] }, // Incluir vencidos para mostrarlos
           archived: false,
           OR: entityConditions,
         },
@@ -289,7 +301,11 @@ export class PortalClienteController {
         let estado: 'VIGENTE' | 'PROXIMO_VENCER' | 'VENCIDO' = 'VIGENTE';
         let descargable = true;
         
-        if (doc.expiresAt) {
+        // Si el documento tiene status VENCIDO en la BD, marcarlo como vencido
+        if (doc.status === 'VENCIDO') {
+          estado = 'VENCIDO';
+          descargable = false;
+        } else if (doc.expiresAt) {
           const expires = new Date(doc.expiresAt);
           if (expires < now) {
             estado = 'VENCIDO';
@@ -414,8 +430,12 @@ export class PortalClienteController {
         return res.status(404).json({ success: false, message: 'Documento no encontrado' });
       }
       
-      // Verificar que el documento no esté vencido
-      if (doc.expiresAt && new Date(doc.expiresAt) < new Date()) {
+      // Verificar si es vencido
+      const esVencido = doc.status === 'VENCIDO' || (doc.expiresAt && new Date(doc.expiresAt) < new Date());
+      const esPreview = req.query.preview === 'true';
+      
+      // Si está vencido y NO es preview, rechazar descarga
+      if (esVencido && !esPreview) {
         return res.status(403).json({ 
           success: false, 
           message: 'No se puede descargar un documento vencido' 
@@ -539,11 +559,19 @@ export class PortalClienteController {
         });
       }
       
-      // Preparar nombres de carpetas
+      // Preparar nombres de carpetas con prefijo numérico para orden
       const patenteCamion = (camion?.patente || equipo.truckPlateNorm || 'CAMION').replace(/[^a-zA-Z0-9]/g, '_');
       const cuitEmpresa = equipo.empresaTransportista?.cuit?.replace(/[^0-9]/g, '') || 'EMPRESA';
       const dniChofer = chofer?.dni?.replace(/[^0-9]/g, '') || 'CHOFER';
       const patenteAcoplado = (acoplado?.patente || equipo.trailerPlateNorm || 'ACOPLADO').replace(/[^a-zA-Z0-9]/g, '_');
+      
+      // Nombres de carpetas con prefijo para orden
+      const folderNames: Record<string, string> = {
+        'EMPRESA_TRANSPORTISTA': `1_Empresa_Transportista_${cuitEmpresa}`,
+        'CHOFER': `2_Chofer_${dniChofer}`,
+        'CAMION': `3_Tractor_${patenteCamion}`,
+        'ACOPLADO': `4_Semi_Acoplado_${patenteAcoplado}`,
+      };
       
       // Preparar ZIP
       const archiver = (await import('archiver')).default;
@@ -582,22 +610,8 @@ export class PortalClienteController {
             objectPath = doc.filePath;
           }
           
-          // Determinar carpeta según tipo de entidad
-          let subFolder = '';
-          switch (doc.entityType) {
-            case 'EMPRESA_TRANSPORTISTA':
-              subFolder = cuitEmpresa;
-              break;
-            case 'CHOFER':
-              subFolder = dniChofer;
-              break;
-            case 'CAMION':
-              subFolder = patenteCamion;
-              break;
-            case 'ACOPLADO':
-              subFolder = patenteAcoplado;
-              break;
-          }
+          // Determinar carpeta según tipo de entidad (con prefijo numérico para orden)
+          const subFolder = folderNames[doc.entityType] || 'otros';
           
           const stream = await minioService.getObject(bucketName, objectPath);
           const safeTemplateName = doc.template.name.replace(/[^a-zA-Z0-9\s_.-]/gi, '_').trim();
@@ -616,6 +630,138 @@ export class PortalClienteController {
       await archive.finalize();
     } catch (error) {
       AppLogger.error('Error generando ZIP:', error);
+      if (!res.headersSent) {
+        res.status(500).json({ success: false, message: 'Error interno' });
+      }
+    }
+  }
+  
+  /**
+   * POST /api/portal-cliente/equipos/bulk-download
+   * Descarga ZIP de múltiples equipos asignados al cliente
+   */
+  static async bulkDownloadDocumentos(req: AuthRequest, res: Response) {
+    const tenantId = req.tenantId!;
+    const user = req.user!;
+    const clienteId = (user as any).clienteId || user.empresaId;
+    
+    if (!clienteId) {
+      return res.status(400).json({ success: false, message: 'Cliente no identificado' });
+    }
+    
+    const equipoIds: number[] = req.body.equipoIds || [];
+    if (!equipoIds.length) {
+      return res.status(400).json({ success: false, message: 'Debe especificar equipoIds' });
+    }
+    
+    try {
+      // Verificar que todos los equipos están asignados al cliente
+      const asignaciones = await prisma.equipoCliente.findMany({
+        where: {
+          clienteId,
+          equipoId: { in: equipoIds },
+          asignadoHasta: null,
+        },
+        select: { equipoId: true }
+      });
+      
+      const equiposPermitidos = asignaciones.map(a => a.equipoId);
+      const equiposOrdenados = equiposPermitidos.sort((a, b) => a - b);
+      
+      if (equiposOrdenados.length === 0) {
+        return res.status(403).json({ success: false, message: 'No tiene acceso a estos equipos' });
+      }
+      
+      // Obtener equipos con datos
+      const equipos = await prisma.equipo.findMany({
+        where: { id: { in: equiposOrdenados }, tenantEmpresaId: tenantId },
+        include: { empresaTransportista: true }
+      });
+      
+      // Preparar ZIP
+      const archiver = (await import('archiver')).default;
+      const archive = archiver('zip', { zlib: { level: 9 } });
+      const { minioService } = await import('../services/minio.service');
+      
+      res.setHeader('Content-Type', 'application/zip');
+      res.setHeader('Content-Disposition', `attachment; filename="documentos_${equiposOrdenados.length}_equipos.zip"`);
+      archive.pipe(res);
+      
+      for (const equipo of equipos) {
+        // Obtener datos relacionados
+        const [chofer, camion, acoplado] = await Promise.all([
+          prisma.chofer.findUnique({ where: { id: equipo.driverId } }),
+          prisma.camion.findUnique({ where: { id: equipo.truckId } }),
+          equipo.trailerId ? prisma.acoplado.findUnique({ where: { id: equipo.trailerId } }) : null
+        ]);
+        
+        // Preparar nombres de carpetas
+        const patenteCamion = (camion?.patente || equipo.truckPlateNorm || 'CAMION').replace(/[^a-zA-Z0-9]/g, '_');
+        const cuitEmpresa = equipo.empresaTransportista?.cuit?.replace(/[^0-9]/g, '') || 'EMPRESA';
+        const dniChofer = chofer?.dni?.replace(/[^0-9]/g, '') || 'CHOFER';
+        const patenteAcoplado = (acoplado?.patente || equipo.trailerPlateNorm || 'ACOPLADO').replace(/[^a-zA-Z0-9]/g, '_');
+        
+        const folderNames: Record<string, string> = {
+          'EMPRESA_TRANSPORTISTA': `1_Empresa_Transportista_${cuitEmpresa}`,
+          'CHOFER': `2_Chofer_${dniChofer}`,
+          'CAMION': `3_Tractor_${patenteCamion}`,
+          'ACOPLADO': `4_Semi_Acoplado_${patenteAcoplado}`,
+        };
+        
+        // Obtener documentos aprobados
+        const entityConditions = [
+          { entityType: 'CHOFER' as const, entityId: equipo.driverId },
+          { entityType: 'CAMION' as const, entityId: equipo.truckId },
+        ];
+        if (equipo.trailerId) {
+          entityConditions.push({ entityType: 'ACOPLADO' as any, entityId: equipo.trailerId });
+        }
+        if (equipo.empresaTransportistaId) {
+          entityConditions.push({ entityType: 'EMPRESA_TRANSPORTISTA' as any, entityId: equipo.empresaTransportistaId });
+        }
+        
+        const documentos = await prisma.document.findMany({
+          where: {
+            tenantEmpresaId: tenantId,
+            status: 'APROBADO',
+            OR: entityConditions
+          },
+          include: { template: true }
+        });
+        
+        // Agregar documentos al ZIP
+        for (const doc of documentos) {
+          try {
+            let bucketName: string;
+            let objectPath: string;
+            
+            if (doc.filePath.includes('/')) {
+              const idx = doc.filePath.indexOf('/');
+              bucketName = doc.filePath.slice(0, idx);
+              objectPath = doc.filePath.slice(idx + 1);
+            } else {
+              bucketName = `docs-t${tenantId}`;
+              objectPath = doc.filePath;
+            }
+            
+            const subFolder = folderNames[doc.entityType] || 'otros';
+            const stream = await minioService.getObject(bucketName, objectPath);
+            const safeTemplateName = doc.template.name.replace(/[^a-zA-Z0-9\s_.-]/gi, '_').trim();
+            const extension = doc.fileName.split('.').pop() || 'pdf';
+            const fileName = `${safeTemplateName}.${extension}`;
+            
+            // Estructura: patente_equipo/subcarpeta/archivo
+            const fullPath = `${patenteCamion}/${subFolder}/${fileName}`;
+            archive.append(stream as any, { name: fullPath });
+          } catch (err) {
+            AppLogger.warn(`No se pudo agregar doc ${doc.id} al ZIP: ${err}`);
+          }
+        }
+      }
+      
+      await archive.finalize();
+    } catch (error) {
+      AppLogger.error('Error generando ZIP masivo:', error);
       if (!res.headersSent) {
         res.status(500).json({ success: false, message: 'Error interno' });
       }

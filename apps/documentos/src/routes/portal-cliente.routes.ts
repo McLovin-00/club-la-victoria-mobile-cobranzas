@@ -4,7 +4,11 @@ import { PortalClienteController } from '../controllers/portal-cliente.controlle
 
 const router = Router();
 
-// Todas las rutas requieren autenticación
+// IMPORTANTE: Ruta de formulario SIN middleware de auth (valida token internamente)
+// Esta ruta debe ir ANTES del router.use(authenticate) para que no pase por él
+router.post('/equipos/bulk-download-form', PortalClienteController.bulkDownloadForm);
+
+// Todas las demás rutas requieren autenticación
 router.use(authenticate);
 
 // Solo rol CLIENTE puede acceder a estas rutas
@@ -29,6 +33,13 @@ router.get(
   '/equipos/:id/download-all',
   authorize(allowedRoles),
   PortalClienteController.downloadAllDocumentos
+);
+
+// Descargar documentos de múltiples equipos (ZIP masivo)
+router.post(
+  '/equipos/bulk-download',
+  authorize(allowedRoles),
+  PortalClienteController.bulkDownloadDocumentos
 );
 
 export default router;

@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useGetPortalClienteEquiposQuery } from '../../documentos/api/documentosApiSlice';
 import { Card } from '../../../components/ui/card';
@@ -14,7 +14,11 @@ import {
   ChevronLeftIcon,
   ChevronRightIcon,
   ArrowLeftIcon,
+  Bars3Icon,
+  XMarkIcon,
+  ArrowDownTrayIcon,
 } from '@heroicons/react/24/outline';
+import { showToast } from '../../../components/ui/Toast.utils';
 
 /**
  * Dashboard del Portal Cliente
@@ -31,6 +35,12 @@ const ClienteDashboard: React.FC = () => {
   const [searchInput, setSearchInput] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
   const [filtroEstado, setFiltroEstado] = useState<string>('TODOS');
+  
+  // Búsqueda masiva por lista de DNIs o patentes
+  const [showBulkSearch, setShowBulkSearch] = useState(false);
+  const [bulkInput, setBulkInput] = useState('');
+  const [bulkType, setBulkType] = useState<'dni' | 'patente'>('dni');
+  
   
   // Solo ejecutar query si shouldFetch es true
   const { data, isLoading, isFetching, error } = useGetPortalClienteEquiposQuery(
@@ -69,6 +79,67 @@ const ClienteDashboard: React.FC = () => {
     setPage(1);
     setShouldFetch(true);
   }, []);
+  
+  // Búsqueda masiva
+  const handleBulkSearch = useCallback(() => {
+    // Parsear líneas y limpiar
+    const lines = bulkInput
+      .split(/[\n,;]+/)
+      .map(l => l.trim().toUpperCase().replace(/[^A-Z0-9]/g, ''))
+      .filter(l => l.length >= 3);
+    
+    if (lines.length === 0) return;
+    
+    // Unir con | para búsqueda OR en el backend
+    const searchQuery = lines.slice(0, 50).join('|');
+    setSearchTerm(searchQuery);
+    setSearchInput(lines.slice(0, 3).join(', ') + (lines.length > 3 ? '...' : ''));
+    setPage(1);
+    setShouldFetch(true);
+    setShowBulkSearch(false);
+  }, [bulkInput]);
+  
+  // Estado para descarga ZIP
+  const [isDownloading, setIsDownloading] = useState(false);
+  
+  // Descargar ZIP usando ventana nueva (evita problemas de memoria con archivos grandes)
+  const handleDownloadZip = useCallback(() => {
+    if (equipos.length === 0) return;
+    
+    const equipoIds = equipos.map(e => e.id).slice(0, 200);
+    const token = localStorage.getItem('token');
+    
+    setIsDownloading(true);
+    showToast('Abriendo descarga en nueva ventana...');
+    
+    // Crear un formulario oculto que envíe los datos por POST
+    const form = document.createElement('form');
+    form.method = 'POST';
+    form.action = `${import.meta.env.VITE_DOCUMENTOS_API_URL}/api/docs/portal-cliente/equipos/bulk-download-form`;
+    form.target = '_blank';
+    
+    // Campo para los IDs
+    const inputIds = document.createElement('input');
+    inputIds.type = 'hidden';
+    inputIds.name = 'equipoIds';
+    inputIds.value = equipoIds.join(',');
+    form.appendChild(inputIds);
+    
+    // Campo para el token
+    const inputToken = document.createElement('input');
+    inputToken.type = 'hidden';
+    inputToken.name = 'token';
+    inputToken.value = token || '';
+    form.appendChild(inputToken);
+    
+    document.body.appendChild(form);
+    form.submit();
+    document.body.removeChild(form);
+    
+    setTimeout(() => {
+      setIsDownloading(false);
+    }, 2000);
+  }, [equipos]);
   
   // Cambiar filtro de estado
   const handleEstadoChange = useCallback((estado: string) => {
@@ -182,6 +253,16 @@ const ClienteDashboard: React.FC = () => {
             Listar Todos
           </Button>
           
+          {/* Botón Búsqueda Masiva */}
+          <Button 
+            variant='outline' 
+            onClick={() => setShowBulkSearch(!showBulkSearch)}
+            className='whitespace-nowrap'
+          >
+            <Bars3Icon className='h-4 w-4 mr-1' />
+            Búsqueda Masiva
+          </Button>
+          
           {/* Filtro por estado */}
           {shouldFetch && (
             <select
@@ -198,6 +279,49 @@ const ClienteDashboard: React.FC = () => {
           )}
         </div>
       </Card>
+      
+      {/* Panel de Búsqueda Masiva */}
+      {showBulkSearch && (
+        <Card className='p-4 mb-6 bg-blue-50 dark:bg-blue-900/20'>
+          <div className='flex items-center justify-between mb-3'>
+            <h3 className='font-semibold text-gray-800 dark:text-gray-200'>
+              Búsqueda Masiva por Lista
+            </h3>
+            <Button variant='ghost' size='sm' onClick={() => setShowBulkSearch(false)}>
+              <XMarkIcon className='h-4 w-4' />
+            </Button>
+          </div>
+          <div className='flex flex-col md:flex-row gap-4'>
+            <div className='flex-1'>
+              <textarea
+                className='w-full h-32 p-3 border rounded-lg focus:ring-2 focus:ring-blue-500 dark:bg-gray-800 dark:border-gray-600 dark:text-gray-100'
+                placeholder={bulkType === 'dni' 
+                  ? 'Pegá una lista de DNIs (uno por línea o separados por comas):\n34288054\n20342880542\n27398456' 
+                  : 'Pegá una lista de patentes (una por línea o separadas por comas):\nAB123CD\nKMN398\nTZI127'}
+                value={bulkInput}
+                onChange={(e) => setBulkInput(e.target.value)}
+              />
+              <p className='text-xs text-gray-500 mt-1'>
+                Máximo 50 valores. Se normalizan automáticamente.
+              </p>
+            </div>
+            <div className='flex flex-col gap-2'>
+              <select
+                className='border rounded-lg px-3 py-2 bg-white dark:bg-gray-800 dark:border-gray-600 dark:text-gray-100'
+                value={bulkType}
+                onChange={(e) => setBulkType(e.target.value as 'dni' | 'patente')}
+              >
+                <option value='dni'>🪪 DNI Chofer</option>
+                <option value='patente'>🚛 Patente</option>
+              </select>
+              <Button onClick={handleBulkSearch} disabled={!bulkInput.trim()}>
+                <MagnifyingGlassIcon className='h-4 w-4 mr-1' />
+                Buscar Lista
+              </Button>
+            </div>
+          </div>
+        </Card>
+      )}
       
       {/* Estado inicial - sin búsqueda */}
       {!shouldFetch && (
@@ -252,10 +376,22 @@ const ClienteDashboard: React.FC = () => {
             </Card>
           ) : (
             <>
-              {/* Información de resultados */}
-              <div className='mb-4 text-sm text-gray-600 dark:text-gray-400'>
-                Mostrando {((page - 1) * limit) + 1} - {Math.min(page * limit, pagination.total)} de {pagination.total} equipos
-                {searchTerm && <span className='ml-2'>(búsqueda: "{searchTerm}")</span>}
+              {/* Información de resultados y botón ZIP */}
+              <div className='mb-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3'>
+                <div className='text-sm text-gray-600 dark:text-gray-400'>
+                  Mostrando {((page - 1) * limit) + 1} - {Math.min(page * limit, pagination.total)} de {pagination.total} equipos
+                  {searchTerm && <span className='ml-2'>(búsqueda: "{searchTerm}")</span>}
+                </div>
+                
+                {/* Botón Descargar ZIP de todos los resultados */}
+                <Button 
+                  onClick={handleDownloadZip}
+                  disabled={isDownloading}
+                  className='bg-blue-600 hover:bg-blue-700 text-white disabled:opacity-50'
+                >
+                  <ArrowDownTrayIcon className='h-5 w-5 mr-2' />
+                  {isDownloading ? 'Descargando...' : `Descargar ZIP (${pagination.total} equipos)`}
+                </Button>
               </div>
               
               {/* Lista */}

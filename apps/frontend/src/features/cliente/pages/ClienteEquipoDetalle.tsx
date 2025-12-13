@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { useGetPortalClienteEquipoDetalleQuery } from '../../documentos/api/documentosApiSlice';
 import { useRoleBasedNavigation } from '../../../hooks/useRoleBasedNavigation';
@@ -15,6 +15,7 @@ import {
   UserIcon,
   BuildingOfficeIcon,
   NoSymbolIcon,
+  EyeIcon,
 } from '@heroicons/react/24/outline';
 
 /**
@@ -35,6 +36,10 @@ const ClienteEquipoDetalle: React.FC = () => {
   const equipo = data?.equipo;
   const documentos = data?.documentos ?? [];
   const hayDocumentosDescargables = data?.hayDocumentosDescargables ?? false;
+  
+  // Estado para preview de documento
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [previewTitle, setPreviewTitle] = useState<string>('');
   
   // Agrupar documentos por entidad
   const documentosPorEntidad = useMemo(() => {
@@ -95,6 +100,42 @@ const ClienteEquipoDetalle: React.FC = () => {
       case 'EMPRESA_TRANSPORTISTA': return 'Empresa Transportista';
       default: return entityType;
     }
+  };
+  
+  // Ver documento (preview) - permite ver incluso vencidos
+  const handlePreview = (docId: number, templateName: string) => {
+    const token = localStorage.getItem('token');
+    const url = `/api/docs/portal-cliente/equipos/${equipoId}/documentos/${docId}/download?preview=true`;
+    
+    fetch(url, {
+      headers: { Authorization: `Bearer ${token}` },
+    })
+      .then(res => {
+        if (!res.ok) {
+          return res.json().then(data => {
+            throw new Error(data.message || 'Error al cargar documento');
+          });
+        }
+        return res.blob();
+      })
+      .then(blob => {
+        const objectUrl = URL.createObjectURL(blob);
+        setPreviewUrl(objectUrl);
+        setPreviewTitle(templateName);
+      })
+      .catch(err => {
+        console.error('Error cargando preview:', err);
+        alert(err.message || 'Error al cargar el documento');
+      });
+  };
+  
+  // Cerrar preview
+  const handleClosePreview = () => {
+    if (previewUrl) {
+      URL.revokeObjectURL(previewUrl);
+    }
+    setPreviewUrl(null);
+    setPreviewTitle('');
   };
   
   // Descargar documento individual
@@ -313,10 +354,20 @@ const ClienteEquipoDetalle: React.FC = () => {
                           </div>
                         </div>
                         
-                        <div className='flex items-center gap-3'>
+                        <div className='flex items-center gap-2'>
                           <span className={`text-sm font-medium ${estilo.text}`}>
                             {estilo.label}
                           </span>
+                          {/* Botón ver (siempre disponible) */}
+                          <Button 
+                            variant='outline' 
+                            size='sm'
+                            onClick={() => handlePreview(doc.id, doc.templateName)}
+                            title='Ver documento'
+                          >
+                            <EyeIcon className='h-4 w-4' />
+                          </Button>
+                          {/* Botón descargar (solo si no está vencido) */}
                           {esDescargable ? (
                             <Button 
                               variant='outline' 
@@ -352,6 +403,30 @@ const ClienteEquipoDetalle: React.FC = () => {
       <div className='mt-8 text-center text-sm text-gray-500'>
         <p>Asignado desde: {equipo.asignadoDesde ? new Date(equipo.asignadoDesde).toLocaleDateString('es-AR') : '-'}</p>
       </div>
+      
+      {/* Modal de Preview */}
+      {previewUrl && (
+        <div className='fixed inset-0 z-50 flex items-center justify-center bg-black/60' onClick={handleClosePreview}>
+          <div 
+            className='bg-white dark:bg-gray-800 rounded-lg shadow-xl w-[90vw] h-[90vh] max-w-5xl flex flex-col'
+            onClick={e => e.stopPropagation()}
+          >
+            <div className='flex items-center justify-between p-4 border-b'>
+              <h3 className='text-lg font-semibold'>{previewTitle}</h3>
+              <Button variant='outline' size='sm' onClick={handleClosePreview}>
+                <XCircleIcon className='h-5 w-5' />
+              </Button>
+            </div>
+            <div className='flex-1 p-2'>
+              <iframe 
+                src={previewUrl} 
+                className='w-full h-full rounded border'
+                title={previewTitle}
+              />
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
