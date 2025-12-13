@@ -463,9 +463,9 @@ const EditarEquipoPage: React.FC = () => {
           {/* Chofer */}
           <div className='space-y-2'>
             <Label>Chofer</Label>
-            <div className='flex gap-2'>
+            <div className='flex gap-2 items-center'>
               <select
-                className='flex-1 border rounded px-3 py-2 bg-background'
+                className='flex-1 min-w-0 border rounded px-3 py-2 bg-background truncate'
                 value={selectedChoferId}
                 onChange={(e) => setSelectedChoferId(e.target.value ? Number(e.target.value) : '')}
               >
@@ -477,6 +477,7 @@ const EditarEquipoPage: React.FC = () => {
                 ))}
               </select>
               <Button
+                className='flex-shrink-0'
                 onClick={handleChangeChofer}
                 disabled={!selectedChoferId || selectedChoferId === equipo.driverId || attaching}
                 size='sm'
@@ -489,9 +490,9 @@ const EditarEquipoPage: React.FC = () => {
           {/* Camión */}
           <div className='space-y-2'>
             <Label>Camión</Label>
-            <div className='flex gap-2'>
+            <div className='flex gap-2 items-center'>
               <select
-                className='flex-1 border rounded px-3 py-2 bg-background'
+                className='flex-1 min-w-0 border rounded px-3 py-2 bg-background truncate'
                 value={selectedCamionId}
                 onChange={(e) => setSelectedCamionId(e.target.value ? Number(e.target.value) : '')}
               >
@@ -501,6 +502,7 @@ const EditarEquipoPage: React.FC = () => {
                 ))}
               </select>
               <Button
+                className='flex-shrink-0'
                 onClick={handleChangeCamion}
                 disabled={!selectedCamionId || selectedCamionId === equipo.truckId || attaching}
                 size='sm'
@@ -513,9 +515,9 @@ const EditarEquipoPage: React.FC = () => {
           {/* Acoplado */}
           <div className='space-y-2'>
             <Label>Acoplado (opcional)</Label>
-            <div className='flex gap-2'>
+            <div className='flex gap-2 items-center'>
               <select
-                className='flex-1 border rounded px-3 py-2 bg-background'
+                className='flex-1 min-w-0 border rounded px-3 py-2 bg-background truncate'
                 value={selectedAcopladoId}
                 onChange={(e) => setSelectedAcopladoId(e.target.value ? Number(e.target.value) : '')}
               >
@@ -525,6 +527,7 @@ const EditarEquipoPage: React.FC = () => {
                 ))}
               </select>
               <Button
+                className='flex-shrink-0'
                 onClick={handleChangeAcoplado}
                 disabled={selectedAcopladoId === equipo.trailerId || attaching}
                 size='sm'
@@ -537,9 +540,9 @@ const EditarEquipoPage: React.FC = () => {
           {/* Empresa Transportista */}
           <div className='space-y-2'>
             <Label>Empresa Transportista</Label>
-            <div className='flex gap-2'>
+            <div className='flex gap-2 items-center'>
               <select
-                className='flex-1 border rounded px-3 py-2 bg-background'
+                className='flex-1 min-w-0 border rounded px-3 py-2 bg-background truncate'
                 value={selectedEmpresaId}
                 onChange={(e) => setSelectedEmpresaId(e.target.value ? Number(e.target.value) : '')}
               >
@@ -551,6 +554,7 @@ const EditarEquipoPage: React.FC = () => {
                 ))}
               </select>
               <Button
+                className='flex-shrink-0'
                 onClick={handleChangeEmpresa}
                 disabled={selectedEmpresaId === equipo.empresaTransportistaId}
                 size='sm'

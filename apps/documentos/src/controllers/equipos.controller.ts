@@ -5,7 +5,9 @@ import { AuditService } from '../services/audit.service';
 
 export class EquiposController {
   static async list(req: AuthRequest, res: Response) {
-    const dadorCargaId = Number(req.query.dadorCargaId);
+    // dadorCargaId es opcional para admins (SUPERADMIN, ADMIN_INTERNO)
+    const rawDadorId = req.query.dadorCargaId;
+    const dadorCargaId = rawDadorId ? Number(rawDadorId) : undefined;
     // Paginación opcional (con defaults definidos en schema)
     const page = (req.query as any).page ? parseInt(String((req.query as any).page), 10) : 1;
     const limit = (req.query as any).limit ? parseInt(String((req.query as any).limit), 10) : 20;

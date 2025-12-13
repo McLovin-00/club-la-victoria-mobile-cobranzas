@@ -48,10 +48,10 @@ export const MaestrosService = {
     return chofer;
   },
 
-  async listChoferes(tenantEmpresaId: number, dadorCargaId: number, q?: string, activo?: boolean, page = 1, limit = 10) {
+  async listChoferes(tenantEmpresaId: number, dadorCargaId: number | undefined, q?: string, activo?: boolean, page = 1, limit = 10) {
     const where: any = {
       tenantEmpresaId,
-      dadorCargaId,
+      ...(dadorCargaId !== undefined && { dadorCargaId }),
       activo: activo === undefined ? undefined : activo,
       OR: q
         ? [
@@ -143,10 +143,10 @@ export const MaestrosService = {
   },
 
   // CAMIONES
-  async listCamiones(tenantEmpresaId: number, dadorCargaId: number, q?: string, activo?: boolean, page = 1, limit = 10) {
+  async listCamiones(tenantEmpresaId: number, dadorCargaId: number | undefined, q?: string, activo?: boolean, page = 1, limit = 10) {
     const where: any = {
       tenantEmpresaId,
-      dadorCargaId,
+      ...(dadorCargaId !== undefined && { dadorCargaId }),
       activo: activo === undefined ? undefined : activo,
       OR: q ? [{ patente: { contains: q } }, { marca: { contains: q, mode: 'insensitive' } }] : undefined,
     };
@@ -223,10 +223,10 @@ export const MaestrosService = {
   },
 
   // ACOPLADOS
-  async listAcoplados(tenantEmpresaId: number, dadorCargaId: number, q?: string, activo?: boolean, page = 1, limit = 10) {
+  async listAcoplados(tenantEmpresaId: number, dadorCargaId: number | undefined, q?: string, activo?: boolean, page = 1, limit = 10) {
     const where: any = {
       tenantEmpresaId,
-      dadorCargaId,
+      ...(dadorCargaId !== undefined && { dadorCargaId }),
       activo: activo === undefined ? undefined : activo,
       OR: q ? [{ patente: { contains: q } }, { tipo: { contains: q, mode: 'insensitive' } }] : undefined,
     };

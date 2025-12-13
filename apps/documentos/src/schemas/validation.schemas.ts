@@ -352,7 +352,7 @@ export const updateChoferSchema = z.object({
 
 export const choferListQuerySchema = z.object({
   query: z.object({
-    dadorCargaId: z.string().transform((v) => Number(v)),
+    dadorCargaId: z.string().transform((v) => Number(v)).optional(),
     q: z.string().optional(),
     activo: z.string().optional(),
     page: z.string().transform((v) => parseInt(v, 10)).default('1').optional(),
@@ -387,7 +387,7 @@ export const updateCamionSchema = z.object({
 
 export const camionListQuerySchema = z.object({
   query: z.object({
-    dadorCargaId: z.string().transform((v) => Number(v)),
+    dadorCargaId: z.string().transform((v) => Number(v)).optional(),
     q: z.string().optional(),
     activo: z.string().optional(),
     page: z.string().transform((v) => parseInt(v, 10)).default('1').optional(),
@@ -420,7 +420,7 @@ export const updateAcopladoSchema = z.object({
 
 export const acopladoListQuerySchema = z.object({
   query: z.object({
-    dadorCargaId: z.string().transform((v) => Number(v)),
+    dadorCargaId: z.string().transform((v) => Number(v)).optional(),
     q: z.string().optional(),
     activo: z.string().optional(),
     page: z.string().transform((v) => parseInt(v, 10)).default('1').optional(),
@@ -483,11 +483,9 @@ export const equipoListQuerySchema = z.object({
     empresaId: z.string().optional(),
     page: z.string().transform((v) => parseInt(v, 10)).default('1').optional(),
     limit: z.string().transform((v) => Math.min(parseInt(v, 10), 100)).default('20').optional(),
-  }).refine((q) => q.dadorCargaId || q.empresaId, {
-    message: 'dadorCargaId requerido',
-    path: ['dadorCargaId'],
   }).transform((q) => ({
-    dadorCargaId: Number((q as any).dadorCargaId || (q as any).empresaId),
+    // dadorCargaId es opcional para admins - si no viene, será undefined y el servicio traerá todos
+    dadorCargaId: (q as any).dadorCargaId || (q as any).empresaId ? Number((q as any).dadorCargaId || (q as any).empresaId) : undefined,
     page: (q as any).page ? parseInt((q as any).page, 10) : 1,
     limit: (q as any).limit ? Math.min(parseInt((q as any).limit, 10), 100) : 20,
   })),
@@ -618,7 +616,7 @@ export const updateEmpresaTransportistaSchema = z.object({
 
 export const empresaTransportistaListQuerySchema = z.object({
   query: z.object({
-    dadorCargaId: z.union([z.string(), z.number()]).transform((v) => Number(v)).refine((v) => v > 0),
+    dadorCargaId: z.union([z.string(), z.number()]).transform((v) => Number(v)).optional(),
     activo: z.string().transform((v) => v === 'true').optional(),
     q: z.string().optional(),
     page: z.string().transform((v) => parseInt(v, 10)).default('1').optional(),

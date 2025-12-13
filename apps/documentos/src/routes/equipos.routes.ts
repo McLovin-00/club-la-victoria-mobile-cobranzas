@@ -234,7 +234,8 @@ async function getArchiver() {
 
 const bulkZipSchema = z.object({ body: z.object({ equipoIds: z.array(z.number().int().positive()).min(1).max(500) }) });
 router.post('/download/vigentes', authorize(['ADMIN' as any, 'SUPERADMIN' as any, 'ADMIN_INTERNO' as any, 'DADOR_DE_CARGA' as any]), validate(bulkZipSchema), async (req: any, res) => {
-  const equipoIds: number[] = req.body.equipoIds || [];
+  // Ordenar equipos por ID ascendente
+  const equipoIds: number[] = [...(req.body.equipoIds || [])].sort((a, b) => a - b);
   const now = new Date();
   res.setHeader('Content-Type', 'application/zip');
   const stamp = new Date().toISOString().replace(/[-:T]/g, '').slice(0, 12);
@@ -288,11 +289,15 @@ router.post('/download/vigentes', authorize(['ADMIN' as any, 'SUPERADMIN' as any
             { OR: [{ expiresAt: null }, { expiresAt: { gt: now } }] },
           ],
         } as any,
-        select: { id: true, filePath: true, entityType: true, entityId: true, template: { select: { name: true } } },
+        select: { id: true, filePath: true, entityType: true, entityId: true, fileName: true, template: { select: { name: true } } },
         orderBy: { uploadedAt: 'desc' },
       });
 
-      for (const d of docs) {
+      // Ordenar documentos por tipo de entidad (1:EMPRESA, 2:CHOFER, 3:CAMION, 4:ACOPLADO)
+      const entityOrder: Record<string, number> = { 'EMPRESA_TRANSPORTISTA': 1, 'CHOFER': 2, 'CAMION': 3, 'ACOPLADO': 4 };
+      const sortedDocs = [...docs].sort((a, b) => (entityOrder[a.entityType] || 99) - (entityOrder[b.entityType] || 99));
+
+      for (const d of sortedDocs) {
         let bucketName: string;
         let objectPath: string;
         if (typeof d.filePath === 'string' && d.filePath.includes('/')) {
@@ -308,7 +313,8 @@ router.post('/download/vigentes', authorize(['ADMIN' as any, 'SUPERADMIN' as any
         // Determinar subcarpeta según entityType
         const subfolder = subfolders[d.entityType] || 'otros';
         const safeTpl = String(d.template?.name || 'documento').replace(/[^a-z0-9_-]/gi,'_');
-        const name = `${mainFolder}/${subfolder}/${safeTpl}_${d.id}.pdf`;
+        const ext = (d.fileName || '').split('.').pop() || 'pdf';
+        const name = `${mainFolder}/${subfolder}/${safeTpl}.${ext}`;
         archive.append(stream as any, { name });
       }
     }

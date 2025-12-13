@@ -12,11 +12,16 @@ function normalizePlate(plate: string): string {
 }
 
 export class EquipoService {
-  static async list(tenantEmpresaId: number, dadorCargaId: number, page: number = 1, limit: number = 20) {
+  static async list(tenantEmpresaId: number, dadorCargaId: number | undefined, page: number = 1, limit: number = 20) {
     const take = Math.min(Math.max(limit, 1), 100);
     const skip = Math.max((page - 1) * take, 0);
+    // Si dadorCargaId es undefined (admin sin filtro), traer todos los equipos del tenant
+    const where: any = { tenantEmpresaId };
+    if (dadorCargaId !== undefined) {
+      where.dadorCargaId = dadorCargaId;
+    }
     return prisma.equipo.findMany({
-      where: { tenantEmpresaId, dadorCargaId },
+      where,
       orderBy: { validFrom: 'desc' },
       include: { clientes: true, dador: true },
       take,

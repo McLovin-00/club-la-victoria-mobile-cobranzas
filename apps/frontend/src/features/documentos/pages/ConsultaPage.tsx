@@ -50,11 +50,16 @@ export const ConsultaPage: React.FC = () => {
   const [selectedDadorId, setSelectedDadorId] = useState<number | undefined>(dadorIdForSearch);
   const [selectedClienteId, setSelectedClienteId] = useState<number | undefined>();
   const [selectedEmpresaTranspId, setSelectedEmpresaTranspId] = useState<number | undefined>();
+  const [empresaSearchText, setEmpresaSearchText] = useState('');
   
-  // Obtener empresas transportistas del dador seleccionado
+  // Obtener empresas transportistas - para admins sin filtro, para dadores con su ID
   const { data: empresasTransp = [] } = useGetEmpresasTransportistasQuery(
-    { dadorCargaId: selectedDadorId || dadorIdForSearch || 1 },
-    { skip: !selectedDadorId && !dadorIdForSearch }
+    { 
+      dadorCargaId: selectedDadorId || dadorIdForSearch || undefined,
+      q: empresaSearchText || undefined,
+      limit: 100 // Traer hasta 100 empresas que coincidan
+    },
+    { skip: false }
   );
   
   const [dni, setDni] = useState('');
@@ -329,14 +334,20 @@ export const ConsultaPage: React.FC = () => {
               </div>
             )}
             {filterType === 'empresa' && (
-              <div>
+              <div className='space-y-2'>
                 <Label className='text-sm mb-1 block'>Empresa Transportista</Label>
+                <Input
+                  placeholder='Buscar por nombre o CUIT...'
+                  value={empresaSearchText}
+                  onChange={(e) => setEmpresaSearchText(e.target.value)}
+                  className='mb-2'
+                />
                 <select
                   className='w-full border rounded px-3 py-2 text-sm'
                   value={selectedEmpresaTranspId || ''}
                   onChange={(e) => setSelectedEmpresaTranspId(e.target.value ? Number(e.target.value) : undefined)}
                 >
-                  <option value=''>Seleccione una empresa transportista</option>
+                  <option value=''>Seleccione una empresa transportista ({(empresasTransp as any[]).length} encontradas)</option>
                   {(empresasTransp as any[]).map((et: any) => (
                     <option key={et.id} value={et.id}>
                       {et.razonSocial || `Empresa #${et.id}`} - {et.cuit}
@@ -509,40 +520,17 @@ export const ConsultaPage: React.FC = () => {
                   onClick={async ()=>{
                     try {
                       setIsDownloadingSingle(eq.id);
-                      const complianceResp = await getCompliance({ id: eq.id }).unwrap();
-                      const docsByEntity: Record<string, any[]> = (complianceResp?.documents || {}) as Record<string, any[]>;
-                      const approvedDocs: Array<number> = [];
-                      Object.values(docsByEntity).forEach((arr: any[]) => {
-                        arr.forEach((d: any) => { if (String(d.status).toUpperCase() === 'APROBADO') approvedDocs.push(d.id); });
-                      });
-                      if (approvedDocs.length === 0) { show('No hay documentación vigente para descargar'); setIsDownloadingSingle(null); return; }
-                      const { default: JSZip } = await import('jszip');
-                      const zip = new JSZip();
-                      const parseFileName = (cd: string | null): string | null => {
-                        if (!cd) return null;
-                        const star = cd.match(/filename\*=(?:UTF-8''|)([^;]+)/i);
-                        if (star && star[1]) { try { return decodeURIComponent(star[1].replace(/\"/g, '').trim()); } catch (e) { /* noop */ } }
-                        const normal = cd.match(/filename="?([^";]+)"?/i);
-                        if (normal && normal[1]) return normal[1].trim();
-                        return null;
-                      };
-                      for (const docId of approvedDocs) {
-                        try {
-                          const downloadUrl = `${import.meta.env.VITE_DOCUMENTOS_API_URL}/api/docs/documents/${docId}/download`;
-                          const resp = await fetch(downloadUrl, { headers: { 'Authorization': `Bearer ${authToken}` } });
-                          if (!resp.ok) continue;
-                          const blob = await resp.blob();
-                          const cd = resp.headers.get('Content-Disposition');
-                          const originalName = parseFileName(cd) || `doc_${docId}.pdf`;
-                          zip.file(originalName, blob);
-                        } catch (e) { /* noop */ }
-                      }
-                      const content = await zip.generateAsync({ type: 'blob' });
-                      const url = window.URL.createObjectURL(content);
+                      const baseUrl = import.meta.env.VITE_DOCUMENTOS_API_URL || '';
+                      const zipUrl = `${baseUrl}/api/docs/clients/equipos/${eq.id}/zip`;
+                      const resp = await fetch(zipUrl, { headers: { 'Authorization': `Bearer ${authToken}` } });
+                      if (!resp.ok) { show('Error al descargar documentación'); return; }
+                      const blob = await resp.blob();
+                      const url = window.URL.createObjectURL(blob);
                       const a = document.createElement('a');
                       a.href = url;
-                      const dni = (eq as any).driverDniNorm || 'sin_dni';
-                      a.download = `equipo_${eq.id}_DNI_${dni}.zip`;
+                      const cd = resp.headers.get('Content-Disposition');
+                      const match = cd?.match(/filename=([^;]+)/);
+                      a.download = match?.[1]?.replace(/"/g, '') || `equipo_${eq.id}.zip`;
                       document.body.appendChild(a);
                       a.click();
                       a.remove();

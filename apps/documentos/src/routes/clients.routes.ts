@@ -220,6 +220,10 @@ router.get('/equipos/:equipoId/zip', validate(listDocsEquipoSchema), async (req,
     orderBy: { uploadedAt: 'desc' },
   });
 
+  // Ordenar documentos por tipo de entidad (1:EMPRESA, 2:CHOFER, 3:CAMION, 4:ACOPLADO)
+  const entityOrder: Record<string, number> = { 'EMPRESA_TRANSPORTISTA': 1, 'CHOFER': 2, 'CAMION': 3, 'ACOPLADO': 4 };
+  const sortedDocs = [...docs].sort((a, b) => (entityOrder[a.entityType] || 99) - (entityOrder[b.entityType] || 99));
+
   // Nombre del ZIP con DNI y patente del tractor
   const zipFileName = `equipo_${equipo.id}_DNI_${choferDni}_${camionPatente}.zip`;
   res.setHeader('Content-Type', 'application/zip');
@@ -231,7 +235,7 @@ router.get('/equipos/:equipoId/zip', validate(listDocsEquipoSchema), async (req,
 
   // Stream desde MinIO con estructura de carpetas ordenada
   const { minioService } = await import('../services/minio.service');
-  for (const d of docs) {
+  for (const d of sortedDocs) {
     let bucketName: string;
     let objectPath: string;
     if (typeof d.filePath === 'string' && d.filePath.includes('/')) {
