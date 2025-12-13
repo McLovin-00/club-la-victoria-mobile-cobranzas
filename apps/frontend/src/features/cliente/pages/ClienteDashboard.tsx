@@ -103,14 +103,14 @@ const ClienteDashboard: React.FC = () => {
   const [isDownloading, setIsDownloading] = useState(false);
   
   // Descargar ZIP usando ventana nueva (evita problemas de memoria con archivos grandes)
+  // Envía el searchTerm para que el backend busque TODOS los equipos, no solo los paginados
   const handleDownloadZip = useCallback(() => {
-    if (equipos.length === 0) return;
+    if (pagination.total === 0) return;
     
-    const equipoIds = equipos.map(e => e.id).slice(0, 200);
     const token = localStorage.getItem('token');
     
     setIsDownloading(true);
-    showToast('Abriendo descarga en nueva ventana...');
+    showToast(`Generando ZIP de ${pagination.total} equipos...`);
     
     // Crear un formulario oculto que envíe los datos por POST
     const form = document.createElement('form');
@@ -118,12 +118,19 @@ const ClienteDashboard: React.FC = () => {
     form.action = `${import.meta.env.VITE_DOCUMENTOS_API_URL}/api/docs/portal-cliente/equipos/bulk-download-form`;
     form.target = '_blank';
     
-    // Campo para los IDs
-    const inputIds = document.createElement('input');
-    inputIds.type = 'hidden';
-    inputIds.name = 'equipoIds';
-    inputIds.value = equipoIds.join(',');
-    form.appendChild(inputIds);
+    // Campo para el searchTerm (el backend buscará todos los que coincidan)
+    const inputSearch = document.createElement('input');
+    inputSearch.type = 'hidden';
+    inputSearch.name = 'searchTerm';
+    inputSearch.value = searchTerm || '';
+    form.appendChild(inputSearch);
+    
+    // Campo para el filtro de estado
+    const inputEstado = document.createElement('input');
+    inputEstado.type = 'hidden';
+    inputEstado.name = 'estado';
+    inputEstado.value = filtroEstado === 'TODOS' ? '' : filtroEstado;
+    form.appendChild(inputEstado);
     
     // Campo para el token
     const inputToken = document.createElement('input');
@@ -138,8 +145,8 @@ const ClienteDashboard: React.FC = () => {
     
     setTimeout(() => {
       setIsDownloading(false);
-    }, 2000);
-  }, [equipos]);
+    }, 3000);
+  }, [pagination.total, searchTerm, filtroEstado]);
   
   // Cambiar filtro de estado
   const handleEstadoChange = useCallback((estado: string) => {
