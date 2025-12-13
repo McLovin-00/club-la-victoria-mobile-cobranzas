@@ -12,13 +12,23 @@ function normalizePlate(plate: string): string {
 }
 
 export class EquipoService {
-  static async list(tenantEmpresaId: number, dadorCargaId: number | undefined, page: number = 1, limit: number = 20) {
+  static async list(
+    tenantEmpresaId: number,
+    dadorCargaId: number | undefined,
+    page: number = 1,
+    limit: number = 20,
+    opts?: { choferId?: number }
+  ) {
     const take = Math.min(Math.max(limit, 1), 100);
     const skip = Math.max((page - 1) * take, 0);
     // Si dadorCargaId es undefined (admin sin filtro), traer todos los equipos del tenant
     const where: any = { tenantEmpresaId };
     if (dadorCargaId !== undefined) {
       where.dadorCargaId = dadorCargaId;
+    }
+    // Si viene choferId (rol CHOFER), limitar a su propio equipo
+    if (opts?.choferId) {
+      where.driverId = opts.choferId;
     }
     return prisma.equipo.findMany({
       where,
@@ -43,6 +53,7 @@ export class EquipoService {
       dni?: string;
       truckPlate?: string;
       trailerPlate?: string;
+      choferId?: number;
     },
     page: number = 1,
     limit: number = 10
@@ -58,6 +69,9 @@ export class EquipoService {
     }
     if (filters.empresaTransportistaId) {
       where.empresaTransportistaId = filters.empresaTransportistaId;
+    }
+    if (filters.choferId) {
+      where.driverId = filters.choferId;
     }
     
     // Filtros de búsqueda por texto

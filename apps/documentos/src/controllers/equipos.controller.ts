@@ -11,7 +11,9 @@ export class EquiposController {
     // Paginación opcional (con defaults definidos en schema)
     const page = (req.query as any).page ? parseInt(String((req.query as any).page), 10) : 1;
     const limit = (req.query as any).limit ? parseInt(String((req.query as any).limit), 10) : 20;
-    const data = await EquipoService.list(req.tenantId!, dadorCargaId, page, limit);
+    // Si es CHOFER, solo puede ver su propio equipo
+    const choferId = req.user?.role === ('CHOFER' as any) ? (req.user?.choferId ?? undefined) : undefined;
+    const data = await EquipoService.list(req.tenantId!, dadorCargaId, page, limit, { choferId: choferId ?? undefined });
     res.json({ success: true, data });
   }
 
@@ -31,6 +33,8 @@ export class EquiposController {
       dni: query.dni || undefined,
       truckPlate: query.truckPlate || undefined,
       trailerPlate: query.trailerPlate || undefined,
+      // Si es CHOFER, forzar filtro a su propio equipo
+      choferId: req.user?.role === ('CHOFER' as any) ? (req.user?.choferId ?? undefined) : undefined,
     };
     
     const page = query.page ? parseInt(query.page, 10) : 1;
