@@ -253,6 +253,24 @@ const ClienteDashboard: React.FC = () => {
             Listar Todos
           </Button>
           
+          {/* Botón Limpiar Búsqueda */}
+          {(searchTerm || shouldFetch) && (
+            <Button 
+              variant='outline' 
+              onClick={() => {
+                setSearchTerm('');
+                setSearchInput('');
+                setBulkInput('');
+                setShouldFetch(false);
+                setShowBulkSearch(false);
+              }}
+              className='whitespace-nowrap text-red-600 border-red-300 hover:bg-red-50'
+            >
+              <XMarkIcon className='h-4 w-4 mr-1' />
+              Limpiar
+            </Button>
+          )}
+          
           {/* Botón Búsqueda Masiva */}
           <Button 
             variant='outline' 
@@ -295,26 +313,20 @@ const ClienteDashboard: React.FC = () => {
             <div className='flex-1'>
               <textarea
                 className='w-full h-32 p-3 border rounded-lg focus:ring-2 focus:ring-blue-500 dark:bg-gray-800 dark:border-gray-600 dark:text-gray-100'
-                placeholder={bulkType === 'dni' 
-                  ? 'Pegá una lista de DNIs (uno por línea o separados por comas):\n34288054\n20342880542\n27398456' 
-                  : 'Pegá una lista de patentes (una por línea o separadas por comas):\nAB123CD\nKMN398\nTZI127'}
+                placeholder='Pegá una lista de DNIs o patentes (uno por línea o separados por comas):
+34288054
+AB123CD
+TZI127
+20342880542'
                 value={bulkInput}
                 onChange={(e) => setBulkInput(e.target.value)}
               />
               <p className='text-xs text-gray-500 mt-1'>
-                Máximo 50 valores. Se normalizan automáticamente.
+                Máximo 50 valores. Podés mezclar DNIs y patentes.
               </p>
             </div>
-            <div className='flex flex-col gap-2'>
-              <select
-                className='border rounded-lg px-3 py-2 bg-white dark:bg-gray-800 dark:border-gray-600 dark:text-gray-100'
-                value={bulkType}
-                onChange={(e) => setBulkType(e.target.value as 'dni' | 'patente')}
-              >
-                <option value='dni'>🪪 DNI Chofer</option>
-                <option value='patente'>🚛 Patente</option>
-              </select>
-              <Button onClick={handleBulkSearch} disabled={!bulkInput.trim()}>
+            <div className='flex flex-col gap-2 justify-end'>
+              <Button onClick={handleBulkSearch} disabled={!bulkInput.trim()} size='lg'>
                 <MagnifyingGlassIcon className='h-4 w-4 mr-1' />
                 Buscar Lista
               </Button>
@@ -380,7 +392,6 @@ const ClienteDashboard: React.FC = () => {
               <div className='mb-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3'>
                 <div className='text-sm text-gray-600 dark:text-gray-400'>
                   Mostrando {((page - 1) * limit) + 1} - {Math.min(page * limit, pagination.total)} de {pagination.total} equipos
-                  {searchTerm && <span className='ml-2'>(búsqueda: "{searchTerm}")</span>}
                 </div>
                 
                 {/* Botón Descargar ZIP de todos los resultados */}
