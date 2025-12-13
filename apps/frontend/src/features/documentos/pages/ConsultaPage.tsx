@@ -9,8 +9,7 @@ import { Input } from '../../../components/ui/input';
 import { Label } from '../../../components/ui/label';
 import { ConfirmContext } from '../../../contexts/confirmContext';
 import { useGetDadoresQuery, useGetTemplatesQuery, useGetClientsQuery, useLazySearchEquiposQuery, useGetDefaultsQuery, useLazyGetEquipoComplianceQuery, useDeleteEquipoMutation, useGetEquipoComplianceQuery, useSearchEquiposByDnisMutation, useDownloadVigentesBulkMutation, useGetEmpresasTransportistasQuery, useSearchEquiposPagedQuery } from '../api/documentosApiSlice';
-import { ArrowLeftIcon, ChevronLeftIcon, ChevronRightIcon, ArrowDownTrayIcon } from '@heroicons/react/24/outline';
-import { showToast } from '../../../components/ui/Toast.utils';
+import { ArrowLeftIcon, ChevronLeftIcon, ChevronRightIcon } from '@heroicons/react/24/outline';
 
 type FilterType = 'todos' | 'dador' | 'cliente' | 'empresa';
 
@@ -104,8 +103,7 @@ export const ConsultaPage: React.FC = () => {
   const [csvResults, setCsvResults] = useState<Array<any>>([]);
   const [csvInfo, setCsvInfo] = useState<{ name?: string; count?: number }>({});
   
-  // Estado para descarga ZIP
-  const [isDownloadingZip, setIsDownloadingZip] = useState(false);
+  
 
   // Persistir búsqueda en URL cuando cambian los parámetros
   useEffect(() => {
@@ -234,10 +232,60 @@ export const ConsultaPage: React.FC = () => {
 
   const downloadAllVigentes = async () => {
     try {
-      if (!Array.isArray(displayResults) || displayResults.length === 0) { show('No hay equipos para descargar'); return; }
-      const ids = displayResults.map((it: any) => (it?.equipo?.id ?? it?.id)).filter((v: any) => typeof v === 'number');
-      if (!ids.length) { show('Sin IDs válidos de equipos'); return; }
-      
+      setIsDownloading(true);
+
+      // Si viene de búsqueda masiva (csvResults), ya tenemos el listado completo
+      let ids: number[] = [];
+      if (csvResults.length > 0) {
+        ids = csvResults.map((it: any) => (it?.equipo?.id ?? it?.id)).filter((v: any) => typeof v === 'number');
+      } else {
+        if (!hasSearched) {
+          show('Debe realizar una búsqueda antes de descargar');
+          return;
+        }
+
+        // Descargar TODOS los equipos que coinciden con los filtros actuales usando paginación del servidor
+        const baseUrl = import.meta.env.VITE_DOCUMENTOS_API_URL || '';
+        const take = 100; // máximo razonable por request
+        let currentPage = 1;
+        const allIds: number[] = [];
+
+        // Seguridad: evitar loops infinitos
+        const maxPages = 200;
+
+        while (currentPage <= maxPages) {
+          const sp = new URLSearchParams();
+          sp.set('page', String(currentPage));
+          sp.set('limit', String(take));
+          if (params.empresaId) sp.set('dadorCargaId', String(params.empresaId));
+          if (params.clienteId) sp.set('clienteId', String(params.clienteId));
+          if (params.empresaTransportistaId) sp.set('empresaTransportistaId', String(params.empresaTransportistaId));
+          if (params.dni) sp.set('dni', String(params.dni));
+          if (params.truckPlate) sp.set('truckPlate', String(params.truckPlate));
+          if (params.trailerPlate) sp.set('trailerPlate', String(params.trailerPlate));
+
+          const resp = await fetch(`${baseUrl}/api/docs/equipos/search-paged?${sp.toString()}`, {
+            headers: { Authorization: `Bearer ${authToken}` },
+          });
+          if (!resp.ok) {
+            throw new Error(`search-paged failed (${resp.status})`);
+          }
+          const json = await resp.json();
+          const pageIds = (json?.data || []).map((e: any) => e?.id).filter((v: any) => typeof v === 'number');
+          allIds.push(...pageIds);
+
+          if (!json?.pagination?.hasNext) break;
+          currentPage += 1;
+        }
+
+        ids = Array.from(new Set(allIds));
+      }
+
+      if (!ids.length) {
+        show('No hay equipos para descargar');
+        return;
+      }
+
       setIsDownloading(true);
       const blob = await downloadBulk({ equipoIds: ids }).unwrap();
       const url = URL.createObjectURL(blob as any);
@@ -409,6 +457,7 @@ export const ConsultaPage: React.FC = () => {
                   p.empresaTransportistaId = selectedEmpresaTranspId;
                 }
                 setCsvResults([]);
+                setPage(1);
                 setHasSearched(true);
                 setParams(p);
               }}
@@ -493,8 +542,8 @@ export const ConsultaPage: React.FC = () => {
       )}
       {isError && <div className='text-sm text-red-600'>Error al buscar{(error as any)?.status ? ` (${(error as any).status})` : ''}. Revise los filtros seleccionados.</div>}
       
-      {/* Barra de paginación y descarga ZIP */}
-      {hasSearched && !isFetching && displayResults.length > 0 && (
+      {/* Barra de paginación (solo para resultados del servidor, no para búsqueda masiva) */}
+      {hasSearched && !isFetching && csvResults.length === 0 && displayResults.length > 0 && (
         <div className='flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4 p-3 bg-gray-50 dark:bg-slate-800 rounded-lg'>
           <div className='text-sm text-gray-600 dark:text-gray-400'>
             Mostrando {((pagination.page - 1) * pagination.limit) + 1} - {Math.min(pagination.page * pagination.limit, pagination.total)} de {pagination.total} equipos
@@ -523,64 +572,6 @@ export const ConsultaPage: React.FC = () => {
                 <ChevronRightIcon className='h-4 w-4' />
               </Button>
             </div>
-            
-            {/* Botón Descargar ZIP de todos los resultados */}
-            <Button 
-              onClick={async () => {
-                if (pagination.total === 0) return;
-                setIsDownloadingZip(true);
-                showToast(`Generando ZIP de ${pagination.total} equipos...`);
-                try {
-                  const token = localStorage.getItem('token') || authToken;
-                  // Construir searchTerm para el backend
-                  const searchParts: string[] = [];
-                  if (params.dni) searchParts.push(params.dni.toUpperCase());
-                  if (params.truckPlate) searchParts.push(params.truckPlate.toUpperCase());
-                  if (params.trailerPlate) searchParts.push(params.trailerPlate.toUpperCase());
-                  const searchTerm = searchParts.join('|');
-                  
-                  const response = await fetch(
-                    `${import.meta.env.VITE_DOCUMENTOS_API_URL}/api/docs/equipos/download/vigentes`,
-                    {
-                      method: 'POST',
-                      headers: { 
-                        'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${token}`
-                      },
-                      body: JSON.stringify({
-                        dadorCargaId: params.empresaId,
-                        clienteId: params.clienteId,
-                        empresaTransportistaId: params.empresaTransportistaId,
-                        searchTerm,
-                        limit: 500 // Máximo para descarga
-                      }),
-                    }
-                  );
-                  
-                  if (!response.ok) throw new Error('Error al generar ZIP');
-                  
-                  const blob = await response.blob();
-                  const url = URL.createObjectURL(blob);
-                  const a = document.createElement('a');
-                  a.href = url;
-                  a.download = `documentos_${pagination.total}_equipos.zip`;
-                  document.body.appendChild(a);
-                  a.click();
-                  document.body.removeChild(a);
-                  URL.revokeObjectURL(url);
-                  showToast('✅ Descarga completada');
-                } catch (err) {
-                  showToast('Error al descargar ZIP');
-                } finally {
-                  setIsDownloadingZip(false);
-                }
-              }}
-              disabled={isDownloadingZip}
-              className='bg-blue-600 hover:bg-blue-700 text-white disabled:opacity-50'
-            >
-              <ArrowDownTrayIcon className='h-4 w-4 mr-2' />
-              {isDownloadingZip ? 'Generando...' : `Bajar documentación vigente (ZIP)`}
-            </Button>
           </div>
         </div>
       )}
