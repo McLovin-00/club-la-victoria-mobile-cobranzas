@@ -12,6 +12,147 @@ import { AuditService } from '../services/audit.service';
 
 const router = Router();
 
+// ==============================
+// Descarga de ZIP por formulario (sin Authorization header)
+// Motivación: ZIPs grandes (cientos de MB) fallan si el frontend usa blob() en JS.
+// Implementamos descarga "nativa" (form POST) como en portal cliente.
+// ==============================
+let _jwtPublicKey: string | null = null;
+function getJwtPublicKey(): string {
+  if (_jwtPublicKey) return _jwtPublicKey;
+  // eslint-disable-next-line @typescript-eslint/no-var-requires
+  const fs = require('fs');
+  const publicKeyPath = process.env.JWT_PUBLIC_KEY_PATH || '/keys/jwt_public.pem';
+  _jwtPublicKey = fs.readFileSync(publicKeyPath, 'utf8');
+  return _jwtPublicKey;
+}
+
+function verifyJwtFromForm(token: string): any | null {
+  // eslint-disable-next-line @typescript-eslint/no-var-requires
+  const jwt = require('jsonwebtoken');
+  try {
+    const publicKey = getJwtPublicKey();
+    return jwt.verify(token, publicKey, { algorithms: ['RS256'] });
+  } catch {
+    return null;
+  }
+}
+
+async function streamVigentesZip(equipoIdsInput: number[], res: any) {
+  // Ordenar equipos por ID ascendente
+  const equipoIds: number[] = [...equipoIdsInput].sort((a, b) => a - b);
+  const now = new Date();
+  res.setHeader('Content-Type', 'application/zip');
+  const stamp = new Date().toISOString().replace(/[-:T]/g, '').slice(0, 12);
+  res.setHeader('Content-Disposition', `attachment; filename=documentacion_equipos_vigentes_${stamp}_${equipoIds.length}equipos.zip`);
+  const archiver = await getArchiver();
+  const archive = archiver('zip', { zlib: { level: 9 } });
+  archive.on('error', (err: any) => res.status(500).end(String(err)));
+  archive.pipe(res);
+
+  try {
+    const { minioService } = await import('../services/minio.service');
+    for (const equipoId of equipoIds) {
+      // Cargar equipo con relaciones para obtener CUIT y patentes
+      const equipo = await prisma.equipo.findUnique({
+        where: { id: equipoId },
+        include: {
+          empresaTransportista: { select: { id: true, cuit: true } },
+        },
+      });
+      if (!equipo) continue;
+
+      // Obtener datos adicionales de las entidades
+      const transportistaCuit = equipo.empresaTransportista?.cuit || 'SIN_CUIT';
+      const choferDni = equipo.driverDniNorm || 'SIN_DNI';
+      const tractorPatente = equipo.truckPlateNorm || 'SIN_PATENTE';
+      const acopladoPatente = equipo.trailerPlateNorm || 'SIN_PATENTE';
+
+      // Carpeta principal: equipo_{id}_DNI_{dni}_{patente_tractor}
+      const mainFolder = `equipo_${equipo.id}_DNI_${choferDni}_${tractorPatente}`;
+
+      // Subcarpetas por tipo de entidad (ordenadas numéricamente)
+      const subfolders: Record<string, string> = {
+        EMPRESA_TRANSPORTISTA: `1_Empresa_Transportista_${transportistaCuit}`,
+        CHOFER: `2_Chofer_${choferDni}`,
+        CAMION: `3_Tractor_${tractorPatente}`,
+        ACOPLADO: `4_Semi_Acoplado_${acopladoPatente}`,
+      };
+
+      const clauses: any[] = [];
+      if (equipo.empresaTransportistaId) clauses.push({ entityType: 'EMPRESA_TRANSPORTISTA' as any, entityId: equipo.empresaTransportistaId });
+      if (equipo.driverId) clauses.push({ entityType: 'CHOFER' as any, entityId: equipo.driverId });
+      if (equipo.truckId) clauses.push({ entityType: 'CAMION' as any, entityId: equipo.truckId });
+      if (equipo.trailerId) clauses.push({ entityType: 'ACOPLADO' as any, entityId: equipo.trailerId });
+      const docs = await prisma.document.findMany({
+        where: {
+          tenantEmpresaId: equipo.tenantEmpresaId,
+          dadorCargaId: equipo.dadorCargaId,
+          status: 'APROBADO' as any,
+          AND: [clauses.length ? { OR: clauses } : {}, { OR: [{ expiresAt: null }, { expiresAt: { gt: now } }] }],
+        } as any,
+        select: { id: true, filePath: true, entityType: true, entityId: true, fileName: true, template: { select: { name: true } } },
+        orderBy: { uploadedAt: 'desc' },
+      });
+
+      // Ordenar documentos por tipo de entidad (1:EMPRESA, 2:CHOFER, 3:CAMION, 4:ACOPLADO)
+      const entityOrder: Record<string, number> = { EMPRESA_TRANSPORTISTA: 1, CHOFER: 2, CAMION: 3, ACOPLADO: 4 };
+      const sortedDocs = [...docs].sort((a, b) => (entityOrder[a.entityType] || 99) - (entityOrder[b.entityType] || 99));
+
+      for (const d of sortedDocs) {
+        let bucketName: string;
+        let objectPath: string;
+        if (typeof d.filePath === 'string' && d.filePath.includes('/')) {
+          const idx = d.filePath.indexOf('/');
+          bucketName = d.filePath.slice(0, idx);
+          objectPath = d.filePath.slice(idx + 1);
+        } else {
+          bucketName = `docs-t${equipo.tenantEmpresaId}`;
+          objectPath = d.filePath as any;
+        }
+        const stream = await minioService.getObject(bucketName, objectPath);
+
+        const subfolder = subfolders[d.entityType] || 'otros';
+        const safeTpl = String(d.template?.name || 'documento').replace(/[^a-z0-9_-]/gi, '_');
+        const ext = (d.fileName || '').split('.').pop() || 'pdf';
+        const name = `${mainFolder}/${subfolder}/${safeTpl}.${ext}`;
+        archive.append(stream as any, { name });
+      }
+    }
+  } catch (err) {
+    AppLogger.error('💥 Error generando ZIP masivo', err);
+    if (!res.headersSent) res.status(500).end('Error generando ZIP');
+    try {
+      archive.abort();
+    } catch {}
+    return;
+  }
+  archive.finalize();
+}
+
+router.post('/download/vigentes-form', async (req: any, res) => {
+  const token = String(req.body?.token || '');
+  if (!token) return res.status(401).send('Token requerido');
+
+  const decoded = verifyJwtFromForm(token);
+  if (!decoded) return res.status(401).send('Token inválido');
+
+  const role = decoded.role || decoded.userRole;
+  const allowed = new Set(['ADMIN', 'SUPERADMIN', 'ADMIN_INTERNO', 'DADOR_DE_CARGA']);
+  if (!allowed.has(String(role || ''))) return res.status(403).send('No autorizado');
+
+  const equipoIdsRaw = String(req.body?.equipoIds || '');
+  const equipoIds = equipoIdsRaw
+    .split(',')
+    .map((s) => Number(String(s).trim()))
+    .filter((n) => Number.isInteger(n) && n > 0);
+
+  if (!equipoIds.length) return res.status(400).send('equipoIds requerido');
+  if (equipoIds.length > 500) return res.status(400).send('Máximo 500 equipos');
+
+  return streamVigentesZip(equipoIds, res);
+});
+
 router.use(authenticate);
 router.get('/', validate(equipoListQuerySchema), EquiposController.list);
 // Búsqueda paginada con filtros avanzados (para página de consulta admin)

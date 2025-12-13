@@ -8,7 +8,7 @@ import { Button } from '../../../components/ui/button';
 import { Input } from '../../../components/ui/input';
 import { Label } from '../../../components/ui/label';
 import { ConfirmContext } from '../../../contexts/confirmContext';
-import { useGetDadoresQuery, useGetTemplatesQuery, useGetClientsQuery, useLazySearchEquiposQuery, useGetDefaultsQuery, useLazyGetEquipoComplianceQuery, useDeleteEquipoMutation, useGetEquipoComplianceQuery, useSearchEquiposByDnisMutation, useDownloadVigentesBulkMutation, useGetEmpresasTransportistasQuery, useSearchEquiposPagedQuery } from '../api/documentosApiSlice';
+import { useGetDadoresQuery, useGetTemplatesQuery, useGetClientsQuery, useLazySearchEquiposQuery, useGetDefaultsQuery, useLazyGetEquipoComplianceQuery, useDeleteEquipoMutation, useGetEquipoComplianceQuery, useSearchEquiposByDnisMutation, useGetEmpresasTransportistasQuery, useSearchEquiposPagedQuery } from '../api/documentosApiSlice';
 import { ArrowLeftIcon, ChevronLeftIcon, ChevronRightIcon } from '@heroicons/react/24/outline';
 
 type FilterType = 'todos' | 'dador' | 'cliente' | 'empresa';
@@ -110,7 +110,6 @@ export const ConsultaPage: React.FC = () => {
   const [deleteEquipo] = useDeleteEquipoMutation();
   // CSV DNIs search
   const [searchByDnis, { isLoading: loadingCsvSearch }] = useSearchEquiposByDnisMutation();
-  const [downloadBulk] = useDownloadVigentesBulkMutation();
   const [csvResults, setCsvResults] = useState<Array<any>>([]);
   const [csvInfo, setCsvInfo] = useState<{ name?: string; count?: number }>({});
   
@@ -272,17 +271,28 @@ export const ConsultaPage: React.FC = () => {
         return;
       }
 
-      setIsDownloading(true);
-      const blob = await downloadBulk({ equipoIds: ids }).unwrap();
-      const url = URL.createObjectURL(blob as any);
-      const a = document.createElement('a');
-      a.href = url;
-      const stamp = new Date().toISOString().replace(/[-:T]/g, '').slice(0, 12);
-      a.download = `documentacion_equipos_vigentes_${stamp}_${ids.length}equipos.zip`;
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      URL.revokeObjectURL(url);
+      // Descarga nativa vía formulario (evita blob en JS para ZIPs grandes)
+      const baseUrl = import.meta.env.VITE_DOCUMENTOS_API_URL || '';
+      const form = document.createElement('form');
+      form.method = 'POST';
+      form.action = `${baseUrl}/api/docs/equipos/download/vigentes-form`;
+      form.style.display = 'none';
+
+      const tokenInput = document.createElement('input');
+      tokenInput.type = 'hidden';
+      tokenInput.name = 'token';
+      tokenInput.value = authToken;
+      form.appendChild(tokenInput);
+
+      const idsInput = document.createElement('input');
+      idsInput.type = 'hidden';
+      idsInput.name = 'equipoIds';
+      idsInput.value = ids.join(',');
+      form.appendChild(idsInput);
+
+      document.body.appendChild(form);
+      form.submit();
+      document.body.removeChild(form);
     } catch {
       show('No fue posible iniciar la descarga masiva');
     } finally {

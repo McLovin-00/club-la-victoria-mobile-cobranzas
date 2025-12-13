@@ -101,81 +101,54 @@ const ClienteDashboard: React.FC = () => {
   
   // Estado para descarga ZIP
   const [isDownloading, setIsDownloading] = useState(false);
-  const [downloadProgress, setDownloadProgress] = useState(0);
-  
-  // Descargar ZIP usando fetch con progreso (sin abrir ventana nueva)
-  const handleDownloadZip = useCallback(async () => {
+
+  /**
+   * Descargar ZIP de forma "nativa" (sin blob en JS).
+   * Motivo: para ZIPs grandes (cientos de MB) el enfoque fetch()->blob() se traba o falla por memoria.
+   */
+  const handleDownloadZip = useCallback(() => {
     if (pagination.total === 0) return;
-    
+
     const token = localStorage.getItem('token');
     if (!token) {
       showToast('Error: No hay sesión activa');
       return;
     }
-    
+
     setIsDownloading(true);
-    setDownloadProgress(0);
-    showToast(`Generando ZIP de ${pagination.total} equipos...`);
-    
-    try {
-      const response = await fetch(
-        `${import.meta.env.VITE_DOCUMENTOS_API_URL}/api/docs/portal-cliente/equipos/bulk-download-form`,
-        {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-          body: new URLSearchParams({
-            token,
-            searchTerm: searchTerm || '',
-            estado: filtroEstado === 'TODOS' ? '' : filtroEstado,
-          }),
-        }
-      );
-      
-      if (!response.ok) {
-        const errorText = await response.text();
-        throw new Error(errorText || 'Error al generar ZIP');
-      }
-      
-      // Obtener tamaño total si está disponible
-      const contentLength = response.headers.get('content-length');
-      const total = contentLength ? parseInt(contentLength, 10) : 0;
-      
-      // Leer el stream con progreso
-      const reader = response.body?.getReader();
-      if (!reader) throw new Error('No se pudo leer la respuesta');
-      
-      const chunks: Uint8Array[] = [];
-      let received = 0;
-      
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        chunks.push(value);
-        received += value.length;
-        if (total > 0) {
-          setDownloadProgress(Math.round((received / total) * 100));
-        }
-      }
-      
-      // Crear blob y descargar
-      const blob = new Blob(chunks, { type: 'application/zip' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `documentos_${pagination.total}_equipos.zip`;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
-      
-      showToast('✅ Descarga completada');
-    } catch (error) {
-      console.error('Error descargando ZIP:', error);
-      showToast(`Error: ${error instanceof Error ? error.message : 'Error desconocido'}`);
-    } finally {
-      setIsDownloading(false);
-      setDownloadProgress(0);
-    }
+    showToast(`Iniciando descarga ZIP de ${pagination.total} equipos...`);
+
+    const baseUrl = import.meta.env.VITE_DOCUMENTOS_API_URL || '';
+    const form = document.createElement('form');
+    form.method = 'POST';
+    form.action = `${baseUrl}/api/docs/portal-cliente/equipos/bulk-download-form`;
+    form.style.display = 'none';
+
+    const tokenInput = document.createElement('input');
+    tokenInput.type = 'hidden';
+    tokenInput.name = 'token';
+    tokenInput.value = token;
+    form.appendChild(tokenInput);
+
+    const searchInput = document.createElement('input');
+    searchInput.type = 'hidden';
+    searchInput.name = 'searchTerm';
+    searchInput.value = searchTerm || '';
+    form.appendChild(searchInput);
+
+    const estadoInput = document.createElement('input');
+    estadoInput.type = 'hidden';
+    estadoInput.name = 'estado';
+    estadoInput.value = filtroEstado === 'TODOS' ? '' : filtroEstado;
+    form.appendChild(estadoInput);
+
+    document.body.appendChild(form);
+    form.submit();
+    document.body.removeChild(form);
+
+    // No existe una señal confiable de "fin de descarga" desde el navegador.
+    // Dejamos el botón deshabilitado solo durante el inicio para evitar dobles clicks.
+    window.setTimeout(() => setIsDownloading(false), 2000);
   }, [pagination.total, searchTerm, filtroEstado]);
   
   // Cambiar filtro de estado
@@ -438,9 +411,7 @@ TZI127
                   className='bg-blue-600 hover:bg-blue-700 text-white disabled:opacity-50 disabled:cursor-not-allowed min-w-[200px]'
                 >
                   <ArrowDownTrayIcon className='h-5 w-5 mr-2' />
-                  {isDownloading 
-                    ? (downloadProgress > 0 ? `Descargando ${downloadProgress}%` : 'Generando ZIP...')
-                    : `Descargar ZIP (${pagination.total} equipos)`}
+                  {isDownloading ? 'Iniciando descarga...' : `Descargar ZIP (${pagination.total} equipos)`}
                 </Button>
               </div>
               
