@@ -15,6 +15,43 @@ export class EquiposController {
     res.json({ success: true, data });
   }
 
+  /**
+   * Búsqueda paginada con filtros avanzados
+   * GET /api/docs/equipos/search-paged
+   */
+  static async searchPaged(req: AuthRequest, res: Response) {
+    const tenantId = req.tenantId!;
+    const query = req.query as any;
+    
+    const filters = {
+      dadorCargaId: query.dadorCargaId ? Number(query.dadorCargaId) : undefined,
+      clienteId: query.clienteId ? Number(query.clienteId) : undefined,
+      empresaTransportistaId: query.empresaTransportistaId ? Number(query.empresaTransportistaId) : undefined,
+      search: query.search || undefined,
+      dni: query.dni || undefined,
+      truckPlate: query.truckPlate || undefined,
+      trailerPlate: query.trailerPlate || undefined,
+    };
+    
+    const page = query.page ? parseInt(query.page, 10) : 1;
+    const limit = query.limit ? parseInt(query.limit, 10) : 10;
+    
+    const result = await EquipoService.searchPaginated(tenantId, filters, page, limit);
+    
+    res.json({
+      success: true,
+      data: result.equipos,
+      pagination: {
+        page: result.page,
+        limit: result.limit,
+        total: result.total,
+        totalPages: result.totalPages,
+        hasNext: result.hasNext,
+        hasPrev: result.hasPrev
+      }
+    });
+  }
+
   static async getById(req: AuthRequest, res: Response) {
     const equipoId = Number(req.params.id);
     const data = await EquipoService.getById(equipoId);

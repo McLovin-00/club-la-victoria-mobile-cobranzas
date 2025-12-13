@@ -8,8 +8,9 @@ import { Button } from '../../../components/ui/button';
 import { Input } from '../../../components/ui/input';
 import { Label } from '../../../components/ui/label';
 import { ConfirmContext } from '../../../contexts/confirmContext';
-import { useGetDadoresQuery, useGetTemplatesQuery, useGetClientsQuery, useLazySearchEquiposQuery, useGetDefaultsQuery, useLazyGetEquipoComplianceQuery, useDeleteEquipoMutation, useGetEquipoComplianceQuery, useSearchEquiposByDnisMutation, useDownloadVigentesBulkMutation, useGetEmpresasTransportistasQuery } from '../api/documentosApiSlice';
-import { ArrowLeftIcon } from '@heroicons/react/24/outline';
+import { useGetDadoresQuery, useGetTemplatesQuery, useGetClientsQuery, useLazySearchEquiposQuery, useGetDefaultsQuery, useLazyGetEquipoComplianceQuery, useDeleteEquipoMutation, useGetEquipoComplianceQuery, useSearchEquiposByDnisMutation, useDownloadVigentesBulkMutation, useGetEmpresasTransportistasQuery, useSearchEquiposPagedQuery } from '../api/documentosApiSlice';
+import { ArrowLeftIcon, ChevronLeftIcon, ChevronRightIcon, ArrowDownTrayIcon } from '@heroicons/react/24/outline';
+import { showToast } from '../../../components/ui/Toast.utils';
 
 type FilterType = 'todos' | 'dador' | 'cliente' | 'empresa';
 
@@ -68,7 +69,33 @@ export const ConsultaPage: React.FC = () => {
   const [params, setParams] = useState<{ empresaId?: number; clienteId?: number; empresaTransportistaId?: number; dni?: string; truckPlate?: string; trailerPlate?: string }>({});
   const [hasSearched, setHasSearched] = useState(false);
   const [searchParams, setSearchParams] = useSearchParams();
-  const [trigger, { data = [], isFetching, isError, error }] = useLazySearchEquiposQuery();
+  
+  // Paginación
+  const [page, setPage] = useState(1);
+  const [limit] = useState(10);
+  
+  // Búsqueda paginada del servidor
+  const queryParams = hasSearched ? {
+    page,
+    limit,
+    dadorCargaId: params.empresaId,
+    clienteId: params.clienteId,
+    empresaTransportistaId: params.empresaTransportistaId,
+    dni: params.dni,
+    truckPlate: params.truckPlate,
+    trailerPlate: params.trailerPlate,
+  } : { page: 1, limit: 10 };
+  
+  const { data: pagedData, isFetching, isError, error } = useSearchEquiposPagedQuery(
+    queryParams,
+    { skip: !hasSearched }
+  );
+  
+  const data = pagedData?.data ?? [];
+  const pagination = pagedData?.pagination ?? { page: 1, limit: 10, total: 0, totalPages: 0, hasNext: false, hasPrev: false };
+  
+  // Para compatibilidad con código existente
+  const [trigger] = useLazySearchEquiposQuery();
   const [getCompliance] = useLazyGetEquipoComplianceQuery();
   const [deleteEquipo] = useDeleteEquipoMutation();
   // CSV DNIs search
@@ -76,32 +103,23 @@ export const ConsultaPage: React.FC = () => {
   const [downloadBulk] = useDownloadVigentesBulkMutation();
   const [csvResults, setCsvResults] = useState<Array<any>>([]);
   const [csvInfo, setCsvInfo] = useState<{ name?: string; count?: number }>({});
+  
+  // Estado para descarga ZIP
+  const [isDownloadingZip, setIsDownloadingZip] = useState(false);
 
-  // Ejecutar búsqueda al cambiar parámetros válidos SOLO si el usuario ha hecho click en buscar
+  // Persistir búsqueda en URL cuando cambian los parámetros
   useEffect(() => {
-    if (!hasSearched) return; // No buscar hasta que el usuario haga click
+    if (!hasSearched) return;
     
-    // Permitir búsqueda con cualquier filtro de entidad (empresaId, clienteId, empresaTransportistaId)
-    // incluso si no hay parámetros de búsqueda adicionales (dni, patentes)
-    const hasFilters = params.empresaId || params.clienteId || params.empresaTransportistaId;
-    const hasSearchParams = params.dni || params.truckPlate || params.trailerPlate;
-    
-    // Ejecutar búsqueda si hay al menos un filtro de entidad
-    if (hasFilters || hasSearchParams) {
-      console.debug('ConsultaPage: buscando equipos', params);
-      // preferCacheValue=false para forzar request
-      (trigger as any)(params, false);
-      // Persistir búsqueda en URL con flag de búsqueda activa
-      const sp: any = { search: 'true' };
-      if (params.empresaId) sp.empresaId = String(params.empresaId);
-      if (params.clienteId) sp.clienteId = String(params.clienteId);
-      if (params.empresaTransportistaId) sp.empresaTranspId = String(params.empresaTransportistaId);
-      if (params.dni) sp.dni = params.dni;
-      if (params.truckPlate) sp.truckPlate = params.truckPlate;
-      if (params.trailerPlate) sp.trailerPlate = params.trailerPlate;
-      setSearchParams(sp);
-    }
-  }, [params, hasSearched, setSearchParams, trigger]);
+    const sp: any = { search: 'true', page: String(page) };
+    if (params.empresaId) sp.empresaId = String(params.empresaId);
+    if (params.clienteId) sp.clienteId = String(params.clienteId);
+    if (params.empresaTransportistaId) sp.empresaTranspId = String(params.empresaTransportistaId);
+    if (params.dni) sp.dni = params.dni;
+    if (params.truckPlate) sp.truckPlate = params.truckPlate;
+    if (params.trailerPlate) sp.trailerPlate = params.trailerPlate;
+    setSearchParams(sp);
+  }, [params, hasSearched, page, setSearchParams]);
 
   // Inicializar desde URL o sessionStorage SOLO en montaje inicial
   useEffect(() => {
@@ -474,6 +492,99 @@ export const ConsultaPage: React.FC = () => {
         <div className='text-sm text-muted-foreground'>Sin resultados para los criterios de filtro seleccionados.</div>
       )}
       {isError && <div className='text-sm text-red-600'>Error al buscar{(error as any)?.status ? ` (${(error as any).status})` : ''}. Revise los filtros seleccionados.</div>}
+      
+      {/* Barra de paginación y descarga ZIP */}
+      {hasSearched && !isFetching && displayResults.length > 0 && (
+        <div className='flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4 p-3 bg-gray-50 dark:bg-slate-800 rounded-lg'>
+          <div className='text-sm text-gray-600 dark:text-gray-400'>
+            Mostrando {((pagination.page - 1) * pagination.limit) + 1} - {Math.min(pagination.page * pagination.limit, pagination.total)} de {pagination.total} equipos
+          </div>
+          
+          <div className='flex items-center gap-3'>
+            {/* Controles de paginación */}
+            <div className='flex items-center gap-2'>
+              <Button
+                variant='outline'
+                size='sm'
+                onClick={() => setPage(p => Math.max(1, p - 1))}
+                disabled={!pagination.hasPrev}
+              >
+                <ChevronLeftIcon className='h-4 w-4' />
+              </Button>
+              <span className='text-sm px-2'>
+                Página {pagination.page} de {pagination.totalPages}
+              </span>
+              <Button
+                variant='outline'
+                size='sm'
+                onClick={() => setPage(p => p + 1)}
+                disabled={!pagination.hasNext}
+              >
+                <ChevronRightIcon className='h-4 w-4' />
+              </Button>
+            </div>
+            
+            {/* Botón Descargar ZIP de todos los resultados */}
+            <Button 
+              onClick={async () => {
+                if (pagination.total === 0) return;
+                setIsDownloadingZip(true);
+                showToast(`Generando ZIP de ${pagination.total} equipos...`);
+                try {
+                  const token = localStorage.getItem('token') || authToken;
+                  // Construir searchTerm para el backend
+                  const searchParts: string[] = [];
+                  if (params.dni) searchParts.push(params.dni.toUpperCase());
+                  if (params.truckPlate) searchParts.push(params.truckPlate.toUpperCase());
+                  if (params.trailerPlate) searchParts.push(params.trailerPlate.toUpperCase());
+                  const searchTerm = searchParts.join('|');
+                  
+                  const response = await fetch(
+                    `${import.meta.env.VITE_DOCUMENTOS_API_URL}/api/docs/equipos/download/vigentes`,
+                    {
+                      method: 'POST',
+                      headers: { 
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                      },
+                      body: JSON.stringify({
+                        dadorCargaId: params.empresaId,
+                        clienteId: params.clienteId,
+                        empresaTransportistaId: params.empresaTransportistaId,
+                        searchTerm,
+                        limit: 500 // Máximo para descarga
+                      }),
+                    }
+                  );
+                  
+                  if (!response.ok) throw new Error('Error al generar ZIP');
+                  
+                  const blob = await response.blob();
+                  const url = URL.createObjectURL(blob);
+                  const a = document.createElement('a');
+                  a.href = url;
+                  a.download = `documentos_${pagination.total}_equipos.zip`;
+                  document.body.appendChild(a);
+                  a.click();
+                  document.body.removeChild(a);
+                  URL.revokeObjectURL(url);
+                  showToast('✅ Descarga completada');
+                } catch (err) {
+                  showToast('Error al descargar ZIP');
+                } finally {
+                  setIsDownloadingZip(false);
+                }
+              }}
+              disabled={isDownloadingZip}
+              className='bg-blue-600 hover:bg-blue-700 text-white disabled:opacity-50'
+            >
+              <ArrowDownTrayIcon className='h-4 w-4 mr-2' />
+              {isDownloadingZip ? 'Generando...' : `Bajar documentación vigente (ZIP)`}
+            </Button>
+          </div>
+        </div>
+      )}
+      
       <div className='grid gap-3'>
         {displayResults.map((it: any) => {
           const eq = it.equipo || it;

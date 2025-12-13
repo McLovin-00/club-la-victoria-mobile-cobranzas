@@ -14,6 +14,8 @@ const router = Router();
 
 router.use(authenticate);
 router.get('/', validate(equipoListQuerySchema), EquiposController.list);
+// Búsqueda paginada con filtros avanzados (para página de consulta admin)
+router.get('/search-paged', EquiposController.searchPaged);
 router.get('/:id', ownsEquipo(), EquiposController.getById);
 router.post('/', authorize(['ADMIN' as any, 'SUPERADMIN' as any, 'ADMIN_INTERNO' as any, 'DADOR_DE_CARGA' as any]), validate(createEquipoSchema), EquiposController.create);
 

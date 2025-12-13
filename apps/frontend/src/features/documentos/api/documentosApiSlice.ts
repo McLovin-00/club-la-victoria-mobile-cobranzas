@@ -540,6 +540,48 @@ export const documentosApiSlice = createApi({
       transformResponse: (response: any) => response?.data ?? [],
       providesTags: ['Search'],
     }),
+    
+    // Búsqueda paginada con filtros avanzados (para página de consulta admin)
+    searchEquiposPaged: builder.query<
+      {
+        data: any[];
+        pagination: {
+          page: number;
+          limit: number;
+          total: number;
+          totalPages: number;
+          hasNext: boolean;
+          hasPrev: boolean;
+        };
+      },
+      {
+        page?: number;
+        limit?: number;
+        dadorCargaId?: number;
+        clienteId?: number;
+        empresaTransportistaId?: number;
+        search?: string;
+        dni?: string;
+        truckPlate?: string;
+        trailerPlate?: string;
+      }
+    >({
+      query: ({ page = 1, limit = 10, dadorCargaId, clienteId, empresaTransportistaId, search, dni, truckPlate, trailerPlate }) => {
+        const params = new URLSearchParams();
+        params.append('page', String(page));
+        params.append('limit', String(limit));
+        if (dadorCargaId) params.set('dadorCargaId', String(dadorCargaId));
+        if (clienteId) params.set('clienteId', String(clienteId));
+        if (empresaTransportistaId) params.set('empresaTransportistaId', String(empresaTransportistaId));
+        if (search) params.set('search', search);
+        if (dni) params.set('dni', dni);
+        if (truckPlate) params.set('truckPlate', truckPlate);
+        if (trailerPlate) params.set('trailerPlate', trailerPlate);
+        return { url: `/equipos/search-paged?${params.toString()}` };
+      },
+      providesTags: ['Search'],
+    }),
+    
     // Búsqueda por lista de DNIs (POST JSON)
     searchEquiposByDnis: builder.mutation<Array<{ id: number; dadorCargaId: number; tenantEmpresaId: number; driverDniNorm: string; truckPlateNorm: string; trailerPlateNorm?: string|null; estado: string }>, { dnis: string[] }>({
       query: ({ dnis }) => ({ url: '/equipos/search/dnis', method: 'POST', body: { dnis } }),
@@ -1068,6 +1110,8 @@ export const {
   // Búsqueda
   useSearchEquiposQuery,
   useLazySearchEquiposQuery,
+  useSearchEquiposPagedQuery,
+  useLazySearchEquiposPagedQuery,
   useSearchEquiposByDnisMutation,
   useDownloadVigentesBulkMutation,
   // Dadores

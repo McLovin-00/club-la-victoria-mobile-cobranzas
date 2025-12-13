@@ -30,6 +30,115 @@ export class EquipoService {
   }
 
   /**
+   * Búsqueda paginada con filtros avanzados
+   * Similar al portal cliente pero para admins
+   */
+  static async searchPaginated(
+    tenantEmpresaId: number,
+    filters: {
+      dadorCargaId?: number;
+      clienteId?: number;
+      empresaTransportistaId?: number;
+      search?: string; // DNI, patente o búsqueda libre
+      dni?: string;
+      truckPlate?: string;
+      trailerPlate?: string;
+    },
+    page: number = 1,
+    limit: number = 10
+  ) {
+    const take = Math.min(Math.max(limit, 1), 100);
+    const skip = Math.max((page - 1) * take, 0);
+    
+    const where: any = { tenantEmpresaId };
+    
+    // Filtros de entidad
+    if (filters.dadorCargaId) {
+      where.dadorCargaId = filters.dadorCargaId;
+    }
+    if (filters.empresaTransportistaId) {
+      where.empresaTransportistaId = filters.empresaTransportistaId;
+    }
+    
+    // Filtros de búsqueda por texto
+    const orConditions: any[] = [];
+    
+    if (filters.search) {
+      // Búsqueda múltiple: puede ser DNI, patente, separados por |
+      const searchValues = filters.search.split('|').map(s => s.trim().toUpperCase()).filter(Boolean);
+      if (searchValues.length > 0) {
+        orConditions.push(
+          { driverDniNorm: { in: searchValues } },
+          { truckPlateNorm: { in: searchValues } },
+          { trailerPlateNorm: { in: searchValues } }
+        );
+      }
+    }
+    
+    if (filters.dni) {
+      const dniNorm = normalizeDni(filters.dni);
+      orConditions.push({ driverDniNorm: { contains: dniNorm } });
+    }
+    
+    if (filters.truckPlate) {
+      const plateNorm = normalizePlate(filters.truckPlate);
+      orConditions.push({ truckPlateNorm: { contains: plateNorm } });
+    }
+    
+    if (filters.trailerPlate) {
+      const plateNorm = normalizePlate(filters.trailerPlate);
+      orConditions.push({ trailerPlateNorm: { contains: plateNorm } });
+    }
+    
+    if (orConditions.length > 0) {
+      where.OR = orConditions;
+    }
+    
+    // Si hay filtro por cliente, necesitamos hacer join
+    let equipoIds: number[] | undefined;
+    if (filters.clienteId) {
+      const asignaciones = await prisma.equipoCliente.findMany({
+        where: { clienteId: filters.clienteId, asignadoHasta: null },
+        select: { equipoId: true }
+      });
+      equipoIds = asignaciones.map(a => a.equipoId);
+      if (equipoIds.length === 0) {
+        // No hay equipos asignados a este cliente
+        return { equipos: [], total: 0, page, limit: take, totalPages: 0 };
+      }
+      where.id = { in: equipoIds };
+    }
+    
+    // Obtener total y equipos
+    const [total, equipos] = await Promise.all([
+      prisma.equipo.count({ where }),
+      prisma.equipo.findMany({
+        where,
+        orderBy: { id: 'asc' },
+        include: { 
+          clientes: { where: { asignadoHasta: null }, include: { cliente: true } }, 
+          dador: true,
+          empresaTransportista: true
+        },
+        take,
+        skip,
+      })
+    ]);
+    
+    const totalPages = Math.ceil(total / take);
+    
+    return {
+      equipos,
+      total,
+      page,
+      limit: take,
+      totalPages,
+      hasNext: page < totalPages,
+      hasPrev: page > 1
+    };
+  }
+
+  /**
    * Obtener un equipo por ID con todos sus detalles
    */
   static async getById(equipoId: number) {
