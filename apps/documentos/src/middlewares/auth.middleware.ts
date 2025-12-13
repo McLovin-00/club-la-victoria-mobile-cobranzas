@@ -27,8 +27,18 @@ export const authenticate = async (
       return;
     }
 
-    // Obtener token del header Authorization
-    const authHeader = req.headers.authorization;
+    // Obtener token del header Authorization (o desde body para descargas via formulario)
+    let authHeader = req.headers.authorization;
+    if ((!authHeader || !authHeader.startsWith('Bearer ')) && req.method === 'POST') {
+      const tokenFromBody = (req as any).body?.token;
+      const url = String((req as any).originalUrl || req.url || '');
+      const isFormDownload =
+        url.includes('/api/docs/equipos/download/vigentes-form') ||
+        url.includes('/api/docs/portal-cliente/equipos/bulk-download-form');
+      if (tokenFromBody && isFormDownload) {
+        authHeader = `Bearer ${String(tokenFromBody)}`;
+      }
+    }
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
       res.status(401).json({
         success: false,
