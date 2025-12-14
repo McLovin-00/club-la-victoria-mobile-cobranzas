@@ -56,6 +56,10 @@ type FormData = {
 
 const EditPlatformUserModal: React.FC<Props> = ({ isOpen, onClose, user }) => {
   const currentUser = useAppSelector(selectCurrentUser);
+  
+  // DADOR_DE_CARGA y TRANSPORTISTA solo pueden editar nombre, apellido y contraseña
+  const isRestrictedEditor = ['DADOR_DE_CARGA', 'TRANSPORTISTA'].includes(currentUser?.role || '');
+  
   // Solo SUPERADMIN puede seleccionar empresa
   const canSelectEmpresa = currentUser?.role === 'SUPERADMIN';
   const { data: empresas = [] } = useGetEmpresasQuery(undefined, { skip: !canSelectEmpresa });
@@ -305,6 +309,20 @@ const EditPlatformUserModal: React.FC<Props> = ({ isOpen, onClose, user }) => {
 
   const onSubmit = async (data: FormData) => {
     try {
+      // DADOR/TRANSPORTISTA: solo pueden editar nombre, apellido y contraseña
+      if (isRestrictedEditor) {
+        const payload: any = {
+          nombre: data.nombre || null,
+          apellido: data.apellido || null,
+          ...(data.password ? { password: data.password } : {}),
+        };
+        await updateUser({ id: user.id, data: payload }).unwrap();
+        showToast('Usuario actualizado exitosamente', 'success');
+        onClose();
+        return;
+      }
+      
+      // ADMIN/SUPERADMIN: acceso completo
       const payload: any = {
         email: data.email,
         role: data.role,
@@ -351,15 +369,21 @@ const EditPlatformUserModal: React.FC<Props> = ({ isOpen, onClose, user }) => {
           <h3 className="text-lg font-medium mb-6">Editar Usuario de Plataforma</h3>
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
             <div className="grid grid-cols-2 gap-4">
-              {/* Email */}
+              {/* Email - solo lectura para DADOR/TRANSPORTISTA */}
               <div className="col-span-2">
                 <label className="block text-sm font-medium mb-1">Email</label>
-                <Controller name="email" control={control} render={({ field }) => (
-                  <input type="email" className="w-full px-3 py-2 border rounded-md" {...field} />
-                )} />
+                {isRestrictedEditor ? (
+                  <div className="w-full px-3 py-2 border rounded-md bg-muted text-muted-foreground">
+                    {user.email}
+                  </div>
+                ) : (
+                  <Controller name="email" control={control} render={({ field }) => (
+                    <input type="email" className="w-full px-3 py-2 border rounded-md" {...field} />
+                  )} />
+                )}
               </div>
 
-              {/* Nombre y Apellido */}
+              {/* Nombre y Apellido - siempre editables */}
               <div>
                 <label className="block text-sm font-medium mb-1">Nombre</label>
                 <Controller name="nombre" control={control} render={({ field }) => (
@@ -373,50 +397,61 @@ const EditPlatformUserModal: React.FC<Props> = ({ isOpen, onClose, user }) => {
                 )} />
               </div>
 
-              {/* Rol */}
-              <div>
-                <label className="block text-sm font-medium mb-1">Rol</label>
-                <Controller name="role" control={control} render={({ field }) => (
-                  <select className="w-full px-3 py-2 border rounded-md" {...field}>
-                    {rolesDisponibles.map(r => (
-                      <option key={r} value={r}>{r.replace(/_/g, ' ')}</option>
-                    ))}
-                  </select>
-                )} />
-              </div>
-
-              {/* Empresa (Tenant) - solo editable por SUPERADMIN */}
-              {canSelectEmpresa ? (
-                <div>
-                  <label className="block text-sm font-medium mb-1">Empresa (Tenant) *</label>
-                  <Controller 
-                    name="empresaId" 
-                    control={control} 
-                    rules={{ required: 'Debe seleccionar una empresa' }}
-                    render={({ field, fieldState }) => (
-                      <>
-                        <select className="w-full px-3 py-2 border rounded-md" {...field}>
-                          <option value="">Seleccionar empresa...</option>
-                          {empresas.map((e: any) => (
-                            <option key={e.id} value={e.id}>{e.nombre}</option>
-                          ))}
-                        </select>
-                        {fieldState.error && <p className="text-red-500 text-xs mt-1">{fieldState.error.message}</p>}
-                      </>
-                    )} 
-                  />
-                </div>
-              ) : (
-                <div>
-                  <label className="block text-sm font-medium mb-1">Empresa</label>
+              {/* Rol - solo lectura para DADOR/TRANSPORTISTA */}
+              {isRestrictedEditor ? (
+                <div className="col-span-2">
+                  <label className="block text-sm font-medium mb-1">Rol</label>
                   <div className="w-full px-3 py-2 border rounded-md bg-muted text-muted-foreground">
-                    {empresas.find((e: any) => e.id === (user.empresaId || currentUser?.empresaId))?.nombre || 'BCA'}
+                    {user.role.replace(/_/g, ' ')}
                   </div>
                 </div>
+              ) : (
+                <>
+                  <div>
+                    <label className="block text-sm font-medium mb-1">Rol</label>
+                    <Controller name="role" control={control} render={({ field }) => (
+                      <select className="w-full px-3 py-2 border rounded-md" {...field}>
+                        {rolesDisponibles.map(r => (
+                          <option key={r} value={r}>{r.replace(/_/g, ' ')}</option>
+                        ))}
+                      </select>
+                    )} />
+                  </div>
+
+                  {/* Empresa (Tenant) - solo editable por SUPERADMIN */}
+                  {canSelectEmpresa ? (
+                    <div>
+                      <label className="block text-sm font-medium mb-1">Empresa (Tenant) *</label>
+                      <Controller 
+                        name="empresaId" 
+                        control={control} 
+                        rules={{ required: 'Debe seleccionar una empresa' }}
+                        render={({ field, fieldState }) => (
+                          <>
+                            <select className="w-full px-3 py-2 border rounded-md" {...field}>
+                              <option value="">Seleccionar empresa...</option>
+                              {empresas.map((e: any) => (
+                                <option key={e.id} value={e.id}>{e.nombre}</option>
+                              ))}
+                            </select>
+                            {fieldState.error && <p className="text-red-500 text-xs mt-1">{fieldState.error.message}</p>}
+                          </>
+                        )} 
+                      />
+                    </div>
+                  ) : (
+                    <div>
+                      <label className="block text-sm font-medium mb-1">Empresa</label>
+                      <div className="w-full px-3 py-2 border rounded-md bg-muted text-muted-foreground">
+                        {empresas.find((e: any) => e.id === (user.empresaId || currentUser?.empresaId))?.nombre || 'BCA'}
+                      </div>
+                    </div>
+                  )}
+                </>
               )}
 
-              {/* Asociación: Dador de Carga */}
-              {selectedRole === 'DADOR_DE_CARGA' && (
+              {/* Asociaciones - solo visibles para ADMIN/SUPERADMIN */}
+              {!isRestrictedEditor && selectedRole === 'DADOR_DE_CARGA' && (
                 <div className="col-span-2">
                   <label className="block text-sm font-medium mb-1">Dador de Carga asociado</label>
                   <Controller
@@ -434,8 +469,8 @@ const EditPlatformUserModal: React.FC<Props> = ({ isOpen, onClose, user }) => {
                 </div>
               )}
 
-              {/* Asociación: Empresa Transportista - según rol del usuario actual */}
-              {selectedRole === 'TRANSPORTISTA' && (
+              {/* Asociación: Empresa Transportista - solo visible para ADMIN/SUPERADMIN */}
+              {!isRestrictedEditor && selectedRole === 'TRANSPORTISTA' && (
                 <>
                   {/* DADOR_DE_CARGA: su dador es fijo, solo elige transportista */}
                   {currentUser?.role === 'DADOR_DE_CARGA' ? (
@@ -536,8 +571,8 @@ const EditPlatformUserModal: React.FC<Props> = ({ isOpen, onClose, user }) => {
                 </>
               )}
 
-              {/* Asociación: Chofer - Lógica según rol del usuario actual */}
-              {selectedRole === 'CHOFER' && (
+              {/* Asociación: Chofer - solo visible para ADMIN/SUPERADMIN */}
+              {!isRestrictedEditor && selectedRole === 'CHOFER' && (
                 <>
                   {/* TRANSPORTISTA solo ve sus propios choferes, no puede cambiar dador ni transportista */}
                   {currentUser?.role === 'TRANSPORTISTA' ? (
@@ -732,8 +767,8 @@ const EditPlatformUserModal: React.FC<Props> = ({ isOpen, onClose, user }) => {
                 </>
               )}
 
-              {/* Asociación: Cliente */}
-              {selectedRole === 'CLIENTE' && (
+              {/* Asociación: Cliente - solo visible para ADMIN/SUPERADMIN */}
+              {!isRestrictedEditor && selectedRole === 'CLIENTE' && (
                 <div className="col-span-2">
                   <label className="block text-sm font-medium mb-1">Cliente asociado</label>
                   <Controller
