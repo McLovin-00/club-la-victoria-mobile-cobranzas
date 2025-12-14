@@ -56,9 +56,13 @@ type FormData = {
 
 const EditPlatformUserModal: React.FC<Props> = ({ isOpen, onClose, user }) => {
   const currentUser = useAppSelector(selectCurrentUser);
-  const { data: empresas = [] } = useGetEmpresasQuery();
-  const { data: dadoresResp } = useGetDadoresQuery({});
-  const { data: clientesResp } = useGetClientsQuery({});
+  // Solo SUPERADMIN puede seleccionar empresa
+  const canSelectEmpresa = currentUser?.role === 'SUPERADMIN';
+  const { data: empresas = [] } = useGetEmpresasQuery(undefined, { skip: !canSelectEmpresa });
+  // Solo roles admin pueden ver dadores y clientes
+  const canSeeDadoresYClientes = ['SUPERADMIN', 'ADMIN', 'ADMIN_INTERNO'].includes(currentUser?.role || '');
+  const { data: dadoresResp } = useGetDadoresQuery({}, { skip: !canSeeDadoresYClientes });
+  const { data: clientesResp } = useGetClientsQuery({}, { skip: !canSeeDadoresYClientes });
   
   // Estado para TRANSPORTISTA: filtrar transportistas por dador
   // Inicializar con los valores del usuario si existen
@@ -116,9 +120,6 @@ const EditPlatformUserModal: React.FC<Props> = ({ isOpen, onClose, user }) => {
   const transportistasForChoferRaw = useMemo(() => (transportistasForChoferResp as any)?.list ?? transportistasForChoferResp ?? [], [transportistasForChoferResp]);
   const choferesRaw = useMemo(() => choferesResp ?? [], [choferesResp]);
   const clientes = useMemo(() => (clientesResp as any)?.list ?? clientesResp ?? [], [clientesResp]);
-  
-  // Solo SUPERADMIN puede elegir empresa
-  const canSelectEmpresa = currentUser?.role === 'SUPERADMIN';
   
   // Incluir el chofer actual en la lista si existe y no está en choferesRaw
   const choferesConActual = useMemo(() => {

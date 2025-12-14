@@ -70,9 +70,13 @@ type FormData = {
 
 export const RegisterUserModal: React.FC<RegisterUserModalProps> = ({ isOpen, onClose }) => {
   const currentUser = useAppSelector(selectCurrentUser);
-  const { data: empresas = [] } = useGetEmpresasQuery();
-  const { data: dadoresResp } = useGetDadoresQuery({});
-  const { data: clientesResp } = useGetClientsQuery({});
+  // Solo SUPERADMIN necesita la lista de empresas
+  const canSelectEmpresa = currentUser?.role === 'SUPERADMIN';
+  const { data: empresas = [] } = useGetEmpresasQuery(undefined, { skip: !canSelectEmpresa });
+  // Solo roles admin pueden ver dadores y clientes
+  const canSeeDadoresYClientes = ['SUPERADMIN', 'ADMIN', 'ADMIN_INTERNO'].includes(currentUser?.role || '');
+  const { data: dadoresResp } = useGetDadoresQuery({}, { skip: !canSeeDadoresYClientes });
+  const { data: clientesResp } = useGetClientsQuery({}, { skip: !canSeeDadoresYClientes });
   
   // Estado para filtrar transportistas por dador (para rol TRANSPORTISTA)
   const [selectedDadorForTransportista, setSelectedDadorForTransportista] = useState<number | ''>('');
@@ -137,9 +141,6 @@ export const RegisterUserModal: React.FC<RegisterUserModalProps> = ({ isOpen, on
   const [dadorMode, setDadorMode] = useState<'existing' | 'new'>('existing');
   const [transportistaMode, setTransportistaMode] = useState<'existing' | 'new'>('existing');
   const [choferMode, setChoferMode] = useState<'existing' | 'new'>('existing');
-  
-  // Solo SUPERADMIN puede elegir empresa; otros usan la del usuario actual
-  const canSelectEmpresa = currentUser?.role === 'SUPERADMIN';
   
   // Setear empresa del usuario actual al abrir el modal (si no es SUPERADMIN)
   useEffect(() => {
