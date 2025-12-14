@@ -117,6 +117,17 @@ const EditPlatformUserModal: React.FC<Props> = ({ isOpen, onClose, user }) => {
   const choferesRaw = useMemo(() => choferesResp ?? [], [choferesResp]);
   const clientes = useMemo(() => (clientesResp as any)?.list ?? clientesResp ?? [], [clientesResp]);
   
+  // Solo SUPERADMIN puede elegir empresa
+  const canSelectEmpresa = currentUser?.role === 'SUPERADMIN';
+  
+  // Incluir el chofer actual en la lista si existe y no está en choferesRaw
+  const choferesConActual = useMemo(() => {
+    if (!choferActual) return choferesRaw;
+    const existsInRaw = choferesRaw.some((c: any) => c.id === choferActual.id);
+    if (existsInRaw) return choferesRaw;
+    return [choferActual, ...choferesRaw];
+  }, [choferesRaw, choferActual]);
+  
   // Filtrar transportistas por búsqueda
   const transportistas = useMemo(() => {
     if (!searchTransportista.trim()) return transportistasRaw.slice(0, 50);
@@ -136,16 +147,16 @@ const EditPlatformUserModal: React.FC<Props> = ({ isOpen, onClose, user }) => {
     ).slice(0, 50);
   }, [transportistasForChoferRaw, searchTransportista]);
   
-  // Filtrar choferes por búsqueda
+  // Filtrar choferes por búsqueda (incluye el chofer actual si existe)
   const choferes = useMemo(() => {
-    if (!searchChofer.trim()) return choferesRaw.slice(0, 50);
+    if (!searchChofer.trim()) return choferesConActual.slice(0, 50);
     const q = searchChofer.toLowerCase();
-    return choferesRaw.filter((c: any) => 
+    return choferesConActual.filter((c: any) => 
       (c.nombre || '').toLowerCase().includes(q) || 
       (c.apellido || '').toLowerCase().includes(q) || 
       (c.dni || '').includes(q)
     ).slice(0, 50);
-  }, [choferesRaw, searchChofer]);
+  }, [choferesConActual, searchChofer]);
   
   const [updateUser, { isLoading }] = useUpdatePlatformUserMutation();
 
@@ -355,18 +366,27 @@ const EditPlatformUserModal: React.FC<Props> = ({ isOpen, onClose, user }) => {
                 )} />
               </div>
 
-              {/* Empresa (Tenant) */}
-              <div>
-                <label className="block text-sm font-medium mb-1">Empresa (Tenant)</label>
-                <Controller name="empresaId" control={control} render={({ field }) => (
-                  <select className="w-full px-3 py-2 border rounded-md" {...field}>
-                    <option value="">(sin empresa)</option>
-                    {empresas.map((e: any) => (
-                      <option key={e.id} value={e.id}>{e.nombre}</option>
-                    ))}
-                  </select>
-                )} />
-              </div>
+              {/* Empresa (Tenant) - solo editable por SUPERADMIN */}
+              {canSelectEmpresa ? (
+                <div>
+                  <label className="block text-sm font-medium mb-1">Empresa (Tenant)</label>
+                  <Controller name="empresaId" control={control} render={({ field }) => (
+                    <select className="w-full px-3 py-2 border rounded-md" {...field}>
+                      <option value="">(sin empresa)</option>
+                      {empresas.map((e: any) => (
+                        <option key={e.id} value={e.id}>{e.nombre}</option>
+                      ))}
+                    </select>
+                  )} />
+                </div>
+              ) : (
+                <div>
+                  <label className="block text-sm font-medium mb-1">Empresa</label>
+                  <div className="w-full px-3 py-2 border rounded-md bg-muted text-muted-foreground">
+                    {empresas.find((e: any) => e.id === (user.empresaId || currentUser?.empresaId))?.nombre || 'BCA'}
+                  </div>
+                </div>
+              )}
 
               {/* Asociación: Dador de Carga */}
               {selectedRole === 'DADOR_DE_CARGA' && (
@@ -520,10 +540,10 @@ const EditPlatformUserModal: React.FC<Props> = ({ isOpen, onClose, user }) => {
                       render={({ field }) => {
                         const currentVal = field.value ? Number(field.value) : '';
                         const existsInList = choferes.some((c: any) => c.id === currentVal);
-                        const currentItem = choferesRaw.find((c: any) => c.id === currentVal);
+                        const currentItem = choferesConActual.find((c: any) => c.id === currentVal);
                         return (
                           <select className="w-full px-3 py-2 border rounded-md" {...field} disabled={!selectedTransportistaForChofer}>
-                            <option value="">{selectedTransportistaForChofer ? `Seleccionar... (${choferesRaw.length} total)` : 'Primero seleccione transportista'}</option>
+                            <option value="">{selectedTransportistaForChofer ? `Seleccionar... (${choferesConActual.length} total)` : 'Primero seleccione transportista'}</option>
                             {currentVal && !existsInList && currentItem && (
                               <option value={currentVal}>{currentItem.apellido}, {currentItem.nombre} (DNI: {currentItem.dni})</option>
                             )}
