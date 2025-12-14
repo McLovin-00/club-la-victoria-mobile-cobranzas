@@ -152,7 +152,7 @@ export class PortalClienteController {
             const patenteNorm = (p: string | undefined | null) => (p || '').toLowerCase().replace(/[^a-z0-9]/g, '');
             const termNorm = term.replace(/[^a-z0-9]/g, '');
             
-            return (
+          return (
               eq.identificador.toLowerCase().includes(term) ||
               patenteNorm(eq.camion?.patente).includes(termNorm) ||
               patenteNorm(eq.acoplado?.patente).includes(termNorm) ||
@@ -161,7 +161,7 @@ export class PortalClienteController {
               eq.chofer?.apellido?.toLowerCase().includes(term) ||
               eq.empresaTransportista?.razonSocial?.toLowerCase().includes(term) ||
               eq.empresaTransportista?.cuit?.includes(term)
-            );
+          );
           });
         });
       }

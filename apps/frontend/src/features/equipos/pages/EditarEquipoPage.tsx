@@ -15,11 +15,13 @@ import {
   useGetEquipoRequisitosQuery,
   useRemoveEquipoClienteWithArchiveMutation,
   useUploadDocumentMutation,
+  useCreateCamionMutation,
+  useCreateAcopladoMutation,
 } from '../../documentos/api/documentosApiSlice';
 import { Button } from '../../../components/ui/button';
 import { Card } from '../../../components/ui/card';
 import { Label } from '../../../components/ui/label';
-import { ArrowLeftIcon, DocumentIcon, CheckCircleIcon, ExclamationTriangleIcon, XCircleIcon, ClockIcon } from '@heroicons/react/24/outline';
+import { ArrowLeftIcon, DocumentIcon, CheckCircleIcon, ExclamationTriangleIcon, XCircleIcon, ClockIcon, PlusIcon } from '@heroicons/react/24/outline';
 import { ConfirmContext } from '../../../contexts/confirmContext';
 
 /**
@@ -73,6 +75,14 @@ const EditarEquipoPage: React.FC = () => {
   const [associateCliente] = useAssociateEquipoClienteMutation();
   const [removeClienteWithArchive] = useRemoveEquipoClienteWithArchiveMutation();
   const [uploadDocument, { isLoading: uploading }] = useUploadDocumentMutation();
+  const [createCamion, { isLoading: creatingCamion }] = useCreateCamionMutation();
+  const [createAcoplado, { isLoading: creatingAcoplado }] = useCreateAcopladoMutation();
+  
+  // Estados para modales de creación de Camión/Acoplado
+  const [showNewCamionModal, setShowNewCamionModal] = useState(false);
+  const [showNewAcopladoModal, setShowNewAcopladoModal] = useState(false);
+  const [newCamionData, setNewCamionData] = useState({ patente: '', marca: '', modelo: '' });
+  const [newAcopladoData, setNewAcopladoData] = useState({ patente: '', tipo: '' });
   
   // Estado para archivos seleccionados (key: templateId-entityType-entityId)
   const [selectedFiles, setSelectedFiles] = useState<Record<string, { file: File; expiresAt?: string }>>({});
@@ -174,6 +184,55 @@ const EditarEquipoPage: React.FC = () => {
       refetch();
     } catch (err: any) {
       setMessage({ type: 'error', text: err?.data?.message || 'Error al cambiar acoplado' });
+    }
+  };
+  
+  // Crear nuevo Camión
+  const handleCreateCamion = async () => {
+    if (!newCamionData.patente || newCamionData.patente.length < 5) {
+      setMessage({ type: 'error', text: 'La patente debe tener al menos 5 caracteres' });
+      return;
+    }
+    try {
+      const created = await createCamion({
+        dadorCargaId: dadorId,
+        patente: newCamionData.patente.toUpperCase().trim(),
+        marca: newCamionData.marca || undefined,
+        modelo: newCamionData.modelo || undefined,
+      }).unwrap();
+      setMessage({ type: 'success', text: `Camión ${newCamionData.patente} creado exitosamente` });
+      setNewCamionData({ patente: '', marca: '', modelo: '' });
+      setShowNewCamionModal(false);
+      // Seleccionar el nuevo camión automáticamente
+      if (created?.id) {
+        setSelectedCamionId(created.id);
+      }
+    } catch (err: any) {
+      setMessage({ type: 'error', text: err?.data?.message || 'Error al crear camión' });
+    }
+  };
+  
+  // Crear nuevo Acoplado
+  const handleCreateAcoplado = async () => {
+    if (!newAcopladoData.patente || newAcopladoData.patente.length < 5) {
+      setMessage({ type: 'error', text: 'La patente debe tener al menos 5 caracteres' });
+      return;
+    }
+    try {
+      const created = await createAcoplado({
+        dadorCargaId: dadorId,
+        patente: newAcopladoData.patente.toUpperCase().trim(),
+        tipo: newAcopladoData.tipo || undefined,
+      }).unwrap();
+      setMessage({ type: 'success', text: `Acoplado ${newAcopladoData.patente} creado exitosamente` });
+      setNewAcopladoData({ patente: '', tipo: '' });
+      setShowNewAcopladoModal(false);
+      // Seleccionar el nuevo acoplado automáticamente
+      if (created?.id) {
+        setSelectedAcopladoId(created.id);
+      }
+    } catch (err: any) {
+      setMessage({ type: 'error', text: err?.data?.message || 'Error al crear acoplado' });
     }
   };
   
@@ -510,6 +569,17 @@ const EditarEquipoPage: React.FC = () => {
               >
                 Cambiar
               </Button>
+              {canEdit && (
+                <Button
+                  variant='outline'
+                  size='sm'
+                  className='flex-shrink-0'
+                  onClick={() => setShowNewCamionModal(true)}
+                  title='Crear nuevo camión'
+                >
+                  <PlusIcon className='h-4 w-4' />
+                </Button>
+              )}
             </div>
           </div>
           
@@ -535,6 +605,17 @@ const EditarEquipoPage: React.FC = () => {
               >
                 Cambiar
               </Button>
+              {canEdit && (
+                <Button
+                  variant='outline'
+                  size='sm'
+                  className='flex-shrink-0'
+                  onClick={() => setShowNewAcopladoModal(true)}
+                  title='Crear nuevo acoplado'
+                >
+                  <PlusIcon className='h-4 w-4' />
+                </Button>
+              )}
             </div>
           </div>
           
@@ -786,6 +867,98 @@ const EditarEquipoPage: React.FC = () => {
         Al cambiar una entidad, si la nueva entidad ya tiene documentos vigentes,
         se reutilizarán automáticamente.
       </div>
+      
+      {/* Modal: Crear Camión */}
+      {showNewCamionModal && (
+        <div className='fixed inset-0 z-50 overflow-y-auto'>
+          <div className='fixed inset-0 bg-black/40' onClick={() => setShowNewCamionModal(false)} />
+          <div className='flex min-h-full items-center justify-center p-4'>
+            <div className='relative bg-background rounded-lg shadow-xl w-full max-w-md p-6'>
+              <h3 className='text-lg font-medium mb-4'>Crear Nuevo Camión</h3>
+              <div className='space-y-4'>
+                <div>
+                  <Label>Patente *</Label>
+                  <input
+                    type='text'
+                    className='w-full border rounded px-3 py-2 uppercase'
+                    placeholder='ABC123 o AB123CD'
+                    value={newCamionData.patente}
+                    onChange={(e) => setNewCamionData({ ...newCamionData, patente: e.target.value.toUpperCase() })}
+                    maxLength={10}
+                  />
+                </div>
+                <div>
+                  <Label>Marca</Label>
+                  <input
+                    type='text'
+                    className='w-full border rounded px-3 py-2'
+                    placeholder='Ej: Scania, Mercedes, Volvo'
+                    value={newCamionData.marca}
+                    onChange={(e) => setNewCamionData({ ...newCamionData, marca: e.target.value })}
+                  />
+                </div>
+                <div>
+                  <Label>Modelo</Label>
+                  <input
+                    type='text'
+                    className='w-full border rounded px-3 py-2'
+                    placeholder='Ej: R450, Actros 2553'
+                    value={newCamionData.modelo}
+                    onChange={(e) => setNewCamionData({ ...newCamionData, modelo: e.target.value })}
+                  />
+                </div>
+              </div>
+              <div className='flex justify-end gap-2 mt-6'>
+                <Button variant='outline' onClick={() => setShowNewCamionModal(false)}>Cancelar</Button>
+                <Button onClick={handleCreateCamion} disabled={creatingCamion || !newCamionData.patente}>
+                  {creatingCamion ? 'Creando...' : 'Crear Camión'}
+                </Button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+      
+      {/* Modal: Crear Acoplado */}
+      {showNewAcopladoModal && (
+        <div className='fixed inset-0 z-50 overflow-y-auto'>
+          <div className='fixed inset-0 bg-black/40' onClick={() => setShowNewAcopladoModal(false)} />
+          <div className='flex min-h-full items-center justify-center p-4'>
+            <div className='relative bg-background rounded-lg shadow-xl w-full max-w-md p-6'>
+              <h3 className='text-lg font-medium mb-4'>Crear Nuevo Acoplado</h3>
+              <div className='space-y-4'>
+                <div>
+                  <Label>Patente *</Label>
+                  <input
+                    type='text'
+                    className='w-full border rounded px-3 py-2 uppercase'
+                    placeholder='ABC123 o AB123CD'
+                    value={newAcopladoData.patente}
+                    onChange={(e) => setNewAcopladoData({ ...newAcopladoData, patente: e.target.value.toUpperCase() })}
+                    maxLength={10}
+                  />
+                </div>
+                <div>
+                  <Label>Tipo</Label>
+                  <input
+                    type='text'
+                    className='w-full border rounded px-3 py-2'
+                    placeholder='Ej: Semirremolque, Batea, Cerealero'
+                    value={newAcopladoData.tipo}
+                    onChange={(e) => setNewAcopladoData({ ...newAcopladoData, tipo: e.target.value })}
+                  />
+                </div>
+              </div>
+              <div className='flex justify-end gap-2 mt-6'>
+                <Button variant='outline' onClick={() => setShowNewAcopladoModal(false)}>Cancelar</Button>
+                <Button onClick={handleCreateAcoplado} disabled={creatingAcoplado || !newAcopladoData.patente}>
+                  {creatingAcoplado ? 'Creando...' : 'Crear Acoplado'}
+                </Button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

@@ -36,15 +36,15 @@ router.delete('/choferes/:id', authorize([UserRole.ADMIN, UserRole.SUPERADMIN]),
 
 // Camiones
 router.get('/camiones', validate(camionListQuerySchema), MaestrosController.listCamiones);
-router.post('/camiones', authorize([UserRole.ADMIN, UserRole.SUPERADMIN]), validate(createCamionSchema), MaestrosController.createCamion);
-router.put('/camiones/:id', authorize([UserRole.ADMIN, UserRole.SUPERADMIN]), validate(updateCamionSchema), MaestrosController.updateCamion);
-router.delete('/camiones/:id', authorize([UserRole.ADMIN, UserRole.SUPERADMIN]), MaestrosController.deleteCamion);
+router.post('/camiones', authorize([UserRole.ADMIN, UserRole.SUPERADMIN, UserRole.ADMIN_INTERNO, UserRole.DADOR_DE_CARGA, UserRole.TRANSPORTISTA]), validate(createCamionSchema), MaestrosController.createCamion);
+router.put('/camiones/:id', authorize([UserRole.ADMIN, UserRole.SUPERADMIN, UserRole.ADMIN_INTERNO]), validate(updateCamionSchema), MaestrosController.updateCamion);
+router.delete('/camiones/:id', authorize([UserRole.ADMIN, UserRole.SUPERADMIN, UserRole.ADMIN_INTERNO]), MaestrosController.deleteCamion);
 
 // Acoplados
 router.get('/acoplados', validate(acopladoListQuerySchema), MaestrosController.listAcoplados);
-router.post('/acoplados', authorize([UserRole.ADMIN, UserRole.SUPERADMIN]), validate(createAcopladoSchema), MaestrosController.createAcoplado);
-router.put('/acoplados/:id', authorize([UserRole.ADMIN, UserRole.SUPERADMIN]), validate(updateAcopladoSchema), MaestrosController.updateAcoplado);
-router.delete('/acoplados/:id', authorize([UserRole.ADMIN, UserRole.SUPERADMIN]), MaestrosController.deleteAcoplado);
+router.post('/acoplados', authorize([UserRole.ADMIN, UserRole.SUPERADMIN, UserRole.ADMIN_INTERNO, UserRole.DADOR_DE_CARGA, UserRole.TRANSPORTISTA]), validate(createAcopladoSchema), MaestrosController.createAcoplado);
+router.put('/acoplados/:id', authorize([UserRole.ADMIN, UserRole.SUPERADMIN, UserRole.ADMIN_INTERNO]), validate(updateAcopladoSchema), MaestrosController.updateAcoplado);
+router.delete('/acoplados/:id', authorize([UserRole.ADMIN, UserRole.SUPERADMIN, UserRole.ADMIN_INTERNO]), MaestrosController.deleteAcoplado);
 
 export default router;
 
