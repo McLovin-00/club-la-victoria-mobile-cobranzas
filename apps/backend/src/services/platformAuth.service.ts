@@ -578,14 +578,25 @@ export class PlatformAuthService {
     }
   }
 
-  private static determineFinalEmpresaId(role: UserRole | undefined, requestedEmpresaId: number | null | undefined, createdBy: PlatformUserProfile): number | null {
+  private static determineFinalEmpresaId(role: UserRole | undefined, requestedEmpresaId: number | null | undefined, createdBy: PlatformUserProfile): number {
     if (createdBy.role === 'SUPERADMIN') {
-      // Si el superadmin NO especifica empresaId, usar su propia empresa como contexto
-      // Esto permite crear usuarios asociados a la empresa que el superadmin está gestionando
-      return requestedEmpresaId !== undefined ? requestedEmpresaId : (createdBy.empresaId || null);
+      // SUPERADMIN debe especificar empresaId obligatoriamente
+      if (requestedEmpresaId && requestedEmpresaId > 0) {
+        return requestedEmpresaId;
+      }
+      // Si no especificó, usar la empresa del superadmin
+      if (createdBy.empresaId) {
+        return createdBy.empresaId;
+      }
+      // Fallback: usar empresa 1 (BCA) - esto no debería ocurrir en producción
+      return 1;
     }
 
-    // Para ADMIN, siempre usar su propia empresa
-    return createdBy.empresaId || null;
+    // Para cualquier otro rol, siempre usar la empresa del creador
+    if (createdBy.empresaId) {
+      return createdBy.empresaId;
+    }
+    // Fallback: empresa 1 (BCA)
+    return 1;
   }
 } 

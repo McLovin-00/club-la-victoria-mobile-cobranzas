@@ -197,6 +197,13 @@ export const RegisterUserModal: React.FC<RegisterUserModalProps> = ({ isOpen, on
 
   const onSubmit = async (data: FormData) => {
     try {
+      // Validar que todos los usuarios tengan empresa asignada
+      const finalEmpresaId = canSelectEmpresa ? (data.empresaId ? Number(data.empresaId) : undefined) : currentUser?.empresaId;
+      if (!finalEmpresaId) {
+        showToast('Debe seleccionar una empresa para el usuario', 'error');
+        return;
+      }
+      
       // CLIENTE (wizard): permite crear el cliente (entidad) y luego el usuario con contraseña temporal.
       if (data.role === 'CLIENTE') {
         const actorRole = currentUser?.role;
@@ -478,19 +485,21 @@ export const RegisterUserModal: React.FC<RegisterUserModalProps> = ({ isOpen, on
               {/* Empresa (Tenant) - solo visible para SUPERADMIN */}
               {canSelectEmpresa ? (
                 <div>
-                  <label className="block text-sm font-medium mb-1">Empresa (Tenant)</label>
+                  <label className="block text-sm font-medium mb-1">Empresa (Tenant) *</label>
                   <Controller
                     name="empresaId"
                     control={control}
+                    rules={{ required: 'Debe seleccionar una empresa' }}
                     render={({ field }) => (
                       <select className="w-full px-3 py-2 border rounded-md" {...field}>
-                        <option value="">(sin empresa)</option>
+                        <option value="">Seleccionar empresa...</option>
                         {empresas.map((e: any) => (
                           <option key={e.id} value={e.id}>{e.nombre}</option>
                         ))}
                       </select>
                     )}
                   />
+                  {errors.empresaId && <p className="text-red-500 text-xs mt-1">{errors.empresaId.message}</p>}
                 </div>
               ) : (
                 <div>

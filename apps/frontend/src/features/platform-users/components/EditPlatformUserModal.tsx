@@ -369,15 +369,23 @@ const EditPlatformUserModal: React.FC<Props> = ({ isOpen, onClose, user }) => {
               {/* Empresa (Tenant) - solo editable por SUPERADMIN */}
               {canSelectEmpresa ? (
                 <div>
-                  <label className="block text-sm font-medium mb-1">Empresa (Tenant)</label>
-                  <Controller name="empresaId" control={control} render={({ field }) => (
-                    <select className="w-full px-3 py-2 border rounded-md" {...field}>
-                      <option value="">(sin empresa)</option>
-                      {empresas.map((e: any) => (
-                        <option key={e.id} value={e.id}>{e.nombre}</option>
-                      ))}
-                    </select>
-                  )} />
+                  <label className="block text-sm font-medium mb-1">Empresa (Tenant) *</label>
+                  <Controller 
+                    name="empresaId" 
+                    control={control} 
+                    rules={{ required: 'Debe seleccionar una empresa' }}
+                    render={({ field, fieldState }) => (
+                      <>
+                        <select className="w-full px-3 py-2 border rounded-md" {...field}>
+                          <option value="">Seleccionar empresa...</option>
+                          {empresas.map((e: any) => (
+                            <option key={e.id} value={e.id}>{e.nombre}</option>
+                          ))}
+                        </select>
+                        {fieldState.error && <p className="text-red-500 text-xs mt-1">{fieldState.error.message}</p>}
+                      </>
+                    )} 
+                  />
                 </div>
               ) : (
                 <div>
