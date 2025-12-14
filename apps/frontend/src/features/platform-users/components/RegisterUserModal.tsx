@@ -3,9 +3,9 @@ import { useForm, Controller } from 'react-hook-form';
 import { Button } from '../../../components/ui/button';
 import { Spinner } from '../../../components/ui/spinner';
 import { showToast } from '../../../components/ui/Toast.utils';
-import { useRegisterClientWizardMutation, useRegisterPlatformUserMutation } from '../api/platformUsersApiSlice';
+import { useRegisterClientWizardMutation, useRegisterDadorWizardMutation, useRegisterTransportistaWizardMutation, useRegisterChoferWizardMutation, useRegisterPlatformUserMutation } from '../api/platformUsersApiSlice';
 import { useGetEmpresasQuery } from '../../empresas/api/empresasApiSlice';
-import { useCreateClientMutation, useGetDadoresQuery, useGetEmpresasTransportistasQuery, useGetEmpresaTransportistaChoferesQuery, useGetClientsQuery } from '../../documentos/api/documentosApiSlice';
+import { useCreateClientMutation, useCreateDadorMutation, useCreateEmpresaTransportistaMutation, useCreateChoferMutation, useGetDadoresQuery, useGetEmpresasTransportistasQuery, useGetEmpresaTransportistaChoferesQuery, useGetClientsQuery } from '../../documentos/api/documentosApiSlice';
 import { useAppSelector } from '../../../store/hooks';
 import { selectCurrentUser } from '../../auth/authSlice';
 
@@ -48,6 +48,20 @@ type FormData = {
   clienteRazonSocial?: string;
   clienteCuit?: string;
   clienteNotas?: string;
+  // Wizard DADOR
+  dadorRazonSocial?: string;
+  dadorCuit?: string;
+  dadorNotas?: string;
+  // Wizard TRANSPORTISTA
+  transportistaRazonSocial?: string;
+  transportistaCuit?: string;
+  transportistaNotas?: string;
+  transportistaDadorId?: number | '';
+  // Wizard CHOFER
+  choferDni?: string;
+  choferNombre?: string;
+  choferApellido?: string;
+  choferDadorId?: number | '';
   dadorCargaId?: number | '';
   empresaTransportistaId?: number | '';
   choferId?: number | '';
@@ -93,7 +107,13 @@ export const RegisterUserModal: React.FC<RegisterUserModalProps> = ({ isOpen, on
   
   const [registerUser, { isLoading }] = useRegisterPlatformUserMutation();
   const [registerClientWizard, { isLoading: isLoadingWizardClient }] = useRegisterClientWizardMutation();
+  const [registerDadorWizard, { isLoading: isLoadingWizardDador }] = useRegisterDadorWizardMutation();
+  const [registerTransportistaWizard, { isLoading: isLoadingWizardTransportista }] = useRegisterTransportistaWizardMutation();
+  const [registerChoferWizard, { isLoading: isLoadingWizardChofer }] = useRegisterChoferWizardMutation();
   const [createClient, { isLoading: isCreatingClient }] = useCreateClientMutation();
+  const [createDador, { isLoading: isCreatingDador }] = useCreateDadorMutation();
+  const [createEmpresaTransportista, { isLoading: isCreatingTransportista }] = useCreateEmpresaTransportistaMutation();
+  const [createChofer, { isLoading: isCreatingChofer }] = useCreateChoferMutation();
   const { control, handleSubmit, reset, watch, setValue, formState: { errors } } = useForm<FormData>({
     defaultValues: {
       email: '',
@@ -114,6 +134,9 @@ export const RegisterUserModal: React.FC<RegisterUserModalProps> = ({ isOpen, on
 
   const selectedRole = watch('role');
   const [clienteMode, setClienteMode] = useState<'existing' | 'new'>('existing');
+  const [dadorMode, setDadorMode] = useState<'existing' | 'new'>('existing');
+  const [transportistaMode, setTransportistaMode] = useState<'existing' | 'new'>('existing');
+  const [choferMode, setChoferMode] = useState<'existing' | 'new'>('existing');
   const [tempPasswordToShow, setTempPasswordToShow] = useState<string | null>(null);
   
   // Roles disponibles según el rol del usuario actual
@@ -122,20 +145,28 @@ export const RegisterUserModal: React.FC<RegisterUserModalProps> = ({ isOpen, on
     return PERMISOS_CREACION[currentUser.role] || [];
   }, [currentUser?.role]);
 
-  // Reset estado de dador cuando cambia el rol o se cierra el modal
+  // Reset estado cuando cambia el rol o se cierra el modal
   useEffect(() => {
     if (selectedRole !== 'TRANSPORTISTA') {
       setSelectedDadorForTransportista('');
+      setTransportistaMode('existing');
     }
     if (selectedRole !== 'CHOFER') {
       setSelectedDadorForChofer('');
       setSelectedTransportistaForChofer('');
+      setChoferMode('existing');
     }
     if (selectedRole !== 'CLIENTE') {
       setClienteMode('existing');
       setValue('clienteRazonSocial', '');
       setValue('clienteCuit', '');
       setValue('clienteNotas', '');
+    }
+    if (selectedRole !== 'DADOR_DE_CARGA') {
+      setDadorMode('existing');
+      setValue('dadorRazonSocial', '');
+      setValue('dadorCuit', '');
+      setValue('dadorNotas', '');
     }
   }, [selectedRole]);
 
@@ -145,6 +176,9 @@ export const RegisterUserModal: React.FC<RegisterUserModalProps> = ({ isOpen, on
       setSelectedDadorForChofer('');
       setSelectedTransportistaForChofer('');
       setClienteMode('existing');
+      setDadorMode('existing');
+      setTransportistaMode('existing');
+      setChoferMode('existing');
       setTempPasswordToShow(null);
     }
   }, [isOpen]);
@@ -197,6 +231,150 @@ export const RegisterUserModal: React.FC<RegisterUserModalProps> = ({ isOpen, on
 
         setTempPasswordToShow(resp.tempPassword);
         showToast('Usuario CLIENTE creado. Copie la contraseña temporal.', 'success');
+        return;
+      }
+
+      // DADOR_DE_CARGA (wizard): permite crear el dador (entidad) y luego el usuario con contraseña temporal.
+      if (data.role === 'DADOR_DE_CARGA') {
+        const actorRole = currentUser?.role;
+        if (!actorRole || !['SUPERADMIN', 'ADMIN', 'ADMIN_INTERNO'].includes(actorRole)) {
+          showToast('No tiene permisos para crear usuarios DADOR DE CARGA', 'error');
+          return;
+        }
+
+        let dadorIdFinal: number | undefined;
+        if (dadorMode === 'new') {
+          if (!data.dadorRazonSocial || !data.dadorCuit) {
+            showToast('Razón social y CUIT del dador son obligatorios', 'error');
+            return;
+          }
+          const created = await createDador({
+            razonSocial: data.dadorRazonSocial,
+            cuit: data.dadorCuit,
+            notas: data.dadorNotas || undefined,
+            activo: true,
+          }).unwrap();
+          dadorIdFinal = created?.id;
+        } else {
+          if (!data.dadorCargaId) {
+            showToast('Debe seleccionar un dador de carga', 'error');
+            return;
+          }
+          dadorIdFinal = Number(data.dadorCargaId);
+        }
+
+        if (!dadorIdFinal) {
+          showToast('No se pudo determinar el dador a asociar', 'error');
+          return;
+        }
+
+        const resp = await registerDadorWizard({
+          email: data.email,
+          nombre: data.nombre || undefined,
+          apellido: data.apellido || undefined,
+          empresaId: data.empresaId ? Number(data.empresaId) : undefined,
+          dadorCargaId: dadorIdFinal,
+        }).unwrap();
+
+        setTempPasswordToShow(resp.tempPassword);
+        showToast('Usuario DADOR DE CARGA creado. Copie la contraseña temporal.', 'success');
+        return;
+      }
+
+      // TRANSPORTISTA (wizard): permite crear la empresa transportista (entidad) y luego el usuario con contraseña temporal.
+      if (data.role === 'TRANSPORTISTA') {
+        const actorRole = currentUser?.role;
+        if (!actorRole || !['SUPERADMIN', 'ADMIN', 'ADMIN_INTERNO', 'DADOR_DE_CARGA'].includes(actorRole)) {
+          showToast('No tiene permisos para crear usuarios TRANSPORTISTA', 'error');
+          return;
+        }
+
+        let transportistaIdFinal: number | undefined;
+        if (transportistaMode === 'new') {
+          if (!data.transportistaRazonSocial || !data.transportistaCuit || !data.transportistaDadorId) {
+            showToast('Razón social, CUIT y Dador de Carga son obligatorios', 'error');
+            return;
+          }
+          const created = await createEmpresaTransportista({
+            dadorCargaId: Number(data.transportistaDadorId),
+            razonSocial: data.transportistaRazonSocial,
+            cuit: data.transportistaCuit,
+            notas: data.transportistaNotas || undefined,
+            activo: true,
+          }).unwrap();
+          transportistaIdFinal = created?.id;
+        } else {
+          if (!data.empresaTransportistaId) {
+            showToast('Debe seleccionar una empresa transportista', 'error');
+            return;
+          }
+          transportistaIdFinal = Number(data.empresaTransportistaId);
+        }
+
+        if (!transportistaIdFinal) {
+          showToast('No se pudo determinar la transportista a asociar', 'error');
+          return;
+        }
+
+        const resp = await registerTransportistaWizard({
+          email: data.email,
+          nombre: data.nombre || undefined,
+          apellido: data.apellido || undefined,
+          empresaId: data.empresaId ? Number(data.empresaId) : undefined,
+          empresaTransportistaId: transportistaIdFinal,
+        }).unwrap();
+
+        setTempPasswordToShow(resp.tempPassword);
+        showToast('Usuario TRANSPORTISTA creado. Copie la contraseña temporal.', 'success');
+        return;
+      }
+
+      // CHOFER (wizard): permite crear el chofer (entidad) y luego el usuario con contraseña temporal.
+      if (data.role === 'CHOFER') {
+        const actorRole = currentUser?.role;
+        if (!actorRole || !['SUPERADMIN', 'ADMIN', 'ADMIN_INTERNO', 'DADOR_DE_CARGA', 'TRANSPORTISTA'].includes(actorRole)) {
+          showToast('No tiene permisos para crear usuarios CHOFER', 'error');
+          return;
+        }
+
+        let choferIdFinal: number | undefined;
+        if (choferMode === 'new') {
+          if (!data.choferDni || !data.choferDadorId) {
+            showToast('DNI y Dador de Carga del chofer son obligatorios', 'error');
+            return;
+          }
+          const created = await createChofer({
+            dadorCargaId: Number(data.choferDadorId),
+            dni: data.choferDni,
+            nombre: data.choferNombre || undefined,
+            apellido: data.choferApellido || undefined,
+            activo: true,
+            phones: [],
+          }).unwrap();
+          choferIdFinal = created?.id;
+        } else {
+          if (!data.choferId) {
+            showToast('Debe seleccionar un chofer', 'error');
+            return;
+          }
+          choferIdFinal = Number(data.choferId);
+        }
+
+        if (!choferIdFinal) {
+          showToast('No se pudo determinar el chofer a asociar', 'error');
+          return;
+        }
+
+        const resp = await registerChoferWizard({
+          email: data.email,
+          nombre: data.nombre || undefined,
+          apellido: data.apellido || undefined,
+          empresaId: data.empresaId ? Number(data.empresaId) : undefined,
+          choferId: choferIdFinal,
+        }).unwrap();
+
+        setTempPasswordToShow(resp.tempPassword);
+        showToast('Usuario CHOFER creado. Copie la contraseña temporal.', 'success');
         return;
       }
 
@@ -331,14 +509,33 @@ export const RegisterUserModal: React.FC<RegisterUserModalProps> = ({ isOpen, on
                 </div>
               )}
 
-              {/* Asociación: Dador de Carga */}
-              {selectedRole === 'DADOR_DE_CARGA' && (
+              {/* DADOR_DE_CARGA - modo wizard */}
+              {selectedRole === 'DADOR_DE_CARGA' && currentUser?.role && ['SUPERADMIN', 'ADMIN', 'ADMIN_INTERNO'].includes(currentUser.role) && (
+                <div className="col-span-2 rounded-md border p-3 bg-muted/40">
+                  <div className="flex items-center gap-4">
+                    <label className="flex items-center gap-2 text-sm">
+                      <input type="radio" checked={dadorMode === 'existing'} onChange={() => setDadorMode('existing')} />
+                      Asociar dador existente
+                    </label>
+                    <label className="flex items-center gap-2 text-sm">
+                      <input type="radio" checked={dadorMode === 'new'} onChange={() => setDadorMode('new')} />
+                      Crear dador nuevo + crear usuario
+                    </label>
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-2">
+                    Para DADOR DE CARGA la contraseña se genera automáticamente y se muestra una sola vez.
+                  </p>
+                </div>
+              )}
+
+              {/* Asociación: Dador de Carga existente */}
+              {selectedRole === 'DADOR_DE_CARGA' && dadorMode === 'existing' && (
                 <div className="col-span-2">
                   <label className="block text-sm font-medium mb-1">Dador de Carga asociado *</label>
                   <Controller
                     name="dadorCargaId"
                     control={control}
-                    rules={{ required: 'Debe seleccionar un dador de carga' }}
+                    rules={{ required: dadorMode === 'existing' ? 'Debe seleccionar un dador de carga' : false }}
                     render={({ field }) => (
                       <select className="w-full px-3 py-2 border rounded-md" {...field}>
                         <option value="">Seleccionar...</option>
@@ -352,8 +549,51 @@ export const RegisterUserModal: React.FC<RegisterUserModalProps> = ({ isOpen, on
                 </div>
               )}
 
-              {/* Asociación: Empresa Transportista (primero seleccionar Dador) */}
-              {selectedRole === 'TRANSPORTISTA' && (
+              {/* Crear Dador nuevo */}
+              {selectedRole === 'DADOR_DE_CARGA' && dadorMode === 'new' && (
+                <>
+                  <div className="col-span-2">
+                    <label className="block text-sm font-medium mb-1">Razón Social del Dador *</label>
+                    <Controller name="dadorRazonSocial" control={control} render={({ field }) => (
+                      <input type="text" className="w-full px-3 py-2 border rounded-md" placeholder="Empresa S.A." {...field} />
+                    )} />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium mb-1">CUIT del Dador *</label>
+                    <Controller name="dadorCuit" control={control} render={({ field }) => (
+                      <input type="text" className="w-full px-3 py-2 border rounded-md" placeholder="20123456789" {...field} />
+                    )} />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium mb-1">Notas</label>
+                    <Controller name="dadorNotas" control={control} render={({ field }) => (
+                      <input type="text" className="w-full px-3 py-2 border rounded-md" {...field} />
+                    )} />
+                  </div>
+                </>
+              )}
+
+              {/* TRANSPORTISTA - modo wizard */}
+              {selectedRole === 'TRANSPORTISTA' && currentUser?.role && ['SUPERADMIN', 'ADMIN', 'ADMIN_INTERNO', 'DADOR_DE_CARGA'].includes(currentUser.role) && (
+                <div className="col-span-2 rounded-md border p-3 bg-muted/40">
+                  <div className="flex items-center gap-4">
+                    <label className="flex items-center gap-2 text-sm">
+                      <input type="radio" checked={transportistaMode === 'existing'} onChange={() => setTransportistaMode('existing')} />
+                      Asociar transportista existente
+                    </label>
+                    <label className="flex items-center gap-2 text-sm">
+                      <input type="radio" checked={transportistaMode === 'new'} onChange={() => setTransportistaMode('new')} />
+                      Crear transportista nuevo + crear usuario
+                    </label>
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-2">
+                    Para TRANSPORTISTA la contraseña se genera automáticamente y se muestra una sola vez.
+                  </p>
+                </div>
+              )}
+
+              {/* Asociación: Empresa Transportista existente (primero seleccionar Dador) */}
+              {selectedRole === 'TRANSPORTISTA' && transportistaMode === 'existing' && (
                 <>
                   <div className="col-span-2">
                     <label className="block text-sm font-medium mb-1">Dador de Carga *</label>
@@ -362,7 +602,7 @@ export const RegisterUserModal: React.FC<RegisterUserModalProps> = ({ isOpen, on
                       value={selectedDadorForTransportista}
                       onChange={(e) => {
                         setSelectedDadorForTransportista(e.target.value ? Number(e.target.value) : '');
-                        setValue('empresaTransportistaId', ''); // Reset transportista al cambiar dador
+                        setValue('empresaTransportistaId', '');
                       }}
                     >
                       <option value="">Seleccionar dador...</option>
@@ -376,13 +616,9 @@ export const RegisterUserModal: React.FC<RegisterUserModalProps> = ({ isOpen, on
                     <Controller
                       name="empresaTransportistaId"
                       control={control}
-                      rules={{ required: 'Debe seleccionar una empresa transportista' }}
+                      rules={{ required: transportistaMode === 'existing' ? 'Debe seleccionar una empresa transportista' : false }}
                       render={({ field }) => (
-                        <select 
-                          className="w-full px-3 py-2 border rounded-md" 
-                          {...field}
-                          disabled={!selectedDadorForTransportista}
-                        >
+                        <select className="w-full px-3 py-2 border rounded-md" {...field} disabled={!selectedDadorForTransportista}>
                           <option value="">{selectedDadorForTransportista ? 'Seleccionar...' : 'Primero seleccione un dador'}</option>
                           {transportistas.map((t: any) => (
                             <option key={t.id} value={t.id}>{t.razonSocial || t.nombre} ({t.cuit})</option>
@@ -395,8 +631,62 @@ export const RegisterUserModal: React.FC<RegisterUserModalProps> = ({ isOpen, on
                 </>
               )}
 
-              {/* Asociación: Chofer (Dador → Transportista → Chofer) */}
-              {selectedRole === 'CHOFER' && (
+              {/* Crear Transportista nuevo */}
+              {selectedRole === 'TRANSPORTISTA' && transportistaMode === 'new' && (
+                <>
+                  <div className="col-span-2">
+                    <label className="block text-sm font-medium mb-1">Dador de Carga *</label>
+                    <Controller name="transportistaDadorId" control={control} render={({ field }) => (
+                      <select className="w-full px-3 py-2 border rounded-md" {...field}>
+                        <option value="">Seleccionar dador...</option>
+                        {dadores.map((d: any) => (
+                          <option key={d.id} value={d.id}>{d.razonSocial || d.nombre} ({d.cuit})</option>
+                        ))}
+                      </select>
+                    )} />
+                  </div>
+                  <div className="col-span-2">
+                    <label className="block text-sm font-medium mb-1">Razón Social de la Transportista *</label>
+                    <Controller name="transportistaRazonSocial" control={control} render={({ field }) => (
+                      <input type="text" className="w-full px-3 py-2 border rounded-md" placeholder="Transporte S.R.L." {...field} />
+                    )} />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium mb-1">CUIT de la Transportista *</label>
+                    <Controller name="transportistaCuit" control={control} render={({ field }) => (
+                      <input type="text" className="w-full px-3 py-2 border rounded-md" placeholder="20123456789" {...field} />
+                    )} />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium mb-1">Notas</label>
+                    <Controller name="transportistaNotas" control={control} render={({ field }) => (
+                      <input type="text" className="w-full px-3 py-2 border rounded-md" {...field} />
+                    )} />
+                  </div>
+                </>
+              )}
+
+              {/* CHOFER - modo wizard */}
+              {selectedRole === 'CHOFER' && currentUser?.role && ['SUPERADMIN', 'ADMIN', 'ADMIN_INTERNO', 'DADOR_DE_CARGA', 'TRANSPORTISTA'].includes(currentUser.role) && (
+                <div className="col-span-2 rounded-md border p-3 bg-muted/40">
+                  <div className="flex items-center gap-4">
+                    <label className="flex items-center gap-2 text-sm">
+                      <input type="radio" checked={choferMode === 'existing'} onChange={() => setChoferMode('existing')} />
+                      Asociar chofer existente
+                    </label>
+                    <label className="flex items-center gap-2 text-sm">
+                      <input type="radio" checked={choferMode === 'new'} onChange={() => setChoferMode('new')} />
+                      Crear chofer nuevo + crear usuario
+                    </label>
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-2">
+                    Para CHOFER la contraseña se genera automáticamente y se muestra una sola vez.
+                  </p>
+                </div>
+              )}
+
+              {/* Asociación: Chofer existente (Dador → Transportista → Chofer) */}
+              {selectedRole === 'CHOFER' && choferMode === 'existing' && (
                 <>
                   <div className="col-span-2">
                     <label className="block text-sm font-medium mb-1">Dador de Carga *</label>
@@ -405,8 +695,8 @@ export const RegisterUserModal: React.FC<RegisterUserModalProps> = ({ isOpen, on
                       value={selectedDadorForChofer}
                       onChange={(e) => {
                         setSelectedDadorForChofer(e.target.value ? Number(e.target.value) : '');
-                        setSelectedTransportistaForChofer(''); // Reset transportista
-                        setValue('choferId', ''); // Reset chofer
+                        setSelectedTransportistaForChofer('');
+                        setValue('choferId', '');
                       }}
                     >
                       <option value="">Seleccionar dador...</option>
@@ -422,7 +712,7 @@ export const RegisterUserModal: React.FC<RegisterUserModalProps> = ({ isOpen, on
                       value={selectedTransportistaForChofer}
                       onChange={(e) => {
                         setSelectedTransportistaForChofer(e.target.value ? Number(e.target.value) : '');
-                        setValue('choferId', ''); // Reset chofer
+                        setValue('choferId', '');
                       }}
                       disabled={!selectedDadorForChofer}
                     >
@@ -437,13 +727,9 @@ export const RegisterUserModal: React.FC<RegisterUserModalProps> = ({ isOpen, on
                     <Controller
                       name="choferId"
                       control={control}
-                      rules={{ required: 'Debe seleccionar un chofer' }}
+                      rules={{ required: choferMode === 'existing' ? 'Debe seleccionar un chofer' : false }}
                       render={({ field }) => (
-                        <select 
-                          className="w-full px-3 py-2 border rounded-md" 
-                          {...field}
-                          disabled={!selectedTransportistaForChofer}
-                        >
+                        <select className="w-full px-3 py-2 border rounded-md" {...field} disabled={!selectedTransportistaForChofer}>
                           <option value="">{selectedTransportistaForChofer ? 'Seleccionar...' : 'Primero seleccione una transportista'}</option>
                           {choferes.map((c: any) => (
                             <option key={c.id} value={c.id}>{c.apellido}, {c.nombre} (DNI: {c.dni})</option>
@@ -452,6 +738,41 @@ export const RegisterUserModal: React.FC<RegisterUserModalProps> = ({ isOpen, on
                       )}
                     />
                     {errors.choferId && <p className="text-red-500 text-xs mt-1">{errors.choferId.message}</p>}
+                  </div>
+                </>
+              )}
+
+              {/* Crear Chofer nuevo */}
+              {selectedRole === 'CHOFER' && choferMode === 'new' && (
+                <>
+                  <div className="col-span-2">
+                    <label className="block text-sm font-medium mb-1">Dador de Carga *</label>
+                    <Controller name="choferDadorId" control={control} render={({ field }) => (
+                      <select className="w-full px-3 py-2 border rounded-md" {...field}>
+                        <option value="">Seleccionar dador...</option>
+                        {dadores.map((d: any) => (
+                          <option key={d.id} value={d.id}>{d.razonSocial || d.nombre} ({d.cuit})</option>
+                        ))}
+                      </select>
+                    )} />
+                  </div>
+                  <div className="col-span-2">
+                    <label className="block text-sm font-medium mb-1">DNI del Chofer *</label>
+                    <Controller name="choferDni" control={control} render={({ field }) => (
+                      <input type="text" className="w-full px-3 py-2 border rounded-md" placeholder="12345678" {...field} />
+                    )} />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium mb-1">Nombre del Chofer</label>
+                    <Controller name="choferNombre" control={control} render={({ field }) => (
+                      <input type="text" className="w-full px-3 py-2 border rounded-md" {...field} />
+                    )} />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium mb-1">Apellido del Chofer</label>
+                    <Controller name="choferApellido" control={control} render={({ field }) => (
+                      <input type="text" className="w-full px-3 py-2 border rounded-md" {...field} />
+                    )} />
                   </div>
                 </>
               )}

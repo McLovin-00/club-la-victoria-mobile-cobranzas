@@ -89,6 +89,66 @@ router.post(
 );
 
 /**
+ * @route POST /api/platform/auth/wizard/register-dador
+ * @desc Crear usuario DADOR_DE_CARGA con contraseña temporal
+ * @access Private - SUPERADMIN / ADMIN / ADMIN_INTERNO
+ */
+router.post(
+  '/wizard/register-dador',
+  authenticateUser,
+  authorizeRoles(['SUPERADMIN', 'ADMIN', 'ADMIN_INTERNO']),
+  ValidationMiddleware.validateBody(z.object({
+    email: z.string().email(),
+    nombre: z.string().max(100).optional(),
+    apellido: z.string().max(100).optional(),
+    empresaId: z.number().int().positive().optional(),
+    dadorCargaId: z.number().int().positive(),
+  })),
+  logAction('PLATFORM_USER_WIZARD_REGISTER_DADOR'),
+  PlatformAuthController.registerDadorWizard
+);
+
+/**
+ * @route POST /api/platform/auth/wizard/register-transportista
+ * @desc Crear usuario TRANSPORTISTA con contraseña temporal
+ * @access Private - SUPERADMIN / ADMIN / ADMIN_INTERNO / DADOR_DE_CARGA
+ */
+router.post(
+  '/wizard/register-transportista',
+  authenticateUser,
+  authorizeRoles(['SUPERADMIN', 'ADMIN', 'ADMIN_INTERNO', 'DADOR_DE_CARGA']),
+  ValidationMiddleware.validateBody(z.object({
+    email: z.string().email(),
+    nombre: z.string().max(100).optional(),
+    apellido: z.string().max(100).optional(),
+    empresaId: z.number().int().positive().optional(),
+    empresaTransportistaId: z.number().int().positive(),
+  })),
+  logAction('PLATFORM_USER_WIZARD_REGISTER_TRANSPORTISTA'),
+  PlatformAuthController.registerTransportistaWizard
+);
+
+/**
+ * @route POST /api/platform/auth/wizard/register-chofer
+ * @desc Crear usuario CHOFER con contraseña temporal
+ * @access Private - SUPERADMIN / ADMIN / ADMIN_INTERNO / DADOR_DE_CARGA / TRANSPORTISTA
+ */
+router.post(
+  '/wizard/register-chofer',
+  authenticateUser,
+  authorizeRoles(['SUPERADMIN', 'ADMIN', 'ADMIN_INTERNO', 'DADOR_DE_CARGA', 'TRANSPORTISTA']),
+  ValidationMiddleware.validateBody(z.object({
+    email: z.string().email(),
+    nombre: z.string().max(100).optional(),
+    apellido: z.string().max(100).optional(),
+    empresaId: z.number().int().positive().optional(),
+    choferId: z.number().int().positive(),
+  })),
+  logAction('PLATFORM_USER_WIZARD_REGISTER_CHOFER'),
+  PlatformAuthController.registerChoferWizard
+);
+
+/**
  * @route GET /api/platform/auth/profile
  * @desc Obtener perfil del usuario autenticado
  * @access Private

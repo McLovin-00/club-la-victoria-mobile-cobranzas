@@ -73,6 +73,42 @@ export const platformUsersApiSlice = apiSlice.injectEndpoints({
       invalidatesTags: ['User'],
     }),
 
+    registerDadorWizard: builder.mutation<
+      { success: boolean; user: PlatformUser; tempPassword: string; message?: string },
+      { email: string; nombre?: string; apellido?: string; empresaId?: number; dadorCargaId: number }
+    >({
+      query: (payload) => ({
+        url: `/platform/auth/wizard/register-dador`,
+        method: 'POST',
+        body: payload,
+      }),
+      invalidatesTags: ['User'],
+    }),
+
+    registerTransportistaWizard: builder.mutation<
+      { success: boolean; user: PlatformUser; tempPassword: string; message?: string },
+      { email: string; nombre?: string; apellido?: string; empresaId?: number; empresaTransportistaId: number }
+    >({
+      query: (payload) => ({
+        url: `/platform/auth/wizard/register-transportista`,
+        method: 'POST',
+        body: payload,
+      }),
+      invalidatesTags: ['User'],
+    }),
+
+    registerChoferWizard: builder.mutation<
+      { success: boolean; user: PlatformUser; tempPassword: string; message?: string },
+      { email: string; nombre?: string; apellido?: string; empresaId?: number; choferId: number }
+    >({
+      query: (payload) => ({
+        url: `/platform/auth/wizard/register-chofer`,
+        method: 'POST',
+        body: payload,
+      }),
+      invalidatesTags: ['User'],
+    }),
+
     updatePlatformUser: builder.mutation<{ success: boolean; user: PlatformUser }, { id: number; data: Partial<PlatformUser> }>({
       query: ({ id, data }) => ({
         url: `/platform/auth/users/${id}`,
@@ -105,6 +141,9 @@ export const {
   useListPlatformUsersQuery,
   useRegisterPlatformUserMutation,
   useRegisterClientWizardMutation,
+  useRegisterDadorWizardMutation,
+  useRegisterTransportistaWizardMutation,
+  useRegisterChoferWizardMutation,
   useUpdatePlatformUserMutation,
   useDeletePlatformUserMutation,
   useUpdateUserEmpresaMutation,

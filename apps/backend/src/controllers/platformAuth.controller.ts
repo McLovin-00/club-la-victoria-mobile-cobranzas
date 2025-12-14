@@ -230,6 +230,141 @@ export class PlatformAuthController {
   }
 
   /**
+   * Wizard: crear usuario DADOR_DE_CARGA con contraseña temporal
+   * POST /api/platform/auth/wizard/register-dador
+   */
+  static async registerDadorWizard(req: AuthRequest, res: Response): Promise<void> {
+    try {
+      const errors = validationResult(req);
+      if (!errors.isEmpty()) {
+        res.status(400).json({ success: false, message: 'Datos de entrada inválidos', errors: errors.array() });
+        return;
+      }
+
+      const createdBy = req.user;
+      if (!createdBy) {
+        res.status(401).json({ success: false, message: 'Usuario no autenticado' });
+        return;
+      }
+
+      const { email, nombre, apellido, empresaId, dadorCargaId } = req.body as any;
+
+      const result = await PlatformAuthService.registerDadorWithTempPassword(
+        { email, nombre, apellido, empresaId: empresaId ?? null, dadorCargaId: Number(dadorCargaId) },
+        createdBy
+      );
+
+      if (!result.success) {
+        res.status(400).json({ success: false, message: result.message });
+        return;
+      }
+
+      res.status(201).json({
+        success: true,
+        message: result.message,
+        user: result.platformUser,
+        tempPassword: result.tempPassword,
+      });
+    } catch (error) {
+      AppLogger.error('💥 Error en wizard register-dador:', error);
+      res.status(500).json({
+        success: false,
+        message: error instanceof Error ? error.message : 'Error interno del servidor',
+      });
+    }
+  }
+
+  /**
+   * Wizard: crear usuario TRANSPORTISTA con contraseña temporal
+   * POST /api/platform/auth/wizard/register-transportista
+   */
+  static async registerTransportistaWizard(req: AuthRequest, res: Response): Promise<void> {
+    try {
+      const errors = validationResult(req);
+      if (!errors.isEmpty()) {
+        res.status(400).json({ success: false, message: 'Datos de entrada inválidos', errors: errors.array() });
+        return;
+      }
+
+      const createdBy = req.user;
+      if (!createdBy) {
+        res.status(401).json({ success: false, message: 'Usuario no autenticado' });
+        return;
+      }
+
+      const { email, nombre, apellido, empresaId, empresaTransportistaId } = req.body as any;
+
+      const result = await PlatformAuthService.registerTransportistaWithTempPassword(
+        { email, nombre, apellido, empresaId: empresaId ?? null, empresaTransportistaId: Number(empresaTransportistaId) },
+        createdBy
+      );
+
+      if (!result.success) {
+        res.status(400).json({ success: false, message: result.message });
+        return;
+      }
+
+      res.status(201).json({
+        success: true,
+        message: result.message,
+        user: result.platformUser,
+        tempPassword: result.tempPassword,
+      });
+    } catch (error) {
+      AppLogger.error('💥 Error en wizard register-transportista:', error);
+      res.status(500).json({
+        success: false,
+        message: error instanceof Error ? error.message : 'Error interno del servidor',
+      });
+    }
+  }
+
+  /**
+   * Wizard: crear usuario CHOFER con contraseña temporal
+   * POST /api/platform/auth/wizard/register-chofer
+   */
+  static async registerChoferWizard(req: AuthRequest, res: Response): Promise<void> {
+    try {
+      const errors = validationResult(req);
+      if (!errors.isEmpty()) {
+        res.status(400).json({ success: false, message: 'Datos de entrada inválidos', errors: errors.array() });
+        return;
+      }
+
+      const createdBy = req.user;
+      if (!createdBy) {
+        res.status(401).json({ success: false, message: 'Usuario no autenticado' });
+        return;
+      }
+
+      const { email, nombre, apellido, empresaId, choferId } = req.body as any;
+
+      const result = await PlatformAuthService.registerChoferWithTempPassword(
+        { email, nombre, apellido, empresaId: empresaId ?? null, choferId: Number(choferId) },
+        createdBy
+      );
+
+      if (!result.success) {
+        res.status(400).json({ success: false, message: result.message });
+        return;
+      }
+
+      res.status(201).json({
+        success: true,
+        message: result.message,
+        user: result.platformUser,
+        tempPassword: result.tempPassword,
+      });
+    } catch (error) {
+      AppLogger.error('💥 Error en wizard register-chofer:', error);
+      res.status(500).json({
+        success: false,
+        message: error instanceof Error ? error.message : 'Error interno del servidor',
+      });
+    }
+  }
+
+  /**
    * Logout de usuario de plataforma
    * POST /api/platform/auth/logout
    */
