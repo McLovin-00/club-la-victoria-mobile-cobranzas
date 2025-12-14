@@ -7,6 +7,7 @@ import { ErrorBoundary } from './components/ErrorBoundary';
 import { LoginPage } from './pages/LoginPage';
 import { MainLayout } from './components/layout/MainLayout';
 import { RequireAuth } from './features/auth/components/RequireAuth';
+import { RequirePasswordChange } from './features/auth/components/RequirePasswordChange';
 import DashboardPage from './pages/DashboardPage';
 import UsuariosPageLazy from './pages/UsuariosPage.lazy';
 import EmpresasPageLazy from './features/empresas/pages/EmpresasPage.lazy';
@@ -71,6 +72,7 @@ function App() {
           {/* Rutas Protegidas anidadas dentro de MainLayout */}
           <Route element={<MainLayout />}>
             <Route element={<RequireAuth />}>
+              <Route element={<RequirePasswordChange />}>
               {/* Ruta raíz ahora redirige al DashboardPage que maneja la redirección por rol */}
               <Route path='/' element={<DashboardPage />} />
               
@@ -252,6 +254,7 @@ function App() {
 
               {/* Ruta de Mi Perfil para todos los usuarios */}
               <Route path='/perfil' element={<PerfilPage />} />
+              </Route>
             </Route>
           </Route>
 

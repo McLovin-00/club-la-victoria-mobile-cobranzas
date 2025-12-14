@@ -69,6 +69,26 @@ router.post(
 );
 
 /**
+ * @route POST /api/platform/auth/wizard/register-client
+ * @desc Crear usuario CLIENTE con contraseña temporal (se devuelve 1 sola vez)
+ * @access Private - SUPERADMIN / ADMIN / ADMIN_INTERNO
+ */
+router.post(
+  '/wizard/register-client',
+  authenticateUser,
+  authorizeRoles(['SUPERADMIN', 'ADMIN', 'ADMIN_INTERNO']),
+  ValidationMiddleware.validateBody(z.object({
+    email: z.string().email(),
+    nombre: z.string().max(100).optional(),
+    apellido: z.string().max(100).optional(),
+    empresaId: z.number().int().positive().optional(),
+    clienteId: z.number().int().positive(),
+  })),
+  logAction('PLATFORM_USER_WIZARD_REGISTER_CLIENT'),
+  PlatformAuthController.registerClientWizard
+);
+
+/**
  * @route GET /api/platform/auth/profile
  * @desc Obtener perfil del usuario autenticado
  * @access Private

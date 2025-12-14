@@ -179,6 +179,57 @@ export class PlatformAuthController {
   }
 
   /**
+   * Wizard: crear usuario CLIENTE con contraseña temporal (se devuelve 1 sola vez)
+   * POST /api/platform/auth/wizard/register-client
+   * Access: SUPERADMIN / ADMIN / ADMIN_INTERNO
+   */
+  static async registerClientWizard(req: AuthRequest, res: Response): Promise<void> {
+    try {
+      const errors = validationResult(req);
+      if (!errors.isEmpty()) {
+        res.status(400).json({
+          success: false,
+          message: 'Datos de entrada inválidos',
+          errors: errors.array(),
+        });
+        return;
+      }
+
+      const createdBy = req.user;
+      if (!createdBy) {
+        res.status(401).json({ success: false, message: 'Usuario no autenticado' });
+        return;
+      }
+
+      const { email, nombre, apellido, empresaId, clienteId } = req.body as any;
+
+      const result = await PlatformAuthService.registerClientWithTempPassword(
+        { email, nombre, apellido, empresaId: empresaId ?? null, clienteId: Number(clienteId) },
+        createdBy
+      );
+
+      if (!result.success) {
+        res.status(400).json({ success: false, message: result.message });
+        return;
+      }
+
+      // tempPassword solo se devuelve aquí (una única vez)
+      res.status(201).json({
+        success: true,
+        message: result.message,
+        user: result.platformUser,
+        tempPassword: result.tempPassword,
+      });
+    } catch (error) {
+      AppLogger.error('💥 Error en wizard register-client:', error);
+      res.status(500).json({
+        success: false,
+        message: error instanceof Error ? error.message : 'Error interno del servidor',
+      });
+    }
+  }
+
+  /**
    * Logout de usuario de plataforma
    * POST /api/platform/auth/logout
    */

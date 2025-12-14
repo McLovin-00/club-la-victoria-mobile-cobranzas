@@ -17,6 +17,7 @@ export interface PlatformUser {
   choferId?: number | null;
   clienteId?: number | null;
   creadoPorId?: number | null;
+  mustChangePassword?: boolean | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -60,6 +61,18 @@ export const platformUsersApiSlice = apiSlice.injectEndpoints({
       invalidatesTags: ['User'],
     }),
 
+    registerClientWizard: builder.mutation<
+      { success: boolean; user: PlatformUser; tempPassword: string; message?: string },
+      { email: string; nombre?: string; apellido?: string; empresaId?: number; clienteId: number }
+    >({
+      query: (payload) => ({
+        url: `/platform/auth/wizard/register-client`,
+        method: 'POST',
+        body: payload,
+      }),
+      invalidatesTags: ['User'],
+    }),
+
     updatePlatformUser: builder.mutation<{ success: boolean; user: PlatformUser }, { id: number; data: Partial<PlatformUser> }>({
       query: ({ id, data }) => ({
         url: `/platform/auth/users/${id}`,
@@ -91,6 +104,7 @@ export const platformUsersApiSlice = apiSlice.injectEndpoints({
 export const {
   useListPlatformUsersQuery,
   useRegisterPlatformUserMutation,
+  useRegisterClientWizardMutation,
   useUpdatePlatformUserMutation,
   useDeletePlatformUserMutation,
   useUpdateUserEmpresaMutation,

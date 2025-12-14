@@ -25,6 +25,7 @@ export interface UserResponse {
   name?: string;
   role: UserRole;
   empresaId?: number | null;
+  mustChangePassword?: boolean | null;
   empresa?: {
     id: number;
     nombre: string;

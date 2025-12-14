@@ -1,4 +1,6 @@
 import React, { useState } from 'react';
+import { useDispatch, useSelector } from 'react-redux';
+import { selectCurrentUser, setCurrentUser } from '../features/auth/authSlice';
 import { EyeIcon, EyeSlashIcon } from '@heroicons/react/24/outline';
 import { showToast } from './ui/Toast.utils';
 
@@ -9,6 +11,8 @@ interface ChangePasswordData {
 }
 
 export const ChangePasswordForm = () => {
+  const dispatch = useDispatch();
+  const currentUser = useSelector(selectCurrentUser) as any;
   const [formData, setFormData] = useState<ChangePasswordData>({
     currentPassword: '',
     newPassword: '',
@@ -97,6 +101,10 @@ export const ChangePasswordForm = () => {
 
       if (response.ok) {
         showToast('Contraseña cambiada exitosamente', 'success');
+        // Si el backend limpió mustChangePassword, reflejarlo en el estado local para levantar el bloqueo de navegación.
+        if (currentUser) {
+          dispatch(setCurrentUser({ ...currentUser, mustChangePassword: false }));
+        }
         setFormData({
           currentPassword: '',
           newPassword: '',

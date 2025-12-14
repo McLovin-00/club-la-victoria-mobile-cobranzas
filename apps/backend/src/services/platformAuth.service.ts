@@ -49,6 +49,7 @@ export interface PlatformUserProfile {
   email: string;
   role: UserRole;
   empresaId?: number | null;
+  mustChangePassword?: boolean | null;
   nombre?: string | null;
   apellido?: string | null;
   empresa?: {
@@ -64,6 +65,7 @@ interface AuthResponse {
   token?: string;
   platformUser?: PlatformUserProfile;
   message?: string;
+  tempPassword?: string;
 }
 
 /**
@@ -328,7 +330,7 @@ export class PlatformAuthService {
     const hashedNewPassword = await this.hashPassword(newPassword);
     await prisma.user.update({
       where: { id: userId },
-      data: { password: hashedNewPassword },
+      data: { password: hashedNewPassword, mustChangePassword: false, passwordChangedAt: new Date() },
     });
 
     return { success: true, message: 'Contraseña actualizada exitosamente' };
@@ -348,11 +350,73 @@ export class PlatformAuthService {
       email: user.email,
       role: user.role,
       empresaId: user.empresaId,
+      mustChangePassword: (user as any).mustChangePassword ?? false,
       nombre: user.nombre,
       apellido: user.apellido,
       empresa: null,
       createdAt: user.createdAt,
       updatedAt: user.updatedAt,
+    };
+  }
+
+  private static generateTempPassword(): string {
+    const crypto = require('crypto') as typeof import('crypto');
+    const pick = (chars: string) => chars[Math.floor(crypto.randomInt(0, chars.length))];
+    const upper = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+    const lower = 'abcdefghijklmnopqrstuvwxyz';
+    const digits = '0123456789';
+    const all = upper + lower + digits;
+    const len = 12;
+    const base = [pick(upper), pick(lower), pick(digits)];
+    while (base.length < len) base.push(pick(all));
+    // Shuffle
+    for (let i = base.length - 1; i > 0; i--) {
+      const j = crypto.randomInt(0, i + 1);
+      [base[i], base[j]] = [base[j], base[i]];
+    }
+    return base.join('');
+  }
+
+  static async registerClientWithTempPassword(
+    input: { email: string; nombre?: string; apellido?: string; empresaId?: number | null; clienteId: number },
+    createdBy: PlatformUserProfile
+  ): Promise<AuthResponse> {
+    // Solo ADMIN/ADMIN_INTERNO/SUPERADMIN (pedido explícito)
+    if (!['SUPERADMIN', 'ADMIN', 'ADMIN_INTERNO'].includes(createdBy.role)) {
+      throw new Error('No tiene permisos para crear usuarios CLIENTE');
+    }
+
+    const prisma = prismaService.getClient();
+    const email = input.email.toLowerCase().trim();
+
+    const existingUser = await prisma.user.findUnique({ where: { email } });
+    if (existingUser) {
+      return { success: false, message: 'El email ya está en uso' };
+    }
+
+    const tempPassword = this.generateTempPassword();
+    const hashedPassword = await this.hashPassword(tempPassword);
+    const finalEmpresaId = this.determineFinalEmpresaId('CLIENTE', input.empresaId ?? null, createdBy);
+
+    const newUser = await prisma.user.create({
+      data: {
+        email,
+        password: hashedPassword,
+        role: 'CLIENTE' as UserRole,
+        empresaId: finalEmpresaId,
+        nombre: input.nombre,
+        apellido: input.apellido,
+        clienteId: input.clienteId,
+        mustChangePassword: true as any,
+        creadoPorId: createdBy.id,
+      } as any,
+    });
+
+    return {
+      success: true,
+      platformUser: this.formatUserProfile(newUser as PlatformUserWithRelations),
+      tempPassword,
+      message: 'Usuario CLIENTE creado con contraseña temporal',
     };
   }
 

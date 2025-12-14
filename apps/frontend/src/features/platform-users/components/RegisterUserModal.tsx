@@ -3,9 +3,9 @@ import { useForm, Controller } from 'react-hook-form';
 import { Button } from '../../../components/ui/button';
 import { Spinner } from '../../../components/ui/spinner';
 import { showToast } from '../../../components/ui/Toast.utils';
-import { useRegisterPlatformUserMutation } from '../api/platformUsersApiSlice';
+import { useRegisterClientWizardMutation, useRegisterPlatformUserMutation } from '../api/platformUsersApiSlice';
 import { useGetEmpresasQuery } from '../../empresas/api/empresasApiSlice';
-import { useGetDadoresQuery, useGetEmpresasTransportistasQuery, useGetEmpresaTransportistaChoferesQuery, useGetClientsQuery } from '../../documentos/api/documentosApiSlice';
+import { useCreateClientMutation, useGetDadoresQuery, useGetEmpresasTransportistasQuery, useGetEmpresaTransportistaChoferesQuery, useGetClientsQuery } from '../../documentos/api/documentosApiSlice';
 import { useAppSelector } from '../../../store/hooks';
 import { selectCurrentUser } from '../../auth/authSlice';
 
@@ -44,6 +44,10 @@ type FormData = {
   empresaId?: number | '';
   nombre?: string;
   apellido?: string;
+  // Wizard CLIENTE
+  clienteRazonSocial?: string;
+  clienteCuit?: string;
+  clienteNotas?: string;
   dadorCargaId?: number | '';
   empresaTransportistaId?: number | '';
   choferId?: number | '';
@@ -88,6 +92,8 @@ export const RegisterUserModal: React.FC<RegisterUserModalProps> = ({ isOpen, on
   const clientes = useMemo(() => (clientesResp as any)?.list ?? clientesResp ?? [], [clientesResp]);
   
   const [registerUser, { isLoading }] = useRegisterPlatformUserMutation();
+  const [registerClientWizard, { isLoading: isLoadingWizardClient }] = useRegisterClientWizardMutation();
+  const [createClient, { isLoading: isCreatingClient }] = useCreateClientMutation();
   const { control, handleSubmit, reset, watch, setValue, formState: { errors } } = useForm<FormData>({
     defaultValues: {
       email: '',
@@ -96,6 +102,9 @@ export const RegisterUserModal: React.FC<RegisterUserModalProps> = ({ isOpen, on
       empresaId: '',
       nombre: '',
       apellido: '',
+      clienteRazonSocial: '',
+      clienteCuit: '',
+      clienteNotas: '',
       dadorCargaId: '',
       empresaTransportistaId: '',
       choferId: '',
@@ -104,6 +113,8 @@ export const RegisterUserModal: React.FC<RegisterUserModalProps> = ({ isOpen, on
   });
 
   const selectedRole = watch('role');
+  const [clienteMode, setClienteMode] = useState<'existing' | 'new'>('existing');
+  const [tempPasswordToShow, setTempPasswordToShow] = useState<string | null>(null);
   
   // Roles disponibles según el rol del usuario actual
   const rolesDisponibles = useMemo(() => {
@@ -120,6 +131,12 @@ export const RegisterUserModal: React.FC<RegisterUserModalProps> = ({ isOpen, on
       setSelectedDadorForChofer('');
       setSelectedTransportistaForChofer('');
     }
+    if (selectedRole !== 'CLIENTE') {
+      setClienteMode('existing');
+      setValue('clienteRazonSocial', '');
+      setValue('clienteCuit', '');
+      setValue('clienteNotas', '');
+    }
   }, [selectedRole]);
 
   useEffect(() => {
@@ -127,6 +144,8 @@ export const RegisterUserModal: React.FC<RegisterUserModalProps> = ({ isOpen, on
       setSelectedDadorForTransportista('');
       setSelectedDadorForChofer('');
       setSelectedTransportistaForChofer('');
+      setClienteMode('existing');
+      setTempPasswordToShow(null);
     }
   }, [isOpen]);
 
@@ -134,6 +153,53 @@ export const RegisterUserModal: React.FC<RegisterUserModalProps> = ({ isOpen, on
 
   const onSubmit = async (data: FormData) => {
     try {
+      // CLIENTE (wizard): permite crear el cliente (entidad) y luego el usuario con contraseña temporal.
+      if (data.role === 'CLIENTE') {
+        const actorRole = currentUser?.role;
+        if (!actorRole || !['SUPERADMIN', 'ADMIN', 'ADMIN_INTERNO'].includes(actorRole)) {
+          showToast('No tiene permisos para crear usuarios CLIENTE', 'error');
+          return;
+        }
+
+        let clienteIdFinal: number | undefined;
+        if (clienteMode === 'new') {
+          if (!data.clienteRazonSocial || !data.clienteCuit) {
+            showToast('Razón social y CUIT del cliente son obligatorios', 'error');
+            return;
+          }
+          const created = await createClient({
+            razonSocial: data.clienteRazonSocial,
+            cuit: data.clienteCuit,
+            notas: data.clienteNotas || undefined,
+            activo: true,
+          }).unwrap();
+          clienteIdFinal = created?.id;
+        } else {
+          if (!data.clienteId) {
+            showToast('Debe seleccionar un cliente', 'error');
+            return;
+          }
+          clienteIdFinal = Number(data.clienteId);
+        }
+
+        if (!clienteIdFinal) {
+          showToast('No se pudo determinar el cliente a asociar', 'error');
+          return;
+        }
+
+        const resp = await registerClientWizard({
+          email: data.email,
+          nombre: data.nombre || undefined,
+          apellido: data.apellido || undefined,
+          empresaId: data.empresaId ? Number(data.empresaId) : undefined,
+          clienteId: clienteIdFinal,
+        }).unwrap();
+
+        setTempPasswordToShow(resp.tempPassword);
+        showToast('Usuario CLIENTE creado. Copie la contraseña temporal.', 'success');
+        return;
+      }
+
       const payload: any = {
         email: data.email,
         password: data.password,
@@ -237,6 +303,33 @@ export const RegisterUserModal: React.FC<RegisterUserModalProps> = ({ isOpen, on
                   )}
                 />
               </div>
+
+              {/* CLIENTE - modo wizard */}
+              {selectedRole === 'CLIENTE' && currentUser?.role && ['SUPERADMIN', 'ADMIN', 'ADMIN_INTERNO'].includes(currentUser.role) && (
+                <div className="col-span-2 rounded-md border p-3 bg-muted/40">
+                  <div className="flex items-center gap-4">
+                    <label className="flex items-center gap-2 text-sm">
+                      <input
+                        type="radio"
+                        checked={clienteMode === 'existing'}
+                        onChange={() => setClienteMode('existing')}
+                      />
+                      Asociar cliente existente
+                    </label>
+                    <label className="flex items-center gap-2 text-sm">
+                      <input
+                        type="radio"
+                        checked={clienteMode === 'new'}
+                        onChange={() => setClienteMode('new')}
+                      />
+                      Crear cliente nuevo + crear usuario
+                    </label>
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-2">
+                    Para CLIENTE la contraseña se genera automáticamente y se muestra una sola vez.
+                  </p>
+                </div>
+              )}
 
               {/* Asociación: Dador de Carga */}
               {selectedRole === 'DADOR_DE_CARGA' && (
@@ -363,8 +456,8 @@ export const RegisterUserModal: React.FC<RegisterUserModalProps> = ({ isOpen, on
                 </>
               )}
 
-              {/* Asociación: Cliente */}
-              {selectedRole === 'CLIENTE' && (
+              {/* CLIENTE: asociar existente */}
+              {selectedRole === 'CLIENTE' && clienteMode === 'existing' && (
                 <div className="col-span-2">
                   <label className="block text-sm font-medium mb-1">Cliente asociado *</label>
                   <Controller
@@ -384,23 +477,65 @@ export const RegisterUserModal: React.FC<RegisterUserModalProps> = ({ isOpen, on
                 </div>
               )}
 
+              {/* CLIENTE: crear nuevo */}
+              {selectedRole === 'CLIENTE' && clienteMode === 'new' && (
+                <>
+                  <div className="col-span-2">
+                    <label className="block text-sm font-medium mb-1">Razón Social (Cliente) *</label>
+                    <Controller
+                      name="clienteRazonSocial"
+                      control={control}
+                      rules={{ required: 'La razón social es requerida' }}
+                      render={({ field }) => (
+                        <input type="text" className="w-full px-3 py-2 border rounded-md" {...field} />
+                      )}
+                    />
+                    {errors.clienteRazonSocial && <p className="text-red-500 text-xs mt-1">{errors.clienteRazonSocial.message}</p>}
+                  </div>
+                  <div className="col-span-2">
+                    <label className="block text-sm font-medium mb-1">CUIT (11 dígitos) *</label>
+                    <Controller
+                      name="clienteCuit"
+                      control={control}
+                      rules={{ required: 'El CUIT es requerido' }}
+                      render={({ field }) => (
+                        <input type="text" inputMode="numeric" className="w-full px-3 py-2 border rounded-md" placeholder="###########" {...field} />
+                      )}
+                    />
+                    {errors.clienteCuit && <p className="text-red-500 text-xs mt-1">{errors.clienteCuit.message}</p>}
+                  </div>
+                  <div className="col-span-2">
+                    <label className="block text-sm font-medium mb-1">Notas</label>
+                    <Controller
+                      name="clienteNotas"
+                      control={control}
+                      render={({ field }) => (
+                        <textarea className="w-full px-3 py-2 border rounded-md" rows={3} {...field} />
+                      )}
+                    />
+                  </div>
+                </>
+              )}
+
               {/* Password */}
-              <div className="col-span-2">
-                <label className="block text-sm font-medium mb-1">Password temporal *</label>
-                <Controller
-                  name="password"
-                  control={control}
-                  rules={{ 
-                    required: 'La contraseña es requerida',
-                    minLength: { value: 8, message: 'Mínimo 8 caracteres' },
-                    pattern: { value: /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/, message: 'Debe tener mayúscula, minúscula y número' }
-                  }}
-                  render={({ field }) => (
-                    <input type="password" autoComplete="new-password" className="w-full px-3 py-2 border rounded-md" placeholder="Mín. 8 caracteres" {...field} />
-                  )}
-                />
-                {errors.password && <p className="text-red-500 text-xs mt-1">{errors.password.message}</p>}
-              </div>
+              {selectedRole !== 'CLIENTE' && (
+                <div className="col-span-2">
+                  <label className="block text-sm font-medium mb-1">Password temporal *</label>
+                  <Controller
+                    name="password"
+                    control={control}
+                    rules={{ 
+                      required: 'La contraseña es requerida',
+                      minLength: { value: 8, message: 'Mínimo 8 caracteres' },
+                      pattern: { value: /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/, message: 'Debe tener mayúscula, minúscula y número' }
+                    }}
+                    render={({ field }) => (
+                      <input type="password" autoComplete="new-password" className="w-full px-3 py-2 border rounded-md" placeholder="Mín. 8 caracteres" {...field} />
+                    )}
+                  />
+                  {errors.password && <p className="text-red-500 text-xs mt-1">{errors.password.message}</p>}
+                </div>
+              )}
             </div>
 
             {/* Info de asociación */}
@@ -412,12 +547,53 @@ export const RegisterUserModal: React.FC<RegisterUserModalProps> = ({ isOpen, on
 
             <div className="flex justify-end gap-3 pt-4 border-t">
               <Button variant="outline" onClick={onClose} disabled={isLoading}>Cancelar</Button>
-              <Button type="submit" disabled={isLoading}>
-                {isLoading ? <Spinner className="w-4 h-4 mr-2" /> : null}
+              <Button type="submit" disabled={isLoading || isLoadingWizardClient || isCreatingClient}>
+                {(isLoading || isLoadingWizardClient || isCreatingClient) ? <Spinner className="w-4 h-4 mr-2" /> : null}
                 Crear Usuario
               </Button>
             </div>
           </form>
+
+          {/* Modal simple para mostrar contraseña temporal una sola vez */}
+          {tempPasswordToShow && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+              <div className="fixed inset-0 bg-black/40" />
+              <div className="relative bg-background rounded-lg shadow-xl w-full max-w-md p-6 border">
+                <h4 className="text-lg font-medium">Contraseña temporal</h4>
+                <p className="text-sm text-muted-foreground mt-2">
+                  Copiela ahora. Por seguridad, no se volverá a mostrar.
+                </p>
+                <div className="mt-4 flex items-center gap-2">
+                  <input
+                    readOnly
+                    value={tempPasswordToShow}
+                    className="flex-1 px-3 py-2 border rounded-md bg-muted"
+                  />
+                  <Button
+                    type="button"
+                    onClick={() => {
+                      try { navigator.clipboard.writeText(tempPasswordToShow); } catch {}
+                      showToast('Contraseña copiada', 'success');
+                    }}
+                  >
+                    Copiar
+                  </Button>
+                </div>
+                <div className="flex justify-end pt-4">
+                  <Button
+                    type="button"
+                    onClick={() => {
+                      setTempPasswordToShow(null);
+                      reset();
+                      onClose();
+                    }}
+                  >
+                    Listo
+                  </Button>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </div>
