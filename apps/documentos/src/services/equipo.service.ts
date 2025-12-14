@@ -958,12 +958,6 @@ export class EquipoService {
       // Obtener el equipo
       const equipo = await tx.equipo.findUnique({
         where: { id: input.equipoId },
-        include: {
-          chofer: true,
-          camion: true,
-          acoplado: true,
-          empresaTransportista: true,
-        },
       });
 
       if (!equipo || equipo.tenantEmpresaId !== input.tenantEmpresaId) {
@@ -999,19 +993,19 @@ export class EquipoService {
       });
 
       // Eliminar componentes si se solicita
-      if (input.deleteChofer && equipo.chofer) {
+      if (input.deleteChofer && equipo.driverId) {
         await tx.chofer.delete({ where: { id: equipo.driverId } });
       }
 
-      if (input.deleteCamion && equipo.camion) {
+      if (input.deleteCamion && equipo.truckId) {
         await tx.camion.delete({ where: { id: equipo.truckId } });
       }
 
-      if (input.deleteAcoplado && equipo.trailerId && equipo.acoplado) {
+      if (input.deleteAcoplado && equipo.trailerId) {
         await tx.acoplado.delete({ where: { id: equipo.trailerId } });
       }
 
-      if (input.deleteEmpresa && equipo.empresaTransportistaId && equipo.empresaTransportista) {
+      if (input.deleteEmpresa && equipo.empresaTransportistaId) {
         // Solo eliminar si no tiene otros equipos asociados
         const otrosEquipos = await tx.equipo.count({
           where: {

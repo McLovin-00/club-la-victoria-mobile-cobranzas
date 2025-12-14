@@ -47,7 +47,7 @@ export class ThumbnailService {
     const objectPath = pathParts.join('/');
 
     // Solo soportamos imágenes por ahora (KISS). PDFs quedarán para próximo PR.
-    if (!/^image\\//i.test(document.mimeType)) {
+    if (!/^image\//i.test(document.mimeType)) {
       throw createError('Thumbnail no soportado para este tipo', 415, 'THUMBNAIL_UNSUPPORTED');
     }
 
