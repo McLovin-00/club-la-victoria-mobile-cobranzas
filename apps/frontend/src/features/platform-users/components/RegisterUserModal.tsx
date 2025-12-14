@@ -137,6 +137,16 @@ export const RegisterUserModal: React.FC<RegisterUserModalProps> = ({ isOpen, on
   const [dadorMode, setDadorMode] = useState<'existing' | 'new'>('existing');
   const [transportistaMode, setTransportistaMode] = useState<'existing' | 'new'>('existing');
   const [choferMode, setChoferMode] = useState<'existing' | 'new'>('existing');
+  
+  // Solo SUPERADMIN puede elegir empresa; otros usan la del usuario actual
+  const canSelectEmpresa = currentUser?.role === 'SUPERADMIN';
+  
+  // Setear empresa del usuario actual al abrir el modal (si no es SUPERADMIN)
+  useEffect(() => {
+    if (isOpen && !canSelectEmpresa && currentUser?.empresaId) {
+      setValue('empresaId', currentUser.empresaId);
+    }
+  }, [isOpen, canSelectEmpresa, currentUser?.empresaId, setValue]);
   const [tempPasswordToShow, setTempPasswordToShow] = useState<string | null>(null);
   
   // Roles disponibles según el rol del usuario actual
@@ -465,22 +475,31 @@ export const RegisterUserModal: React.FC<RegisterUserModalProps> = ({ isOpen, on
                 />
               </div>
 
-              {/* Empresa (Tenant) */}
-              <div>
-                <label className="block text-sm font-medium mb-1">Empresa (Tenant)</label>
-                <Controller
-                  name="empresaId"
-                  control={control}
-                  render={({ field }) => (
-                    <select className="w-full px-3 py-2 border rounded-md" {...field}>
-                      <option value="">(sin empresa)</option>
-                      {empresas.map((e: any) => (
-                        <option key={e.id} value={e.id}>{e.nombre}</option>
-                      ))}
-                    </select>
-                  )}
-                />
-              </div>
+              {/* Empresa (Tenant) - solo visible para SUPERADMIN */}
+              {canSelectEmpresa ? (
+                <div>
+                  <label className="block text-sm font-medium mb-1">Empresa (Tenant)</label>
+                  <Controller
+                    name="empresaId"
+                    control={control}
+                    render={({ field }) => (
+                      <select className="w-full px-3 py-2 border rounded-md" {...field}>
+                        <option value="">(sin empresa)</option>
+                        {empresas.map((e: any) => (
+                          <option key={e.id} value={e.id}>{e.nombre}</option>
+                        ))}
+                      </select>
+                    )}
+                  />
+                </div>
+              ) : (
+                <div>
+                  <label className="block text-sm font-medium mb-1">Empresa</label>
+                  <div className="w-full px-3 py-2 border rounded-md bg-muted text-muted-foreground">
+                    {empresas.find((e: any) => e.id === currentUser?.empresaId)?.nombre || 'BCA'}
+                  </div>
+                </div>
+              )}
 
               {/* CLIENTE - modo wizard */}
               {selectedRole === 'CLIENTE' && currentUser?.role && ['SUPERADMIN', 'ADMIN', 'ADMIN_INTERNO'].includes(currentUser.role) && (
