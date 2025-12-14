@@ -76,8 +76,11 @@ const EditPlatformUserModal: React.FC<Props> = ({ isOpen, onClose, user }) => {
   const [selectedDadorForChofer, setSelectedDadorForChofer] = useState<number | ''>(
     user.role === 'CHOFER' && user.dadorCargaId ? user.dadorCargaId : ''
   );
+  // Para TRANSPORTISTA, usar su propia empresaTransportistaId
   const [selectedTransportistaForChofer, setSelectedTransportistaForChofer] = useState<number | ''>(
-    user.role === 'CHOFER' && user.empresaTransportistaId ? user.empresaTransportistaId : ''
+    currentUser?.role === 'TRANSPORTISTA' 
+      ? (currentUser as any).empresaTransportistaId || user.empresaTransportistaId || ''
+      : (user.role === 'CHOFER' && user.empresaTransportistaId ? user.empresaTransportistaId : '')
   );
   const [initialLoadDoneChofer, setInitialLoadDoneChofer] = useState(false);
   
@@ -109,10 +112,15 @@ const EditPlatformUserModal: React.FC<Props> = ({ isOpen, onClose, user }) => {
     { skip: !selectedDadorForChofer }
   );
   
+  // Para TRANSPORTISTA, usar su propia empresaTransportistaId para la query de choferes
+  const transportistaIdForChoferQuery = currentUser?.role === 'TRANSPORTISTA'
+    ? (currentUser as any).empresaTransportistaId
+    : selectedTransportistaForChofer;
+  
   // Query de choferes filtrado por empresa transportista (para CHOFER)
   const { data: choferesResp } = useGetEmpresaTransportistaChoferesQuery(
-    { id: selectedTransportistaForChofer ? Number(selectedTransportistaForChofer) : 0 },
-    { skip: !selectedTransportistaForChofer }
+    { id: transportistaIdForChoferQuery ? Number(transportistaIdForChoferQuery) : 0 },
+    { skip: !transportistaIdForChoferQuery }
   );
   
   const dadores = useMemo(() => (dadoresResp as any)?.list ?? dadoresResp ?? [], [dadoresResp]);
@@ -473,97 +481,199 @@ const EditPlatformUserModal: React.FC<Props> = ({ isOpen, onClose, user }) => {
                 </>
               )}
 
-              {/* Asociación: Chofer - Cascada: Dador → Transportista → Chofer */}
+              {/* Asociación: Chofer - Lógica según rol del usuario actual */}
               {selectedRole === 'CHOFER' && (
                 <>
-                  <div className="col-span-2">
-                    <label className="block text-sm font-medium mb-1">Dador de Carga</label>
-                    <select
-                      className="w-full px-3 py-2 border rounded-md"
-                      value={selectedDadorForChofer}
-                      onChange={(e) => {
-                        const val = e.target.value ? Number(e.target.value) : '';
-                        setSelectedDadorForChofer(val);
-                        setSelectedTransportistaForChofer('');
-                        setValue('empresaTransportistaId', '');
-                        setValue('choferId', '');
-                      }}
-                    >
-                      <option value="">Seleccionar Dador de Carga...</option>
-                      {dadores.map((d: any) => (
-                        <option key={d.id} value={d.id}>{d.razonSocial}</option>
-                      ))}
-                    </select>
-                  </div>
-                  <div className="col-span-2">
-                    <label className="block text-sm font-medium mb-1">Empresa Transportista</label>
-                    <input
-                      type="text"
-                      placeholder="Buscar por nombre o CUIT..."
-                      className="w-full px-3 py-2 border rounded-md mb-1 text-sm"
-                      value={searchTransportista}
-                      onChange={(e) => setSearchTransportista(e.target.value)}
-                      disabled={!selectedDadorForChofer}
-                    />
-                    {(() => {
-                      const currentVal = selectedTransportistaForChofer ? Number(selectedTransportistaForChofer) : '';
-                      const existsInList = transportistasForChofer.some((t: any) => t.id === currentVal);
-                      const currentItem = transportistasForChoferRaw.find((t: any) => t.id === currentVal);
-                      return (
+                  {/* TRANSPORTISTA solo ve sus propios choferes, no puede cambiar dador ni transportista */}
+                  {currentUser?.role === 'TRANSPORTISTA' ? (
+                    <>
+                      <div className="col-span-2">
+                        <label className="block text-sm font-medium mb-1">Empresa Transportista</label>
+                        <div className="w-full px-3 py-2 border rounded-md bg-muted text-muted-foreground">
+                          {transportistaActual?.razonSocial || user.empresaTransportistaId || 'Mi Empresa'}
+                        </div>
+                      </div>
+                      <div className="col-span-2">
+                        <label className="block text-sm font-medium mb-1">Chofer asociado</label>
+                        <input
+                          type="text"
+                          placeholder="Buscar por nombre, apellido o DNI..."
+                          className="w-full px-3 py-2 border rounded-md mb-1 text-sm"
+                          value={searchChofer}
+                          onChange={(e) => setSearchChofer(e.target.value)}
+                        />
+                        <Controller
+                          name="choferId"
+                          control={control}
+                          render={({ field }) => {
+                            const currentVal = field.value ? Number(field.value) : '';
+                            const existsInList = choferes.some((c: any) => c.id === currentVal);
+                            const currentItem = choferesConActual.find((c: any) => c.id === currentVal);
+                            return (
+                              <select className="w-full px-3 py-2 border rounded-md" {...field}>
+                                <option value="">Seleccionar...</option>
+                                {currentVal && !existsInList && currentItem && (
+                                  <option value={currentVal}>{currentItem.apellido}, {currentItem.nombre} (DNI: {currentItem.dni})</option>
+                                )}
+                                {choferes.map((c: any) => (
+                                  <option key={c.id} value={c.id}>{c.apellido}, {c.nombre} (DNI: {c.dni})</option>
+                                ))}
+                              </select>
+                            );
+                          }}
+                        />
+                      </div>
+                    </>
+                  ) : currentUser?.role === 'DADOR_DE_CARGA' ? (
+                    /* DADOR puede cambiar dador pero NO transportista */
+                    <>
+                      <div className="col-span-2">
+                        <label className="block text-sm font-medium mb-1">Dador de Carga</label>
                         <select
                           className="w-full px-3 py-2 border rounded-md"
-                          value={selectedTransportistaForChofer}
+                          value={selectedDadorForChofer}
                           onChange={(e) => {
                             const val = e.target.value ? Number(e.target.value) : '';
-                            setSelectedTransportistaForChofer(val);
-                            setValue('empresaTransportistaId', val);
-                            setValue('choferId', '');
-                            setSearchChofer('');
+                            setSelectedDadorForChofer(val);
+                            // No resetear transportista ni chofer
                           }}
-                          disabled={!selectedDadorForChofer}
                         >
-                          <option value="">{selectedDadorForChofer ? `Seleccionar... (${transportistasForChoferRaw.length} total)` : 'Primero seleccione un dador'}</option>
-                          {currentVal && !existsInList && currentItem && (
-                            <option value={currentVal}>{currentItem.razonSocial} ({currentItem.cuit})</option>
-                          )}
-                          {transportistasForChofer.map((t: any) => (
-                            <option key={t.id} value={t.id}>{t.razonSocial}</option>
+                          <option value="">Seleccionar Dador de Carga...</option>
+                          {dadores.map((d: any) => (
+                            <option key={d.id} value={d.id}>{d.razonSocial}</option>
                           ))}
                         </select>
-                      );
-                    })()}
-                  </div>
-                  <div className="col-span-2">
-                    <label className="block text-sm font-medium mb-1">Chofer asociado</label>
-                    <input
-                      type="text"
-                      placeholder="Buscar por nombre, apellido o DNI..."
-                      className="w-full px-3 py-2 border rounded-md mb-1 text-sm"
-                      value={searchChofer}
-                      onChange={(e) => setSearchChofer(e.target.value)}
-                      disabled={!selectedTransportistaForChofer}
-                    />
-                    <Controller
-                      name="choferId"
-                      control={control}
-                      render={({ field }) => {
-                        const currentVal = field.value ? Number(field.value) : '';
-                        const existsInList = choferes.some((c: any) => c.id === currentVal);
-                        const currentItem = choferesConActual.find((c: any) => c.id === currentVal);
-                        return (
-                          <select className="w-full px-3 py-2 border rounded-md" {...field} disabled={!selectedTransportistaForChofer}>
-                            <option value="">{selectedTransportistaForChofer ? `Seleccionar... (${choferesConActual.length} total)` : 'Primero seleccione transportista'}</option>
-                            {currentVal && !existsInList && currentItem && (
-                              <option value={currentVal}>{currentItem.apellido}, {currentItem.nombre} (DNI: {currentItem.dni})</option>
-                            )}
-                            {choferes.map((c: any) => (
-                              <option key={c.id} value={c.id}>{c.apellido}, {c.nombre} (DNI: {c.dni})</option>
-                            ))}
-                          </select>
-                        );
-                      }}
-                    />
-                  </div>
+                      </div>
+                      <div className="col-span-2">
+                        <label className="block text-sm font-medium mb-1">Empresa Transportista</label>
+                        <div className="w-full px-3 py-2 border rounded-md bg-muted text-muted-foreground">
+                          {transportistasForChoferRaw.find((t: any) => t.id === user.empresaTransportistaId)?.razonSocial || 'No asignada'}
+                        </div>
+                      </div>
+                      <div className="col-span-2">
+                        <label className="block text-sm font-medium mb-1">Chofer asociado</label>
+                        <input
+                          type="text"
+                          placeholder="Buscar por nombre, apellido o DNI..."
+                          className="w-full px-3 py-2 border rounded-md mb-1 text-sm"
+                          value={searchChofer}
+                          onChange={(e) => setSearchChofer(e.target.value)}
+                        />
+                        <Controller
+                          name="choferId"
+                          control={control}
+                          render={({ field }) => {
+                            const currentVal = field.value ? Number(field.value) : '';
+                            const existsInList = choferes.some((c: any) => c.id === currentVal);
+                            const currentItem = choferesConActual.find((c: any) => c.id === currentVal);
+                            return (
+                              <select className="w-full px-3 py-2 border rounded-md" {...field}>
+                                <option value="">Seleccionar...</option>
+                                {currentVal && !existsInList && currentItem && (
+                                  <option value={currentVal}>{currentItem.apellido}, {currentItem.nombre} (DNI: {currentItem.dni})</option>
+                                )}
+                                {choferes.map((c: any) => (
+                                  <option key={c.id} value={c.id}>{c.apellido}, {c.nombre} (DNI: {c.dni})</option>
+                                ))}
+                              </select>
+                            );
+                          }}
+                        />
+                      </div>
+                    </>
+                  ) : (
+                    /* ADMIN/SUPERADMIN - acceso completo con cascada */
+                    <>
+                      <div className="col-span-2">
+                        <label className="block text-sm font-medium mb-1">Dador de Carga</label>
+                        <select
+                          className="w-full px-3 py-2 border rounded-md"
+                          value={selectedDadorForChofer}
+                          onChange={(e) => {
+                            const val = e.target.value ? Number(e.target.value) : '';
+                            setSelectedDadorForChofer(val);
+                            setSelectedTransportistaForChofer('');
+                            setValue('empresaTransportistaId', '');
+                            setValue('choferId', '');
+                          }}
+                        >
+                          <option value="">Seleccionar Dador de Carga...</option>
+                          {dadores.map((d: any) => (
+                            <option key={d.id} value={d.id}>{d.razonSocial}</option>
+                          ))}
+                        </select>
+                      </div>
+                      <div className="col-span-2">
+                        <label className="block text-sm font-medium mb-1">Empresa Transportista</label>
+                        <input
+                          type="text"
+                          placeholder="Buscar por nombre o CUIT..."
+                          className="w-full px-3 py-2 border rounded-md mb-1 text-sm"
+                          value={searchTransportista}
+                          onChange={(e) => setSearchTransportista(e.target.value)}
+                          disabled={!selectedDadorForChofer}
+                        />
+                        {(() => {
+                          const currentVal = selectedTransportistaForChofer ? Number(selectedTransportistaForChofer) : '';
+                          const existsInList = transportistasForChofer.some((t: any) => t.id === currentVal);
+                          const currentItem = transportistasForChoferRaw.find((t: any) => t.id === currentVal);
+                          return (
+                            <select
+                              className="w-full px-3 py-2 border rounded-md"
+                              value={selectedTransportistaForChofer}
+                              onChange={(e) => {
+                                const val = e.target.value ? Number(e.target.value) : '';
+                                setSelectedTransportistaForChofer(val);
+                                setValue('empresaTransportistaId', val);
+                                setValue('choferId', '');
+                                setSearchChofer('');
+                              }}
+                              disabled={!selectedDadorForChofer}
+                            >
+                              <option value="">{selectedDadorForChofer ? `Seleccionar... (${transportistasForChoferRaw.length} total)` : 'Primero seleccione un dador'}</option>
+                              {currentVal && !existsInList && currentItem && (
+                                <option value={currentVal}>{currentItem.razonSocial} ({currentItem.cuit})</option>
+                              )}
+                              {transportistasForChofer.map((t: any) => (
+                                <option key={t.id} value={t.id}>{t.razonSocial}</option>
+                              ))}
+                            </select>
+                          );
+                        })()}
+                      </div>
+                      <div className="col-span-2">
+                        <label className="block text-sm font-medium mb-1">Chofer asociado</label>
+                        <input
+                          type="text"
+                          placeholder="Buscar por nombre, apellido o DNI..."
+                          className="w-full px-3 py-2 border rounded-md mb-1 text-sm"
+                          value={searchChofer}
+                          onChange={(e) => setSearchChofer(e.target.value)}
+                          disabled={!selectedTransportistaForChofer}
+                        />
+                        <Controller
+                          name="choferId"
+                          control={control}
+                          render={({ field }) => {
+                            const currentVal = field.value ? Number(field.value) : '';
+                            const existsInList = choferes.some((c: any) => c.id === currentVal);
+                            const currentItem = choferesConActual.find((c: any) => c.id === currentVal);
+                            return (
+                              <select className="w-full px-3 py-2 border rounded-md" {...field} disabled={!selectedTransportistaForChofer}>
+                                <option value="">{selectedTransportistaForChofer ? `Seleccionar... (${choferesConActual.length} total)` : 'Primero seleccione transportista'}</option>
+                                {currentVal && !existsInList && currentItem && (
+                                  <option value={currentVal}>{currentItem.apellido}, {currentItem.nombre} (DNI: {currentItem.dni})</option>
+                                )}
+                                {choferes.map((c: any) => (
+                                  <option key={c.id} value={c.id}>{c.apellido}, {c.nombre} (DNI: {c.dni})</option>
+                                ))}
+                              </select>
+                            );
+                          }}
+                        />
+                      </div>
+                    </>
+                  )}
                 </>
               )}
 
