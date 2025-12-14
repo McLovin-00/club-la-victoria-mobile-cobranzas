@@ -228,49 +228,69 @@ router.get(
       const user = req.user!;
       const { page = 1, limit = 10, search = '', role, empresaId } = req.query;
 
-      // Construir filtros
-      const where: any = {};
+      // Construir filtros usando AND para combinar correctamente
+      const conditions: any[] = [];
 
-      // Filtro por texto de búsqueda
+      // Filtro por texto de búsqueda (email, nombre, apellido o rol)
       if (search && typeof search === 'string' && search.trim()) {
-        where.OR = [
-          { email: { contains: search.trim(), mode: 'insensitive' } },
-          { nombre: { contains: search.trim(), mode: 'insensitive' } },
-          { apellido: { contains: search.trim(), mode: 'insensitive' } },
+        const searchTerm = search.trim();
+        const searchUpper = searchTerm.toUpperCase();
+        // Verificar si busca por rol
+        const rolesMatch = ['SUPERADMIN', 'ADMIN', 'ADMIN_INTERNO', 'OPERATOR', 'OPERADOR_INTERNO', 
+          'DADOR_DE_CARGA', 'TRANSPORTISTA', 'CHOFER', 'CLIENTE'].filter(r => r.includes(searchUpper));
+        
+        const searchConditions: any[] = [
+          { email: { contains: searchTerm, mode: 'insensitive' } },
+          { nombre: { contains: searchTerm, mode: 'insensitive' } },
+          { apellido: { contains: searchTerm, mode: 'insensitive' } },
         ];
+        
+        // Si el término coincide con roles, incluirlos
+        if (rolesMatch.length > 0) {
+          searchConditions.push({ role: { in: rolesMatch } });
+        }
+        
+        conditions.push({ OR: searchConditions });
       }
 
-      // Filtro por rol
+      // Filtro por rol específico (del query param)
       if (role && typeof role === 'string') {
-        where.role = role.toUpperCase();
+        conditions.push({ role: role.toUpperCase() });
       }
 
       // Filtro por empresa
       if (empresaId && typeof empresaId === 'string') {
-        where.empresaId = parseInt(empresaId);
+        conditions.push({ empresaId: parseInt(empresaId) });
       }
 
       // Restricciones según el rol del usuario actual
       if (user.role === 'ADMIN') {
         // Admin solo puede ver usuarios de su empresa y no puede ver otros superadmins
-        where.empresaId = user.empresaId;
-        where.role = { not: 'SUPERADMIN' };
+        conditions.push({ empresaId: user.empresaId });
+        conditions.push({ role: { not: 'SUPERADMIN' } });
       } else if (user.role === 'DADOR_DE_CARGA') {
         // Dador de carga solo puede ver usuarios que él creó o que tienen su dadorCargaId
-        where.OR = [
-          { creadoPorId: user.userId },
-          { dadorCargaId: (user as any).dadorCargaId },
-        ];
+        conditions.push({
+          OR: [
+            { creadoPorId: user.userId },
+            { dadorCargaId: (user as any).dadorCargaId },
+          ]
+        });
         // Solo puede ver roles TRANSPORTISTA y CHOFER
-        where.role = { in: ['TRANSPORTISTA', 'CHOFER'] };
+        conditions.push({ role: { in: ['TRANSPORTISTA', 'CHOFER'] } });
       } else if (user.role === 'TRANSPORTISTA') {
         // Transportista: igual que dador pero con empresaTransportistaId
-        where.OR = [
-          { creadoPorId: user.userId },
-          { empresaTransportistaId: (user as any).empresaTransportistaId },
-        ];
-        where.role = 'CHOFER';
+        conditions.push({
+          OR: [
+            { creadoPorId: user.userId },
+            { empresaTransportistaId: (user as any).empresaTransportistaId },
+          ]
+        });
+        conditions.push({ role: 'CHOFER' });
       }
+      
+      // Construir where final
+      const where = conditions.length > 0 ? { AND: conditions } : {};
 
       // Paginación
       const pageNum = parseInt(page as string) || 1;

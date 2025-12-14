@@ -8,14 +8,19 @@ import EditPlatformUserModal from '../components/EditPlatformUserModal';
 
 const PlatformUsersPage: React.FC = () => {
   const [search, setSearch] = useState('');
-  const { data, isLoading, refetch } = useListPlatformUsersQuery({ page: 1, limit: 20, search }, { refetchOnMountOrArgChange: true });
+  const [page, setPage] = useState(1);
+  const limit = 20;
+  const { data, isLoading, refetch } = useListPlatformUsersQuery({ page, limit, search }, { refetchOnMountOrArgChange: true });
   const [isRegisterOpen, setRegisterOpen] = useState(false);
   const [editing, setEditing] = useState<any | null>(null);
   const [deleteUser] = useDeletePlatformUserMutation();
 
   const handleRegister = () => setRegisterOpen(true);
+  const handleSearch = () => { setPage(1); refetch(); };
 
   const users = data?.data || [];
+  const total = data?.total || 0;
+  const totalPages = data?.totalPages || 1;
 
   return (
     <div className="space-y-4">
@@ -31,7 +36,7 @@ const PlatformUsersPage: React.FC = () => {
             placeholder="Buscar por email o nombre"
             className="px-3 py-2 border border-border rounded-md"
           />
-          <Button onClick={() => refetch()}>Buscar</Button>
+          <Button onClick={handleSearch}>Buscar</Button>
           <Button onClick={handleRegister}>
             Nuevo Usuario
           </Button>
@@ -73,6 +78,36 @@ const PlatformUsersPage: React.FC = () => {
           </div>
         )}
       </Card>
+
+      {/* Paginación */}
+      {totalPages > 1 && (
+        <div className="flex justify-between items-center mt-4">
+          <span className="text-sm text-muted-foreground">
+            Mostrando {(page - 1) * limit + 1} - {Math.min(page * limit, total)} de {total} usuarios
+          </span>
+          <div className="flex gap-2">
+            <Button 
+              variant="outline" 
+              size="sm" 
+              onClick={() => setPage(p => Math.max(1, p - 1))}
+              disabled={page <= 1}
+            >
+              Anterior
+            </Button>
+            <span className="px-3 py-1 text-sm">
+              Página {page} de {totalPages}
+            </span>
+            <Button 
+              variant="outline" 
+              size="sm" 
+              onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+              disabled={page >= totalPages}
+            >
+              Siguiente
+            </Button>
+          </div>
+        </div>
+      )}
 
       <RegisterUserModal isOpen={isRegisterOpen} onClose={() => { setRegisterOpen(false); refetch(); }} />
       {editing && (
