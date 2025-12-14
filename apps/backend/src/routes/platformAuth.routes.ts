@@ -264,16 +264,12 @@ router.get(
         // Solo puede ver roles TRANSPORTISTA y CHOFER
         where.role = { in: ['TRANSPORTISTA', 'CHOFER'] };
       } else if (user.role === 'TRANSPORTISTA') {
-        // Transportista puede ver usuarios CHOFER que él creó o asociados a su empresaTransportistaId
-        where.AND = [
-          { role: 'CHOFER' },
-          {
-            OR: [
-              { creadoPorId: user.userId },
-              { empresaTransportistaId: (user as any).empresaTransportistaId },
-            ],
-          },
+        // Transportista: igual que dador pero con empresaTransportistaId
+        where.OR = [
+          { creadoPorId: user.userId },
+          { empresaTransportistaId: (user as any).empresaTransportistaId },
         ];
+        where.role = 'CHOFER';
       }
 
       // Paginación

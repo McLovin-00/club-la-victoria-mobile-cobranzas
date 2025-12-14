@@ -8,7 +8,7 @@ import EditPlatformUserModal from '../components/EditPlatformUserModal';
 
 const PlatformUsersPage: React.FC = () => {
   const [search, setSearch] = useState('');
-  const { data, isLoading, refetch } = useListPlatformUsersQuery({ page: 1, limit: 20, search });
+  const { data, isLoading, refetch } = useListPlatformUsersQuery({ page: 1, limit: 20, search }, { refetchOnMountOrArgChange: true });
   const [isRegisterOpen, setRegisterOpen] = useState(false);
   const [editing, setEditing] = useState<any | null>(null);
   const [deleteUser] = useDeletePlatformUserMutation();

@@ -47,6 +47,7 @@ export const platformUsersApiSlice = apiSlice.injectEndpoints({
         if (p.search) qs.append('search', p.search);
         if (p.role) qs.append('role', p.role);
         if (p.empresaId) qs.append('empresaId', String(p.empresaId));
+        qs.append('_t', String(Date.now())); // Evitar caché
         return `/platform/auth/usuarios?${qs.toString()}`;
       },
       providesTags: ['User'],
