@@ -100,16 +100,26 @@ const EditPlatformUserModal: React.FC<Props> = ({ isOpen, onClose, user }) => {
     { skip: !user.choferId || user.role !== 'CHOFER' }
   );
   
-  // Query de transportistas filtrado por dador seleccionado (para TRANSPORTISTA)
+  // Para DADOR_DE_CARGA, usar su propio dadorCargaId; para otros, usar el seleccionado
+  const dadorIdForTransportistaQuery = currentUser?.role === 'DADOR_DE_CARGA'
+    ? (currentUser as any).dadorCargaId
+    : selectedDadorForTransportista;
+  
+  // Query de transportistas filtrado por dador (para TRANSPORTISTA)
   const { data: transportistasResp } = useGetEmpresasTransportistasQuery(
-    { dadorCargaId: selectedDadorForTransportista ? Number(selectedDadorForTransportista) : undefined, limit: 500 },
-    { skip: !selectedDadorForTransportista }
+    { dadorCargaId: dadorIdForTransportistaQuery ? Number(dadorIdForTransportistaQuery) : undefined, limit: 500 },
+    { skip: !dadorIdForTransportistaQuery }
   );
+  
+  // Para DADOR_DE_CARGA, usar su propio dadorCargaId; para otros, usar el seleccionado
+  const dadorIdForChoferQuery = currentUser?.role === 'DADOR_DE_CARGA'
+    ? (currentUser as any).dadorCargaId
+    : selectedDadorForChofer;
   
   // Query de transportistas para CHOFER
   const { data: transportistasForChoferResp } = useGetEmpresasTransportistasQuery(
-    { dadorCargaId: selectedDadorForChofer ? Number(selectedDadorForChofer) : undefined, limit: 500 },
-    { skip: !selectedDadorForChofer }
+    { dadorCargaId: dadorIdForChoferQuery ? Number(dadorIdForChoferQuery) : undefined, limit: 500 },
+    { skip: !dadorIdForChoferQuery }
   );
   
   // Para TRANSPORTISTA, usar su propia empresaTransportistaId para la query de choferes
@@ -424,60 +434,105 @@ const EditPlatformUserModal: React.FC<Props> = ({ isOpen, onClose, user }) => {
                 </div>
               )}
 
-              {/* Asociación: Empresa Transportista (primero seleccionar Dador) */}
+              {/* Asociación: Empresa Transportista - según rol del usuario actual */}
               {selectedRole === 'TRANSPORTISTA' && (
                 <>
-                  <div className="col-span-2">
-                    <label className="block text-sm font-medium mb-1">Dador de Carga</label>
-                    <select 
-                      className="w-full px-3 py-2 border rounded-md"
-                      value={selectedDadorForTransportista}
-                      onChange={(e) => {
-                        setSelectedDadorForTransportista(e.target.value ? Number(e.target.value) : '');
-                        setValue('empresaTransportistaId', '');
-                      }}
-                    >
-                      <option value="">Seleccionar dador...</option>
-                      {dadores.map((d: any) => (
-                        <option key={d.id} value={d.id}>{d.razonSocial || d.nombre} ({d.cuit})</option>
-                      ))}
-                    </select>
-                  </div>
-                  <div className="col-span-2">
-                    <label className="block text-sm font-medium mb-1">Empresa Transportista asociada</label>
-                    <input
-                      type="text"
-                      placeholder="Buscar por nombre o CUIT..."
-                      className="w-full px-3 py-2 border rounded-md mb-1 text-sm"
-                      value={searchTransportista}
-                      onChange={(e) => setSearchTransportista(e.target.value)}
-                      disabled={!selectedDadorForTransportista}
-                    />
-                    <Controller
-                      name="empresaTransportistaId"
-                      control={control}
-                      render={({ field }) => {
-                        const currentVal = field.value ? Number(field.value) : '';
-                        const existsInList = transportistas.some((t: any) => t.id === currentVal);
-                        const currentItem = transportistasRaw.find((t: any) => t.id === currentVal);
-                        return (
-                          <select 
-                            className="w-full px-3 py-2 border rounded-md" 
-                            {...field}
-                            disabled={!selectedDadorForTransportista}
-                          >
-                            <option value="">{selectedDadorForTransportista ? `Seleccionar... (${transportistasRaw.length} total)` : 'Primero seleccione un dador'}</option>
-                            {currentVal && !existsInList && currentItem && (
-                              <option value={currentVal}>{currentItem.razonSocial || currentItem.nombre} ({currentItem.cuit})</option>
-                            )}
-                            {transportistas.map((t: any) => (
-                              <option key={t.id} value={t.id}>{t.razonSocial || t.nombre} ({t.cuit})</option>
-                            ))}
-                          </select>
-                        );
-                      }}
-                    />
-                  </div>
+                  {/* DADOR_DE_CARGA: su dador es fijo, solo elige transportista */}
+                  {currentUser?.role === 'DADOR_DE_CARGA' ? (
+                    <>
+                      <div className="col-span-2">
+                        <label className="block text-sm font-medium mb-1">Dador de Carga</label>
+                        <div className="w-full px-3 py-2 border rounded-md bg-muted text-muted-foreground">
+                          {dadores.find((d: any) => d.id === (currentUser as any).dadorCargaId)?.razonSocial || 'Mi Empresa'}
+                        </div>
+                      </div>
+                      <div className="col-span-2">
+                        <label className="block text-sm font-medium mb-1">Empresa Transportista asociada</label>
+                        <input
+                          type="text"
+                          placeholder="Buscar por nombre o CUIT..."
+                          className="w-full px-3 py-2 border rounded-md mb-1 text-sm"
+                          value={searchTransportista}
+                          onChange={(e) => setSearchTransportista(e.target.value)}
+                        />
+                        <Controller
+                          name="empresaTransportistaId"
+                          control={control}
+                          render={({ field }) => {
+                            const currentVal = field.value ? Number(field.value) : '';
+                            const existsInList = transportistas.some((t: any) => t.id === currentVal);
+                            const currentItem = transportistasRaw.find((t: any) => t.id === currentVal);
+                            return (
+                              <select className="w-full px-3 py-2 border rounded-md" {...field}>
+                                <option value="">Seleccionar...</option>
+                                {currentVal && !existsInList && currentItem && (
+                                  <option value={currentVal}>{currentItem.razonSocial || currentItem.nombre} ({currentItem.cuit})</option>
+                                )}
+                                {transportistas.map((t: any) => (
+                                  <option key={t.id} value={t.id}>{t.razonSocial || t.nombre} ({t.cuit})</option>
+                                ))}
+                              </select>
+                            );
+                          }}
+                        />
+                      </div>
+                    </>
+                  ) : (
+                    /* ADMIN/SUPERADMIN: pueden elegir dador y transportista */
+                    <>
+                      <div className="col-span-2">
+                        <label className="block text-sm font-medium mb-1">Dador de Carga</label>
+                        <select 
+                          className="w-full px-3 py-2 border rounded-md"
+                          value={selectedDadorForTransportista}
+                          onChange={(e) => {
+                            setSelectedDadorForTransportista(e.target.value ? Number(e.target.value) : '');
+                            setValue('empresaTransportistaId', '');
+                          }}
+                        >
+                          <option value="">Seleccionar dador...</option>
+                          {dadores.map((d: any) => (
+                            <option key={d.id} value={d.id}>{d.razonSocial || d.nombre} ({d.cuit})</option>
+                          ))}
+                        </select>
+                      </div>
+                      <div className="col-span-2">
+                        <label className="block text-sm font-medium mb-1">Empresa Transportista asociada</label>
+                        <input
+                          type="text"
+                          placeholder="Buscar por nombre o CUIT..."
+                          className="w-full px-3 py-2 border rounded-md mb-1 text-sm"
+                          value={searchTransportista}
+                          onChange={(e) => setSearchTransportista(e.target.value)}
+                          disabled={!selectedDadorForTransportista}
+                        />
+                        <Controller
+                          name="empresaTransportistaId"
+                          control={control}
+                          render={({ field }) => {
+                            const currentVal = field.value ? Number(field.value) : '';
+                            const existsInList = transportistas.some((t: any) => t.id === currentVal);
+                            const currentItem = transportistasRaw.find((t: any) => t.id === currentVal);
+                            return (
+                              <select 
+                                className="w-full px-3 py-2 border rounded-md" 
+                                {...field}
+                                disabled={!selectedDadorForTransportista}
+                              >
+                                <option value="">{selectedDadorForTransportista ? `Seleccionar... (${transportistasRaw.length} total)` : 'Primero seleccione un dador'}</option>
+                                {currentVal && !existsInList && currentItem && (
+                                  <option value={currentVal}>{currentItem.razonSocial || currentItem.nombre} ({currentItem.cuit})</option>
+                                )}
+                                {transportistas.map((t: any) => (
+                                  <option key={t.id} value={t.id}>{t.razonSocial || t.nombre} ({t.cuit})</option>
+                                ))}
+                              </select>
+                            );
+                          }}
+                        />
+                      </div>
+                    </>
+                  )}
                 </>
               )}
 
