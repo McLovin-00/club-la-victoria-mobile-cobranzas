@@ -216,13 +216,13 @@ router.delete(
 
 /**
  * @route GET /api/platform/auth/usuarios
- * @desc Obtener lista de usuarios de plataforma (admins/superadmins)
- * @access Private (Admin/Superadmin)
+ * @desc Obtener lista de usuarios de plataforma
+ * @access Private (Admin/Superadmin/Admin_Interno/Dador/Transportista)
  */
 router.get(
   '/usuarios',
   authenticateUser,
-  authorizeRoles(['ADMIN', 'SUPERADMIN', 'ADMIN_INTERNO']),
+  authorizeRoles(['ADMIN', 'SUPERADMIN', 'ADMIN_INTERNO', 'DADOR_DE_CARGA', 'TRANSPORTISTA']),
   async (req: AuthRequest, res: Response): Promise<void> => {
     try {
       const user = req.user!;
@@ -255,6 +255,19 @@ router.get(
         // Admin solo puede ver usuarios de su empresa y no puede ver otros superadmins
         where.empresaId = user.empresaId;
         where.role = { not: 'SUPERADMIN' };
+      } else if (user.role === 'DADOR_DE_CARGA') {
+        // Dador de carga solo puede ver usuarios que él creó o que tienen su dadorCargaId
+        where.OR = [
+          { creadoPorId: user.userId },
+          { dadorCargaId: (user as any).dadorCargaId },
+        ];
+        // Solo puede ver roles TRANSPORTISTA y CHOFER
+        where.role = { in: ['TRANSPORTISTA', 'CHOFER'] };
+      } else if (user.role === 'TRANSPORTISTA') {
+        // Transportista solo puede ver usuarios que él creó (choferes)
+        where.creadoPorId = user.userId;
+        // Solo puede ver rol CHOFER
+        where.role = 'CHOFER';
       }
 
       // Paginación

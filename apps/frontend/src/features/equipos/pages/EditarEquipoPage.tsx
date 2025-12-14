@@ -17,7 +17,10 @@ import {
   useUploadDocumentMutation,
   useCreateCamionMutation,
   useCreateAcopladoMutation,
+  useCreateChoferMutation,
+  useCreateEmpresaTransportistaMutation,
 } from '../../documentos/api/documentosApiSlice';
+import { useRegisterChoferWizardMutation, useRegisterTransportistaWizardMutation } from '../../platform-users/api/platformUsersApiSlice';
 import { Button } from '../../../components/ui/button';
 import { Card } from '../../../components/ui/card';
 import { Label } from '../../../components/ui/label';
@@ -77,12 +80,24 @@ const EditarEquipoPage: React.FC = () => {
   const [uploadDocument, { isLoading: uploading }] = useUploadDocumentMutation();
   const [createCamion, { isLoading: creatingCamion }] = useCreateCamionMutation();
   const [createAcoplado, { isLoading: creatingAcoplado }] = useCreateAcopladoMutation();
+  const [createChofer, { isLoading: creatingChofer }] = useCreateChoferMutation();
+  const [createEmpresaTransportista, { isLoading: creatingTransportista }] = useCreateEmpresaTransportistaMutation();
+  const [registerChoferWizard, { isLoading: creatingChoferUser }] = useRegisterChoferWizardMutation();
+  const [registerTransportistaWizard, { isLoading: creatingTransportistaUser }] = useRegisterTransportistaWizardMutation();
   
   // Estados para modales de creación de Camión/Acoplado
   const [showNewCamionModal, setShowNewCamionModal] = useState(false);
   const [showNewAcopladoModal, setShowNewAcopladoModal] = useState(false);
   const [newCamionData, setNewCamionData] = useState({ patente: '', marca: '', modelo: '' });
   const [newAcopladoData, setNewAcopladoData] = useState({ patente: '', tipo: '' });
+  
+  // Estados para modales de creación de Chofer y Empresa Transportista
+  const [showNewChoferModal, setShowNewChoferModal] = useState(false);
+  const [showNewTransportistaModal, setShowNewTransportistaModal] = useState(false);
+  const [newChoferData, setNewChoferData] = useState({ dni: '', nombre: '', apellido: '', createUser: false, email: '' });
+  const [newTransportistaData, setNewTransportistaData] = useState({ razonSocial: '', cuit: '', notas: '', createUser: false, email: '', nombre: '', apellido: '' });
+  const [tempPasswordChofer, setTempPasswordChofer] = useState<string | null>(null);
+  const [tempPasswordTransportista, setTempPasswordTransportista] = useState<string | null>(null);
   
   // Estado para archivos seleccionados (key: templateId-entityType-entityId)
   const [selectedFiles, setSelectedFiles] = useState<Record<string, { file: File; expiresAt?: string }>>({});
@@ -233,6 +248,111 @@ const EditarEquipoPage: React.FC = () => {
       }
     } catch (err: any) {
       setMessage({ type: 'error', text: err?.data?.message || 'Error al crear acoplado' });
+    }
+  };
+  
+  // Crear nuevo Chofer (con opción de crear cuenta de usuario)
+  const handleCreateChofer = async () => {
+    if (!newChoferData.dni || newChoferData.dni.length < 6) {
+      setMessage({ type: 'error', text: 'El DNI debe tener al menos 6 caracteres' });
+      return;
+    }
+    if (newChoferData.createUser && !newChoferData.email) {
+      setMessage({ type: 'error', text: 'El email es obligatorio para crear cuenta de usuario' });
+      return;
+    }
+    try {
+      // 1. Crear la entidad chofer
+      const created = await createChofer({
+        dadorCargaId: dadorId,
+        dni: newChoferData.dni.trim(),
+        nombre: newChoferData.nombre || undefined,
+        apellido: newChoferData.apellido || undefined,
+        activo: true,
+        phones: [],
+      }).unwrap();
+      
+      // 2. Si se solicita, crear la cuenta de usuario
+      if (newChoferData.createUser && created?.id) {
+        try {
+          const userResp = await registerChoferWizard({
+            email: newChoferData.email,
+            nombre: newChoferData.nombre || undefined,
+            apellido: newChoferData.apellido || undefined,
+            choferId: created.id,
+          }).unwrap();
+          setTempPasswordChofer(userResp.tempPassword);
+        } catch (userErr: any) {
+          setMessage({ type: 'error', text: `Chofer creado pero error al crear usuario: ${userErr?.data?.message || 'Error desconocido'}` });
+          return;
+        }
+      }
+      
+      setMessage({ type: 'success', text: `Chofer ${newChoferData.apellido || newChoferData.dni} creado exitosamente` });
+      setNewChoferData({ dni: '', nombre: '', apellido: '', createUser: false, email: '' });
+      if (!newChoferData.createUser) {
+        setShowNewChoferModal(false);
+      }
+      // Seleccionar el nuevo chofer automáticamente
+      if (created?.id) {
+        setSelectedChoferId(created.id);
+      }
+    } catch (err: any) {
+      setMessage({ type: 'error', text: err?.data?.message || 'Error al crear chofer' });
+    }
+  };
+  
+  // Crear nueva Empresa Transportista (con opción de crear cuenta de usuario)
+  const handleCreateTransportista = async () => {
+    if (!newTransportistaData.razonSocial || !newTransportistaData.cuit) {
+      setMessage({ type: 'error', text: 'Razón social y CUIT son obligatorios' });
+      return;
+    }
+    if (newTransportistaData.cuit.length !== 11) {
+      setMessage({ type: 'error', text: 'El CUIT debe tener 11 dígitos' });
+      return;
+    }
+    if (newTransportistaData.createUser && !newTransportistaData.email) {
+      setMessage({ type: 'error', text: 'El email es obligatorio para crear cuenta de usuario' });
+      return;
+    }
+    try {
+      // 1. Crear la entidad empresa transportista
+      const created = await createEmpresaTransportista({
+        dadorCargaId: dadorId,
+        razonSocial: newTransportistaData.razonSocial.trim(),
+        cuit: newTransportistaData.cuit.trim(),
+        notas: newTransportistaData.notas || undefined,
+        activo: true,
+      }).unwrap();
+      
+      // 2. Si se solicita, crear la cuenta de usuario
+      if (newTransportistaData.createUser && created?.id) {
+        try {
+          const userResp = await registerTransportistaWizard({
+            email: newTransportistaData.email,
+            nombre: newTransportistaData.nombre || undefined,
+            apellido: newTransportistaData.apellido || undefined,
+            empresaTransportistaId: created.id,
+          }).unwrap();
+          setTempPasswordTransportista(userResp.tempPassword);
+        } catch (userErr: any) {
+          setMessage({ type: 'error', text: `Transportista creado pero error al crear usuario: ${userErr?.data?.message || 'Error desconocido'}` });
+          return;
+        }
+      }
+      
+      setMessage({ type: 'success', text: `Empresa ${newTransportistaData.razonSocial} creada exitosamente` });
+      setNewTransportistaData({ razonSocial: '', cuit: '', notas: '', createUser: false, email: '', nombre: '', apellido: '' });
+      if (!newTransportistaData.createUser) {
+        setShowNewTransportistaModal(false);
+      }
+      // Seleccionar la nueva empresa automáticamente
+      if (created?.id) {
+        setSelectedEmpresaId(created.id);
+      }
+    } catch (err: any) {
+      setMessage({ type: 'error', text: err?.data?.message || 'Error al crear empresa transportista' });
     }
   };
   
@@ -544,6 +664,17 @@ const EditarEquipoPage: React.FC = () => {
               >
                 Cambiar
               </Button>
+              {canEdit && (
+                <Button
+                  variant='outline'
+                  size='sm'
+                  className='flex-shrink-0'
+                  onClick={() => setShowNewChoferModal(true)}
+                  title='Crear nuevo chofer'
+                >
+                  <PlusIcon className='h-4 w-4' />
+                </Button>
+              )}
             </div>
           </div>
           
@@ -643,6 +774,17 @@ const EditarEquipoPage: React.FC = () => {
               >
                 Cambiar
               </Button>
+              {canEdit && (
+                <Button
+                  variant='outline'
+                  size='sm'
+                  className='flex-shrink-0'
+                  onClick={() => setShowNewTransportistaModal(true)}
+                  title='Crear nueva empresa transportista'
+                >
+                  <PlusIcon className='h-4 w-4' />
+                </Button>
+              )}
             </div>
           </div>
         </div>
@@ -955,6 +1097,216 @@ const EditarEquipoPage: React.FC = () => {
                   {creatingAcoplado ? 'Creando...' : 'Crear Acoplado'}
                 </Button>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+      
+      {/* Modal: Crear Chofer */}
+      {showNewChoferModal && (
+        <div className='fixed inset-0 z-50 overflow-y-auto'>
+          <div className='fixed inset-0 bg-black/40' onClick={() => { setShowNewChoferModal(false); setTempPasswordChofer(null); }} />
+          <div className='flex min-h-full items-center justify-center p-4'>
+            <div className='relative bg-background rounded-lg shadow-xl w-full max-w-lg p-6'>
+              <h3 className='text-lg font-medium mb-4'>Crear Nuevo Chofer</h3>
+              
+              {tempPasswordChofer ? (
+                <div className='space-y-4'>
+                  <div className='bg-green-50 border border-green-200 rounded-lg p-4'>
+                    <p className='text-green-800 font-medium mb-2'>✅ Chofer y usuario creados exitosamente</p>
+                    <p className='text-sm text-green-700 mb-3'>Contraseña temporal (copie antes de cerrar):</p>
+                    <div className='flex gap-2'>
+                      <input type='text' readOnly value={tempPasswordChofer} className='flex-1 font-mono bg-white border rounded px-3 py-2' />
+                      <Button size='sm' onClick={() => navigator.clipboard.writeText(tempPasswordChofer)}>Copiar</Button>
+                    </div>
+                  </div>
+                  <Button className='w-full' onClick={() => { setShowNewChoferModal(false); setTempPasswordChofer(null); }}>Cerrar</Button>
+                </div>
+              ) : (
+                <>
+                  <div className='space-y-4'>
+                    <div className='grid grid-cols-2 gap-4'>
+                      <div>
+                        <Label>DNI *</Label>
+                        <input
+                          type='text'
+                          className='w-full border rounded px-3 py-2'
+                          placeholder='12345678'
+                          value={newChoferData.dni}
+                          onChange={(e) => setNewChoferData({ ...newChoferData, dni: e.target.value.replace(/\D/g, '') })}
+                          maxLength={10}
+                        />
+                      </div>
+                      <div />
+                    </div>
+                    <div className='grid grid-cols-2 gap-4'>
+                      <div>
+                        <Label>Nombre</Label>
+                        <input
+                          type='text'
+                          className='w-full border rounded px-3 py-2'
+                          value={newChoferData.nombre}
+                          onChange={(e) => setNewChoferData({ ...newChoferData, nombre: e.target.value })}
+                        />
+                      </div>
+                      <div>
+                        <Label>Apellido</Label>
+                        <input
+                          type='text'
+                          className='w-full border rounded px-3 py-2'
+                          value={newChoferData.apellido}
+                          onChange={(e) => setNewChoferData({ ...newChoferData, apellido: e.target.value })}
+                        />
+                      </div>
+                    </div>
+                    
+                    <div className='border-t pt-4'>
+                      <label className='flex items-center gap-2 cursor-pointer'>
+                        <input
+                          type='checkbox'
+                          checked={newChoferData.createUser}
+                          onChange={(e) => setNewChoferData({ ...newChoferData, createUser: e.target.checked })}
+                        />
+                        <span className='text-sm font-medium'>Crear cuenta de usuario para este chofer</span>
+                      </label>
+                      <p className='text-xs text-muted-foreground mt-1'>Se generará una contraseña temporal que deberá cambiar en el primer login.</p>
+                    </div>
+                    
+                    {newChoferData.createUser && (
+                      <div>
+                        <Label>Email del usuario *</Label>
+                        <input
+                          type='email'
+                          className='w-full border rounded px-3 py-2'
+                          placeholder='chofer@empresa.com'
+                          value={newChoferData.email}
+                          onChange={(e) => setNewChoferData({ ...newChoferData, email: e.target.value })}
+                        />
+                      </div>
+                    )}
+                  </div>
+                  <div className='flex justify-end gap-2 mt-6'>
+                    <Button variant='outline' onClick={() => setShowNewChoferModal(false)}>Cancelar</Button>
+                    <Button onClick={handleCreateChofer} disabled={creatingChofer || creatingChoferUser || !newChoferData.dni}>
+                      {(creatingChofer || creatingChoferUser) ? 'Creando...' : newChoferData.createUser ? 'Crear Chofer + Usuario' : 'Crear Chofer'}
+                    </Button>
+                  </div>
+                </>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+      
+      {/* Modal: Crear Empresa Transportista */}
+      {showNewTransportistaModal && (
+        <div className='fixed inset-0 z-50 overflow-y-auto'>
+          <div className='fixed inset-0 bg-black/40' onClick={() => { setShowNewTransportistaModal(false); setTempPasswordTransportista(null); }} />
+          <div className='flex min-h-full items-center justify-center p-4'>
+            <div className='relative bg-background rounded-lg shadow-xl w-full max-w-lg p-6'>
+              <h3 className='text-lg font-medium mb-4'>Crear Nueva Empresa Transportista</h3>
+              
+              {tempPasswordTransportista ? (
+                <div className='space-y-4'>
+                  <div className='bg-green-50 border border-green-200 rounded-lg p-4'>
+                    <p className='text-green-800 font-medium mb-2'>✅ Empresa y usuario creados exitosamente</p>
+                    <p className='text-sm text-green-700 mb-3'>Contraseña temporal (copie antes de cerrar):</p>
+                    <div className='flex gap-2'>
+                      <input type='text' readOnly value={tempPasswordTransportista} className='flex-1 font-mono bg-white border rounded px-3 py-2' />
+                      <Button size='sm' onClick={() => navigator.clipboard.writeText(tempPasswordTransportista)}>Copiar</Button>
+                    </div>
+                  </div>
+                  <Button className='w-full' onClick={() => { setShowNewTransportistaModal(false); setTempPasswordTransportista(null); }}>Cerrar</Button>
+                </div>
+              ) : (
+                <>
+                  <div className='space-y-4'>
+                    <div>
+                      <Label>Razón Social *</Label>
+                      <input
+                        type='text'
+                        className='w-full border rounded px-3 py-2'
+                        placeholder='Transporte S.R.L.'
+                        value={newTransportistaData.razonSocial}
+                        onChange={(e) => setNewTransportistaData({ ...newTransportistaData, razonSocial: e.target.value })}
+                      />
+                    </div>
+                    <div>
+                      <Label>CUIT *</Label>
+                      <input
+                        type='text'
+                        className='w-full border rounded px-3 py-2'
+                        placeholder='20123456789'
+                        value={newTransportistaData.cuit}
+                        onChange={(e) => setNewTransportistaData({ ...newTransportistaData, cuit: e.target.value.replace(/\D/g, '') })}
+                        maxLength={11}
+                      />
+                    </div>
+                    <div>
+                      <Label>Notas</Label>
+                      <input
+                        type='text'
+                        className='w-full border rounded px-3 py-2'
+                        value={newTransportistaData.notas}
+                        onChange={(e) => setNewTransportistaData({ ...newTransportistaData, notas: e.target.value })}
+                      />
+                    </div>
+                    
+                    <div className='border-t pt-4'>
+                      <label className='flex items-center gap-2 cursor-pointer'>
+                        <input
+                          type='checkbox'
+                          checked={newTransportistaData.createUser}
+                          onChange={(e) => setNewTransportistaData({ ...newTransportistaData, createUser: e.target.checked })}
+                        />
+                        <span className='text-sm font-medium'>Crear cuenta de usuario para esta transportista</span>
+                      </label>
+                      <p className='text-xs text-muted-foreground mt-1'>Se generará una contraseña temporal que deberá cambiar en el primer login.</p>
+                    </div>
+                    
+                    {newTransportistaData.createUser && (
+                      <>
+                        <div>
+                          <Label>Email del usuario *</Label>
+                          <input
+                            type='email'
+                            className='w-full border rounded px-3 py-2'
+                            placeholder='usuario@transportista.com'
+                            value={newTransportistaData.email}
+                            onChange={(e) => setNewTransportistaData({ ...newTransportistaData, email: e.target.value })}
+                          />
+                        </div>
+                        <div className='grid grid-cols-2 gap-4'>
+                          <div>
+                            <Label>Nombre del responsable</Label>
+                            <input
+                              type='text'
+                              className='w-full border rounded px-3 py-2'
+                              value={newTransportistaData.nombre}
+                              onChange={(e) => setNewTransportistaData({ ...newTransportistaData, nombre: e.target.value })}
+                            />
+                          </div>
+                          <div>
+                            <Label>Apellido del responsable</Label>
+                            <input
+                              type='text'
+                              className='w-full border rounded px-3 py-2'
+                              value={newTransportistaData.apellido}
+                              onChange={(e) => setNewTransportistaData({ ...newTransportistaData, apellido: e.target.value })}
+                            />
+                          </div>
+                        </div>
+                      </>
+                    )}
+                  </div>
+                  <div className='flex justify-end gap-2 mt-6'>
+                    <Button variant='outline' onClick={() => setShowNewTransportistaModal(false)}>Cancelar</Button>
+                    <Button onClick={handleCreateTransportista} disabled={creatingTransportista || creatingTransportistaUser || !newTransportistaData.razonSocial || !newTransportistaData.cuit}>
+                      {(creatingTransportista || creatingTransportistaUser) ? 'Creando...' : newTransportistaData.createUser ? 'Crear Empresa + Usuario' : 'Crear Empresa'}
+                    </Button>
+                  </div>
+                </>
+              )}
             </div>
           </div>
         </div>
