@@ -286,6 +286,7 @@ model Equipo {
   validFrom         DateTime     @map("valid_from")
   validTo           DateTime?    @map("valid_to")
   estado            EquipoEstado @default(activa)
+  activo            Boolean      @default(true)
   createdAt         DateTime     @default(now()) @map("created_at")
   updatedAt         DateTime     @updatedAt @map("updated_at")
 

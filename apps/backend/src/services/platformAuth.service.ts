@@ -139,6 +139,11 @@ export class PlatformAuthService {
       return { success: false, message: 'Credenciales inválidas' };
     }
 
+    // Verificar si el usuario está activo
+    if (platformUser.activo === false) {
+      return { success: false, message: 'Usuario desactivado. Contacte al administrador.' };
+    }
+
     // Normalización defensiva de contraseñas: algunos despliegues antiguos
     // pudieron almacenar hashes truncados o sin prefijos de bcrypt.
     // Si detectamos un formato inválido, solo auto-corregimos para cuentas semilla

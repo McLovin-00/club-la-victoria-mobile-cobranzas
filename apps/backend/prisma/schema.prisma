@@ -190,6 +190,7 @@ model User {
   empresaId       Int?       @map("empresa_id")
   nombre          String?
   apellido        String?
+  activo          Boolean    @default(true)
   mustChangePassword Boolean  @default(false) @map("must_change_password")
   passwordChangedAt  DateTime? @map("password_changed_at") @db.Timestamptz(6)
   createdAt       DateTime   @default(now()) @map("created_at") @db.Timestamptz(6)

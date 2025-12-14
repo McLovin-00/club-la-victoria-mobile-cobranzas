@@ -11,6 +11,7 @@ export interface PlatformUser {
   apellido?: string;
   empresaId?: number | null;
   empresa?: { id: number; nombre: string } | null;
+  activo?: boolean;
   // Asociaciones por rol
   dadorCargaId?: number | null;
   empresaTransportistaId?: number | null;
@@ -127,6 +128,15 @@ export const platformUsersApiSlice = apiSlice.injectEndpoints({
       invalidatesTags: ['User'],
     }),
 
+    toggleUserActivo: builder.mutation<{ success: boolean; data: { id: number; activo: boolean } }, { id: number; activo: boolean }>({
+      query: ({ id, activo }) => ({
+        url: `/platform/auth/users/${id}/toggle-activo`,
+        method: 'PATCH',
+        body: { activo },
+      }),
+      invalidatesTags: ['User'],
+    }),
+
     updateUserEmpresa: builder.mutation<{ success: boolean }, { id: number; empresaId: number | null }>({
       query: ({ id, empresaId }) => ({
         url: `/usuarios/${id}/empresa`,
@@ -147,6 +157,7 @@ export const {
   useRegisterChoferWizardMutation,
   useUpdatePlatformUserMutation,
   useDeletePlatformUserMutation,
+  useToggleUserActivoMutation,
   useUpdateUserEmpresaMutation,
 } = platformUsersApiSlice;
 

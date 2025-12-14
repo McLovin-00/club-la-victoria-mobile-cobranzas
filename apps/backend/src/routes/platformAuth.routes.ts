@@ -215,6 +215,81 @@ router.delete(
 );
 
 /**
+ * @route PATCH /api/platform/auth/users/:id/toggle-activo
+ * @desc Activar/desactivar usuario de plataforma
+ * @access Private (Admin/Superadmin/Admin_Interno/Dador/Transportista según órbita)
+ */
+router.patch(
+  '/users/:id/toggle-activo',
+  authenticateUser,
+  authorizeRoles(['ADMIN', 'SUPERADMIN', 'ADMIN_INTERNO', 'DADOR_DE_CARGA', 'TRANSPORTISTA']),
+  logAction('PLATFORM_USER_TOGGLE_ACTIVO'),
+  async (req: AuthRequest, res: Response): Promise<void> => {
+    try {
+      const currentUser = req.user!;
+      const targetId = parseInt(req.params.id);
+      const { activo } = req.body;
+      
+      if (typeof activo !== 'boolean') {
+        res.status(400).json({ success: false, message: 'El campo activo debe ser booleano' });
+        return;
+      }
+      
+      const prisma = prismaService.getClient();
+      
+      // Buscar usuario objetivo
+      const targetUser = await prisma.user.findUnique({ where: { id: targetId } });
+      if (!targetUser) {
+        res.status(404).json({ success: false, message: 'Usuario no encontrado' });
+        return;
+      }
+      
+      // Verificar permisos según órbita
+      const canModify = (() => {
+        if (currentUser.role === 'SUPERADMIN') return true;
+        if (currentUser.role === 'ADMIN' && targetUser.empresaId === currentUser.empresaId) return true;
+        if (currentUser.role === 'ADMIN_INTERNO' && targetUser.empresaId === currentUser.empresaId) return true;
+        if (currentUser.role === 'DADOR_DE_CARGA') {
+          // Solo puede modificar transportistas/choferes que creó o de su dador
+          return ['TRANSPORTISTA', 'CHOFER'].includes(targetUser.role) &&
+            (targetUser.creadoPorId === currentUser.userId || targetUser.dadorCargaId === (currentUser as any).dadorCargaId);
+        }
+        if (currentUser.role === 'TRANSPORTISTA') {
+          // Solo puede modificar choferes de su empresa transportista
+          return targetUser.role === 'CHOFER' &&
+            (targetUser.creadoPorId === currentUser.userId || targetUser.empresaTransportistaId === (currentUser as any).empresaTransportistaId);
+        }
+        return false;
+      })();
+      
+      if (!canModify) {
+        res.status(403).json({ success: false, message: 'No tiene permisos para modificar este usuario' });
+        return;
+      }
+      
+      // No permitir desactivarse a sí mismo
+      if (targetId === currentUser.userId && !activo) {
+        res.status(400).json({ success: false, message: 'No puede desactivarse a sí mismo' });
+        return;
+      }
+      
+      // Actualizar estado
+      const updatedUser = await prisma.user.update({
+        where: { id: targetId },
+        data: { activo },
+        select: { id: true, email: true, activo: true },
+      });
+      
+      AppLogger.info(`Usuario ${activo ? 'activado' : 'desactivado'}`, { targetId, by: currentUser.userId });
+      res.status(200).json({ success: true, data: updatedUser, message: `Usuario ${activo ? 'activado' : 'desactivado'} exitosamente` });
+    } catch (error) {
+      AppLogger.error('Error al cambiar estado de usuario:', error);
+      res.status(500).json({ success: false, message: 'Error interno del servidor' });
+    }
+  }
+);
+
+/**
  * @route GET /api/platform/auth/usuarios
  * @desc Obtener lista de usuarios de plataforma
  * @access Private (Admin/Superadmin/Admin_Interno/Dador/Transportista)
@@ -310,6 +385,7 @@ router.get(
             nombre: true,
             apellido: true,
             empresaId: true,
+            activo: true,
             dadorCargaId: true,
             empresaTransportistaId: true,
             choferId: true,

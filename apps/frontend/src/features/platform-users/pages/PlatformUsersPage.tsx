@@ -2,7 +2,8 @@ import React, { useState } from 'react';
 import { Card } from '../../../components/ui/card';
 import { Button } from '../../../components/ui/button';
 import { Spinner } from '../../../components/ui/spinner';
-import { useListPlatformUsersQuery, useDeletePlatformUserMutation } from '../api/platformUsersApiSlice';
+import { useListPlatformUsersQuery, useDeletePlatformUserMutation, useToggleUserActivoMutation } from '../api/platformUsersApiSlice';
+import { showToast } from '../../../components/ui/Toast.utils';
 import { RegisterUserModal } from '../components/RegisterUserModal';
 import EditPlatformUserModal from '../components/EditPlatformUserModal';
 
@@ -14,6 +15,16 @@ const PlatformUsersPage: React.FC = () => {
   const [isRegisterOpen, setRegisterOpen] = useState(false);
   const [editing, setEditing] = useState<any | null>(null);
   const [deleteUser] = useDeletePlatformUserMutation();
+  const [toggleActivo] = useToggleUserActivoMutation();
+
+  const handleToggleActivo = async (userId: number, currentActivo: boolean) => {
+    try {
+      await toggleActivo({ id: userId, activo: !currentActivo }).unwrap();
+      showToast(`Usuario ${!currentActivo ? 'activado' : 'desactivado'} exitosamente`, 'success');
+    } catch (e: any) {
+      showToast(e?.data?.message || 'Error al cambiar estado', 'error');
+    }
+  };
 
   const handleRegister = () => setRegisterOpen(true);
   const handleSearch = () => { setPage(1); refetch(); };
@@ -56,18 +67,30 @@ const PlatformUsersPage: React.FC = () => {
                   <th className="px-6 py-3 text-left text-xs font-medium uppercase">Email</th>
                   <th className="px-6 py-3 text-left text-xs font-medium uppercase">Rol</th>
                   <th className="px-6 py-3 text-left text-xs font-medium uppercase">Empresa</th>
-                   <th className="px-6 py-3 text-right text-xs font-medium uppercase">Acciones</th>
+                  <th className="px-6 py-3 text-center text-xs font-medium uppercase">Estado</th>
+                  <th className="px-6 py-3 text-right text-xs font-medium uppercase">Acciones</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-border">
                 {users.map((u) => (
-              <tr key={u.id}>
+              <tr key={u.id} className={u.activo === false ? 'opacity-50 bg-muted/30' : ''}>
                     <td className="px-6 py-3">{u.email}</td>
                     <td className="px-6 py-3">{u.role}</td>
                     <td className="px-6 py-3">{u.empresa?.nombre ?? '-'}</td>
+                    <td className="px-6 py-3 text-center">
+                      <span className={`px-2 py-1 rounded text-xs font-medium ${u.activo !== false ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
+                        {u.activo !== false ? 'Activo' : 'Inactivo'}
+                      </span>
+                    </td>
                     <td className="px-6 py-3 text-right">
                   <div className="flex gap-3 justify-end">
                     <button className="text-sm" onClick={()=>setEditing(u)}>Editar</button>
+                    <button 
+                      className={`text-sm ${u.activo !== false ? 'text-orange-600' : 'text-green-600'}`} 
+                      onClick={() => handleToggleActivo(u.id, u.activo !== false)}
+                    >
+                      {u.activo !== false ? 'Desactivar' : 'Activar'}
+                    </button>
                     <button className="text-red-600 text-sm" onClick={async()=>{ await deleteUser({ id: u.id }).unwrap(); refetch(); }}>Eliminar</button>
                   </div>
                     </td>

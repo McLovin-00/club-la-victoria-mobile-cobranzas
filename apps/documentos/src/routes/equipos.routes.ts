@@ -211,6 +211,53 @@ router.post('/:id/rollback', authorize(['ADMIN' as any, 'SUPERADMIN' as any, 'AD
 
 router.put('/:id', authorize(['ADMIN' as any, 'SUPERADMIN' as any, 'ADMIN_INTERNO' as any, 'DADOR_DE_CARGA' as any]), validate(updateEquipoSchema), EquiposController.update);
 router.delete('/:id', authorize(['ADMIN' as any, 'SUPERADMIN' as any, 'ADMIN_INTERNO' as any, 'DADOR_DE_CARGA' as any]), EquiposController.delete);
+
+// Toggle activo de equipo
+router.patch('/:id/toggle-activo', authorize(['ADMIN' as any, 'SUPERADMIN' as any, 'ADMIN_INTERNO' as any, 'DADOR_DE_CARGA' as any, 'TRANSPORTISTA' as any]), async (req: any, res) => {
+  try {
+    const equipoId = Number(req.params.id);
+    const { activo } = req.body;
+    
+    if (typeof activo !== 'boolean') {
+      return res.status(400).json({ success: false, message: 'El campo activo debe ser booleano' });
+    }
+    
+    const equipo = await prisma.equipo.findUnique({ where: { id: equipoId } });
+    if (!equipo) {
+      return res.status(404).json({ success: false, message: 'Equipo no encontrado' });
+    }
+    
+    // Verificar permisos según órbita
+    const user = req.user;
+    const canModify = (() => {
+      if (['SUPERADMIN', 'ADMIN', 'ADMIN_INTERNO'].includes(user.role)) return true;
+      if (user.role === 'DADOR_DE_CARGA') {
+        return equipo.dadorCargaId === user.dadorCargaId;
+      }
+      if (user.role === 'TRANSPORTISTA') {
+        return equipo.empresaTransportistaId === user.empresaTransportistaId;
+      }
+      return false;
+    })();
+    
+    if (!canModify) {
+      return res.status(403).json({ success: false, message: 'No tiene permisos para modificar este equipo' });
+    }
+    
+    const updated = await prisma.equipo.update({
+      where: { id: equipoId },
+      data: { activo },
+      select: { id: true, activo: true },
+    });
+    
+    AppLogger.info(`Equipo ${activo ? 'activado' : 'desactivado'}`, { equipoId, by: user.userId || user.id });
+    return res.json({ success: true, data: updated, message: `Equipo ${activo ? 'activado' : 'desactivado'} exitosamente` });
+  } catch (error) {
+    AppLogger.error('Error al cambiar estado de equipo:', error);
+    return res.status(500).json({ success: false, message: 'Error interno del servidor' });
+  }
+});
+
 router.get('/:id/history', authorize(['ADMIN' as any, 'SUPERADMIN' as any, 'ADMIN_INTERNO' as any, 'DADOR_DE_CARGA' as any]), validate(equipoHistoryQuerySchema), EquiposController.history);
 router.get('/:id/audit', authorize(['ADMIN' as any, 'SUPERADMIN' as any, 'ADMIN_INTERNO' as any, 'DADOR_DE_CARGA' as any]), EquiposController.getAuditHistory);
 router.get('/:id/requisitos', authorize(['ADMIN' as any, 'SUPERADMIN' as any, 'ADMIN_INTERNO' as any, 'DADOR_DE_CARGA' as any, 'TRANSPORTISTA' as any, 'CHOFER' as any]), EquiposController.getRequisitos);
