@@ -13,7 +13,17 @@ export class EquiposController {
     const limit = (req.query as any).limit ? parseInt(String((req.query as any).limit), 10) : 20;
     // Si es CHOFER, solo puede ver su propio equipo
     const choferId = req.user?.role === ('CHOFER' as any) ? (req.user?.choferId ?? undefined) : undefined;
-    const data = await EquipoService.list(req.tenantId!, dadorCargaId, page, limit, { choferId: choferId ?? undefined });
+    // Filtro de activo: 'all' | 'true' | 'false' (default: true para no admins)
+    const activoParam = (req.query as any).activo;
+    let activo: boolean | 'all' = true; // Por defecto solo activos
+    if (activoParam === 'all') {
+      activo = 'all';
+    } else if (activoParam === 'false') {
+      activo = false;
+    } else if (activoParam === 'true') {
+      activo = true;
+    }
+    const data = await EquipoService.list(req.tenantId!, dadorCargaId, page, limit, { choferId: choferId ?? undefined, activo });
     res.json({ success: true, data });
   }
 
@@ -25,6 +35,16 @@ export class EquiposController {
     const tenantId = req.tenantId!;
     const query = req.query as any;
     
+    // Filtro de activo: 'all' | 'true' | 'false'
+    let activo: boolean | 'all' = true; // Por defecto solo activos
+    if (query.activo === 'all') {
+      activo = 'all';
+    } else if (query.activo === 'false') {
+      activo = false;
+    } else if (query.activo === 'true') {
+      activo = true;
+    }
+    
     const filters = {
       dadorCargaId: query.dadorCargaId ? Number(query.dadorCargaId) : undefined,
       clienteId: query.clienteId ? Number(query.clienteId) : undefined,
@@ -35,6 +55,7 @@ export class EquiposController {
       trailerPlate: query.trailerPlate || undefined,
       // Si es CHOFER, forzar filtro a su propio equipo
       choferId: req.user?.role === ('CHOFER' as any) ? (req.user?.choferId ?? undefined) : undefined,
+      activo,
     };
     
     const page = query.page ? parseInt(query.page, 10) : 1;

@@ -8,7 +8,8 @@ import { Button } from '../../../components/ui/button';
 import { Input } from '../../../components/ui/input';
 import { Label } from '../../../components/ui/label';
 import { ConfirmContext } from '../../../contexts/confirmContext';
-import { useGetDadoresQuery, useGetTemplatesQuery, useGetClientsQuery, useLazySearchEquiposQuery, useGetDefaultsQuery, useLazyGetEquipoComplianceQuery, useDeleteEquipoMutation, useGetEquipoComplianceQuery, useSearchEquiposByDnisMutation, useGetEmpresasTransportistasQuery, useSearchEquiposPagedQuery } from '../api/documentosApiSlice';
+import { useGetDadoresQuery, useGetTemplatesQuery, useGetClientsQuery, useLazySearchEquiposQuery, useGetDefaultsQuery, useLazyGetEquipoComplianceQuery, useDeleteEquipoMutation, useGetEquipoComplianceQuery, useSearchEquiposByDnisMutation, useGetEmpresasTransportistasQuery, useSearchEquiposPagedQuery, useToggleEquipoActivoMutation } from '../api/documentosApiSlice';
+import { showToast } from '../../../components/ui/Toast.utils';
 import { ArrowLeftIcon, ChevronLeftIcon, ChevronRightIcon } from '@heroicons/react/24/outline';
 
 type FilterType = 'todos' | 'dador' | 'cliente' | 'empresa';
@@ -84,6 +85,9 @@ export const ConsultaPage: React.FC = () => {
   const [page, setPage] = useState(1);
   const [limit] = useState(10);
   
+  // Filtro de activo: 'all' | 'true' | 'false'
+  const [activoFilter, setActivoFilter] = useState<'all' | 'true' | 'false'>('true');
+  
   // Búsqueda paginada del servidor
   const queryParams = hasSearched ? {
     page,
@@ -95,6 +99,7 @@ export const ConsultaPage: React.FC = () => {
     dni: params.dni,
     truckPlate: params.truckPlate,
     trailerPlate: params.trailerPlate,
+    activo: activoFilter,
   } : { page: 1, limit: 10 };
   
   const { data: pagedData, isFetching, isError, error } = useSearchEquiposPagedQuery(
@@ -109,6 +114,7 @@ export const ConsultaPage: React.FC = () => {
   const [trigger] = useLazySearchEquiposQuery();
   const [getCompliance] = useLazyGetEquipoComplianceQuery();
   const [deleteEquipo] = useDeleteEquipoMutation();
+  const [toggleActivo] = useToggleEquipoActivoMutation();
   // CSV DNIs search
   const [searchByDnis, { isLoading: loadingCsvSearch }] = useSearchEquiposByDnisMutation();
   const [csvResults, setCsvResults] = useState<Array<any>>([]);
@@ -361,6 +367,37 @@ export const ConsultaPage: React.FC = () => {
           </div>
         </div>
 
+        {/* Filtro de Estado (Activo/Inactivo) */}
+        <div className='mb-3'>
+          <Label className='text-sm font-medium mb-2 block'>Estado de equipos:</Label>
+          <div className='grid grid-cols-3 gap-2'>
+            <Button
+              type='button'
+              variant={activoFilter === 'true' ? 'default' : 'outline'}
+              onClick={() => setActivoFilter('true')}
+              size='sm'
+            >
+              Solo Activos
+            </Button>
+            <Button
+              type='button'
+              variant={activoFilter === 'false' ? 'default' : 'outline'}
+              onClick={() => setActivoFilter('false')}
+              size='sm'
+            >
+              Solo Inactivos
+            </Button>
+            <Button
+              type='button'
+              variant={activoFilter === 'all' ? 'default' : 'outline'}
+              onClick={() => setActivoFilter('all')}
+              size='sm'
+            >
+              Todos
+            </Button>
+          </div>
+        </div>
+
         {/* Selector de Filtro Principal */}
         {filterType !== 'todos' && (
           <div className='mb-3'>
@@ -585,12 +622,15 @@ export const ConsultaPage: React.FC = () => {
         {displayResults.map((it: any) => {
           const eq = it.equipo || it;
           return (
-            <div key={eq.id} className='rounded-lg border bg-white dark:bg-slate-900 p-3 grid gap-3 md:grid-cols-[1fr,auto,auto] items-center'>
+            <div key={eq.id} className={`rounded-lg border bg-white dark:bg-slate-900 p-3 grid gap-3 md:grid-cols-[1fr,auto,auto] items-center ${eq.activo === false ? 'opacity-50 bg-gray-100' : ''}`}>
               <div className='space-y-1'>
                 <div className='font-medium flex items-center gap-2'>
                   <span>Equipo #{eq.id}</span>
                   <span className='text-xs px-2 py-0.5 rounded-full border bg-gray-50 dark:bg-slate-800/60 text-muted-foreground'>
                     {eq.estado || 'activa'}
+                  </span>
+                  <span className={`text-xs px-2 py-0.5 rounded-full ${eq.activo !== false ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
+                    {eq.activo !== false ? 'Activo' : 'Inactivo'}
                   </span>
                 </div>
                 <div className='text-sm text-muted-foreground'>
@@ -650,11 +690,26 @@ export const ConsultaPage: React.FC = () => {
                   }}
                 >{isDownloadingSingle === eq.id ? '⏳ Preparando...' : 'Bajar documentación'}</Button>
                 <Button variant='outline' size='sm' onClick={()=> navigate(`/documentos/equipos/${eq.id}/estado`)}>Ver estado</Button>
+                <Button 
+                  variant='outline' 
+                  size='sm' 
+                  className={eq.activo !== false ? 'text-orange-600 border-orange-300 hover:bg-orange-50' : 'text-green-600 border-green-300 hover:bg-green-50'}
+                  onClick={async ()=>{
+                    try {
+                      await toggleActivo({ equipoId: eq.id, activo: eq.activo === false }).unwrap();
+                      showToast(`Equipo ${eq.activo === false ? 'activado' : 'desactivado'} exitosamente`, 'success');
+                    } catch (e: any) {
+                      showToast(e?.data?.message || 'Error al cambiar estado', 'error');
+                    }
+                  }}
+                >
+                  {eq.activo !== false ? '⏸ Desactivar' : '▶ Activar'}
+                </Button>
                 <Button variant='destructive' size='sm' onClick={async ()=>{
                   const ok = await confirm({ title: 'Eliminar equipo', message: `¿Eliminar equipo #${eq.id}? Esta acción es irreversible.`, confirmText: 'Eliminar', variant: 'danger' });
                   if (!ok) return;
                   await deleteEquipo({ id: (eq as any).id });
-                  show('Equipo eliminado', 'success');
+                  showToast('Equipo eliminado', 'success');
                 }}>Eliminar</Button>
               </div>
             </div>

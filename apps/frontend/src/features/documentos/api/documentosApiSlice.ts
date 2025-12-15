@@ -498,6 +498,10 @@ export const documentosApiSlice = createApi({
       transformResponse: (response: any) => response?.data,
       invalidatesTags: ['Equipos'],
     }),
+    toggleEquipoActivo: builder.mutation<{ success: boolean; data: { id: number; activo: boolean } }, { equipoId: number; activo: boolean }>({
+      query: ({ equipoId, activo }) => ({ url: `/equipos/${equipoId}/toggle-activo`, method: 'PATCH', body: { activo } }),
+      invalidatesTags: ['Equipos'],
+    }),
     getEquipoRequisitos: builder.query<
       Array<{
         templateId: number;
@@ -564,9 +568,10 @@ export const documentosApiSlice = createApi({
         dni?: string;
         truckPlate?: string;
         trailerPlate?: string;
+        activo?: 'all' | 'true' | 'false';
       }
     >({
-      query: ({ page = 1, limit = 10, dadorCargaId, clienteId, empresaTransportistaId, search, dni, truckPlate, trailerPlate }) => {
+      query: ({ page = 1, limit = 10, dadorCargaId, clienteId, empresaTransportistaId, search, dni, truckPlate, trailerPlate, activo = 'true' }) => {
         const params = new URLSearchParams();
         params.append('page', String(page));
         params.append('limit', String(limit));
@@ -577,6 +582,7 @@ export const documentosApiSlice = createApi({
         if (dni) params.set('dni', dni);
         if (truckPlate) params.set('truckPlate', truckPlate);
         if (trailerPlate) params.set('trailerPlate', trailerPlate);
+        if (activo) params.set('activo', activo);
         return { url: `/equipos/search-paged?${params.toString()}` };
       },
       providesTags: ['Search'],
@@ -1168,6 +1174,7 @@ export const {
   useAddEquipoClienteMutation,
   useRemoveEquipoClienteWithArchiveMutation,
   useTransferirEquipoMutation,
+  useToggleEquipoActivoMutation,
   useGetEquipoRequisitosQuery,
   useGetEquipoAuditHistoryQuery,
   // Auditoría

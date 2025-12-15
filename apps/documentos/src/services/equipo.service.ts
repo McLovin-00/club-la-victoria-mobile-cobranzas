@@ -17,7 +17,7 @@ export class EquipoService {
     dadorCargaId: number | undefined,
     page: number = 1,
     limit: number = 20,
-    opts?: { choferId?: number }
+    opts?: { choferId?: number; activo?: boolean | 'all' }
   ) {
     const take = Math.min(Math.max(limit, 1), 100);
     const skip = Math.max((page - 1) * take, 0);
@@ -29,6 +29,10 @@ export class EquipoService {
     // Si viene choferId (rol CHOFER), limitar a su propio equipo
     if (opts?.choferId) {
       where.driverId = opts.choferId;
+    }
+    // Filtro de activo: si es 'all' no filtra, si es boolean filtra por ese valor
+    if (opts?.activo !== 'all' && opts?.activo !== undefined) {
+      where.activo = opts.activo;
     }
     return prisma.equipo.findMany({
       where,
@@ -54,6 +58,7 @@ export class EquipoService {
       truckPlate?: string;
       trailerPlate?: string;
       choferId?: number;
+      activo?: boolean | 'all'; // Filtro de activo: true, false, o 'all' para todos
     },
     page: number = 1,
     limit: number = 10
@@ -72,6 +77,10 @@ export class EquipoService {
     }
     if (filters.choferId) {
       where.driverId = filters.choferId;
+    }
+    // Filtro de activo: si es 'all' no filtra, si es boolean filtra por ese valor
+    if (filters.activo !== 'all' && filters.activo !== undefined) {
+      where.activo = filters.activo;
     }
     
     // Filtros de búsqueda por texto
@@ -441,10 +450,17 @@ export class EquipoService {
     return created;
   }
 
-  static async listByCliente(tenantEmpresaId: number, clienteId: number) {
+  static async listByCliente(tenantEmpresaId: number, clienteId: number, includeInactive = false) {
     // Devuelve equipos actualmente asignados al cliente (asignadoHasta NULL) con datos básicos
+    // Por defecto NO incluye equipos inactivos (activo=false)
     return prisma.equipoCliente.findMany({
-      where: { clienteId, equipo: { tenantEmpresaId } },
+      where: { 
+        clienteId, 
+        equipo: { 
+          tenantEmpresaId,
+          ...(includeInactive ? {} : { activo: true }),
+        } 
+      },
       include: {
         equipo: true,
       },
