@@ -38,11 +38,12 @@ export class PortalClienteController {
     
     try {
       // Obtener TODOS los equipos asignados para calcular el resumen global
+      // SOLO equipos activos (activo: true)
       const todosEquiposCliente = await prisma.equipoCliente.findMany({
         where: {
           clienteId,
           asignadoHasta: null, // Solo asignaciones vigentes
-          equipo: { tenantEmpresaId: tenantId },
+          equipo: { tenantEmpresaId: tenantId, activo: true },
         },
         include: {
           equipo: {
@@ -672,9 +673,9 @@ export class PortalClienteController {
         return res.status(403).json({ success: false, message: 'No tiene acceso a estos equipos' });
       }
       
-      // Obtener equipos con datos
+      // Obtener equipos con datos (solo activos)
       const equipos = await prisma.equipo.findMany({
-        where: { id: { in: equiposOrdenados }, tenantEmpresaId: tenantId },
+        where: { id: { in: equiposOrdenados }, tenantEmpresaId: tenantId, activo: true },
         include: { empresaTransportista: true }
       });
       
@@ -808,11 +809,12 @@ export class PortalClienteController {
       // Buscar equipos asignados al cliente que coincidan con la búsqueda
       let equipoIds: number[] = [];
       
-      // Obtener todas las asignaciones del cliente
+      // Obtener todas las asignaciones del cliente (solo equipos activos)
       const asignaciones = await prisma.equipoCliente.findMany({
         where: {
           clienteId,
           asignadoHasta: null,
+          equipo: { activo: true },
         },
         select: { equipoId: true }
       });
@@ -827,11 +829,12 @@ export class PortalClienteController {
       if (searchTerm) {
         const searchValues = searchTerm.split('|').map((s: string) => s.trim().toUpperCase()).filter(Boolean);
         
-        // Buscar equipos que coincidan con patente o DNI
+        // Buscar equipos que coincidan con patente o DNI (solo activos)
         const equiposFiltrados = await prisma.equipo.findMany({
           where: {
             id: { in: equiposDelCliente },
             tenantEmpresaId: tenantId,
+            activo: true,
             OR: [
               { truckPlateNorm: { in: searchValues } },
               { trailerPlateNorm: { in: searchValues } },
@@ -857,9 +860,9 @@ export class PortalClienteController {
       // Limitar a 200 equipos máximo
       const equiposLimitados = equipoIds.slice(0, 200);
       
-      // Obtener equipos con datos
+      // Obtener equipos con datos (solo activos)
       const equipos = await prisma.equipo.findMany({
-        where: { id: { in: equiposLimitados }, tenantEmpresaId: tenantId },
+        where: { id: { in: equiposLimitados }, tenantEmpresaId: tenantId, activo: true },
         include: { empresaTransportista: true }
       });
       
