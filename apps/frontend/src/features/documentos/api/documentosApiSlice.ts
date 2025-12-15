@@ -571,7 +571,7 @@ export const documentosApiSlice = createApi({
         activo?: 'all' | 'true' | 'false';
       }
     >({
-      query: ({ page = 1, limit = 10, dadorCargaId, clienteId, empresaTransportistaId, search, dni, truckPlate, trailerPlate, activo = 'true' }) => {
+      query: ({ page = 1, limit = 10, dadorCargaId, clienteId, empresaTransportistaId, search, dni, truckPlate, trailerPlate, activo = 'all' }) => {
         const params = new URLSearchParams();
         params.append('page', String(page));
         params.append('limit', String(limit));

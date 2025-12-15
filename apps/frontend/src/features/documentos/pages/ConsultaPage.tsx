@@ -86,7 +86,8 @@ export const ConsultaPage: React.FC = () => {
   const [limit] = useState(10);
   
   // Filtro de activo: 'all' | 'true' | 'false'
-  const [activoFilter, setActivoFilter] = useState<'all' | 'true' | 'false'>('true');
+  // Por defecto "Todos" para usuarios internos (admins, dadores, transportistas)
+  const [activoFilter, setActivoFilter] = useState<'all' | 'true' | 'false'>('all');
   
   // Búsqueda paginada del servidor
   const queryParams = hasSearched ? {
