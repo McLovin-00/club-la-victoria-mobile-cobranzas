@@ -58,6 +58,11 @@ export interface PlatformUserProfile {
   } | null;
   createdAt: Date;
   updatedAt: Date;
+  // Asociaciones por rol
+  dadorCargaId?: number | null;
+  empresaTransportistaId?: number | null;
+  choferId?: number | null;
+  clienteId?: number | null;
 }
 
 interface AuthResponse {
@@ -361,6 +366,11 @@ export class PlatformAuthService {
       empresa: null,
       createdAt: user.createdAt,
       updatedAt: user.updatedAt,
+      // Asociaciones por rol
+      dadorCargaId: (user as any).dadorCargaId ?? null,
+      empresaTransportistaId: (user as any).empresaTransportistaId ?? null,
+      choferId: (user as any).choferId ?? null,
+      clienteId: (user as any).clienteId ?? null,
     };
   }
 
