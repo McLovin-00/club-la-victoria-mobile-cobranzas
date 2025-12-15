@@ -500,7 +500,7 @@ export const documentosApiSlice = createApi({
     }),
     toggleEquipoActivo: builder.mutation<{ success: boolean; data: { id: number; activo: boolean } }, { equipoId: number; activo: boolean }>({
       query: ({ equipoId, activo }) => ({ url: `/equipos/${equipoId}/toggle-activo`, method: 'PATCH', body: { activo } }),
-      invalidatesTags: ['Equipos'],
+      invalidatesTags: ['Equipos', 'Search'],
     }),
     getEquipoRequisitos: builder.query<
       Array<{
