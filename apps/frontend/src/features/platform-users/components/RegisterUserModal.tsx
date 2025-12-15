@@ -78,6 +78,12 @@ export const RegisterUserModal: React.FC<RegisterUserModalProps> = ({ isOpen, on
   const { data: dadoresResp } = useGetDadoresQuery({}, { skip: !canSeeDadoresYClientes });
   const { data: clientesResp } = useGetClientsQuery({}, { skip: !canSeeDadoresYClientes });
   
+  // Determinar si el dador es automático (cuando el usuario actual es DADOR_DE_CARGA)
+  const isDadorDeCargeUser = currentUser?.role === 'DADOR_DE_CARGA';
+  const isTransportistaUser = currentUser?.role === 'TRANSPORTISTA';
+  const currentUserDadorId = currentUser?.dadorCargaId;
+  const currentUserTransportistaId = currentUser?.empresaTransportistaId;
+  
   // Estado para filtrar transportistas por dador (para rol TRANSPORTISTA)
   const [selectedDadorForTransportista, setSelectedDadorForTransportista] = useState<number | ''>('');
   
@@ -85,22 +91,38 @@ export const RegisterUserModal: React.FC<RegisterUserModalProps> = ({ isOpen, on
   const [selectedDadorForChofer, setSelectedDadorForChofer] = useState<number | ''>('');
   const [selectedTransportistaForChofer, setSelectedTransportistaForChofer] = useState<number | ''>('');
   
-  // Query de transportistas filtrado por dador seleccionado (para TRANSPORTISTA)
+  // Determinar qué dadorId usar para cargar transportistas
+  // Si el usuario actual es DADOR_DE_CARGA, usar su propio dadorCargaId
+  const effectiveDadorForTransportista = isDadorDeCargeUser && currentUserDadorId 
+    ? currentUserDadorId 
+    : selectedDadorForTransportista;
+  
+  const effectiveDadorForChofer = isDadorDeCargeUser && currentUserDadorId 
+    ? currentUserDadorId 
+    : selectedDadorForChofer;
+  
+  // Query de transportistas filtrado por dador (automático para DADOR_DE_CARGA)
   const { data: transportistasResp } = useGetEmpresasTransportistasQuery(
-    { dadorCargaId: selectedDadorForTransportista ? Number(selectedDadorForTransportista) : undefined },
-    { skip: !selectedDadorForTransportista }
+    { dadorCargaId: effectiveDadorForTransportista ? Number(effectiveDadorForTransportista) : undefined },
+    { skip: !effectiveDadorForTransportista }
   );
   
-  // Query de transportistas para CHOFER (cuando se selecciona dador)
+  // Query de transportistas para CHOFER
   const { data: transportistasForChoferResp } = useGetEmpresasTransportistasQuery(
-    { dadorCargaId: selectedDadorForChofer ? Number(selectedDadorForChofer) : undefined },
-    { skip: !selectedDadorForChofer }
+    { dadorCargaId: effectiveDadorForChofer ? Number(effectiveDadorForChofer) : undefined },
+    { skip: !effectiveDadorForChofer }
   );
   
-  // Query de choferes filtrado por empresa transportista seleccionada
+  // Determinar qué transportistaId usar para cargar choferes
+  // Si el usuario actual es TRANSPORTISTA, usar su propia empresaTransportistaId
+  const effectiveTransportistaForChofer = isTransportistaUser && currentUserTransportistaId 
+    ? currentUserTransportistaId 
+    : selectedTransportistaForChofer;
+  
+  // Query de choferes filtrado por empresa transportista
   const { data: choferesResp } = useGetEmpresaTransportistaChoferesQuery(
-    { id: selectedTransportistaForChofer ? Number(selectedTransportistaForChofer) : 0 },
-    { skip: !selectedTransportistaForChofer }
+    { id: effectiveTransportistaForChofer ? Number(effectiveTransportistaForChofer) : 0 },
+    { skip: !effectiveTransportistaForChofer }
   );
   
   const dadores = useMemo(() => (dadoresResp as any)?.list ?? dadoresResp ?? [], [dadoresResp]);
@@ -307,14 +329,19 @@ export const RegisterUserModal: React.FC<RegisterUserModalProps> = ({ isOpen, on
           return;
         }
 
+        // Usar dadorCargaId automático si el usuario es DADOR_DE_CARGA
+        const effectiveDadorId = isDadorDeCargeUser && currentUserDadorId 
+          ? currentUserDadorId 
+          : data.transportistaDadorId;
+
         let transportistaIdFinal: number | undefined;
         if (transportistaMode === 'new') {
-          if (!data.transportistaRazonSocial || !data.transportistaCuit || !data.transportistaDadorId) {
+          if (!data.transportistaRazonSocial || !data.transportistaCuit || !effectiveDadorId) {
             showToast('Razón social, CUIT y Dador de Carga son obligatorios', 'error');
             return;
           }
           const created = await createEmpresaTransportista({
-            dadorCargaId: Number(data.transportistaDadorId),
+            dadorCargaId: Number(effectiveDadorId),
             razonSocial: data.transportistaRazonSocial,
             cuit: data.transportistaCuit,
             notas: data.transportistaNotas || undefined,
@@ -355,14 +382,19 @@ export const RegisterUserModal: React.FC<RegisterUserModalProps> = ({ isOpen, on
           return;
         }
 
+        // Usar dadorCargaId automático si el usuario es DADOR_DE_CARGA o TRANSPORTISTA
+        const effectiveChoferDadorId = (isDadorDeCargeUser || isTransportistaUser) && currentUserDadorId 
+          ? currentUserDadorId 
+          : data.choferDadorId;
+
         let choferIdFinal: number | undefined;
         if (choferMode === 'new') {
-          if (!data.choferDni || !data.choferDadorId) {
+          if (!data.choferDni || !effectiveChoferDadorId) {
             showToast('DNI y Dador de Carga del chofer son obligatorios', 'error');
             return;
           }
           const created = await createChofer({
-            dadorCargaId: Number(data.choferDadorId),
+            dadorCargaId: Number(effectiveChoferDadorId),
             dni: data.choferDni,
             nombre: data.choferNombre || undefined,
             apellido: data.choferApellido || undefined,
@@ -621,25 +653,35 @@ export const RegisterUserModal: React.FC<RegisterUserModalProps> = ({ isOpen, on
                 </div>
               )}
 
-              {/* Asociación: Empresa Transportista existente (primero seleccionar Dador) */}
+              {/* Asociación: Empresa Transportista existente */}
               {selectedRole === 'TRANSPORTISTA' && transportistaMode === 'existing' && (
                 <>
-                  <div className="col-span-2">
-                    <label className="block text-sm font-medium mb-1">Dador de Carga *</label>
-                    <select 
-                      className="w-full px-3 py-2 border rounded-md"
-                      value={selectedDadorForTransportista}
-                      onChange={(e) => {
-                        setSelectedDadorForTransportista(e.target.value ? Number(e.target.value) : '');
-                        setValue('empresaTransportistaId', '');
-                      }}
-                    >
-                      <option value="">Seleccionar dador...</option>
-                      {dadores.map((d: any) => (
-                        <option key={d.id} value={d.id}>{d.razonSocial || d.nombre} ({d.cuit})</option>
-                      ))}
-                    </select>
-                  </div>
+                  {/* Dador de Carga: automático para DADOR_DE_CARGA, selector para admins */}
+                  {isDadorDeCargeUser ? (
+                    <div className="col-span-2">
+                      <label className="block text-sm font-medium mb-1">Dador de Carga</label>
+                      <div className="w-full px-3 py-2 border rounded-md bg-muted text-muted-foreground">
+                        {dadores.find((d: any) => d.id === currentUserDadorId)?.razonSocial || 'Su dador de carga'}
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="col-span-2">
+                      <label className="block text-sm font-medium mb-1">Dador de Carga *</label>
+                      <select 
+                        className="w-full px-3 py-2 border rounded-md"
+                        value={selectedDadorForTransportista}
+                        onChange={(e) => {
+                          setSelectedDadorForTransportista(e.target.value ? Number(e.target.value) : '');
+                          setValue('empresaTransportistaId', '');
+                        }}
+                      >
+                        <option value="">Seleccionar dador...</option>
+                        {dadores.map((d: any) => (
+                          <option key={d.id} value={d.id}>{d.razonSocial || d.nombre} ({d.cuit})</option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
                   <div className="col-span-2">
                     <label className="block text-sm font-medium mb-1">Empresa Transportista asociada *</label>
                     <Controller
@@ -647,8 +689,8 @@ export const RegisterUserModal: React.FC<RegisterUserModalProps> = ({ isOpen, on
                       control={control}
                       rules={{ required: transportistaMode === 'existing' ? 'Debe seleccionar una empresa transportista' : false }}
                       render={({ field }) => (
-                        <select className="w-full px-3 py-2 border rounded-md" {...field} disabled={!selectedDadorForTransportista}>
-                          <option value="">{selectedDadorForTransportista ? 'Seleccionar...' : 'Primero seleccione un dador'}</option>
+                        <select className="w-full px-3 py-2 border rounded-md" {...field} disabled={!effectiveDadorForTransportista}>
+                          <option value="">{effectiveDadorForTransportista ? 'Seleccionar...' : 'Primero seleccione un dador'}</option>
                           {transportistas.map((t: any) => (
                             <option key={t.id} value={t.id}>{t.razonSocial || t.nombre} ({t.cuit})</option>
                           ))}
@@ -663,17 +705,27 @@ export const RegisterUserModal: React.FC<RegisterUserModalProps> = ({ isOpen, on
               {/* Crear Transportista nuevo */}
               {selectedRole === 'TRANSPORTISTA' && transportistaMode === 'new' && (
                 <>
-                  <div className="col-span-2">
-                    <label className="block text-sm font-medium mb-1">Dador de Carga *</label>
-                    <Controller name="transportistaDadorId" control={control} render={({ field }) => (
-                      <select className="w-full px-3 py-2 border rounded-md" {...field}>
-                        <option value="">Seleccionar dador...</option>
-                        {dadores.map((d: any) => (
-                          <option key={d.id} value={d.id}>{d.razonSocial || d.nombre} ({d.cuit})</option>
-                        ))}
-                      </select>
-                    )} />
-                  </div>
+                  {/* Dador de Carga: automático para DADOR_DE_CARGA */}
+                  {isDadorDeCargeUser ? (
+                    <div className="col-span-2">
+                      <label className="block text-sm font-medium mb-1">Dador de Carga</label>
+                      <div className="w-full px-3 py-2 border rounded-md bg-muted text-muted-foreground">
+                        {dadores.find((d: any) => d.id === currentUserDadorId)?.razonSocial || 'Su dador de carga'}
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="col-span-2">
+                      <label className="block text-sm font-medium mb-1">Dador de Carga *</label>
+                      <Controller name="transportistaDadorId" control={control} render={({ field }) => (
+                        <select className="w-full px-3 py-2 border rounded-md" {...field}>
+                          <option value="">Seleccionar dador...</option>
+                          {dadores.map((d: any) => (
+                            <option key={d.id} value={d.id}>{d.razonSocial || d.nombre} ({d.cuit})</option>
+                          ))}
+                        </select>
+                      )} />
+                    </div>
+                  )}
                   <div className="col-span-2">
                     <label className="block text-sm font-medium mb-1">Razón Social de la Transportista *</label>
                     <Controller name="transportistaRazonSocial" control={control} render={({ field }) => (
@@ -717,40 +769,62 @@ export const RegisterUserModal: React.FC<RegisterUserModalProps> = ({ isOpen, on
               {/* Asociación: Chofer existente (Dador → Transportista → Chofer) */}
               {selectedRole === 'CHOFER' && choferMode === 'existing' && (
                 <>
-                  <div className="col-span-2">
-                    <label className="block text-sm font-medium mb-1">Dador de Carga *</label>
-                    <select 
-                      className="w-full px-3 py-2 border rounded-md"
-                      value={selectedDadorForChofer}
-                      onChange={(e) => {
-                        setSelectedDadorForChofer(e.target.value ? Number(e.target.value) : '');
-                        setSelectedTransportistaForChofer('');
-                        setValue('choferId', '');
-                      }}
-                    >
-                      <option value="">Seleccionar dador...</option>
-                      {dadores.map((d: any) => (
-                        <option key={d.id} value={d.id}>{d.razonSocial || d.nombre} ({d.cuit})</option>
-                      ))}
-                    </select>
-                  </div>
-                  <div className="col-span-2">
-                    <label className="block text-sm font-medium mb-1">Empresa Transportista *</label>
-                    <select 
-                      className="w-full px-3 py-2 border rounded-md"
-                      value={selectedTransportistaForChofer}
-                      onChange={(e) => {
-                        setSelectedTransportistaForChofer(e.target.value ? Number(e.target.value) : '');
-                        setValue('choferId', '');
-                      }}
-                      disabled={!selectedDadorForChofer}
-                    >
-                      <option value="">{selectedDadorForChofer ? 'Seleccionar transportista...' : 'Primero seleccione un dador'}</option>
-                      {transportistasForChofer.map((t: any) => (
-                        <option key={t.id} value={t.id}>{t.razonSocial || t.nombre} ({t.cuit})</option>
-                      ))}
-                    </select>
-                  </div>
+                  {/* Dador de Carga: automático para DADOR_DE_CARGA y TRANSPORTISTA */}
+                  {isDadorDeCargeUser || isTransportistaUser ? (
+                    <div className="col-span-2">
+                      <label className="block text-sm font-medium mb-1">Dador de Carga</label>
+                      <div className="w-full px-3 py-2 border rounded-md bg-muted text-muted-foreground">
+                        {dadores.find((d: any) => d.id === currentUserDadorId)?.razonSocial || 'Su dador de carga'}
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="col-span-2">
+                      <label className="block text-sm font-medium mb-1">Dador de Carga *</label>
+                      <select 
+                        className="w-full px-3 py-2 border rounded-md"
+                        value={selectedDadorForChofer}
+                        onChange={(e) => {
+                          setSelectedDadorForChofer(e.target.value ? Number(e.target.value) : '');
+                          setSelectedTransportistaForChofer('');
+                          setValue('choferId', '');
+                        }}
+                      >
+                        <option value="">Seleccionar dador...</option>
+                        {dadores.map((d: any) => (
+                          <option key={d.id} value={d.id}>{d.razonSocial || d.nombre} ({d.cuit})</option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
+                  
+                  {/* Empresa Transportista: automático para TRANSPORTISTA, selector para otros */}
+                  {isTransportistaUser ? (
+                    <div className="col-span-2">
+                      <label className="block text-sm font-medium mb-1">Empresa Transportista</label>
+                      <div className="w-full px-3 py-2 border rounded-md bg-muted text-muted-foreground">
+                        {transportistasForChofer.find((t: any) => t.id === currentUserTransportistaId)?.razonSocial || 'Su empresa transportista'}
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="col-span-2">
+                      <label className="block text-sm font-medium mb-1">Empresa Transportista *</label>
+                      <select 
+                        className="w-full px-3 py-2 border rounded-md"
+                        value={selectedTransportistaForChofer}
+                        onChange={(e) => {
+                          setSelectedTransportistaForChofer(e.target.value ? Number(e.target.value) : '');
+                          setValue('choferId', '');
+                        }}
+                        disabled={!effectiveDadorForChofer}
+                      >
+                        <option value="">{effectiveDadorForChofer ? 'Seleccionar transportista...' : 'Primero seleccione un dador'}</option>
+                        {transportistasForChofer.map((t: any) => (
+                          <option key={t.id} value={t.id}>{t.razonSocial || t.nombre} ({t.cuit})</option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
+                  
                   <div className="col-span-2">
                     <label className="block text-sm font-medium mb-1">Chofer asociado *</label>
                     <Controller
@@ -758,8 +832,8 @@ export const RegisterUserModal: React.FC<RegisterUserModalProps> = ({ isOpen, on
                       control={control}
                       rules={{ required: choferMode === 'existing' ? 'Debe seleccionar un chofer' : false }}
                       render={({ field }) => (
-                        <select className="w-full px-3 py-2 border rounded-md" {...field} disabled={!selectedTransportistaForChofer}>
-                          <option value="">{selectedTransportistaForChofer ? 'Seleccionar...' : 'Primero seleccione una transportista'}</option>
+                        <select className="w-full px-3 py-2 border rounded-md" {...field} disabled={!selectedTransportistaForChofer && !isTransportistaUser}>
+                          <option value="">{(selectedTransportistaForChofer || isTransportistaUser) ? 'Seleccionar...' : 'Primero seleccione una transportista'}</option>
                           {choferes.map((c: any) => (
                             <option key={c.id} value={c.id}>{c.apellido}, {c.nombre} (DNI: {c.dni})</option>
                           ))}
@@ -774,17 +848,27 @@ export const RegisterUserModal: React.FC<RegisterUserModalProps> = ({ isOpen, on
               {/* Crear Chofer nuevo */}
               {selectedRole === 'CHOFER' && choferMode === 'new' && (
                 <>
-                  <div className="col-span-2">
-                    <label className="block text-sm font-medium mb-1">Dador de Carga *</label>
-                    <Controller name="choferDadorId" control={control} render={({ field }) => (
-                      <select className="w-full px-3 py-2 border rounded-md" {...field}>
-                        <option value="">Seleccionar dador...</option>
-                        {dadores.map((d: any) => (
-                          <option key={d.id} value={d.id}>{d.razonSocial || d.nombre} ({d.cuit})</option>
-                        ))}
-                      </select>
-                    )} />
-                  </div>
+                  {/* Dador de Carga: automático para DADOR_DE_CARGA y TRANSPORTISTA */}
+                  {isDadorDeCargeUser || isTransportistaUser ? (
+                    <div className="col-span-2">
+                      <label className="block text-sm font-medium mb-1">Dador de Carga</label>
+                      <div className="w-full px-3 py-2 border rounded-md bg-muted text-muted-foreground">
+                        {dadores.find((d: any) => d.id === currentUserDadorId)?.razonSocial || 'Su dador de carga'}
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="col-span-2">
+                      <label className="block text-sm font-medium mb-1">Dador de Carga *</label>
+                      <Controller name="choferDadorId" control={control} render={({ field }) => (
+                        <select className="w-full px-3 py-2 border rounded-md" {...field}>
+                          <option value="">Seleccionar dador...</option>
+                          {dadores.map((d: any) => (
+                            <option key={d.id} value={d.id}>{d.razonSocial || d.nombre} ({d.cuit})</option>
+                          ))}
+                        </select>
+                      )} />
+                    </div>
+                  )}
                   <div className="col-span-2">
                     <label className="block text-sm font-medium mb-1">DNI del Chofer *</label>
                     <Controller name="choferDni" control={control} render={({ field }) => (

@@ -30,6 +30,11 @@ export interface UserResponse {
     id: number;
     nombre: string;
   } | null;
+  // Asociaciones por rol
+  dadorCargaId?: number | null;
+  empresaTransportistaId?: number | null;
+  choferId?: number | null;
+  clienteId?: number | null;
   created_at?: string;
   updated_at?: string;
 }

@@ -30,7 +30,7 @@ router.delete('/empresas/:id', authorize([UserRole.ADMIN, UserRole.SUPERADMIN]),
 // Choferes
 router.get('/choferes', validate(choferListQuerySchema), MaestrosController.listChoferes);
 router.get('/choferes/:id', MaestrosController.getChoferById);
-router.post('/choferes', authorize([UserRole.ADMIN, UserRole.SUPERADMIN]), validate(createChoferSchema), MaestrosController.createChofer);
+router.post('/choferes', authorize([UserRole.ADMIN, UserRole.SUPERADMIN, UserRole.ADMIN_INTERNO, UserRole.DADOR_DE_CARGA, UserRole.TRANSPORTISTA]), validate(createChoferSchema), MaestrosController.createChofer);
 router.put('/choferes/:id', authorize([UserRole.ADMIN, UserRole.SUPERADMIN]), validate(updateChoferSchema), MaestrosController.updateChofer);
 router.delete('/choferes/:id', authorize([UserRole.ADMIN, UserRole.SUPERADMIN]), MaestrosController.deleteChofer);
 
