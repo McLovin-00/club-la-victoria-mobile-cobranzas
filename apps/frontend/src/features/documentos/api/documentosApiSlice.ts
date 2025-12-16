@@ -877,6 +877,7 @@ export const documentosApiSlice = createApi({
     }),
     createEmpresaTransportista: builder.mutation<EmpresaTransportista, { dadorCargaId: number; razonSocial: string; cuit: string; activo?: boolean; notas?: string }>({
       query: (body) => ({ url: `/empresas-transportistas`, method: 'POST', body }),
+      transformResponse: (r: any) => r?.data,
       invalidatesTags: ['EmpresasTransportistas'],
     }),
     updateEmpresaTransportista: builder.mutation<EmpresaTransportista, { id: number; razonSocial?: string; cuit?: string; activo?: boolean; notas?: string }>({
