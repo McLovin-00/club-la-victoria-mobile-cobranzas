@@ -45,6 +45,12 @@ export class EquiposController {
       activo = true;
     }
     
+    // Validar complianceFilter
+    const validComplianceFilters = ['faltantes', 'vencidos', 'por_vencer'];
+    const complianceFilter = validComplianceFilters.includes(query.complianceFilter) 
+      ? query.complianceFilter as 'faltantes' | 'vencidos' | 'por_vencer'
+      : undefined;
+    
     const filters = {
       dadorCargaId: query.dadorCargaId ? Number(query.dadorCargaId) : undefined,
       clienteId: query.clienteId ? Number(query.clienteId) : undefined,
@@ -56,12 +62,13 @@ export class EquiposController {
       // Si es CHOFER, forzar filtro a su propio equipo
       choferId: req.user?.role === ('CHOFER' as any) ? (req.user?.choferId ?? undefined) : undefined,
       activo,
+      complianceFilter,
     };
     
     const page = query.page ? parseInt(query.page, 10) : 1;
     const limit = query.limit ? parseInt(query.limit, 10) : 10;
     
-    const result = await EquipoService.searchPaginated(tenantId, filters, page, limit);
+    const result = await EquipoService.searchPaginatedWithCompliance(tenantId, filters, page, limit);
     
     res.json({
       success: true,
@@ -73,7 +80,8 @@ export class EquiposController {
         totalPages: result.totalPages,
         hasNext: result.hasNext,
         hasPrev: result.hasPrev
-      }
+      },
+      stats: result.stats
     });
   }
 

@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useContext } from 'react';
+import React, { useEffect, useState, useContext, useMemo } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useSelector } from 'react-redux';
 import { RootState } from '../../../store/store';
@@ -10,9 +10,10 @@ import { Label } from '../../../components/ui/label';
 import { ConfirmContext } from '../../../contexts/confirmContext';
 import { useGetDadoresQuery, useGetTemplatesQuery, useGetClientsQuery, useLazySearchEquiposQuery, useGetDefaultsQuery, useLazyGetEquipoComplianceQuery, useDeleteEquipoMutation, useGetEquipoComplianceQuery, useSearchEquiposByDnisMutation, useGetEmpresasTransportistasQuery, useSearchEquiposPagedQuery, useToggleEquipoActivoMutation } from '../api/documentosApiSlice';
 import { showToast } from '../../../components/ui/Toast.utils';
-import { ArrowLeftIcon, ChevronLeftIcon, ChevronRightIcon } from '@heroicons/react/24/outline';
+import { ArrowLeftIcon, ChevronLeftIcon, ChevronRightIcon, ExclamationTriangleIcon, ClockIcon, CheckCircleIcon, DocumentTextIcon } from '@heroicons/react/24/outline';
 
 type FilterType = 'todos' | 'dador' | 'cliente' | 'empresa';
+type ComplianceFilter = 'all' | 'faltantes' | 'vencidos' | 'por_vencer';
 
 export const ConsultaPage: React.FC = () => {
   const navigate = useNavigate();
@@ -89,6 +90,9 @@ export const ConsultaPage: React.FC = () => {
   // Por defecto "Todos" para usuarios internos (admins, dadores, transportistas)
   const [activoFilter, setActivoFilter] = useState<'all' | 'true' | 'false'>('all');
   
+  // Filtro por estado de compliance documental
+  const [complianceFilter, setComplianceFilter] = useState<ComplianceFilter>('all');
+  
   // Búsqueda paginada del servidor
   const queryParams = hasSearched ? {
     page,
@@ -101,6 +105,7 @@ export const ConsultaPage: React.FC = () => {
     truckPlate: params.truckPlate,
     trailerPlate: params.trailerPlate,
     activo: activoFilter,
+    complianceFilter: complianceFilter !== 'all' ? complianceFilter : undefined,
   } : { page: 1, limit: 10 };
   
   const { data: pagedData, isFetching, isError, error } = useSearchEquiposPagedQuery(
@@ -110,6 +115,7 @@ export const ConsultaPage: React.FC = () => {
   
   const data = pagedData?.data ?? [];
   const pagination = pagedData?.pagination ?? { page: 1, limit: 10, total: 0, totalPages: 0, hasNext: false, hasPrev: false };
+  const serverStats = pagedData?.stats;
   
   // Para compatibilidad con código existente
   const [trigger] = useLazySearchEquiposQuery();
@@ -222,6 +228,19 @@ export const ConsultaPage: React.FC = () => {
 
   // Solo mostrar resultados si el usuario ha buscado
   const displayResults: Array<any> = !hasSearched ? [] : (csvResults.length > 0 ? csvResults : (data as any[]));
+  
+  // Stats del dashboard (del servidor)
+  const dashboardStats = useMemo(() => {
+    if (serverStats) {
+      return {
+        total: serverStats.total,
+        conFaltantes: serverStats.conFaltantes,
+        conVencidos: serverStats.conVencidos,
+        conPorVencer: serverStats.conPorVencer
+      };
+    }
+    return { total: pagination.total, conFaltantes: 0, conVencidos: 0, conPorVencer: 0 };
+  }, [serverStats, pagination.total]);
 
   const downloadAllVigentes = async () => {
     try {
@@ -579,11 +598,88 @@ export const ConsultaPage: React.FC = () => {
         </div>
       </Card>
 
-      {isFetching && <div className='text-sm text-muted-foreground'>Buscando...</div>}
+      {isFetching && (
+        <div className='flex flex-col items-center justify-center py-12'>
+          <div className='animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mb-4'></div>
+          <div className='text-lg font-medium text-gray-600'>Buscando equipos...</div>
+          <div className='text-sm text-muted-foreground'>Calculando estado de compliance</div>
+        </div>
+      )}
       {(!isFetching && Array.isArray(displayResults) && displayResults.length === 0 && Object.keys(params).length > 0 && !csvResults.length) && (
         <div className='text-sm text-muted-foreground'>Sin resultados para los criterios de filtro seleccionados.</div>
       )}
       {isError && <div className='text-sm text-red-600'>Error al buscar{(error as any)?.status ? ` (${(error as any).status})` : ''}. Revise los filtros seleccionados.</div>}
+      
+      {/* Dashboard de estado documental */}
+      {hasSearched && !isFetching && dashboardStats.total > 0 && (
+        <div className='grid grid-cols-2 md:grid-cols-4 gap-3 mb-4'>
+          <button
+            onClick={() => { setComplianceFilter('all'); setPage(1); }}
+            className={`p-4 rounded-lg border-2 transition-all ${complianceFilter === 'all' ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20' : 'border-gray-200 hover:border-blue-300 bg-white dark:bg-slate-800'}`}
+          >
+            <div className='flex items-center gap-2 mb-1'>
+              <DocumentTextIcon className='h-5 w-5 text-blue-600' />
+              <span className='text-sm font-medium text-gray-600 dark:text-gray-300'>Total</span>
+            </div>
+            <div className='text-2xl font-bold text-blue-600'>{dashboardStats.total}</div>
+            <div className='text-xs text-gray-500'>equipos</div>
+          </button>
+          
+          <button
+            onClick={() => { setComplianceFilter(complianceFilter === 'faltantes' ? 'all' : 'faltantes'); setPage(1); }}
+            className={`p-4 rounded-lg border-2 transition-all ${complianceFilter === 'faltantes' ? 'border-red-500 bg-red-50 dark:bg-red-900/20' : 'border-gray-200 hover:border-red-300 bg-white dark:bg-slate-800'}`}
+          >
+            <div className='flex items-center gap-2 mb-1'>
+              <ExclamationTriangleIcon className='h-5 w-5 text-red-600' />
+              <span className='text-sm font-medium text-gray-600 dark:text-gray-300'>Faltantes</span>
+            </div>
+            <div className='text-2xl font-bold text-red-600'>{dashboardStats.conFaltantes}</div>
+            <div className='text-xs text-gray-500'>con doc. faltante</div>
+          </button>
+          
+          <button
+            onClick={() => { setComplianceFilter(complianceFilter === 'vencidos' ? 'all' : 'vencidos'); setPage(1); }}
+            className={`p-4 rounded-lg border-2 transition-all ${complianceFilter === 'vencidos' ? 'border-orange-500 bg-orange-50 dark:bg-orange-900/20' : 'border-gray-200 hover:border-orange-300 bg-white dark:bg-slate-800'}`}
+          >
+            <div className='flex items-center gap-2 mb-1'>
+              <ClockIcon className='h-5 w-5 text-orange-600' />
+              <span className='text-sm font-medium text-gray-600 dark:text-gray-300'>Vencidos</span>
+            </div>
+            <div className='text-2xl font-bold text-orange-600'>{dashboardStats.conVencidos}</div>
+            <div className='text-xs text-gray-500'>con doc. vencida</div>
+          </button>
+          
+          <button
+            onClick={() => { setComplianceFilter(complianceFilter === 'por_vencer' ? 'all' : 'por_vencer'); setPage(1); }}
+            className={`p-4 rounded-lg border-2 transition-all ${complianceFilter === 'por_vencer' ? 'border-yellow-500 bg-yellow-50 dark:bg-yellow-900/20' : 'border-gray-200 hover:border-yellow-300 bg-white dark:bg-slate-800'}`}
+          >
+            <div className='flex items-center gap-2 mb-1'>
+              <ClockIcon className='h-5 w-5 text-yellow-600' />
+              <span className='text-sm font-medium text-gray-600 dark:text-gray-300'>Por Vencer</span>
+            </div>
+            <div className='text-2xl font-bold text-yellow-600'>{dashboardStats.conPorVencer}</div>
+            <div className='text-xs text-gray-500'>con doc. por vencer</div>
+          </button>
+        </div>
+      )}
+      
+      {/* Indicador de filtro activo */}
+      {complianceFilter !== 'all' && (
+        <div className='mb-3 flex items-center gap-2'>
+          <span className='text-sm text-gray-600'>Filtrando por:</span>
+          <span className={`px-2 py-1 rounded text-sm font-medium ${
+            complianceFilter === 'faltantes' ? 'bg-red-100 text-red-700' :
+            complianceFilter === 'vencidos' ? 'bg-orange-100 text-orange-700' :
+            'bg-yellow-100 text-yellow-700'
+          }`}>
+            {complianceFilter === 'faltantes' ? 'Doc. Faltante' :
+             complianceFilter === 'vencidos' ? 'Doc. Vencida' : 'Doc. Por Vencer'}
+          </span>
+          <button onClick={() => { setComplianceFilter('all'); setPage(1); }} className='text-sm text-blue-600 hover:underline'>
+            Quitar filtro
+          </button>
+        </div>
+      )}
       
       {/* Barra de paginación (solo para resultados del servidor, no para búsqueda masiva) */}
       {hasSearched && !isFetching && csvResults.length === 0 && displayResults.length > 0 && (
@@ -620,7 +716,7 @@ export const ConsultaPage: React.FC = () => {
       )}
       
       <div className='grid gap-3'>
-        {displayResults.map((it: any) => {
+        {!isFetching && displayResults.map((it: any) => {
           const eq = it.equipo || it;
           return (
             <div key={eq.id} className={`rounded-lg border bg-white dark:bg-slate-900 p-3 grid gap-3 md:grid-cols-[1fr,auto,auto] items-center ${eq.activo === false ? 'opacity-50 bg-gray-100' : ''}`}>
@@ -732,36 +828,25 @@ const Dot: React.FC<{ color: string }> = ({ color }) => (
 const EquipoSemaforo: React.FC<{ equipoId: number }> = ({ equipoId }) => {
   const { data } = useGetEquipoComplianceQuery({ id: equipoId }, { skip: !equipoId });
   if (!data) return null;
-  const now = Date.now();
-  let faltantes = 0, vencidos = 0, porVencer = 0, vigentes = 0;
-  const docsByEntity: Record<string, any[]> = data?.documents || {};
   
-  // Set para deduplicar por entityType-templateId (evita contar múltiples veces por cliente)
+  let faltantes = 0, vencidos = 0, porVencer = 0, vigentes = 0;
   const processedTemplates = new Set<string>();
-
-  const bumpFromCompliance = (entityType: 'EMPRESA_TRANSPORTISTA'|'CHOFER'|'CAMION'|'ACOPLADO', r: any) => {
-    // Deduplicar: si ya procesamos este template para esta entidad, ignorar
-    const key = `${entityType}-${r.templateId}`;
-    if (processedTemplates.has(key)) return;
-    processedTemplates.add(key);
-    
-    const state = String(r.state || '').toUpperCase();
-    // Manejar todos los estados detallados del backend
-    if (state === 'OK' || state === 'VIGENTE') { vigentes++; return; }
-    if (state === 'PROXIMO') { porVencer++; return; }
-    if (state === 'VENCIDO') { vencidos++; return; }
-    if (state === 'FALTANTE') { faltantes++; return; }
-    // Para estados desconocidos (PENDIENTE, RECHAZADO, etc.), contar como faltante
-    faltantes++;
-  };
 
   try {
     for (const c of (data?.clientes || [])) {
       for (const r of (c?.compliance || [])) {
-        bumpFromCompliance(r.entityType as any, r);
+        const key = `${r.entityType}-${r.templateId}`;
+        if (processedTemplates.has(key)) continue;
+        processedTemplates.add(key);
+        
+        const state = String(r.state || '').toUpperCase();
+        if (state === 'OK' || state === 'VIGENTE') { vigentes++; }
+        else if (state === 'PROXIMO') { porVencer++; }
+        else if (state === 'VENCIDO') { vencidos++; }
+        else { faltantes++; }
       }
     }
-  } catch (e) { /* noop */ }
+  } catch { /* noop */ }
 
   return (
     <div className='mt-1 flex items-center gap-4 text-xs'>

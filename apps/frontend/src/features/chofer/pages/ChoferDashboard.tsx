@@ -6,9 +6,9 @@ import { useNavigate } from 'react-router-dom';
 import { 
   DocumentTextIcon, 
   TruckIcon, 
-  MagnifyingGlassIcon,
-  UserIcon
+  MagnifyingGlassIcon
 } from '@heroicons/react/24/outline';
+import bcaLogo from '../../../assets/logo-bca.jpg';
 
 /**
  * Dashboard del Portal Chofer
@@ -23,17 +23,21 @@ const ChoferDashboard: React.FC = () => {
   return (
     <div className='min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-900 dark:to-slate-800 flex items-center justify-center p-4'>
       <div className='w-full max-w-6xl'>
-        {/* Header - Mismo estilo que Admin Interno */}
-        <div className='text-center mb-12'>
-          <div className='inline-flex items-center justify-center w-20 h-20 bg-emerald-600 rounded-2xl mb-6'>
-            <UserIcon className='h-12 w-12 text-white' />
+        {/* Header con Logo Grupo BCA */}
+        <div className='flex flex-col md:flex-row items-center justify-center gap-6 mb-12'>
+          <img 
+            src={bcaLogo} 
+            alt='Grupo BCA' 
+            className='h-32 md:h-40 w-auto object-contain'
+          />
+          <div className='text-center md:text-left'>
+            <h1 className='text-4xl font-bold text-foreground mb-3'>
+              Portal Chofer
+            </h1>
+            <p className='text-lg text-muted-foreground'>
+              Gestión de equipos y documentación
+            </p>
           </div>
-          <h1 className='text-4xl font-bold text-foreground mb-3'>
-            Portal Chofer
-          </h1>
-          <p className='text-lg text-muted-foreground'>
-            Gestión de equipos y documentación
-          </p>
         </div>
 
         {/* Dos Acciones Principales */}

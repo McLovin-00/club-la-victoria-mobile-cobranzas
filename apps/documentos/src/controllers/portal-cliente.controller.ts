@@ -56,6 +56,7 @@ export class PortalClienteController {
       });
       
       // Obtener datos adicionales de TODOS los equipos para calcular resumen
+      // Usando el mismo criterio de cálculo que admin interno (conteos independientes)
       const todosEquiposConEstado = await Promise.all(
         todosEquiposCliente.map(async (ec) => {
           const equipo = ec.equipo;
@@ -69,9 +70,13 @@ export class PortalClienteController {
               : null,
           ]);
           
-          // Calcular estado de compliance
+          // Calcular estado de compliance con conteos INDEPENDIENTES (igual que admin interno)
           let estadoCompliance: 'VIGENTE' | 'PROXIMO_VENCER' | 'VENCIDO' | 'INCOMPLETO' = 'VIGENTE';
           let proximoVencimiento: Date | null = null;
+          // Flags independientes para el resumen (mismo criterio que admin interno)
+          let tieneVencidos = false;
+          let tieneFaltantes = false;
+          let tieneProximos = false;
           
           try {
             const compliance = await ComplianceService.evaluateEquipoClienteDetailed(
@@ -81,8 +86,14 @@ export class PortalClienteController {
             
             const vencidos = compliance.filter(c => c.state === 'VENCIDO');
             const faltantes = compliance.filter(c => c.state === 'FALTANTE');
-            const proximosVencer = compliance.filter(c => c.state === 'PROXIMO_VENCER');
+            const proximosVencer = compliance.filter(c => c.state === 'PROXIMO');
             
+            // Flags independientes (un equipo puede tener vencidos Y faltantes Y próximos)
+            tieneVencidos = vencidos.length > 0;
+            tieneFaltantes = faltantes.length > 0;
+            tieneProximos = proximosVencer.length > 0;
+            
+            // Estado de display (peor estado para mostrar en la UI)
             if (vencidos.length > 0) {
               estadoCompliance = 'VENCIDO';
             } else if (faltantes.length > 0) {
@@ -91,14 +102,15 @@ export class PortalClienteController {
               estadoCompliance = 'PROXIMO_VENCER';
               // Encontrar la fecha más próxima
               const fechas = proximosVencer
-                .filter(c => c.doc?.expiresAt)
-                .map(c => new Date(c.doc!.expiresAt!));
+                .filter(c => c.expiresAt)
+                .map(c => new Date(c.expiresAt!));
               if (fechas.length > 0) {
                 proximoVencimiento = fechas.reduce((a, b) => a < b ? a : b);
               }
             }
           } catch {
             estadoCompliance = 'INCOMPLETO';
+            tieneFaltantes = true;
           }
           
           return {
@@ -124,17 +136,23 @@ export class PortalClienteController {
             estadoCompliance,
             proximoVencimiento: proximoVencimiento?.toISOString() || null,
             asignadoDesde: ec.asignadoDesde,
+            // Flags independientes para conteo (igual que admin interno)
+            _tieneVencidos: tieneVencidos,
+            _tieneFaltantes: tieneFaltantes,
+            _tieneProximos: tieneProximos,
           };
         })
       );
       
-      // Calcular resumen global (sin filtros)
+      // Calcular resumen global con CONTEOS INDEPENDIENTES (mismo criterio que admin interno)
+      // Un equipo puede contar en múltiples categorías simultáneamente
       const resumen = {
         total: todosEquiposConEstado.length,
         vigentes: todosEquiposConEstado.filter(e => e.estadoCompliance === 'VIGENTE').length,
-        proximosVencer: todosEquiposConEstado.filter(e => e.estadoCompliance === 'PROXIMO_VENCER').length,
-        vencidos: todosEquiposConEstado.filter(e => e.estadoCompliance === 'VENCIDO').length,
-        incompletos: todosEquiposConEstado.filter(e => e.estadoCompliance === 'INCOMPLETO').length,
+        // Conteos independientes (mismo criterio que admin interno)
+        proximosVencer: todosEquiposConEstado.filter(e => e._tieneProximos).length,
+        vencidos: todosEquiposConEstado.filter(e => e._tieneVencidos).length,
+        incompletos: todosEquiposConEstado.filter(e => e._tieneFaltantes).length,
       };
       
       // Aplicar filtros de búsqueda y estado
@@ -254,18 +272,18 @@ export class PortalClienteController {
       ]);
       
       // Obtener TODOS los documentos aprobados y vencidos
-      const entityConditions = [
-        { entityType: 'CHOFER' as const, entityId: equipo.driverId },
-        { entityType: 'CAMION' as const, entityId: equipo.truckId },
+      const entityConditions: Array<{ entityType: 'CHOFER' | 'CAMION' | 'ACOPLADO' | 'EMPRESA_TRANSPORTISTA'; entityId: number }> = [
+        { entityType: 'CHOFER', entityId: equipo.driverId },
+        { entityType: 'CAMION', entityId: equipo.truckId },
       ];
       
       if (equipo.trailerId) {
-        entityConditions.push({ entityType: 'ACOPLADO' as const, entityId: equipo.trailerId });
+        entityConditions.push({ entityType: 'ACOPLADO', entityId: equipo.trailerId });
       }
       
       if (equipo.empresaTransportistaId) {
         entityConditions.push({ 
-          entityType: 'EMPRESA_TRANSPORTISTA' as const, 
+          entityType: 'EMPRESA_TRANSPORTISTA', 
           entityId: equipo.empresaTransportistaId 
         });
       }
@@ -427,7 +445,7 @@ export class PortalClienteController {
         where: { id: docId },
       });
       
-      if (!doc || doc.tenantEmpresaId !== tenantId || doc.status !== 'APROBADO') {
+      if (!doc || doc.tenantEmpresaId !== tenantId || (doc.status !== 'APROBADO' && doc.status !== 'VENCIDO')) {
         return res.status(404).json({ success: false, message: 'Documento no encontrado' });
       }
       
@@ -444,7 +462,7 @@ export class PortalClienteController {
       }
       
       // Descargar desde MinIO
-      const { minioService } = await import('../services/minio.service');
+      const { minioService } = await import('../services/minio.service.js');
       
       let bucketName: string;
       let objectPath: string;
@@ -519,18 +537,18 @@ export class PortalClienteController {
       ]);
       
       // Obtener documentos
-      const entityConditions = [
-        { entityType: 'CHOFER' as const, entityId: equipo.driverId },
-        { entityType: 'CAMION' as const, entityId: equipo.truckId },
+      const entityConditions: Array<{ entityType: 'CHOFER' | 'CAMION' | 'ACOPLADO' | 'EMPRESA_TRANSPORTISTA'; entityId: number }> = [
+        { entityType: 'CHOFER', entityId: equipo.driverId },
+        { entityType: 'CAMION', entityId: equipo.truckId },
       ];
       
       if (equipo.trailerId) {
-        entityConditions.push({ entityType: 'ACOPLADO' as const, entityId: equipo.trailerId });
+        entityConditions.push({ entityType: 'ACOPLADO', entityId: equipo.trailerId });
       }
       
       if (equipo.empresaTransportistaId) {
         entityConditions.push({ 
-          entityType: 'EMPRESA_TRANSPORTISTA' as const, 
+          entityType: 'EMPRESA_TRANSPORTISTA', 
           entityId: equipo.empresaTransportistaId 
         });
       }
@@ -577,7 +595,7 @@ export class PortalClienteController {
       // Preparar ZIP
       const archiver = (await import('archiver')).default;
       const archive = archiver('zip', { zlib: { level: 9 } });
-      const { minioService } = await import('../services/minio.service');
+      const { minioService } = await import('../services/minio.service.js');
       
       res.setHeader('Content-Type', 'application/zip');
       res.setHeader(
@@ -682,7 +700,7 @@ export class PortalClienteController {
       // Preparar ZIP
       const archiver = (await import('archiver')).default;
       const archive = archiver('zip', { zlib: { level: 9 } });
-      const { minioService } = await import('../services/minio.service');
+      const { minioService } = await import('../services/minio.service.js');
       
       res.setHeader('Content-Type', 'application/zip');
       res.setHeader('Content-Disposition', `attachment; filename="documentos_${equiposOrdenados.length}_equipos.zip"`);
@@ -710,15 +728,15 @@ export class PortalClienteController {
         };
         
         // Obtener documentos aprobados
-        const entityConditions = [
-          { entityType: 'CHOFER' as const, entityId: equipo.driverId },
-          { entityType: 'CAMION' as const, entityId: equipo.truckId },
+        const entityConditions: Array<{ entityType: 'CHOFER' | 'CAMION' | 'ACOPLADO' | 'EMPRESA_TRANSPORTISTA'; entityId: number }> = [
+          { entityType: 'CHOFER', entityId: equipo.driverId },
+          { entityType: 'CAMION', entityId: equipo.truckId },
         ];
         if (equipo.trailerId) {
-          entityConditions.push({ entityType: 'ACOPLADO' as any, entityId: equipo.trailerId });
+          entityConditions.push({ entityType: 'ACOPLADO', entityId: equipo.trailerId });
         }
         if (equipo.empresaTransportistaId) {
-          entityConditions.push({ entityType: 'EMPRESA_TRANSPORTISTA' as any, entityId: equipo.empresaTransportistaId });
+          entityConditions.push({ entityType: 'EMPRESA_TRANSPORTISTA', entityId: equipo.empresaTransportistaId });
         }
         
         const documentos = await prisma.document.findMany({
@@ -869,7 +887,7 @@ export class PortalClienteController {
       // Preparar ZIP
       const archiver = (await import('archiver')).default;
       const archive = archiver('zip', { zlib: { level: 9 } });
-      const { minioService } = await import('../services/minio.service');
+      const { minioService } = await import('../services/minio.service.js');
       
       res.setHeader('Content-Type', 'application/zip');
       res.setHeader('Content-Disposition', `attachment; filename="documentos_${equiposLimitados.length}_equipos.zip"`);
@@ -895,15 +913,15 @@ export class PortalClienteController {
         };
         
         // Obtener documentos aprobados
-        const entityConditions = [
-          { entityType: 'CHOFER' as const, entityId: equipo.driverId },
-          { entityType: 'CAMION' as const, entityId: equipo.truckId },
+        const entityConditions: Array<{ entityType: 'CHOFER' | 'CAMION' | 'ACOPLADO' | 'EMPRESA_TRANSPORTISTA'; entityId: number }> = [
+          { entityType: 'CHOFER', entityId: equipo.driverId },
+          { entityType: 'CAMION', entityId: equipo.truckId },
         ];
         if (equipo.trailerId) {
-          entityConditions.push({ entityType: 'ACOPLADO' as any, entityId: equipo.trailerId });
+          entityConditions.push({ entityType: 'ACOPLADO', entityId: equipo.trailerId });
         }
         if (equipo.empresaTransportistaId) {
-          entityConditions.push({ entityType: 'EMPRESA_TRANSPORTISTA' as any, entityId: equipo.empresaTransportistaId });
+          entityConditions.push({ entityType: 'EMPRESA_TRANSPORTISTA', entityId: equipo.empresaTransportistaId });
         }
         
         const documentos = await prisma.document.findMany({

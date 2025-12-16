@@ -162,6 +162,296 @@ export class EquipoService {
   }
 
   /**
+   * Obtiene estadísticas de compliance agregadas para equipos que coinciden con los filtros
+   * Devuelve: total de equipos, equipos con faltantes, vencidos, por vencer
+   */
+  static async getComplianceStats(
+    tenantEmpresaId: number,
+    filters: {
+      dadorCargaId?: number;
+      clienteId?: number;
+      empresaTransportistaId?: number;
+      search?: string;
+      dni?: string;
+      truckPlate?: string;
+      trailerPlate?: string;
+      choferId?: number;
+      activo?: boolean | 'all';
+    }
+  ): Promise<{ total: number; conFaltantes: number; conVencidos: number; conPorVencer: number; equipoIds: number[] }> {
+    // Construir where igual que searchPaginated
+    const where: any = { tenantEmpresaId };
+    
+    if (filters.dadorCargaId) {
+      where.dadorCargaId = filters.dadorCargaId;
+    }
+    if (filters.empresaTransportistaId) {
+      where.empresaTransportistaId = filters.empresaTransportistaId;
+    }
+    if (filters.choferId) {
+      where.driverId = filters.choferId;
+    }
+    if (filters.activo !== 'all' && filters.activo !== undefined) {
+      where.activo = filters.activo;
+    }
+    
+    const orConditions: any[] = [];
+    
+    if (filters.search) {
+      const searchValues = filters.search.split('|').map(s => s.trim().toUpperCase()).filter(Boolean);
+      if (searchValues.length > 0) {
+        orConditions.push(
+          { driverDniNorm: { in: searchValues } },
+          { truckPlateNorm: { in: searchValues } },
+          { trailerPlateNorm: { in: searchValues } }
+        );
+      }
+    }
+    
+    if (filters.dni) {
+      const dniNorm = normalizeDni(filters.dni);
+      orConditions.push({ driverDniNorm: { contains: dniNorm } });
+    }
+    
+    if (filters.truckPlate) {
+      const plateNorm = normalizePlate(filters.truckPlate);
+      orConditions.push({ truckPlateNorm: { contains: plateNorm } });
+    }
+    
+    if (filters.trailerPlate) {
+      const plateNorm = normalizePlate(filters.trailerPlate);
+      orConditions.push({ trailerPlateNorm: { contains: plateNorm } });
+    }
+    
+    if (orConditions.length > 0) {
+      where.OR = orConditions;
+    }
+    
+    // Filtro por cliente
+    if (filters.clienteId) {
+      const asignaciones = await prisma.equipoCliente.findMany({
+        where: { clienteId: filters.clienteId, asignadoHasta: null },
+        select: { equipoId: true }
+      });
+      const equipoIds = asignaciones.map(a => a.equipoId);
+      if (equipoIds.length === 0) {
+        return { total: 0, conFaltantes: 0, conVencidos: 0, conPorVencer: 0, equipoIds: [] };
+      }
+      where.id = { in: equipoIds };
+    }
+    
+    // Obtener todos los equipos que coinciden
+    const equipos = await prisma.equipo.findMany({
+      where,
+      select: { id: true, driverId: true, truckId: true, trailerId: true, tenantEmpresaId: true, dadorCargaId: true }
+    });
+    
+    const total = equipos.length;
+    const equipoIds = equipos.map(e => e.id);
+    
+    if (total === 0) {
+      return { total: 0, conFaltantes: 0, conVencidos: 0, conPorVencer: 0, equipoIds: [] };
+    }
+    
+    // Calcular stats de compliance de forma eficiente usando la vista materializada o query directa
+    // Para eficiencia, usamos una query SQL directa
+    const now = new Date();
+    const proximoThreshold = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000); // 30 días
+    
+    // Obtener documentos de todas las entidades de estos equipos
+    const entityClauses: any[] = [];
+    for (const eq of equipos) {
+      if (eq.driverId) entityClauses.push({ entityType: 'CHOFER', entityId: eq.driverId });
+      if (eq.truckId) entityClauses.push({ entityType: 'CAMION', entityId: eq.truckId });
+      if (eq.trailerId) entityClauses.push({ entityType: 'ACOPLADO', entityId: eq.trailerId });
+    }
+    
+    // Mapear entityId a equipoId para cada tipo
+    const choferToEquipo = new Map<number, number[]>();
+    const camionToEquipo = new Map<number, number[]>();
+    const acopladoToEquipo = new Map<number, number[]>();
+    
+    for (const eq of equipos) {
+      if (eq.driverId) {
+        if (!choferToEquipo.has(eq.driverId)) choferToEquipo.set(eq.driverId, []);
+        choferToEquipo.get(eq.driverId)!.push(eq.id);
+      }
+      if (eq.truckId) {
+        if (!camionToEquipo.has(eq.truckId)) camionToEquipo.set(eq.truckId, []);
+        camionToEquipo.get(eq.truckId)!.push(eq.id);
+      }
+      if (eq.trailerId) {
+        if (!acopladoToEquipo.has(eq.trailerId)) acopladoToEquipo.set(eq.trailerId, []);
+        acopladoToEquipo.get(eq.trailerId)!.push(eq.id);
+      }
+    }
+    
+    // Sets para equipos con cada estado
+    const equiposConVencidos = new Set<number>();
+    const equiposConPorVencer = new Set<number>();
+    const equiposConFaltantes = new Set<number>();
+    
+    if (entityClauses.length > 0) {
+      // Query de documentos
+      const docs = await prisma.document.findMany({
+        where: {
+          tenantEmpresaId,
+          OR: entityClauses
+        },
+        select: { entityType: true, entityId: true, status: true, expiresAt: true }
+      });
+      
+      for (const doc of docs) {
+        let equipoIdsForDoc: number[] = [];
+        if (doc.entityType === 'CHOFER' && choferToEquipo.has(doc.entityId)) {
+          equipoIdsForDoc = choferToEquipo.get(doc.entityId)!;
+        } else if (doc.entityType === 'CAMION' && camionToEquipo.has(doc.entityId)) {
+          equipoIdsForDoc = camionToEquipo.get(doc.entityId)!;
+        } else if (doc.entityType === 'ACOPLADO' && acopladoToEquipo.has(doc.entityId)) {
+          equipoIdsForDoc = acopladoToEquipo.get(doc.entityId)!;
+        }
+        
+        // Verificar estado
+        if (doc.expiresAt) {
+          const expDate = new Date(doc.expiresAt);
+          if (expDate < now) {
+            // Vencido
+            for (const eqId of equipoIdsForDoc) equiposConVencidos.add(eqId);
+          } else if (expDate < proximoThreshold) {
+            // Por vencer
+            for (const eqId of equipoIdsForDoc) equiposConPorVencer.add(eqId);
+          }
+        }
+      }
+      
+      // Para faltantes, necesitamos verificar templates requeridos vs documentos existentes
+      // Simplificación: contar equipos que tienen menos documentos de los requeridos
+      // Por ahora, consideramos faltante = doc sin subir (status null o sin documento para template requerido)
+      // Esto requiere conocer los templates requeridos, lo cual es más complejo
+      // Por simplicidad, usamos los equipos que tienen algún documento rechazado o sin documentos
+      const docsRechazados = docs.filter(d => d.status === 'RECHAZADO');
+      for (const doc of docsRechazados) {
+        let equipoIdsForDoc: number[] = [];
+        if (doc.entityType === 'CHOFER' && choferToEquipo.has(doc.entityId)) {
+          equipoIdsForDoc = choferToEquipo.get(doc.entityId)!;
+        } else if (doc.entityType === 'CAMION' && camionToEquipo.has(doc.entityId)) {
+          equipoIdsForDoc = camionToEquipo.get(doc.entityId)!;
+        } else if (doc.entityType === 'ACOPLADO' && acopladoToEquipo.has(doc.entityId)) {
+          equipoIdsForDoc = acopladoToEquipo.get(doc.entityId)!;
+        }
+        for (const eqId of equipoIdsForDoc) equiposConFaltantes.add(eqId);
+      }
+    }
+    
+    // Para faltantes más precisos, necesitamos evaluar compliance completo
+    // Esto es costoso, así que lo hacemos solo si hay pocos equipos
+    if (total <= 100) {
+      const { EquipoEstadoService } = await import('./equipo-estado.service.js');
+      for (const eq of equipos) {
+        const estado = await EquipoEstadoService.calculateEquipoEstado(eq.id);
+        if (estado.breakdown.faltantes > 0) equiposConFaltantes.add(eq.id);
+        if (estado.breakdown.vencidos > 0) equiposConVencidos.add(eq.id);
+        if (estado.breakdown.proximos > 0) equiposConPorVencer.add(eq.id);
+      }
+    }
+    
+    return {
+      total,
+      conFaltantes: equiposConFaltantes.size,
+      conVencidos: equiposConVencidos.size,
+      conPorVencer: equiposConPorVencer.size,
+      equipoIds
+    };
+  }
+
+  /**
+   * Búsqueda paginada con filtro de compliance
+   */
+  static async searchPaginatedWithCompliance(
+    tenantEmpresaId: number,
+    filters: {
+      dadorCargaId?: number;
+      clienteId?: number;
+      empresaTransportistaId?: number;
+      search?: string;
+      dni?: string;
+      truckPlate?: string;
+      trailerPlate?: string;
+      choferId?: number;
+      activo?: boolean | 'all';
+      complianceFilter?: 'faltantes' | 'vencidos' | 'por_vencer';
+    },
+    page: number = 1,
+    limit: number = 10
+  ) {
+    // Si hay filtro de compliance, primero obtenemos los IDs filtrados
+    if (filters.complianceFilter) {
+      const stats = await this.getComplianceStats(tenantEmpresaId, filters);
+      
+      // Filtrar equipoIds según el filtro de compliance
+      const { EquipoEstadoService } = await import('./equipo-estado.service.js');
+      const filteredIds: number[] = [];
+      
+      for (const eqId of stats.equipoIds) {
+        const estado = await EquipoEstadoService.calculateEquipoEstado(eqId);
+        const matches = 
+          (filters.complianceFilter === 'faltantes' && estado.breakdown.faltantes > 0) ||
+          (filters.complianceFilter === 'vencidos' && estado.breakdown.vencidos > 0) ||
+          (filters.complianceFilter === 'por_vencer' && estado.breakdown.proximos > 0);
+        if (matches) filteredIds.push(eqId);
+      }
+      
+      if (filteredIds.length === 0) {
+        return {
+          equipos: [],
+          total: 0,
+          page,
+          limit,
+          totalPages: 0,
+          hasNext: false,
+          hasPrev: false,
+          stats
+        };
+      }
+      
+      // Paginar sobre los IDs filtrados
+      const take = Math.min(Math.max(limit, 1), 100);
+      const skip = Math.max((page - 1) * take, 0);
+      const paginatedIds = filteredIds.slice(skip, skip + take);
+      
+      const equipos = await prisma.equipo.findMany({
+        where: { id: { in: paginatedIds } },
+        orderBy: { id: 'asc' },
+        include: { 
+          clientes: { where: { asignadoHasta: null }, include: { cliente: true } }, 
+          dador: true,
+          empresaTransportista: true
+        }
+      });
+      
+      const totalFiltered = filteredIds.length;
+      const totalPages = Math.ceil(totalFiltered / take);
+      
+      return {
+        equipos,
+        total: totalFiltered,
+        page,
+        limit: take,
+        totalPages,
+        hasNext: page < totalPages,
+        hasPrev: page > 1,
+        stats
+      };
+    }
+    
+    // Sin filtro de compliance, usar búsqueda normal + agregar stats
+    const result = await this.searchPaginated(tenantEmpresaId, filters, page, limit);
+    const stats = await this.getComplianceStats(tenantEmpresaId, filters);
+    
+    return { ...result, stats };
+  }
+
+  /**
    * Obtener un equipo por ID con todos sus detalles
    */
   static async getById(equipoId: number) {

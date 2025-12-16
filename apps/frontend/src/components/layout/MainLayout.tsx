@@ -16,7 +16,7 @@ import {
 import { ThemeToggle } from '../ui/theme-toggle';
 import { Logger } from '../../lib/utils';
 import { useServiceFlags } from '../../hooks/useServiceConfig';
-import bcaLogo from '../../assets/logo-bca.svg';
+import bcaLogo from '../../assets/logo-bca.jpg';
 // Tenant selector removido de la UI: el tenant se toma del empresaId del usuario
 
 export const MainLayout = () => {
@@ -41,7 +41,7 @@ export const MainLayout = () => {
               <img
                 src={bcaLogo}
                 alt='Grupo BCA'
-                className='h-9 w-auto object-contain'
+                className='h-12 w-auto object-contain'
                 loading='eager'
               />
             </Link>

@@ -19,6 +19,7 @@ import {
   ArrowDownTrayIcon,
 } from '@heroicons/react/24/outline';
 import { showToast } from '../../../components/ui/Toast.utils';
+import bcaLogo from '../../../assets/logo-bca.jpg';
 
 /**
  * Dashboard del Portal Cliente
@@ -191,7 +192,7 @@ const ClienteDashboard: React.FC = () => {
   
   return (
     <div className='container mx-auto px-4 py-8 max-w-6xl'>
-      {/* Header con botón volver */}
+      {/* Header con Logo Grupo BCA */}
       <div className='mb-8'>
         <Button 
           variant='ghost' 
@@ -201,8 +202,17 @@ const ClienteDashboard: React.FC = () => {
           <ArrowLeftIcon className='h-4 w-4 mr-2' />
           Volver
         </Button>
-        <h1 className='text-3xl font-bold text-gray-900 dark:text-gray-100 mb-2'>Portal Cliente</h1>
-        <p className='text-gray-600 dark:text-gray-400'>Consulta el estado documental de tus equipos asignados</p>
+        <div className='flex flex-col md:flex-row items-center gap-6'>
+          <img 
+            src={bcaLogo} 
+            alt='Grupo BCA' 
+            className='h-24 md:h-32 w-auto object-contain'
+          />
+          <div className='text-center md:text-left'>
+            <h1 className='text-3xl font-bold text-gray-900 dark:text-gray-100 mb-2'>Portal Cliente</h1>
+            <p className='text-gray-600 dark:text-gray-400'>Consulta el estado documental de tus equipos asignados</p>
+          </div>
+        </div>
       </div>
       
       {/* Resumen - siempre visible si hay data */}

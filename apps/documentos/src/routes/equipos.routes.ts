@@ -24,7 +24,7 @@ function getJwtPublicKey(): string {
   const fs = require('fs');
   const publicKeyPath = process.env.JWT_PUBLIC_KEY_PATH || '/keys/jwt_public.pem';
   _jwtPublicKey = fs.readFileSync(publicKeyPath, 'utf8');
-  return _jwtPublicKey;
+  return _jwtPublicKey as string;
 }
 
 function verifyJwtFromForm(token: string): any | null {

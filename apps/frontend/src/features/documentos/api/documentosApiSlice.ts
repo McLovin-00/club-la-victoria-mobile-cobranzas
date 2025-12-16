@@ -557,6 +557,12 @@ export const documentosApiSlice = createApi({
           hasNext: boolean;
           hasPrev: boolean;
         };
+        stats?: {
+          total: number;
+          conFaltantes: number;
+          conVencidos: number;
+          conPorVencer: number;
+        };
       },
       {
         page?: number;
@@ -569,9 +575,10 @@ export const documentosApiSlice = createApi({
         truckPlate?: string;
         trailerPlate?: string;
         activo?: 'all' | 'true' | 'false';
+        complianceFilter?: 'faltantes' | 'vencidos' | 'por_vencer';
       }
     >({
-      query: ({ page = 1, limit = 10, dadorCargaId, clienteId, empresaTransportistaId, search, dni, truckPlate, trailerPlate, activo = 'all' }) => {
+      query: ({ page = 1, limit = 10, dadorCargaId, clienteId, empresaTransportistaId, search, dni, truckPlate, trailerPlate, activo = 'all', complianceFilter }) => {
         const params = new URLSearchParams();
         params.append('page', String(page));
         params.append('limit', String(limit));
@@ -583,6 +590,7 @@ export const documentosApiSlice = createApi({
         if (truckPlate) params.set('truckPlate', truckPlate);
         if (trailerPlate) params.set('trailerPlate', trailerPlate);
         if (activo) params.set('activo', activo);
+        if (complianceFilter) params.set('complianceFilter', complianceFilter);
         return { url: `/equipos/search-paged?${params.toString()}` };
       },
       providesTags: ['Search'],
