@@ -716,7 +716,7 @@ const EditarEquipoPage: React.FC = () => {
           
           {/* Acoplado */}
           <div className='space-y-2'>
-            <Label>Acoplado (opcional)</Label>
+            <Label>Acoplado</Label>
             <div className='flex gap-2 items-center'>
               <select
                 className='flex-1 min-w-0 border rounded px-3 py-2 bg-background truncate'

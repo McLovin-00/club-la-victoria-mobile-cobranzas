@@ -916,7 +916,7 @@ export const documentosApiSlice = createApi({
     // =================================
     getAuditLogs: builder.query<
       { data: any[]; total: number; page: number; limit: number; totalPages: number },
-      { page?: number; limit?: number; from?: string; to?: string; userId?: number; userRole?: string; method?: string; statusCode?: number; action?: string; entityType?: string; entityId?: number; pathContains?: string }
+      { page?: number; limit?: number; from?: string; to?: string; userEmail?: string; userRole?: string; method?: string; statusCode?: number; action?: string; entityType?: string; entityId?: number; pathContains?: string }
     >({
       query: (params = {}) => {
         const search = new URLSearchParams();

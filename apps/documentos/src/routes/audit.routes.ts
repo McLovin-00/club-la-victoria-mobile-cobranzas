@@ -16,7 +16,7 @@ async function buildWhereFromQuery(req: AuthRequest): Promise<any> {
   const {
     from,
     to,
-    userId,
+    userEmail,
     userRole,
     method,
     statusCode,
@@ -26,7 +26,7 @@ async function buildWhereFromQuery(req: AuthRequest): Promise<any> {
     pathContains,
   } = req.query as any;
   const where: any = { tenantEmpresaId: req.tenantId };
-  if (userId) where.userId = Number(userId);
+  if (userEmail) where.userEmail = { contains: String(userEmail), mode: 'insensitive' };
   if (userRole) where.userRole = String(userRole);
   if (method) where.method = String(method);
   if (statusCode) where.statusCode = Number(statusCode);

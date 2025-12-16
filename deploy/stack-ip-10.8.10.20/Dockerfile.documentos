@@ -1,5 +1,5 @@
 # =============================================================================
-# Dockerfile.documentos - DESARROLLO/STAGING (10.3.0.243)
+# Dockerfile.documentos - PRODUCCIÓN (10.8.10.20)
 # =============================================================================
 # Microservicio de documentos con Node.js 20 Alpine
 # Incluye Prisma, healthcheck y optimizaciones para procesamiento de PDFs
@@ -45,7 +45,9 @@ RUN chmod +x ./entrypoint.sh && npm prune --omit=dev
 
 EXPOSE 4802
 
+# Health check
 HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \
     CMD wget -qO- http://localhost:${DOCUMENTOS_PORT:-4802}/health/ready || exit 1
 
 ENTRYPOINT ["./entrypoint.sh"]
+

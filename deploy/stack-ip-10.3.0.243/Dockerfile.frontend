@@ -1,26 +1,50 @@
+# =============================================================================
+# Dockerfile.frontend - DESARROLLO/STAGING (10.3.0.243)
+# =============================================================================
+# Usa goStatic como servidor web ultra-liviano (~8MB total)
+# NO incluye proxy reverso - los servicios se acceden directamente por IP:puerto
+# Healthcheck habilitado con wget en base alpine
+# =============================================================================
+
 FROM node:20-alpine AS build
+
 WORKDIR /app
+
 COPY package*.json ./
 COPY . .
+
 # Instalar dependencias de todos los workspaces (incluye apps/frontend y Vite)
-RUN --mount=type=cache,target=/root/.npm sh -c "npm config set legacy-peer-deps true && npm install --workspaces"
-# Pasar variables de build de Vite
+RUN --mount=type=cache,target=/root/.npm \
+    sh -c "npm config set legacy-peer-deps true && npm install --workspaces"
+
+# Variables de build de Vite
 ARG VITE_API_URL
 ARG VITE_API_BASE_URL
 ARG VITE_DOCUMENTOS_API_URL
 ARG VITE_DOCUMENTOS_WS_URL
 ARG VITE_APP_TITLE
+
 ENV VITE_API_URL=$VITE_API_URL \
     VITE_API_BASE_URL=$VITE_API_BASE_URL \
     VITE_DOCUMENTOS_API_URL=$VITE_DOCUMENTOS_API_URL \
     VITE_DOCUMENTOS_WS_URL=$VITE_DOCUMENTOS_WS_URL \
     VITE_APP_TITLE=$VITE_APP_TITLE
+
 RUN npm run -w apps/frontend build
 
-FROM pierrezemb/gostatic:latest
+# Production stage - Alpine con goStatic (ultra-liviano)
+FROM alpine:3.20
+
+# Instalar wget para healthcheck
+RUN apk add --no-cache wget ca-certificates
+
+# Copiar goStatic desde su imagen oficial
+COPY --from=pierrezemb/gostatic:latest /goStatic /goStatic
+
+# Copiar archivos estáticos del build
 COPY --from=build /app/apps/frontend/dist /srv/http
+
 EXPOSE 8550
-# Flags válidas en goStatic
-CMD ["-port","8550","-enable-health","-fallback","index.html"]
 
-
+# goStatic con health endpoint habilitado y fallback para SPA
+CMD ["/goStatic", "-port", "8550", "-enable-health", "-fallback", "index.html"]

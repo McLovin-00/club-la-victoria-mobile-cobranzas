@@ -1,0 +1,52 @@
+# =============================================================================
+# Dockerfile.frontend - PRODUCCIÓN (10.8.10.20)
+# =============================================================================
+# Usa Nginx como servidor web con proxy reverso a backend/documentos
+# Incluye healthcheck, gzip, y configuración de seguridad
+# =============================================================================
+
+# Build stage - compilar el frontend
+FROM node:20-alpine AS build
+
+WORKDIR /app
+
+# Copiar archivos de dependencias
+COPY package*.json ./
+
+# Copiar el código fuente
+COPY . .
+
+# Instalar dependencias y compilar
+RUN --mount=type=cache,target=/root/.npm npm install --workspaces --legacy-peer-deps
+
+# Variables de build de Vite
+ARG VITE_API_URL
+ARG VITE_API_BASE_URL
+ARG VITE_DOCUMENTOS_API_URL
+ARG VITE_DOCUMENTOS_WS_URL
+ARG VITE_APP_TITLE
+
+RUN npm run -w apps/frontend build
+
+# Production stage - Nginx como proxy inverso
+FROM nginx:alpine
+
+# Instalar wget para healthcheck
+RUN apk add --no-cache wget
+
+# Copiar configuración personalizada de Nginx
+COPY deploy/stack-ip-10.8.10.20/nginx.conf /etc/nginx/nginx.conf
+
+# Copiar los archivos estáticos del build
+COPY --from=build /app/apps/frontend/dist /usr/share/nginx/html
+
+# Exponer puerto
+EXPOSE 8550
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
+  CMD wget --no-verbose --tries=1 --spider http://localhost:8550/health || exit 1
+
+# Iniciar Nginx
+CMD ["nginx", "-g", "daemon off;"]
+

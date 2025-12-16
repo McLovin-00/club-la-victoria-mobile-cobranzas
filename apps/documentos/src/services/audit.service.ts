@@ -3,6 +3,7 @@ import { AppLogger } from '../config/logger';
 type AuditPayload = {
   tenantEmpresaId?: number;
   userId?: number | string;
+  userEmail?: string;
   userRole?: string;
   method: string;
   path: string;
@@ -44,9 +45,12 @@ export class AuditService {
           await client.auditLog.create({
             data: {
               tenantEmpresaId: event.tenantEmpresaId ?? null,
-              action: event.action ?? `${event.method} ${event.path}`,
+              accion: event.action ?? `${event.method} ${event.path}`,
+              method: event.method,
+              path: event.path,
               detalles: event as any,
               userId: typeof event.userId === 'number' ? event.userId : null,
+              userEmail: event.userEmail ?? null,
               userRole: event.userRole ?? null,
               statusCode: event.statusCode,
               entityType: event.entityType ?? null,
@@ -54,8 +58,9 @@ export class AuditService {
             },
           });
         }
-      } catch {
-        // Silenciar errores de persistencia para no afectar la request
+      } catch (err) {
+        // Log warning para diagnóstico, sin romper el flujo
+        AppLogger.warn('⚠️ Audit persistence failed', { error: err instanceof Error ? err.message : err });
       }
     } catch {
       // No-op: nunca romper por auditoría

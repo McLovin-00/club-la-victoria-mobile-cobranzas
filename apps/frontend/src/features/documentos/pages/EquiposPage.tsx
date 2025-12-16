@@ -385,7 +385,7 @@ export const EquiposPage: React.FC = () => {
             </div>
           </div>
           <div>
-            <Label htmlFor='selAcoplado'>Acoplado (opcional)</Label>
+            <Label htmlFor='selAcoplado'>Acoplado</Label>
             <select id='selAcoplado' className='border rounded px-2 h-10 w-full bg-background text-foreground' value={trailerIdSel}
               onChange={(e)=> setTrailerIdSel(e.target.value? Number(e.target.value) : '')}>
               <option value=''>Sin acoplado</option>

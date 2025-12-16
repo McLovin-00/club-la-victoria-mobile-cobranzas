@@ -19,6 +19,7 @@ export const auditMiddleware = (req: AuthRequest, res: Response, next: NextFunct
       void AuditService.log({
         tenantEmpresaId: req.tenantId,
         userId: req.user?.userId,
+        userEmail: req.user?.email,
         userRole: req.user?.role,
         method: req.method,
         path: req.originalUrl || req.path,

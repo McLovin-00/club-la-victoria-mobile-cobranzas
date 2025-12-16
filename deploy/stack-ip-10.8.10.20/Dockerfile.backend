@@ -1,8 +1,8 @@
 # =============================================================================
-# Dockerfile.backend - DESARROLLO/STAGING (10.3.0.243)
+# Dockerfile.backend - PRODUCCIÓN (10.8.10.20)
 # =============================================================================
 # Backend API con Node.js 20 Alpine
-# Incluye healthcheck y optimizaciones
+# Incluye healthcheck y optimizaciones de producción
 # =============================================================================
 
 FROM node:20-alpine AS builder
@@ -14,21 +14,26 @@ COPY . .
 
 # Instalar dependencias de workspaces y compilar backend
 RUN --mount=type=cache,target=/root/.npm \
-    sh -c "npm config set legacy-peer-deps true && npm install --workspaces && npm run -w apps/backend build"
+    npm install --workspaces --legacy-peer-deps && \
+    npm run -w apps/backend build
 
+# Production stage
 FROM node:20-alpine AS runner
 
 WORKDIR /app
 
 ENV NODE_ENV=production
 
+# Copiar node_modules y archivos compilados
 COPY --from=builder /app/node_modules ./node_modules
 COPY --from=builder /app/apps/backend/dist ./apps/backend/dist
 COPY apps/backend/prisma ./apps/backend/prisma
 
 EXPOSE 4800
 
+# Health check
 HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \
     CMD wget -qO- http://localhost:4800/health || exit 1
 
 CMD ["node", "apps/backend/dist/src/server.js"]
+

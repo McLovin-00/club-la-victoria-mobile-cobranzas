@@ -699,7 +699,7 @@ const AltaEquipoCompletaPage: React.FC = () => {
       <div className='bg-white border border-gray-300 rounded-lg p-6 mb-6'>
         <h2 className='text-xl font-semibold text-gray-900 mb-4 flex items-center'>
           <span className='bg-purple-100 text-purple-800 rounded-full w-8 h-8 flex items-center justify-center mr-3 text-sm font-bold'>4</span>
-          🚚 Semi / Acoplado (opcional)
+          🚚 Semi / Acoplado
         </h2>
         
         <div className='grid grid-cols-1 md:grid-cols-2 gap-4'>

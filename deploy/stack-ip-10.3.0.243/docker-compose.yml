@@ -356,7 +356,7 @@ services:
     image: bca/frontend:latest
     container_name: bca_frontend
     restart: always
-    command: ["-port","8550","-enable-health","-fallback","index.html"]
+    command: ["/goStatic","-port","8550","-enable-health","-fallback","index.html"]
     environment:
       SERVER_PORT: 8550
       SERVER_ROOT: /public
@@ -379,7 +379,10 @@ services:
           cpus: "0.5"
           memory: "1G"
     healthcheck:
-      disable: true
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8550/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
     networks:
       - edge_net
 

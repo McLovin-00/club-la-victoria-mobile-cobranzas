@@ -71,7 +71,7 @@ const AuditLogsPage: React.FC = () => {
     limit,
     from: params.get('from') || undefined,
     to: params.get('to') || undefined,
-    userId: params.get('userId') ? Number(params.get('userId')) : undefined,
+    userEmail: params.get('userEmail') || undefined,
     userRole: params.get('userRole') || undefined,
     method: params.get('method') || undefined,
     statusCode: params.get('statusCode') ? Number(params.get('statusCode')) : undefined,
@@ -137,7 +137,7 @@ const AuditLogsPage: React.FC = () => {
       <div className='grid grid-cols-1 md:grid-cols-4 gap-3 mb-4'>
         <TextInput label='Desde' name='from' value={params.get('from') ?? ''} onChange={(v) => set('from', v)} type='datetime-local' />
         <TextInput label='Hasta' name='to' value={params.get('to') ?? ''} onChange={(v) => set('to', v)} type='datetime-local' />
-        <NumberInput label='User ID' name='userId' value={params.get('userId') ? Number(params.get('userId')) : undefined} onChange={(v) => set('userId', v)} />
+        <TextInput label='Email' name='userEmail' value={params.get('userEmail') ?? ''} onChange={(v) => set('userEmail', v)} placeholder='usuario@email.com' />
         <TextInput label='Rol' name='userRole' value={params.get('userRole') ?? ''} onChange={(v) => set('userRole', v)} placeholder='ADMIN' />
         <SelectInput label='Método' name='method' value={params.get('method') ?? ''} onChange={(v) => set('method', v)} options={[
           { value: 'GET', label: 'GET' }, { value: 'POST', label: 'POST' }, { value: 'PUT', label: 'PUT' }, { value: 'PATCH', label: 'PATCH' }, { value: 'DELETE', label: 'DELETE' },
@@ -203,7 +203,7 @@ const AuditLogsPage: React.FC = () => {
                   {visibleCols.accion && <td className='px-2 py-2'>{row.accion}</td>}
                   {visibleCols.metodo && <td className='px-2 py-2'>{row.method}</td>}
                   {visibleCols.status && <td className='px-2 py-2'>{row.statusCode}</td>}
-                  {visibleCols.usuario && <td className='px-2 py-2'>{row.userId ?? ''}</td>}
+                  {visibleCols.usuario && <td className='px-2 py-2'>{row.userEmail || row.userId || ''}</td>}
                   {visibleCols.rol && <td className='px-2 py-2'>{row.userRole ?? ''}</td>}
                   {visibleCols.entidad && <td className='px-2 py-2'>
                     {row.entityType}{row.entityId ? `#${row.entityId}` : ''}
