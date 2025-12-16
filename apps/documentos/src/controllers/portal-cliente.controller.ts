@@ -3,17 +3,20 @@ import { AuthRequest } from '../middlewares/auth.middleware';
 import { prisma } from '../config/database';
 import { AppLogger } from '../config/logger';
 import { createError } from '../middlewares/error.middleware';
-import { ComplianceService } from '../services/compliance.service';
+import { ComplianceService, EquipoInfo } from '../services/compliance.service';
 
 /**
  * Portal Cliente Controller
  * Endpoints de solo lectura para clientes
+ * OPTIMIZADO: usa batch compliance para reducir queries de N*M a ~5 queries
  */
 export class PortalClienteController {
   /**
    * GET /api/portal-cliente/equipos
    * Lista equipos asignados al cliente autenticado con paginación del lado del servidor
    * Query params: page, limit, search, estado
+   * 
+   * OPTIMIZACIÓN: Usa batch loading para compliance (~5 queries totales vs N*M anterior)
    */
   static async getEquiposAsignados(req: AuthRequest, res: Response) {
     const tenantId = req.tenantId!;
@@ -25,8 +28,6 @@ export class PortalClienteController {
     const search = (req.query.search as string)?.trim().toLowerCase() || '';
     const estado = (req.query.estado as string) || '';
     
-    // El clienteId viene del usuario autenticado
-    // Por ahora asumimos que empresaId es el clienteId para rol CLIENTE
     const clienteId = (user as any).clienteId || user.empresaId;
     
     if (!clienteId) {
@@ -37,13 +38,12 @@ export class PortalClienteController {
     }
     
     try {
-      // Obtener TODOS los equipos asignados para calcular el resumen global
-      // SOLO equipos activos (activo: true)
+      // QUERY 1: Obtener equipos asignados con datos relacionados
       const todosEquiposCliente = await prisma.equipoCliente.findMany({
         where: {
           clienteId,
-          asignadoHasta: null, // Solo asignaciones vigentes
-          equipo: { tenantEmpresaId: tenantId, activo: true },
+          asignadoHasta: null,
+          equipo: { tenantEmpresaId: tenantId },
         },
         include: {
           equipo: {
@@ -54,102 +54,101 @@ export class PortalClienteController {
           },
         },
       });
-      
-      // Obtener datos adicionales de TODOS los equipos para calcular resumen
-      // Usando el mismo criterio de cálculo que admin interno (conteos independientes)
-      const todosEquiposConEstado = await Promise.all(
-        todosEquiposCliente.map(async (ec) => {
-          const equipo = ec.equipo;
-          
-          // Obtener chofer, camion, acoplado
-          const [chofer, camion, acoplado] = await Promise.all([
-            prisma.chofer.findUnique({ where: { id: equipo.driverId } }),
-            prisma.camion.findUnique({ where: { id: equipo.truckId } }),
-            equipo.trailerId 
-              ? prisma.acoplado.findUnique({ where: { id: equipo.trailerId } })
-              : null,
-          ]);
-          
-          // Calcular estado de compliance con conteos INDEPENDIENTES (igual que admin interno)
-          let estadoCompliance: 'VIGENTE' | 'PROXIMO_VENCER' | 'VENCIDO' | 'INCOMPLETO' = 'VIGENTE';
-          let proximoVencimiento: Date | null = null;
-          // Flags independientes para el resumen (mismo criterio que admin interno)
-          let tieneVencidos = false;
-          let tieneFaltantes = false;
-          let tieneProximos = false;
-          
-          try {
-            const compliance = await ComplianceService.evaluateEquipoClienteDetailed(
-              equipo.id,
-              clienteId
-            );
-            
-            const vencidos = compliance.filter(c => c.state === 'VENCIDO');
-            const faltantes = compliance.filter(c => c.state === 'FALTANTE');
-            const proximosVencer = compliance.filter(c => c.state === 'PROXIMO');
-            
-            // Flags independientes (un equipo puede tener vencidos Y faltantes Y próximos)
-            tieneVencidos = vencidos.length > 0;
-            tieneFaltantes = faltantes.length > 0;
-            tieneProximos = proximosVencer.length > 0;
-            
-            // Estado de display (peor estado para mostrar en la UI)
-            if (vencidos.length > 0) {
-              estadoCompliance = 'VENCIDO';
-            } else if (faltantes.length > 0) {
-              estadoCompliance = 'INCOMPLETO';
-            } else if (proximosVencer.length > 0) {
-              estadoCompliance = 'PROXIMO_VENCER';
-              // Encontrar la fecha más próxima
-              const fechas = proximosVencer
-                .filter(c => c.expiresAt)
-                .map(c => new Date(c.expiresAt!));
-              if (fechas.length > 0) {
-                proximoVencimiento = fechas.reduce((a, b) => a < b ? a : b);
-              }
-            }
-          } catch {
-            estadoCompliance = 'INCOMPLETO';
-            tieneFaltantes = true;
+
+      // QUERY 2-4: Cargar choferes, camiones y acoplados en batch
+      const choferIds = [...new Set(todosEquiposCliente.map(ec => ec.equipo.driverId))];
+      const camionIds = [...new Set(todosEquiposCliente.map(ec => ec.equipo.truckId))];
+      const acopladoIds = [...new Set(todosEquiposCliente.map(ec => ec.equipo.trailerId).filter(Boolean))] as number[];
+
+      const [choferes, camiones, acoplados] = await Promise.all([
+        prisma.chofer.findMany({ where: { id: { in: choferIds } } }),
+        prisma.camion.findMany({ where: { id: { in: camionIds } } }),
+        acopladoIds.length > 0 
+          ? prisma.acoplado.findMany({ where: { id: { in: acopladoIds } } })
+          : Promise.resolve([]),
+      ]);
+
+      // Indexar por ID para acceso O(1)
+      const choferMap = new Map(choferes.map(c => [c.id, c]));
+      const camionMap = new Map(camiones.map(c => [c.id, c]));
+      const acopladoMap = new Map(acoplados.map(a => [a.id, a]));
+
+      // QUERY 5: Batch compliance (internamente hace 1-2 queries más)
+      const equiposInfo: EquipoInfo[] = todosEquiposCliente.map(ec => ({
+        id: ec.equipo.id,
+        tenantEmpresaId: ec.equipo.tenantEmpresaId,
+        dadorCargaId: ec.equipo.dadorCargaId,
+        driverId: ec.equipo.driverId,
+        truckId: ec.equipo.truckId,
+        trailerId: ec.equipo.trailerId,
+        empresaTransportistaId: ec.equipo.empresaTransportistaId,
+      }));
+
+      const complianceResults = await ComplianceService.evaluateBatchEquiposCliente(equiposInfo, clienteId);
+
+      // Construir lista de equipos con estado (todo en memoria)
+      const todosEquiposConEstado = todosEquiposCliente.map(ec => {
+        const equipo = ec.equipo;
+        const chofer = choferMap.get(equipo.driverId);
+        const camion = camionMap.get(equipo.truckId);
+        const acoplado = equipo.trailerId ? acopladoMap.get(equipo.trailerId) : null;
+        
+        const compliance = complianceResults.get(equipo.id);
+        const tieneVencidos = compliance?.tieneVencidos ?? false;
+        const tieneFaltantes = compliance?.tieneFaltantes ?? false;
+        const tieneProximos = compliance?.tieneProximos ?? false;
+
+        // Estado de display (peor estado)
+        let estadoCompliance: 'VIGENTE' | 'PROXIMO_VENCER' | 'VENCIDO' | 'INCOMPLETO' = 'VIGENTE';
+        let proximoVencimiento: Date | null = null;
+
+        if (tieneVencidos) {
+          estadoCompliance = 'VENCIDO';
+        } else if (tieneFaltantes) {
+          estadoCompliance = 'INCOMPLETO';
+        } else if (tieneProximos) {
+          estadoCompliance = 'PROXIMO_VENCER';
+          // Buscar fecha más próxima
+          const proximos = compliance?.requirements.filter(r => r.state === 'PROXIMO' && r.expiresAt) || [];
+          if (proximos.length > 0) {
+            const fechas = proximos.map(r => new Date(r.expiresAt!));
+            proximoVencimiento = fechas.reduce((a, b) => a < b ? a : b);
           }
-          
-          return {
-            id: equipo.id,
-            identificador: `${camion?.patente || equipo.truckPlateNorm}-${chofer?.dni || equipo.driverDniNorm}`,
-            camion: camion ? { 
-              patente: camion.patente,
-              marca: camion.marca,
-              modelo: camion.modelo,
-            } : null,
-            acoplado: acoplado ? {
-              patente: acoplado.patente,
-            } : null,
-            chofer: chofer ? {
-              nombre: chofer.nombre,
-              apellido: chofer.apellido,
-              dni: chofer.dni,
-            } : null,
-            empresaTransportista: equipo.empresaTransportista ? {
-              razonSocial: equipo.empresaTransportista.razonSocial,
-              cuit: equipo.empresaTransportista.cuit,
-            } : null,
-            estadoCompliance,
-            proximoVencimiento: proximoVencimiento?.toISOString() || null,
-            asignadoDesde: ec.asignadoDesde,
-            // Flags independientes para conteo (igual que admin interno)
-            _tieneVencidos: tieneVencidos,
-            _tieneFaltantes: tieneFaltantes,
-            _tieneProximos: tieneProximos,
-          };
-        })
-      );
+        }
+
+        return {
+          id: equipo.id,
+          identificador: `${camion?.patente || equipo.truckPlateNorm}-${chofer?.dni || equipo.driverDniNorm}`,
+          camion: camion ? { 
+            patente: camion.patente,
+            marca: camion.marca,
+            modelo: camion.modelo,
+          } : null,
+          acoplado: acoplado ? {
+            patente: acoplado.patente,
+          } : null,
+          chofer: chofer ? {
+            nombre: chofer.nombre,
+            apellido: chofer.apellido,
+            dni: chofer.dni,
+          } : null,
+          empresaTransportista: equipo.empresaTransportista ? {
+            razonSocial: equipo.empresaTransportista.razonSocial,
+            cuit: equipo.empresaTransportista.cuit,
+          } : null,
+          estadoCompliance,
+          proximoVencimiento: proximoVencimiento?.toISOString() || null,
+          asignadoDesde: ec.asignadoDesde,
+          _tieneVencidos: tieneVencidos,
+          _tieneFaltantes: tieneFaltantes,
+          _tieneProximos: tieneProximos,
+        };
+      });
       
-      // Calcular resumen global con CONTEOS INDEPENDIENTES (mismo criterio que admin interno)
-      // Un equipo puede contar en múltiples categorías simultáneamente
+      // Calcular resumen con conteos independientes
       const resumen = {
         total: todosEquiposConEstado.length,
         vigentes: todosEquiposConEstado.filter(e => e.estadoCompliance === 'VIGENTE').length,
-        // Conteos independientes (mismo criterio que admin interno)
         proximosVencer: todosEquiposConEstado.filter(e => e._tieneProximos).length,
         vencidos: todosEquiposConEstado.filter(e => e._tieneVencidos).length,
         incompletos: todosEquiposConEstado.filter(e => e._tieneFaltantes).length,

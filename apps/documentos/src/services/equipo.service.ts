@@ -2,6 +2,7 @@ import { prisma } from '../config/database';
 import { createError } from '../middlewares/error.middleware';
 import { AuditService } from './audit.service';
 import { DocumentArchiveService } from './document-archive.service';
+import { ComplianceService, EquipoInfo } from './compliance.service';
 
 function normalizeDni(dni: string): string {
   return (dni || '').replace(/\D+/g, '');
@@ -163,7 +164,9 @@ export class EquipoService {
 
   /**
    * Obtiene estadísticas de compliance agregadas para equipos que coinciden con los filtros
-   * Devuelve: total de equipos, equipos con faltantes, vencidos, por vencer
+   * OPTIMIZADO: Usa batch compliance para reducir queries de N*M a ~5 queries
+   * 
+   * @returns Stats + mapa de compliance por equipo para reutilizar en filtrado
    */
   static async getComplianceStats(
     tenantEmpresaId: number,
@@ -178,7 +181,15 @@ export class EquipoService {
       choferId?: number;
       activo?: boolean | 'all';
     }
-  ): Promise<{ total: number; conFaltantes: number; conVencidos: number; conPorVencer: number; equipoIds: number[] }> {
+  ): Promise<{ 
+    total: number; 
+    conFaltantes: number; 
+    conVencidos: number; 
+    conPorVencer: number; 
+    equipoIds: number[];
+    // Mapa interno para reutilizar en filtrado (evita recalcular)
+    _complianceMap?: Map<number, { tieneVencidos: boolean; tieneFaltantes: boolean; tieneProximos: boolean }>;
+  }> {
     // Construir where igual que searchPaginated
     const where: any = { tenantEmpresaId };
     
@@ -228,22 +239,32 @@ export class EquipoService {
     }
     
     // Filtro por cliente
+    let clienteIdForCompliance: number | undefined;
     if (filters.clienteId) {
+      clienteIdForCompliance = filters.clienteId;
       const asignaciones = await prisma.equipoCliente.findMany({
         where: { clienteId: filters.clienteId, asignadoHasta: null },
         select: { equipoId: true }
       });
-      const equipoIds = asignaciones.map(a => a.equipoId);
-      if (equipoIds.length === 0) {
+      const equipoIdsCliente = asignaciones.map(a => a.equipoId);
+      if (equipoIdsCliente.length === 0) {
         return { total: 0, conFaltantes: 0, conVencidos: 0, conPorVencer: 0, equipoIds: [] };
       }
-      where.id = { in: equipoIds };
+      where.id = { in: equipoIdsCliente };
     }
     
-    // Obtener todos los equipos que coinciden
+    // Obtener todos los equipos que coinciden con datos necesarios para compliance
     const equipos = await prisma.equipo.findMany({
       where,
-      select: { id: true, driverId: true, truckId: true, trailerId: true, tenantEmpresaId: true, dadorCargaId: true }
+      select: { 
+        id: true, 
+        driverId: true, 
+        truckId: true, 
+        trailerId: true, 
+        tenantEmpresaId: true, 
+        dadorCargaId: true,
+        empresaTransportistaId: true,
+      }
     });
     
     const total = equipos.length;
@@ -252,120 +273,114 @@ export class EquipoService {
     if (total === 0) {
       return { total: 0, conFaltantes: 0, conVencidos: 0, conPorVencer: 0, equipoIds: [] };
     }
+
+    // Si hay clienteId, usar batch compliance (preciso)
+    // Si no hay clienteId, usar cálculo rápido basado en documentos
+    let complianceMap = new Map<number, { tieneVencidos: boolean; tieneFaltantes: boolean; tieneProximos: boolean }>();
     
-    // Calcular stats de compliance de forma eficiente usando la vista materializada o query directa
-    // Para eficiencia, usamos una query SQL directa
-    const now = new Date();
-    const proximoThreshold = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000); // 30 días
-    
-    // Obtener documentos de todas las entidades de estos equipos
-    const entityClauses: any[] = [];
-    for (const eq of equipos) {
-      if (eq.driverId) entityClauses.push({ entityType: 'CHOFER', entityId: eq.driverId });
-      if (eq.truckId) entityClauses.push({ entityType: 'CAMION', entityId: eq.truckId });
-      if (eq.trailerId) entityClauses.push({ entityType: 'ACOPLADO', entityId: eq.trailerId });
-    }
-    
-    // Mapear entityId a equipoId para cada tipo
-    const choferToEquipo = new Map<number, number[]>();
-    const camionToEquipo = new Map<number, number[]>();
-    const acopladoToEquipo = new Map<number, number[]>();
-    
-    for (const eq of equipos) {
-      if (eq.driverId) {
-        if (!choferToEquipo.has(eq.driverId)) choferToEquipo.set(eq.driverId, []);
-        choferToEquipo.get(eq.driverId)!.push(eq.id);
+    if (clienteIdForCompliance) {
+      // BATCH COMPLIANCE: Usa el servicio optimizado
+      const equiposInfo: EquipoInfo[] = equipos.map(eq => ({
+        id: eq.id,
+        tenantEmpresaId: eq.tenantEmpresaId,
+        dadorCargaId: eq.dadorCargaId,
+        driverId: eq.driverId,
+        truckId: eq.truckId,
+        trailerId: eq.trailerId,
+        empresaTransportistaId: eq.empresaTransportistaId,
+      }));
+
+      const batchResults = await ComplianceService.evaluateBatchEquiposCliente(equiposInfo, clienteIdForCompliance);
+      
+      for (const [eqId, result] of batchResults) {
+        complianceMap.set(eqId, {
+          tieneVencidos: result.tieneVencidos,
+          tieneFaltantes: result.tieneFaltantes,
+          tieneProximos: result.tieneProximos,
+        });
       }
-      if (eq.truckId) {
-        if (!camionToEquipo.has(eq.truckId)) camionToEquipo.set(eq.truckId, []);
-        camionToEquipo.get(eq.truckId)!.push(eq.id);
-      }
-      if (eq.trailerId) {
-        if (!acopladoToEquipo.has(eq.trailerId)) acopladoToEquipo.set(eq.trailerId, []);
-        acopladoToEquipo.get(eq.trailerId)!.push(eq.id);
-      }
-    }
-    
-    // Sets para equipos con cada estado
-    const equiposConVencidos = new Set<number>();
-    const equiposConPorVencer = new Set<number>();
-    const equiposConFaltantes = new Set<number>();
-    
-    if (entityClauses.length > 0) {
+    } else {
+      // Sin cliente específico: cálculo rápido basado en estado de documentos
+      const now = new Date();
+      const proximoThreshold = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000); // 30 días default
+      
+      // Recolectar entidades
+      const choferIds = [...new Set(equipos.map(e => e.driverId))];
+      const camionIds = [...new Set(equipos.map(e => e.truckId))];
+      const acopladoIds = [...new Set(equipos.filter(e => e.trailerId).map(e => e.trailerId!))] ;
+      
       // Query de documentos
       const docs = await prisma.document.findMany({
         where: {
           tenantEmpresaId,
-          OR: entityClauses
+          OR: [
+            { entityType: 'CHOFER', entityId: { in: choferIds } },
+            { entityType: 'CAMION', entityId: { in: camionIds } },
+            ...(acopladoIds.length > 0 ? [{ entityType: 'ACOPLADO' as const, entityId: { in: acopladoIds } }] : []),
+          ]
         },
         select: { entityType: true, entityId: true, status: true, expiresAt: true }
       });
       
-      for (const doc of docs) {
-        let equipoIdsForDoc: number[] = [];
-        if (doc.entityType === 'CHOFER' && choferToEquipo.has(doc.entityId)) {
-          equipoIdsForDoc = choferToEquipo.get(doc.entityId)!;
-        } else if (doc.entityType === 'CAMION' && camionToEquipo.has(doc.entityId)) {
-          equipoIdsForDoc = camionToEquipo.get(doc.entityId)!;
-        } else if (doc.entityType === 'ACOPLADO' && acopladoToEquipo.has(doc.entityId)) {
-          equipoIdsForDoc = acopladoToEquipo.get(doc.entityId)!;
+      // Mapear entidades a equipos
+      const entityToEquipos = new Map<string, number[]>();
+      for (const eq of equipos) {
+        const keys = [
+          `CHOFER:${eq.driverId}`,
+          `CAMION:${eq.truckId}`,
+          ...(eq.trailerId ? [`ACOPLADO:${eq.trailerId}`] : []),
+        ];
+        for (const key of keys) {
+          if (!entityToEquipos.has(key)) entityToEquipos.set(key, []);
+          entityToEquipos.get(key)!.push(eq.id);
         }
+        // Inicializar mapa
+        complianceMap.set(eq.id, { tieneVencidos: false, tieneFaltantes: false, tieneProximos: false });
+      }
+      
+      // Procesar documentos
+      for (const doc of docs) {
+        const key = `${doc.entityType}:${doc.entityId}`;
+        const eqIds = entityToEquipos.get(key) || [];
         
-        // Verificar estado
-        if (doc.expiresAt) {
-          const expDate = new Date(doc.expiresAt);
-          if (expDate < now) {
-            // Vencido
-            for (const eqId of equipoIdsForDoc) equiposConVencidos.add(eqId);
-          } else if (expDate < proximoThreshold) {
-            // Por vencer
-            for (const eqId of equipoIdsForDoc) equiposConPorVencer.add(eqId);
+        for (const eqId of eqIds) {
+          const state = complianceMap.get(eqId)!;
+          
+          if (doc.status === 'RECHAZADO') {
+            state.tieneFaltantes = true;
+          } else if (doc.status === 'VENCIDO' || (doc.expiresAt && new Date(doc.expiresAt) < now)) {
+            state.tieneVencidos = true;
+          } else if (doc.expiresAt && new Date(doc.expiresAt) < proximoThreshold) {
+            state.tieneProximos = true;
           }
         }
       }
-      
-      // Para faltantes, necesitamos verificar templates requeridos vs documentos existentes
-      // Simplificación: contar equipos que tienen menos documentos de los requeridos
-      // Por ahora, consideramos faltante = doc sin subir (status null o sin documento para template requerido)
-      // Esto requiere conocer los templates requeridos, lo cual es más complejo
-      // Por simplicidad, usamos los equipos que tienen algún documento rechazado o sin documentos
-      const docsRechazados = docs.filter(d => d.status === 'RECHAZADO');
-      for (const doc of docsRechazados) {
-        let equipoIdsForDoc: number[] = [];
-        if (doc.entityType === 'CHOFER' && choferToEquipo.has(doc.entityId)) {
-          equipoIdsForDoc = choferToEquipo.get(doc.entityId)!;
-        } else if (doc.entityType === 'CAMION' && camionToEquipo.has(doc.entityId)) {
-          equipoIdsForDoc = camionToEquipo.get(doc.entityId)!;
-        } else if (doc.entityType === 'ACOPLADO' && acopladoToEquipo.has(doc.entityId)) {
-          equipoIdsForDoc = acopladoToEquipo.get(doc.entityId)!;
-        }
-        for (const eqId of equipoIdsForDoc) equiposConFaltantes.add(eqId);
-      }
     }
     
-    // Para faltantes más precisos, necesitamos evaluar compliance completo
-    // Esto es costoso, así que lo hacemos solo si hay pocos equipos
-    if (total <= 100) {
-      const { EquipoEstadoService } = await import('./equipo-estado.service.js');
-      for (const eq of equipos) {
-        const estado = await EquipoEstadoService.calculateEquipoEstado(eq.id);
-        if (estado.breakdown.faltantes > 0) equiposConFaltantes.add(eq.id);
-        if (estado.breakdown.vencidos > 0) equiposConVencidos.add(eq.id);
-        if (estado.breakdown.proximos > 0) equiposConPorVencer.add(eq.id);
-      }
+    // Contar estadísticas
+    let conFaltantes = 0;
+    let conVencidos = 0;
+    let conPorVencer = 0;
+    
+    for (const state of complianceMap.values()) {
+      if (state.tieneFaltantes) conFaltantes++;
+      if (state.tieneVencidos) conVencidos++;
+      if (state.tieneProximos) conPorVencer++;
     }
     
     return {
       total,
-      conFaltantes: equiposConFaltantes.size,
-      conVencidos: equiposConVencidos.size,
-      conPorVencer: equiposConPorVencer.size,
-      equipoIds
+      conFaltantes,
+      conVencidos,
+      conPorVencer,
+      equipoIds,
+      _complianceMap: complianceMap,
     };
   }
 
   /**
    * Búsqueda paginada con filtro de compliance
+   * OPTIMIZADO: Reutiliza el mapa de compliance de getComplianceStats
    */
   static async searchPaginatedWithCompliance(
     tenantEmpresaId: number,
@@ -384,20 +399,22 @@ export class EquipoService {
     page: number = 1,
     limit: number = 10
   ) {
-    // Si hay filtro de compliance, primero obtenemos los IDs filtrados
-    if (filters.complianceFilter) {
-      const stats = await this.getComplianceStats(tenantEmpresaId, filters);
-      
-      // Filtrar equipoIds según el filtro de compliance
-      const { EquipoEstadoService } = await import('./equipo-estado.service.js');
+    // Obtener stats (incluye _complianceMap precalculado)
+    const stats = await this.getComplianceStats(tenantEmpresaId, filters);
+    
+    // Si hay filtro de compliance, filtrar usando el mapa precalculado
+    if (filters.complianceFilter && stats._complianceMap) {
       const filteredIds: number[] = [];
       
       for (const eqId of stats.equipoIds) {
-        const estado = await EquipoEstadoService.calculateEquipoEstado(eqId);
+        const state = stats._complianceMap.get(eqId);
+        if (!state) continue;
+        
         const matches = 
-          (filters.complianceFilter === 'faltantes' && estado.breakdown.faltantes > 0) ||
-          (filters.complianceFilter === 'vencidos' && estado.breakdown.vencidos > 0) ||
-          (filters.complianceFilter === 'por_vencer' && estado.breakdown.proximos > 0);
+          (filters.complianceFilter === 'faltantes' && state.tieneFaltantes) ||
+          (filters.complianceFilter === 'vencidos' && state.tieneVencidos) ||
+          (filters.complianceFilter === 'por_vencer' && state.tieneProximos);
+        
         if (matches) filteredIds.push(eqId);
       }
       
@@ -410,7 +427,7 @@ export class EquipoService {
           totalPages: 0,
           hasNext: false,
           hasPrev: false,
-          stats
+          stats: { total: stats.total, conFaltantes: stats.conFaltantes, conVencidos: stats.conVencidos, conPorVencer: stats.conPorVencer }
         };
       }
       
@@ -440,15 +457,17 @@ export class EquipoService {
         totalPages,
         hasNext: page < totalPages,
         hasPrev: page > 1,
-        stats
+        stats: { total: stats.total, conFaltantes: stats.conFaltantes, conVencidos: stats.conVencidos, conPorVencer: stats.conPorVencer }
       };
     }
     
-    // Sin filtro de compliance, usar búsqueda normal + agregar stats
+    // Sin filtro de compliance, usar búsqueda normal + stats ya calculados
     const result = await this.searchPaginated(tenantEmpresaId, filters, page, limit);
-    const stats = await this.getComplianceStats(tenantEmpresaId, filters);
     
-    return { ...result, stats };
+    return { 
+      ...result, 
+      stats: { total: stats.total, conFaltantes: stats.conFaltantes, conVencidos: stats.conVencidos, conPorVencer: stats.conPorVencer } 
+    };
   }
 
   /**
