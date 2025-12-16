@@ -16,6 +16,7 @@ import {
 import { ThemeToggle } from '../ui/theme-toggle';
 import { Logger } from '../../lib/utils';
 import { useServiceFlags } from '../../hooks/useServiceConfig';
+import bcaLogo from '../../assets/logo-bca.svg';
 // Tenant selector removido de la UI: el tenant se toma del empresaId del usuario
 
 export const MainLayout = () => {
@@ -37,10 +38,12 @@ export const MainLayout = () => {
               {sidebarOpen ? <XMarkIcon className='h-5 w-5' /> : <Bars3Icon className='h-5 w-5' />}
             </button>
             <Link to='/' className='flex items-center gap-2'>
-              <div className='bg-primary rounded-md p-1.5 shadow-sm'>
-                <BuildingOfficeIcon className='h-5 w-5 text-primary-foreground' />
-              </div>
-              <span className='font-semibold text-lg text-foreground hidden md:block'>MKT</span>
+              <img
+                src={bcaLogo}
+                alt='Grupo BCA'
+                className='h-9 w-auto object-contain'
+                loading='eager'
+              />
             </Link>
           </div>
 
