@@ -190,6 +190,9 @@ export class EquipoService {
     // Mapa interno para reutilizar en filtrado (evita recalcular)
     _complianceMap?: Map<number, { tieneVencidos: boolean; tieneFaltantes: boolean; tieneProximos: boolean }>;
   }> {
+    const startTime = Date.now();
+    const timings: Record<string, number> = {};
+    
     // Construir where igual que searchPaginated
     const where: any = { tenantEmpresaId };
     
@@ -252,8 +255,10 @@ export class EquipoService {
       }
       where.id = { in: equipoIdsCliente };
     }
+    timings.filterBuild = Date.now() - startTime;
     
     // Obtener todos los equipos que coinciden con datos necesarios para compliance
+    const equiposStart = Date.now();
     const equipos = await prisma.equipo.findMany({
       where,
       select: { 
@@ -266,6 +271,7 @@ export class EquipoService {
         empresaTransportistaId: true,
       }
     });
+    timings.equiposQuery = Date.now() - equiposStart;
     
     const total = equipos.length;
     const equipoIds = equipos.map(e => e.id);
@@ -274,87 +280,31 @@ export class EquipoService {
       return { total: 0, conFaltantes: 0, conVencidos: 0, conPorVencer: 0, equipoIds: [] };
     }
 
-    // Si hay clienteId, usar batch compliance (preciso)
-    // Si no hay clienteId, usar cálculo rápido basado en documentos
+    // BATCH COMPLIANCE: Siempre usar el servicio optimizado que evalúa requisitos de clientes
     let complianceMap = new Map<number, { tieneVencidos: boolean; tieneFaltantes: boolean; tieneProximos: boolean }>();
     
-    if (clienteIdForCompliance) {
-      // BATCH COMPLIANCE: Usa el servicio optimizado
-      const equiposInfo: EquipoInfo[] = equipos.map(eq => ({
-        id: eq.id,
-        tenantEmpresaId: eq.tenantEmpresaId,
-        dadorCargaId: eq.dadorCargaId,
-        driverId: eq.driverId,
-        truckId: eq.truckId,
-        trailerId: eq.trailerId,
-        empresaTransportistaId: eq.empresaTransportistaId,
-      }));
+    const batchStart = Date.now();
+    const equiposInfo: EquipoInfo[] = equipos.map(eq => ({
+      id: eq.id,
+      tenantEmpresaId: eq.tenantEmpresaId,
+      dadorCargaId: eq.dadorCargaId,
+      driverId: eq.driverId,
+      truckId: eq.truckId,
+      trailerId: eq.trailerId,
+      empresaTransportistaId: eq.empresaTransportistaId,
+    }));
 
-      const batchResults = await ComplianceService.evaluateBatchEquiposCliente(equiposInfo, clienteIdForCompliance);
-      
-      for (const [eqId, result] of batchResults) {
-        complianceMap.set(eqId, {
-          tieneVencidos: result.tieneVencidos,
-          tieneFaltantes: result.tieneFaltantes,
-          tieneProximos: result.tieneProximos,
-        });
-      }
-    } else {
-      // Sin cliente específico: cálculo rápido basado en estado de documentos
-      const now = new Date();
-      const proximoThreshold = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000); // 30 días default
-      
-      // Recolectar entidades
-      const choferIds = [...new Set(equipos.map(e => e.driverId))];
-      const camionIds = [...new Set(equipos.map(e => e.truckId))];
-      const acopladoIds = [...new Set(equipos.filter(e => e.trailerId).map(e => e.trailerId!))] ;
-      
-      // Query de documentos
-      const docs = await prisma.document.findMany({
-        where: {
-          tenantEmpresaId,
-          OR: [
-            { entityType: 'CHOFER', entityId: { in: choferIds } },
-            { entityType: 'CAMION', entityId: { in: camionIds } },
-            ...(acopladoIds.length > 0 ? [{ entityType: 'ACOPLADO' as const, entityId: { in: acopladoIds } }] : []),
-          ]
-        },
-        select: { entityType: true, entityId: true, status: true, expiresAt: true }
+    // Si hay clienteId, evaluar contra ese cliente específico
+    // Si no, evaluar contra TODOS los clientes asignados a cada equipo
+    const batchResults = await ComplianceService.evaluateBatchEquiposCliente(equiposInfo, clienteIdForCompliance);
+    timings.batchCompliance = Date.now() - batchStart;
+    
+    for (const [eqId, result] of batchResults) {
+      complianceMap.set(eqId, {
+        tieneVencidos: result.tieneVencidos,
+        tieneFaltantes: result.tieneFaltantes,
+        tieneProximos: result.tieneProximos,
       });
-      
-      // Mapear entidades a equipos
-      const entityToEquipos = new Map<string, number[]>();
-      for (const eq of equipos) {
-        const keys = [
-          `CHOFER:${eq.driverId}`,
-          `CAMION:${eq.truckId}`,
-          ...(eq.trailerId ? [`ACOPLADO:${eq.trailerId}`] : []),
-        ];
-        for (const key of keys) {
-          if (!entityToEquipos.has(key)) entityToEquipos.set(key, []);
-          entityToEquipos.get(key)!.push(eq.id);
-        }
-        // Inicializar mapa
-        complianceMap.set(eq.id, { tieneVencidos: false, tieneFaltantes: false, tieneProximos: false });
-      }
-      
-      // Procesar documentos
-      for (const doc of docs) {
-        const key = `${doc.entityType}:${doc.entityId}`;
-        const eqIds = entityToEquipos.get(key) || [];
-        
-        for (const eqId of eqIds) {
-          const state = complianceMap.get(eqId)!;
-          
-          if (doc.status === 'RECHAZADO') {
-            state.tieneFaltantes = true;
-          } else if (doc.status === 'VENCIDO' || (doc.expiresAt && new Date(doc.expiresAt) < now)) {
-            state.tieneVencidos = true;
-          } else if (doc.expiresAt && new Date(doc.expiresAt) < proximoThreshold) {
-            state.tieneProximos = true;
-          }
-        }
-      }
     }
     
     // Contar estadísticas
@@ -367,6 +317,9 @@ export class EquipoService {
       if (state.tieneVencidos) conVencidos++;
       if (state.tieneProximos) conPorVencer++;
     }
+    
+    timings.total = Date.now() - startTime;
+    console.log(`[EquipoService.getComplianceStats] equipos=${total} timings=${JSON.stringify(timings)}`);
     
     return {
       total,

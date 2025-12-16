@@ -185,7 +185,21 @@ export class PortalClienteController {
       }
       
       if (estado && estado !== 'TODOS') {
-        equiposFiltrados = equiposFiltrados.filter(eq => eq.estadoCompliance === estado);
+        // Filtrar usando las mismas flags independientes que usa el resumen
+        equiposFiltrados = equiposFiltrados.filter(eq => {
+          switch (estado) {
+            case 'PROXIMO_VENCER':
+              return eq._tieneProximos;
+            case 'VENCIDO':
+              return eq._tieneVencidos;
+            case 'INCOMPLETO':
+              return eq._tieneFaltantes;
+            case 'VIGENTE':
+              return !eq._tieneVencidos && !eq._tieneFaltantes && !eq._tieneProximos;
+            default:
+              return eq.estadoCompliance === estado;
+          }
+        });
       }
       
       // Paginación
