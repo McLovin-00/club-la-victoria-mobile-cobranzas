@@ -8,6 +8,7 @@ import {
   logAction,
   AuthRequest
 } from '../middlewares/platformAuth.middleware';
+import { loginRateLimiter, passwordChangeRateLimiter } from '../middlewares/rateLimit.middleware';
 import { prismaService } from '../config/prisma';
 import { AppLogger } from '../config/logger';
 
@@ -17,9 +18,11 @@ const router = Router();
  * @route POST /api/platform/auth/login
  * @desc Login de usuario de plataforma
  * @access Public
+ * @rateLimit 5 intentos por IP cada 15 minutos
  */
 router.post(
   '/login',
+  loginRateLimiter, // Rate limiting para prevenir ataques de fuerza bruta
   ValidationMiddleware.validateBody(z.object({
     email: z.string().email(),
     password: z.string().min(6),
@@ -164,9 +167,11 @@ router.get(
  * @route POST /api/platform/auth/change-password
  * @desc Cambiar contraseña del usuario autenticado
  * @access Private
+ * @rateLimit 3 intentos por IP cada 30 minutos
  */
 router.post(
   '/change-password',
+  passwordChangeRateLimiter, // Rate limiting más estricto para cambio de contraseña
   authenticateUser,
   ValidationMiddleware.validateBody(z.object({
     currentPassword: z.string().min(8),
