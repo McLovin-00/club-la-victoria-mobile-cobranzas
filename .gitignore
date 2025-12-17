@@ -143,3 +143,8 @@ docs/.cache-loader/
 keys/
 *.pem
 
+
+# Datos de importación (no deben estar en el repositorio)
+import-data/dni-images/
+import-data/dni-small/
+import-data/documentos/
