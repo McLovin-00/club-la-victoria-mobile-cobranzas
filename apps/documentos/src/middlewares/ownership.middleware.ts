@@ -78,7 +78,7 @@ export function ownsEquipo() {
           }
           break;
 
-        case 'CLIENTE':
+        case 'CLIENTE': {
           // Cliente solo puede ver equipos asignados a él
           // Necesitamos obtener el clienteId del usuario
           // Por ahora, asumimos que empresaId es el clienteId
@@ -93,6 +93,7 @@ export function ownsEquipo() {
             return res.status(403).json({ success: false, message: 'No tiene acceso a este equipo' });
           }
           break;
+        }
 
         default:
           // Otros roles (OPERATOR, etc.) usan verificación de tenant

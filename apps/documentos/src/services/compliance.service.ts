@@ -189,7 +189,7 @@ export class ComplianceService {
     }
 
     // Mapa de equipoId -> clienteIds asignados (para cuando no hay clienteId específico)
-    let equipoClientesMap = new Map<number, number[]>();
+    const equipoClientesMap = new Map<number, number[]>();
     let allClienteIds: number[] = [];
 
     if (clienteId) {

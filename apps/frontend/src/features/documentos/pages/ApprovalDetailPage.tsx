@@ -158,7 +158,8 @@ export default function ApprovalDetailPage() {
     });
 
     return () => { cancelled = true; };
-  }, [effectivePreviewUrl]); // FIXED: Removed previewBlobUrl from deps to prevent infinite loop
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [effectivePreviewUrl]); // previewBlobUrl omitido intencionalmente para evitar loop infinito
   const classification = info?.classification || (info as any)?.data?.classification;
   const meta = (info as any)?.data ?? info;
 

@@ -83,7 +83,7 @@ export const authenticate = async (
 /**
  * Middleware de autorización por roles - Elegante y Directo
  */
-export const authorize = (allowedRoles: Array<UserRole | string>) => {
+export const authorize = (allowedRoles: Array<UserRole | string>): any => {
   return (req: AuthRequest, res: Response, next: NextFunction): void => {
     try {
       const user = req.user;
@@ -213,7 +213,7 @@ export const authorizeEmpresa = (req: AuthRequest, res: Response, next: NextFunc
 /**
  * Middleware de validación - Zod con Elegancia
  */
-export const validate = (schema: any) => {
+export const validate = (schema: any): any => {
   // No mutar req.query directamente para evitar "Cannot set property query"
   const set = (obj: any, key: string, value: any) => {
     Object.defineProperty(obj, key, { value, writable: true, enumerable: true, configurable: true });

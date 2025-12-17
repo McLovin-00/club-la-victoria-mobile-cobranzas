@@ -20,7 +20,7 @@ const router = Router();
 let _jwtPublicKey: string | null = null;
 function getJwtPublicKey(): string {
   if (_jwtPublicKey) return _jwtPublicKey;
-  // eslint-disable-next-line @typescript-eslint/no-var-requires
+   
   const fs = require('fs');
   const publicKeyPath = process.env.JWT_PUBLIC_KEY_PATH || '/keys/jwt_public.pem';
   _jwtPublicKey = fs.readFileSync(publicKeyPath, 'utf8');
@@ -28,7 +28,7 @@ function getJwtPublicKey(): string {
 }
 
 function verifyJwtFromForm(token: string): any | null {
-  // eslint-disable-next-line @typescript-eslint/no-var-requires
+   
   const jwt = require('jsonwebtoken');
   try {
     const publicKey = getJwtPublicKey();

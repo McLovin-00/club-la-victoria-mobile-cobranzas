@@ -1,5 +1,4 @@
 import rateLimit from 'express-rate-limit';
-import { Request } from 'express';
 
 /**
  * Rate Limiter - Por Usuario Autenticado
@@ -11,19 +10,19 @@ import { Request } from 'express';
 /**
  * Genera la clave de rate limit basada en el usuario autenticado
  */
-const userKeyGenerator = (req: Request): string => {
-  const user = (req as any).user;
+const userKeyGenerator = (req: any): string => {
+  const user = req.user;
   if (user?.id || user?.userId) {
     return `user:${user.id || user.userId}`;
   }
   // Fallback a IP si no hay usuario autenticado
-  return req.ip || req.socket.remoteAddress || 'unknown';
+  return req.ip || req.socket?.remoteAddress || 'unknown';
 };
 
 /**
  * Rate Limiter para uploads - Por usuario autenticado
  */
-export const uploadRateLimit = rateLimit({
+export const uploadRateLimit: any = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutos
   limit: 2000, // Máximo 2000 uploads por usuario por ventana
   message: {
@@ -39,7 +38,7 @@ export const uploadRateLimit = rateLimit({
 /**
  * Rate Limiter general para API - Por usuario autenticado
  */
-export const generalRateLimit = rateLimit({
+export const generalRateLimit: any = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutos
   limit: 5000, // Máximo 5000 requests por usuario por ventana
   message: {
@@ -55,7 +54,7 @@ export const generalRateLimit = rateLimit({
 /**
  * Rate Limiter estricto para configuración - Por usuario autenticado
  */
-export const configRateLimit = rateLimit({
+export const configRateLimit: any = rateLimit({
   windowMs: 5 * 60 * 1000, // 5 minutos
   limit: 100, // Máximo 100 cambios de configuración por usuario
   message: {
@@ -71,7 +70,7 @@ export const configRateLimit = rateLimit({
 /**
  * Rate Limiter para aprobación manual - Por usuario autenticado
  */
-export const approvalRateLimit = rateLimit({
+export const approvalRateLimit: any = rateLimit({
   windowMs: 60 * 1000, // 1 minuto
   limit: 500, // 500 acciones de aprobación por minuto por usuario
   message: {

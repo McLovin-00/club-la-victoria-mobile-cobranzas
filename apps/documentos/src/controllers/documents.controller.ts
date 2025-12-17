@@ -9,6 +9,7 @@ import { webSocketService } from '../services/websocket.service';
 import { AppLogger } from '../config/logger';
 import { createError } from '../middlewares/error.middleware';
 import { MediaService, type MediaInput } from '../services/media.service';
+import { AuditService } from '../services/audit.service';
 
 /**
  * Controlador de Documentos - El Corazón del Sistema
@@ -884,11 +885,11 @@ export class DocumentsController {
       // Subir nuevo archivo
       const uploadResult = await minioService.uploadDocument(
         tenantId,
-        document.dadorCargaId,
         document.entityType,
         document.entityId,
-        finalBuffer,
+        document.template.name,
         finalFileName,
+        finalBuffer,
         finalMime
       );
       
@@ -912,12 +913,13 @@ export class DocumentsController {
       
       // Encolar para clasificación
       try {
-        await queueService.enqueueDocumentValidation({
+        await queueService.addDocumentValidation({
           documentId: updated.id,
-          tenantId,
-          dadorId: document.dadorCargaId,
+          filePath: updated.filePath,
+          templateName: document.template.name,
+          entityType: document.entityType,
         });
-      } catch {}
+      } catch { /* Ignorar errores de cola */ }
       
       AppLogger.info('📄 Documento resubido', {
         documentId: updated.id,

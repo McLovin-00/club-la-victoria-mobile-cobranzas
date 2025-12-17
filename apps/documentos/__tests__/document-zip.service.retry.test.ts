@@ -45,7 +45,7 @@ describe('DocumentZipService retries', () => {
     // Poll for completion with timeout
     const deadline = Date.now() + 5000;
     let job;
-    // eslint-disable-next-line no-constant-condition
+     
     while (true) {
       job = DocumentZipService.getJob(jobId);
       if (job?.status === 'completed') break;

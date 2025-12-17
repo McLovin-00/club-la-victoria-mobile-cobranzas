@@ -23,7 +23,7 @@ import {
 } from '@heroicons/react/24/outline';
 
 export const ClientePortalPage: React.FC = () => {
-  const navigate = useNavigate();
+  const _navigate = useNavigate();
   const { goBack } = useRoleBasedNavigation();
   const { data: clientsResp } = useGetClientsQuery({});
   const clients = useMemo<Cliente[]>(() => (clientsResp?.list ?? []) as Cliente[], [clientsResp]);

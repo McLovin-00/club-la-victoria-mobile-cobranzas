@@ -496,31 +496,36 @@ export class DashboardController {
         };
       } else if (user.role === 'CLIENTE') {
         // Cliente: ve solo equipos asignados
-        const clienteId = user.empresaId;
-        const [equiposAsignados] = await Promise.all([
-          prisma.equipoCliente.count({ where: { clienteId, asignadoHasta: null } }),
-        ]);
-        
-        // Calcular estados de equipos
-        const equipos = await prisma.equipoCliente.findMany({
-          where: { clienteId, asignadoHasta: null },
-          include: { equipo: true },
-        });
-        
-        let vigentes = 0, proximosVencer = 0, vencidos = 0;
-        for (const ec of equipos) {
-          const estado = ec.equipo.estado?.toUpperCase();
-          if (estado === 'VIGENTE' || estado === 'OK') vigentes++;
-          else if (estado === 'PROXIMO_VENCER' || estado === 'WARNING') proximosVencer++;
-          else if (estado === 'VENCIDO' || estado === 'EXPIRED') vencidos++;
+        const clienteId = user.empresaId ?? undefined;
+        if (!clienteId) {
+          roleStats = { equiposAsignados: 0, vigentes: 0, proximosVencer: 0, vencidos: 0 };
+        } else {
+          const [equiposAsignados] = await Promise.all([
+            prisma.equipoCliente.count({ where: { clienteId, asignadoHasta: null } }),
+          ]);
+          
+          // Calcular estados de equipos
+          const equipos = await prisma.equipoCliente.findMany({
+            where: { clienteId, asignadoHasta: null },
+            include: { equipo: true },
+          });
+          
+          let vigentes = 0, proximosVencer = 0, vencidos = 0;
+          for (const ec of equipos) {
+            const equipoData = (ec as { equipo?: { estado?: string } }).equipo;
+            const estado = equipoData?.estado?.toUpperCase();
+            if (estado === 'VIGENTE' || estado === 'OK') vigentes++;
+            else if (estado === 'PROXIMO_VENCER' || estado === 'WARNING') proximosVencer++;
+            else if (estado === 'VENCIDO' || estado === 'EXPIRED') vencidos++;
+          }
+          
+          roleStats = {
+            equiposAsignados,
+            vigentes,
+            proximosVencer,
+            vencidos,
+          };
         }
-        
-        roleStats = {
-          equiposAsignados,
-          vigentes,
-          proximosVencer,
-          vencidos,
-        };
       }
       
       res.json({

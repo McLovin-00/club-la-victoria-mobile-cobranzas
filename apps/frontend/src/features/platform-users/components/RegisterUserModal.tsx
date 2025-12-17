@@ -133,13 +133,13 @@ export const RegisterUserModal: React.FC<RegisterUserModalProps> = ({ isOpen, on
   
   const [registerUser, { isLoading }] = useRegisterPlatformUserMutation();
   const [registerClientWizard, { isLoading: isLoadingWizardClient }] = useRegisterClientWizardMutation();
-  const [registerDadorWizard, { isLoading: isLoadingWizardDador }] = useRegisterDadorWizardMutation();
-  const [registerTransportistaWizard, { isLoading: isLoadingWizardTransportista }] = useRegisterTransportistaWizardMutation();
-  const [registerChoferWizard, { isLoading: isLoadingWizardChofer }] = useRegisterChoferWizardMutation();
+  const [registerDadorWizard, { isLoading: _isLoadingWizardDador }] = useRegisterDadorWizardMutation();
+  const [registerTransportistaWizard, { isLoading: _isLoadingWizardTransportista }] = useRegisterTransportistaWizardMutation();
+  const [registerChoferWizard, { isLoading: _isLoadingWizardChofer }] = useRegisterChoferWizardMutation();
   const [createClient, { isLoading: isCreatingClient }] = useCreateClientMutation();
-  const [createDador, { isLoading: isCreatingDador }] = useCreateDadorMutation();
-  const [createEmpresaTransportista, { isLoading: isCreatingTransportista }] = useCreateEmpresaTransportistaMutation();
-  const [createChofer, { isLoading: isCreatingChofer }] = useCreateChoferMutation();
+  const [createDador, { isLoading: _isCreatingDador }] = useCreateDadorMutation();
+  const [createEmpresaTransportista, { isLoading: _isCreatingTransportista }] = useCreateEmpresaTransportistaMutation();
+  const [createChofer, { isLoading: _isCreatingChofer }] = useCreateChoferMutation();
   const { control, handleSubmit, reset, watch, setValue, formState: { errors } } = useForm<FormData>({
     defaultValues: {
       email: '',
@@ -201,7 +201,8 @@ export const RegisterUserModal: React.FC<RegisterUserModalProps> = ({ isOpen, on
       setValue('dadorCuit', '');
       setValue('dadorNotas', '');
     }
-  }, [selectedRole]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedRole]); // setValue es estable (react-hook-form)
 
   useEffect(() => {
     if (!isOpen) {
@@ -1006,7 +1007,7 @@ export const RegisterUserModal: React.FC<RegisterUserModalProps> = ({ isOpen, on
                   <Button
                     type="button"
                     onClick={() => {
-                      try { navigator.clipboard.writeText(tempPasswordToShow); } catch {}
+                      try { navigator.clipboard.writeText(tempPasswordToShow); } catch { /* Clipboard no disponible */ }
                       showToast('Contraseña copiada', 'success');
                     }}
                   >

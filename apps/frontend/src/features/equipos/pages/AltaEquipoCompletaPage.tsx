@@ -273,7 +273,7 @@ const AltaEquipoCompletaPage: React.FC = () => {
           if (!template) continue;
 
           let entityId: number;
-          let entityType = template.entityType;
+          const entityType = template.entityType;
 
           switch (entityType) {
             case 'EMPRESA_TRANSPORTISTA':

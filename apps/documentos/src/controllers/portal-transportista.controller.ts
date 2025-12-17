@@ -18,7 +18,7 @@ export class PortalTransportistaController {
     
     try {
       // Filtrar según el rol del usuario
-      let whereEmpresas: any = { tenantEmpresaId: tenantId };
+      const whereEmpresas: any = { tenantEmpresaId: tenantId };
       
       if (user.role === 'TRANSPORTISTA' || user.role === 'EMPRESA_TRANSPORTISTA') {
         // Solo ver su propia empresa transportista
@@ -207,7 +207,7 @@ export class PortalTransportistaController {
     
     try {
       // Filtrar según el rol del usuario
-      let whereEquipos: any = {
+      const whereEquipos: any = {
         tenantEmpresaId: tenantId,
       };
       
@@ -294,7 +294,7 @@ export class PortalTransportistaController {
     
     try {
       // Filtrar según el rol del usuario - Document usa dadorCargaId, no empresaTransportistaId
-      let whereDocumentos: any = {
+      const whereDocumentos: any = {
         tenantEmpresaId: tenantId,
         status: 'RECHAZADO',
         archived: false,
@@ -339,22 +339,26 @@ export class PortalTransportistaController {
           let entityName = '';
           
           switch (doc.entityType) {
-            case 'CHOFER':
+            case 'CHOFER': {
               const chofer = await prisma.chofer.findUnique({ where: { id: doc.entityId } });
               entityName = chofer ? `${chofer.nombre || ''} ${chofer.apellido || ''} (${chofer.dni})`.trim() : `Chofer ${doc.entityId}`;
               break;
-            case 'CAMION':
+            }
+            case 'CAMION': {
               const camion = await prisma.camion.findUnique({ where: { id: doc.entityId } });
               entityName = camion?.patente || `Camión ${doc.entityId}`;
               break;
-            case 'ACOPLADO':
+            }
+            case 'ACOPLADO': {
               const acoplado = await prisma.acoplado.findUnique({ where: { id: doc.entityId } });
               entityName = acoplado?.patente || `Acoplado ${doc.entityId}`;
               break;
-            case 'EMPRESA_TRANSPORTISTA':
+            }
+            case 'EMPRESA_TRANSPORTISTA': {
               const empresa = await prisma.empresaTransportista.findUnique({ where: { id: doc.entityId } });
               entityName = empresa?.razonSocial || `Empresa ${doc.entityId}`;
               break;
+            }
           }
           
           return {
@@ -391,7 +395,7 @@ export class PortalTransportistaController {
     
     try {
       // Filtrar según el rol del usuario - Document usa dadorCargaId, no empresaTransportistaId
-      let whereDocumentos: any = {
+      const whereDocumentos: any = {
         tenantEmpresaId: tenantId,
         status: 'PENDIENTE_APROBACION',
         archived: false,

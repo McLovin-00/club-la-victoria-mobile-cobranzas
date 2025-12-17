@@ -138,7 +138,7 @@ export const EstadoEquipoPage: React.FC = () => {
   React.useEffect(() => {
     // Limpiar URL anterior si existe
     if (prevUrlRef.current) {
-      try { URL.revokeObjectURL(prevUrlRef.current); } catch {}
+      try { URL.revokeObjectURL(prevUrlRef.current); } catch { /* Ignorar error de revocación */ }
       prevUrlRef.current = null;
     }
 

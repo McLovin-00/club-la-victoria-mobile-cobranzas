@@ -33,7 +33,7 @@ describe('DocumentZipService worker mode', () => {
     const jobId = DocumentZipService.enqueueZipJob(1, []);
     const deadline = Date.now() + 8000;
     let job;
-    // eslint-disable-next-line no-constant-condition
+     
     while (true) {
       job = DocumentZipService.getJob(jobId);
       if (job?.status === 'completed') break;

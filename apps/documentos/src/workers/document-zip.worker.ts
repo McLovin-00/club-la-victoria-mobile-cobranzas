@@ -1,4 +1,4 @@
-/* eslint-disable @typescript-eslint/no-var-requires */
+ 
 import { parentPort, workerData } from 'worker_threads';
 
 async function main() {

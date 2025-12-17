@@ -27,7 +27,7 @@ export class DocumentZipService {
   private static _Worker: typeof WorkerType | null = null;
   private static get Worker(): typeof WorkerType | null {
     try {
-      // eslint-disable-next-line @typescript-eslint/no-var-requires
+       
       const { Worker } = require('worker_threads') as typeof import('worker_threads');
       return Worker;
     } catch {

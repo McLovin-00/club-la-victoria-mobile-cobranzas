@@ -281,7 +281,7 @@ export class EquipoService {
     }
 
     // BATCH COMPLIANCE: Siempre usar el servicio optimizado que evalúa requisitos de clientes
-    let complianceMap = new Map<number, { tieneVencidos: boolean; tieneFaltantes: boolean; tieneProximos: boolean }>();
+    const complianceMap = new Map<number, { tieneVencidos: boolean; tieneFaltantes: boolean; tieneProximos: boolean }>();
     
     const batchStart = Date.now();
     const equiposInfo: EquipoInfo[] = equipos.map(eq => ({

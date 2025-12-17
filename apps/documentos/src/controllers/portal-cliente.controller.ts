@@ -2,7 +2,6 @@ import { Request, Response } from 'express';
 import { AuthRequest } from '../middlewares/auth.middleware';
 import { prisma } from '../config/database';
 import { AppLogger } from '../config/logger';
-import { createError } from '../middlewares/error.middleware';
 import { ComplianceService, EquipoInfo } from '../services/compliance.service';
 
 /**
@@ -822,7 +821,7 @@ export class PortalClienteController {
         const publicKeyPath = process.env.JWT_PUBLIC_KEY_PATH || '/keys/jwt_public.pem';
         const publicKey = fs.readFileSync(publicKeyPath, 'utf8');
         decoded = jwt.verify(token, publicKey, { algorithms: ['RS256'] });
-      } catch (e) {
+      } catch (_e) {
         return res.status(401).send('Token inválido');
       }
       
@@ -835,7 +834,7 @@ export class PortalClienteController {
       
       // Obtener parámetros de búsqueda
       const searchTerm = req.body.searchTerm || '';
-      const estado = req.body.estado || '';
+      const _estado = req.body.estado || ''; // Reservado para filtro futuro
       
       // Buscar equipos asignados al cliente que coincidan con la búsqueda
       let equipoIds: number[] = [];
