@@ -794,21 +794,19 @@ const AltaEquipoCompletaPage: React.FC = () => {
         onFileSelect={handleFileSelect}
       />
 
-      {semiPatente && semiPatente.trim().length > 0 && (
-        <SeccionDocumentos
-          titulo='🚚 DOCUMENTOS SEMI (Acoplado)'
-          templates={templatesPorTipo.ACOPLADO}
-          entityType='ACOPLADO'
-          entityId={semiId}
-          dadorCargaId={dadorCargaId || 0}
-          onUploadSuccess={handleUploadSuccess}
-          uploadMutation={uploadDocument}
-          disabled={!datosBasicosCompletos}
-          uploadedTemplateIds={Array.from(selectedFiles.keys())}
-          selectOnlyMode={true}
-          onFileSelect={handleFileSelect}
-        />
-      )}
+      <SeccionDocumentos
+        titulo='🚚 DOCUMENTOS SEMI / ACOPLADO'
+        templates={templatesPorTipo.ACOPLADO}
+        entityType='ACOPLADO'
+        entityId={semiId}
+        dadorCargaId={dadorCargaId || 0}
+        onUploadSuccess={handleUploadSuccess}
+        uploadMutation={uploadDocument}
+        disabled={!datosBasicosCompletos || !semiPatente || semiPatente.trim().length === 0}
+        uploadedTemplateIds={Array.from(selectedFiles.keys())}
+        selectOnlyMode={true}
+        onFileSelect={handleFileSelect}
+      />
 
       {/* BOTÓN CREAR EQUIPO */}
       <div className='mt-8 flex justify-center'>
