@@ -9,15 +9,15 @@ WORKDIR /app
 # Copiar archivos de dependencias
 COPY package.json package-lock.json* ./
 
-# Instalar dependencias
-RUN npm ci --only=production=false
+# Instalar dependencias (incluye dev para build)
+RUN npm install
 
 # Copiar código fuente
 COPY . .
 
-# Generar Prisma client y compilar
+# Generar Prisma client y compilar con tsconfig standalone
 RUN npx prisma generate --schema=src/prisma/schema.prisma && \
-    npm run build
+    npx tsc -p tsconfig.standalone.json
 
 # =====================================================
 # Imagen de producción
@@ -32,7 +32,7 @@ RUN apk add --no-cache poppler-utils
 
 # Instalar solo dependencias de producción
 COPY package.json package-lock.json* ./
-RUN npm ci --only=production && npm cache clean --force
+RUN npm install --omit=dev && npm cache clean --force
 
 # Copiar artefactos del builder
 COPY --from=builder /app/dist ./dist

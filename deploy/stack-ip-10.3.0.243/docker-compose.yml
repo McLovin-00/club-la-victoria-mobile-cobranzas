@@ -288,6 +288,68 @@ services:
       - core_net
       - edge_net
 
+  remitos:
+    build:
+      context: ../../apps/remitos
+      dockerfile: Dockerfile
+    image: bca/remitos:latest
+    container_name: bca_remitos
+    restart: always
+    environment:
+      NODE_ENV: production
+      REMITOS_PORT: 4803
+      # Optimizaciones Node.js
+      NODE_OPTIONS: "--max-old-space-size=2048"
+      UV_THREADPOOL_SIZE: 8
+      # Database
+      REMITOS_DATABASE_URL: postgresql://evo:phoenix@postgres:5432/monorepo-bca?schema=remitos
+      # Redis
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      # MinIO
+      MINIO_ENDPOINT: 10.3.0.243
+      MINIO_PORT: 9000
+      MINIO_ACCESS_KEY: minioadmin
+      MINIO_SECRET_KEY: minioadmin
+      MINIO_USE_SSL: "false"
+      MINIO_BUCKET: remitos
+      # JWT
+      JWT_PUBLIC_KEY_PATH: /keys/jwt_public.pem
+      # CORS
+      FRONTEND_URLS: http://10.3.0.243:8550
+      # Flowise
+      FLOWISE_ENABLED: "true"
+      FLOWISE_BASE_URL: http://10.3.0.243:3005
+      FLOWISE_FLOW_ID: ded2fa07-298d-47b8-be58-d180c399163f
+      FLOWISE_TIMEOUT: "60000"
+    volumes:
+      - ./keys:/keys:ro
+      - /tmp/remitos-processing:/tmp/processing
+    ports:
+      - "4803:4803"
+    depends_on:
+      - postgres
+      - minio
+      - redis
+      - flowise
+    deploy:
+      resources:
+        reservations:
+          cpus: "0.2"
+          memory: "2G"
+        limits:
+          cpus: "0.5"
+          memory: "2G"
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:4803/health"]
+      interval: 30s
+      timeout: 10s
+      start_period: 20s
+      retries: 3
+    networks:
+      - core_net
+      - edge_net
+
   flowise:
     image: flowiseai/flowise:latest
     container_name: bca_flowise
@@ -352,6 +414,7 @@ services:
         VITE_API_BASE_URL: http://10.3.0.243:4800
         VITE_DOCUMENTOS_API_URL: http://10.3.0.243:4802
         VITE_DOCUMENTOS_WS_URL: http://10.3.0.243:4802
+        VITE_REMITOS_API_URL: http://10.3.0.243:4803/api/remitos
         VITE_APP_TITLE: Empresa Management System
     image: bca/frontend:latest
     container_name: bca_frontend
