@@ -45,7 +45,7 @@ const main = async (): Promise<void> => {
     
     // Configurar Express
     const app = express();
-    try { app.set('trust proxy', 1); } catch {}
+    try { app.set('trust proxy', 1); } catch { /* ignore */ }
     const httpServer = createServer(app);
     
     // CORS

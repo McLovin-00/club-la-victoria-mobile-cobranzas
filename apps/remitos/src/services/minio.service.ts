@@ -48,7 +48,6 @@ class MinIOService {
   
   private generateObjectPath(remitoId: number, fileName: string): string {
     const timestamp = Date.now();
-    const ext = fileName.split('.').pop() || 'jpg';
     const safeName = fileName.replace(/[^a-zA-Z0-9.-]/g, '_');
     return `remitos/${remitoId}/${timestamp}_${safeName}`;
   }

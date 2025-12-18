@@ -70,7 +70,7 @@ export class RemitosController {
       
       // Preparar buffer final (PDF para almacenamiento)
       let finalPdfBuffer: Buffer;
-      let originalInputs = inputs; // Guardar para análisis
+      const originalInputs = inputs; // Guardar para análisis
       
       if (hasPdf) {
         // PDF único: almacenar tal cual
