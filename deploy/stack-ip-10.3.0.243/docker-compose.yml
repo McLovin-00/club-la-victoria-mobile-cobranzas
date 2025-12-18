@@ -419,10 +419,11 @@ services:
     image: bca/frontend:latest
     container_name: bca_frontend
     restart: always
-    # nginx usa configuración interna, no necesita comando
+    command: ["/goStatic", "-port", "8550", "-enable-health", "-fallback", "index.html"]
     environment:
-      # Para logging y debug
-      NGINX_ENTRYPOINT_QUIET_LOGS: 1
+      SERVER_PORT: 8550
+      SERVER_ROOT: /public
+      SERVER_CORS: "true"
       GOSTATIC_ENABLE_GZIP: "true"
       GOSTATIC_CACHE_CONTROL: "public, max-age=31536000"
       GOSTATIC_CORS_ORIGIN: "*"
@@ -440,7 +441,7 @@ services:
           cpus: "0.5"
           memory: "1G"
     healthcheck:
-      test: ["CMD-SHELL", "wget -q --spider http://127.0.0.1:8550/health || exit 1"]
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://127.0.0.1:8550/health"]
       interval: 30s
       timeout: 5s
       retries: 3
