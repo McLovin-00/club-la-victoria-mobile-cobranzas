@@ -11,7 +11,7 @@ import {
   ArrowPathIcon,
 } from '@heroicons/react/24/outline';
 import { Remito, ESTADO_LABELS, ESTADO_COLORS } from '../types';
-import { useApproveRemitoMutation, useRejectRemitoMutation, useGetRemitoQuery } from '../api/remitosApiSlice';
+import { useApproveRemitoMutation, useRejectRemitoMutation, useGetRemitoQuery, useReprocessRemitoMutation } from '../api/remitosApiSlice';
 
 interface RemitoDetailProps {
   remito: Remito;
@@ -29,6 +29,7 @@ export function RemitoDetail({ remito: initialRemito, onBack, canApprove = false
   
   const [approve, { isLoading: approving }] = useApproveRemitoMutation();
   const [reject, { isLoading: rejecting }] = useRejectRemitoMutation();
+  const [reprocess, { isLoading: reprocessing }] = useReprocessRemitoMutation();
   
   const estadoLabel = ESTADO_LABELS[remito.estado];
   const estadoColor = ESTADO_COLORS[remito.estado];
@@ -68,7 +69,16 @@ export function RemitoDetail({ remito: initialRemito, onBack, canApprove = false
     }
   };
   
+  const handleReprocess = async () => {
+    try {
+      await reprocess(remito.id).unwrap();
+    } catch (err) {
+      console.error('Error reprocesando:', err);
+    }
+  };
+  
   const isPendingApproval = remito.estado === 'PENDIENTE_APROBACION';
+  const canReprocess = canApprove && remito.estado !== 'APROBADO';
   
   // Loading state
   if (loadingRemito) {
@@ -91,9 +101,23 @@ export function RemitoDetail({ remito: initialRemito, onBack, canApprove = false
           <span>Volver</span>
         </button>
         
-        <span className={`px-3 py-1.5 text-sm font-medium rounded-full ${estadoColor}`}>
-          {estadoLabel}
-        </span>
+        <div className="flex items-center gap-3">
+          <span className={`px-3 py-1.5 text-sm font-medium rounded-full ${estadoColor}`}>
+            {estadoLabel}
+          </span>
+          
+          {canReprocess && (
+            <button
+              onClick={handleReprocess}
+              disabled={reprocessing}
+              className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/30 rounded-full hover:bg-blue-100 dark:hover:bg-blue-900/50 transition-colors disabled:opacity-50"
+              title="Reprocesar con IA"
+            >
+              <ArrowPathIcon className={`h-4 w-4 ${reprocessing ? 'animate-spin' : ''}`} />
+              {reprocessing ? 'Reprocesando...' : 'Reprocesar con IA'}
+            </button>
+          )}
+        </div>
       </div>
       
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">

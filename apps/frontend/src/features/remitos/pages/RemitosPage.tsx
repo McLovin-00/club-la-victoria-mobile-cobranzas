@@ -11,7 +11,7 @@ import {
 } from '@heroicons/react/24/outline';
 import { useSelector } from 'react-redux';
 import { selectCurrentUser } from '../../auth/authSlice';
-import { useGetRemitosQuery, useGetStatsQuery, useReprocessRemitoMutation } from '../api/remitosApiSlice';
+import { useGetRemitosQuery, useGetStatsQuery } from '../api/remitosApiSlice';
 import { RemitoCard } from '../components/RemitoCard';
 import { RemitoUploader } from '../components/RemitoUploader';
 import { RemitoDetail } from '../components/RemitoDetail';
@@ -44,9 +44,6 @@ export function RemitosPage() {
   
   const { data: remitosData, isLoading, isFetching, refetch } = useGetRemitosQuery(queryParams);
   const { data: statsData } = useGetStatsQuery();
-  const [reprocessRemito, { isLoading: isReprocessing }] = useReprocessRemitoMutation();
-  
-  const [reprocessingId, setReprocessingId] = useState<number | null>(null);
   
   const remitos = remitosData?.data || [];
   const pagination = remitosData?.pagination;
@@ -55,18 +52,6 @@ export function RemitosPage() {
   const handleUploadSuccess = () => {
     setShowUploader(false);
     refetch();
-  };
-  
-  const handleReprocess = async (id: number) => {
-    try {
-      setReprocessingId(id);
-      await reprocessRemito(id).unwrap();
-      refetch();
-    } catch (error) {
-      console.error('Error reprocesando remito:', error);
-    } finally {
-      setReprocessingId(null);
-    }
   };
   
   // Si hay un remito seleccionado, mostrar el detalle
@@ -194,8 +179,6 @@ export function RemitosPage() {
                 key={remito.id}
                 remito={remito}
                 onClick={() => setSelectedRemito(remito)}
-                onReprocess={canApprove ? handleReprocess : undefined}
-                isReprocessing={reprocessingId === remito.id}
               />
             ))}
           </div>
