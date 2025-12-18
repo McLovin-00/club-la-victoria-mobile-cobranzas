@@ -1,10 +1,26 @@
 import { Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
+import fs from 'fs';
 import { AuthRequest, AuthUser } from '../types';
 import { createError } from './error.middleware';
 import { AppLogger } from '../config/logger';
 
-const JWT_PUBLIC_KEY = process.env.JWT_PUBLIC_KEY || '';
+// Cargar JWT_PUBLIC_KEY desde archivo o variable de entorno
+function loadJwtPublicKey(): string {
+  // Primero intentar desde PATH
+  const keyPath = process.env.JWT_PUBLIC_KEY_PATH;
+  if (keyPath && fs.existsSync(keyPath)) {
+    try {
+      return fs.readFileSync(keyPath, 'utf-8');
+    } catch (err) {
+      AppLogger.error('❌ Error leyendo JWT_PUBLIC_KEY_PATH:', err);
+    }
+  }
+  // Fallback a variable directa
+  return process.env.JWT_PUBLIC_KEY || '';
+}
+
+const JWT_PUBLIC_KEY = loadJwtPublicKey();
 
 export function authenticate(req: AuthRequest, res: Response, next: NextFunction): void {
   try {
@@ -18,9 +34,21 @@ export function authenticate(req: AuthRequest, res: Response, next: NextFunction
     
     const decoded = jwt.verify(token, JWT_PUBLIC_KEY, { 
       algorithms: ['RS256'] 
-    }) as AuthUser;
+    }) as any;
     
-    req.user = decoded;
+    // Mapear campos del JWT al formato esperado
+    req.user = {
+      id: decoded.userId || decoded.id || decoded.sub,
+      userId: decoded.userId,
+      email: decoded.email,
+      role: decoded.role,
+      empresaId: decoded.empresaId,
+      tenantId: decoded.empresaId, // tenantId = empresaId
+      dadorId: decoded.dadorCargaId,
+      dadorCargaId: decoded.dadorCargaId,
+      choferId: decoded.choferId,
+      empresaTransportistaId: decoded.empresaTransportistaId,
+    };
     next();
   } catch (error) {
     if ((error as any).name === 'JsonWebTokenError') {

@@ -1,12 +1,16 @@
 import { Request } from 'express';
 
 export interface AuthUser {
-  id: number;
+  id: number;           // Mapeado desde userId del JWT
+  userId?: number;      // Campo original del JWT
   email: string;
   role: string;
   empresaId?: number;
   dadorId?: number;
+  dadorCargaId?: number;
   tenantId?: number;
+  choferId?: number;
+  empresaTransportistaId?: number;
 }
 
 export interface AuthRequest extends Request {

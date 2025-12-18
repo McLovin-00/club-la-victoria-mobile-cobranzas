@@ -27,6 +27,9 @@ FROM node:20-alpine AS production
 
 WORKDIR /app
 
+# Instalar poppler-utils para rasterización de PDF
+RUN apk add --no-cache poppler-utils
+
 # Instalar solo dependencias de producción
 COPY package.json package-lock.json* ./
 RUN npm ci --only=production && npm cache clean --force

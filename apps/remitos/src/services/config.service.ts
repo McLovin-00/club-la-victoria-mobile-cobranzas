@@ -75,22 +75,30 @@ export class ConfigService {
       const map = new Map<string, string>();
       configs.forEach(c => map.set(c.key.replace(FLOWISE_PREFIX, ''), c.value));
       
+      // Usar variables de entorno como fallback si la DB no tiene valores
+      const envEnabled = process.env.FLOWISE_ENABLED === 'true';
+      const envBaseUrl = process.env.FLOWISE_BASE_URL || '';
+      const envApiKey = process.env.FLOWISE_API_KEY || '';
+      const envFlowId = process.env.FLOWISE_FLOW_ID || '';
+      const envTimeout = parseInt(process.env.FLOWISE_TIMEOUT || '60000', 10);
+      
       return {
-        enabled: map.get('enabled') === 'true',
-        baseUrl: map.get('baseUrl') || '',
-        apiKey: map.get('apiKey') || '',
-        flowId: map.get('flowId') || '',
-        timeout: parseInt(map.get('timeout') || '60000', 10),
+        enabled: map.has('enabled') ? map.get('enabled') === 'true' : envEnabled,
+        baseUrl: map.get('baseUrl') || envBaseUrl,
+        apiKey: map.get('apiKey') || envApiKey,
+        flowId: map.get('flowId') || envFlowId,
+        timeout: map.has('timeout') ? parseInt(map.get('timeout')!, 10) : envTimeout,
         systemPrompt: map.get('systemPrompt') || DEFAULT_PROMPT,
       };
     } catch (error) {
       AppLogger.error('Error obteniendo config Flowise:', error);
+      // Fallback completo a variables de entorno
       return {
-        enabled: false,
-        baseUrl: '',
-        apiKey: '',
-        flowId: '',
-        timeout: 60000,
+        enabled: process.env.FLOWISE_ENABLED === 'true',
+        baseUrl: process.env.FLOWISE_BASE_URL || '',
+        apiKey: process.env.FLOWISE_API_KEY || '',
+        flowId: process.env.FLOWISE_FLOW_ID || '',
+        timeout: parseInt(process.env.FLOWISE_TIMEOUT || '60000', 10),
         systemPrompt: DEFAULT_PROMPT,
       };
     }
@@ -137,18 +145,25 @@ export class ConfigService {
     });
     
     if (!existing) {
+      // Usar variables de entorno como valores iniciales si están disponibles
+      const envEnabled = process.env.FLOWISE_ENABLED === 'true' ? 'true' : 'false';
+      const envBaseUrl = process.env.FLOWISE_BASE_URL || '';
+      const envApiKey = process.env.FLOWISE_API_KEY || '';
+      const envFlowId = process.env.FLOWISE_FLOW_ID || '';
+      const envTimeout = process.env.FLOWISE_TIMEOUT || '60000';
+      
       await db.getClient().remitoSystemConfig.createMany({
         data: [
-          { key: `${FLOWISE_PREFIX}enabled`, value: 'false' },
-          { key: `${FLOWISE_PREFIX}baseUrl`, value: '' },
-          { key: `${FLOWISE_PREFIX}apiKey`, value: '' },
-          { key: `${FLOWISE_PREFIX}flowId`, value: '' },
-          { key: `${FLOWISE_PREFIX}timeout`, value: '60000' },
+          { key: `${FLOWISE_PREFIX}enabled`, value: envEnabled },
+          { key: `${FLOWISE_PREFIX}baseUrl`, value: envBaseUrl },
+          { key: `${FLOWISE_PREFIX}apiKey`, value: envApiKey },
+          { key: `${FLOWISE_PREFIX}flowId`, value: envFlowId },
+          { key: `${FLOWISE_PREFIX}timeout`, value: envTimeout },
           { key: `${FLOWISE_PREFIX}systemPrompt`, value: DEFAULT_PROMPT },
         ],
         skipDuplicates: true,
       });
-      AppLogger.info('📝 Configuraciones por defecto inicializadas');
+      AppLogger.info('📝 Configuraciones Flowise inicializadas desde variables de entorno');
     }
   }
 }

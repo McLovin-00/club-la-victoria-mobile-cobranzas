@@ -7,6 +7,7 @@ import { minioService } from '../services/minio.service';
 import { MediaService } from '../services/media.service';
 import { FlowiseService } from '../services/flowise.service';
 import { RemitoService } from '../services/remito.service';
+import { PdfService } from '../services/pdf.service';
 import { RemitoAnalysisJobData } from '../types';
 
 const env = getEnvironment();
@@ -83,11 +84,35 @@ async function processJob(job: Job<RemitoAnalysisJobData>): Promise<void> {
         
         AppLogger.info(`📸 Usando ${imageBuffers.length} imágenes originales para análisis`);
       } else {
-        // No hay imágenes originales, usar el PDF tal cual
-        // Nota: Flowise puede no procesar PDFs directamente
-        // En producción se usaría pdf2pic o similar
-        AppLogger.warn('⚠️ PDF sin imágenes originales, análisis puede fallar');
-        imageForAnalysis = fileBuffer;
+        // No hay imágenes originales, rasterizar PDF a imágenes usando Poppler
+        AppLogger.info('📄 Rasterizando PDF a imágenes para análisis...');
+        
+        try {
+          const pdfImages = await PdfService.pdfToImages(fileBuffer);
+          
+          if (pdfImages.length === 0) {
+            throw new Error('No se pudieron extraer imágenes del PDF');
+          }
+          
+          // Normalizar cada imagen para análisis
+          const normalizedImages: Buffer[] = [];
+          for (const img of pdfImages) {
+            const normalized = await MediaService.resizeForAnalysis(img);
+            normalizedImages.push(normalized);
+          }
+          
+          // Si hay múltiples páginas, componer en grid
+          if (normalizedImages.length > 1) {
+            imageForAnalysis = await MediaService.composeImageGrid(normalizedImages);
+            AppLogger.info(`📸 PDF rasterizado: ${normalizedImages.length} páginas compuestas en grid`);
+          } else {
+            imageForAnalysis = normalizedImages[0];
+            AppLogger.info('📸 PDF rasterizado: 1 página');
+          }
+        } catch (pdfError: any) {
+          AppLogger.error('💥 Error rasterizando PDF:', { message: pdfError.message });
+          throw new Error(`No se pudo procesar el PDF: ${pdfError.message}`);
+        }
       }
     } else {
       // Es una imagen, normalizar para análisis
