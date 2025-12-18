@@ -33,7 +33,7 @@ export class FlowiseService {
       const response = await axios.post(
         endpoint,
         {
-          question: config.systemPrompt,
+          question: 'Analiza esta imagen de remito y extrae los datos en formato JSON.',
           uploads: [{
             data: `data:image/jpeg;base64,${imageBase64}`,
             type: 'file',
