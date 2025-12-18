@@ -4,6 +4,7 @@ import { db } from '../config/database';
 import { minioService } from '../services/minio.service';
 import { flowiseService } from '../services/flowise.service';
 import { webSocketService } from '../services/websocket.service';
+import { queueService } from '../services/queue.service';
 import { AppLogger } from '../config/logger';
 import { getEnvironment } from '../config/environment';
 import type { DocumentStatus } from '../../../node_modules/.prisma/documentos';
@@ -189,6 +190,23 @@ class DocumentValidationWorker {
       });
       if (finalExists) {
         await db.getClient().document.update({ where: { id: documentId }, data: { status: 'PENDIENTE_APROBACION' as DocumentStatus } });
+        
+        // Encolar validación IA si está habilitada
+        try {
+          const { documentValidationService } = await import('../services/document-validation.service');
+          if (documentValidationService.isEnabled()) {
+            await queueService.addDocumentAIValidation({
+              documentId,
+              esRechequeo: false,
+            });
+            AppLogger.info(`🤖 Documento ${documentId} encolado para validación IA automática`);
+          }
+        } catch (aiError) {
+          // No fallar el job de clasificación si la validación IA falla al encolar
+          AppLogger.warn(`⚠️ Error encolando validación IA para documento ${documentId}:`, {
+            error: (aiError as Error)?.message || 'Unknown',
+          });
+        }
       }
 
       return { isValid: true, extractedData: { classification: clf }, confidence: clf.confidence };
