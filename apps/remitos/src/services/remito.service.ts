@@ -141,49 +141,56 @@ export class RemitoService {
   }
   
   /**
-   * Listar remitos con filtros
+   * Listar remitos con filtros + stats (optimizado)
+   * Una sola llamada devuelve lista paginada + estadísticas
    */
   static async list(filters: RemitoFilters): Promise<{
     items: (Remito & { imagenes: RemitoImagen[] })[];
     pagination: { page: number; limit: number; total: number; pages: number };
+    stats: { total: number; pendientes: number; aprobados: number; rechazados: number };
   }> {
     const prisma = db.getClient();
     const page = filters.page || 1;
     const limit = Math.min(filters.limit || 20, 100);
     const skip = (page - 1) * limit;
     
-    const where: any = {};
+    // Where base (sin filtro de estado - para stats globales)
+    const whereBase: any = {};
     
     if (filters.tenantEmpresaId) {
-      where.tenantEmpresaId = filters.tenantEmpresaId;
+      whereBase.tenantEmpresaId = filters.tenantEmpresaId;
     }
     
     if (filters.dadorCargaId) {
-      where.dadorCargaId = filters.dadorCargaId;
-    }
-    
-    if (filters.estado) {
-      where.estado = filters.estado;
+      whereBase.dadorCargaId = filters.dadorCargaId;
     }
     
     if (filters.numeroRemito) {
-      where.numeroRemito = { contains: filters.numeroRemito, mode: 'insensitive' };
+      whereBase.numeroRemito = { contains: filters.numeroRemito, mode: 'insensitive' };
     }
     
     if (filters.fechaDesde || filters.fechaHasta) {
-      where.createdAt = {};
-      if (filters.fechaDesde) where.createdAt.gte = filters.fechaDesde;
-      if (filters.fechaHasta) where.createdAt.lte = filters.fechaHasta;
+      whereBase.createdAt = {};
+      if (filters.fechaDesde) whereBase.createdAt.gte = filters.fechaDesde;
+      if (filters.fechaHasta) whereBase.createdAt.lte = filters.fechaHasta;
     }
     
     // Filtro por rol: CHOFER/TRANSPORTISTA/DADOR solo ven los suyos
     if (filters.userRole && !['SUPERADMIN', 'ADMIN_INTERNO'].includes(filters.userRole)) {
-      where.cargadoPorUserId = filters.userId;
+      whereBase.cargadoPorUserId = filters.userId;
     }
     
-    const [items, total] = await Promise.all([
+    // Where para la lista (incluye filtro de estado)
+    const whereList = { ...whereBase };
+    if (filters.estado) {
+      whereList.estado = filters.estado;
+    }
+    
+    // Ejecutar todo en paralelo: items, count filtrado, y groupBy para stats
+    const [items, countFiltered, statsGroup] = await Promise.all([
+      // Lista paginada
       prisma.remito.findMany({
-        where,
+        where: whereList,
         include: {
           imagenes: { take: 1, orderBy: { orden: 'asc' } },
         },
@@ -191,17 +198,46 @@ export class RemitoService {
         skip,
         take: limit,
       }),
-      prisma.remito.count({ where }),
+      // Count con filtro de estado
+      prisma.remito.count({ where: whereList }),
+      // GroupBy para stats (sin filtro de estado)
+      prisma.remito.groupBy({
+        by: ['estado'],
+        where: whereBase,
+        _count: { id: true },
+      }),
     ]);
+    
+    // Calcular stats desde groupBy
+    const stats = {
+      total: 0,
+      pendientes: 0,
+      aprobados: 0,
+      rechazados: 0,
+    };
+    
+    for (const group of statsGroup) {
+      const count = group._count.id;
+      stats.total += count;
+      
+      if (group.estado === 'PENDIENTE_APROBACION') {
+        stats.pendientes = count;
+      } else if (group.estado === 'APROBADO') {
+        stats.aprobados = count;
+      } else if (group.estado === 'RECHAZADO') {
+        stats.rechazados = count;
+      }
+    }
     
     return {
       items,
       pagination: {
         page,
         limit,
-        total,
-        pages: Math.ceil(total / limit),
+        total: countFiltered,
+        pages: Math.ceil(countFiltered / limit),
       },
+      stats,
     };
   }
   

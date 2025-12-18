@@ -88,6 +88,10 @@ model Document {
   fileSize      Int            @map("file_size")
   mimeType      String         @map("mime_type") @db.VarChar(100)
   
+  // Nombres de archivo (original y estandarizado)
+  originalFileName     String?  @map("original_file_name") @db.VarChar(255)
+  standardizedFileName String?  @map("standardized_file_name") @db.VarChar(255)
+  
   // Estado y validación
   status        DocumentStatus @default(PENDIENTE)
   validationData Json?         @map("validation_data")
@@ -424,11 +428,21 @@ model DocumentClassification {
   reviewNotes           String?     @map("review_notes") @db.Text
   createdAt             DateTime    @default(now()) @map("created_at")
   updatedAt             DateTime    @updatedAt @map("updated_at")
+  
+  // Validación de documento (Control IA)
+  documentoEsValido     Boolean?    @map("documento_es_valido")
+  motivoInvalidez       String?     @map("motivo_invalidez") @db.Text
+  datosExtraidos        Json?       @map("datos_extraidos")
+  disparidades          Json?       @map("disparidades")
+  tieneDisparidades     Boolean     @default(false) @map("tiene_disparidades")
+  vencimientoDetectado  DateTime?   @map("vencimiento_detectado")
+  vencimientoOrigen     String?     @map("vencimiento_origen") @db.VarChar(20)
 
   document Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
 
   @@index([detectedEntityType, confidence])
   @@index([reviewedAt])
+  @@index([tieneDisparidades])
   @@map("document_classifications")
 }
 
@@ -476,4 +490,82 @@ model EquipoAuditLog {
   @@index([usuarioId])
   @@index([createdAt])
   @@map("equipo_audit_logs")
+}
+
+// =================================
+// DATOS EXTRAÍDOS POR IA (solo visible para admins)
+// =================================
+
+model EntityExtractedData {
+  id              Int        @id @default(autoincrement())
+  tenantEmpresaId Int        @map("tenant_empresa_id")
+  dadorCargaId    Int        @map("dador_carga_id")
+  entityType      EntityType @map("entity_type")
+  entityId        Int        @map("entity_id")
+  
+  // Datos extraídos (JSON flexible)
+  datosExtraidos  Json       @map("datos_extraidos")
+  
+  // Metadatos de última extracción
+  ultimaExtraccionAt    DateTime   @map("ultima_extraccion_at")
+  ultimoDocumentoId     Int?       @map("ultimo_documento_id")
+  ultimoDocumentoTipo   String?    @map("ultimo_documento_tipo") @db.VarChar(100)
+  confianzaPromedio     Float      @default(0.0) @map("confianza_promedio")
+  
+  // Campos consolidados CHOFER
+  cuil              String?  @db.VarChar(20)
+  fechaNacimiento   DateTime? @map("fecha_nacimiento")
+  nacionalidad      String?  @db.VarChar(50)
+  numeroLicencia    String?  @map("numero_licencia") @db.VarChar(50)
+  clasesLicencia    String[] @default([]) @map("clases_licencia")
+  vencimientoLicencia DateTime? @map("vencimiento_licencia")
+  
+  // Campos consolidados CAMION/ACOPLADO
+  anioFabricacion   Int?     @map("anio_fabricacion")
+  numeroMotor       String?  @map("numero_motor") @db.VarChar(50)
+  numeroChasis      String?  @map("numero_chasis") @db.VarChar(50)
+  titular           String?  @db.VarChar(200)
+  titularDni        String?  @map("titular_dni") @db.VarChar(20)
+  
+  // Campos consolidados EMPRESA_TRANSPORTISTA
+  condicionIva      String?  @map("condicion_iva") @db.VarChar(50)
+  domicilioFiscal   Json?    @map("domicilio_fiscal")
+  actividadPrincipal Json?   @map("actividad_principal")
+  cantidadEmpleados Int?     @map("cantidad_empleados")
+  artNombre         String?  @map("art_nombre") @db.VarChar(100)
+  artPoliza         String?  @map("art_poliza") @db.VarChar(50)
+  
+  createdAt         DateTime @default(now()) @map("created_at")
+  updatedAt         DateTime @updatedAt @map("updated_at")
+
+  @@unique([tenantEmpresaId, entityType, entityId])
+  @@index([tenantEmpresaId, dadorCargaId, entityType])
+  @@index([entityType, entityId])
+  @@map("entity_extracted_data")
+}
+
+model EntityExtractionLog {
+  id              Int        @id @default(autoincrement())
+  tenantEmpresaId Int        @map("tenant_empresa_id")
+  entityType      EntityType @map("entity_type")
+  entityId        Int        @map("entity_id")
+  documentId      Int        @map("document_id")
+  templateName    String     @map("template_name") @db.VarChar(100)
+  
+  // Resultado de la extracción
+  datosExtraidos  Json       @map("datos_extraidos")
+  disparidades    Json?      @map("disparidades")
+  esValido        Boolean    @map("es_valido")
+  confianza       Float      @default(0.0)
+  
+  // Quién solicitó
+  solicitadoPor   Int?       @map("solicitado_por")
+  esRechequeo     Boolean    @default(false) @map("es_rechequeo")
+  
+  createdAt       DateTime   @default(now()) @map("created_at")
+
+  @@index([tenantEmpresaId, entityType, entityId])
+  @@index([documentId])
+  @@index([createdAt])
+  @@map("entity_extraction_log")
 }

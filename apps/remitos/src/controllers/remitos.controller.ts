@@ -122,7 +122,7 @@ export class RemitosController {
   }
   
   /**
-   * GET /remitos - Listar remitos
+   * GET /remitos - Listar remitos (optimizado: incluye stats)
    */
   static async list(req: AuthRequest, res: Response): Promise<void> {
     try {
@@ -145,6 +145,7 @@ export class RemitosController {
         success: true,
         data: result.items,
         pagination: result.pagination,
+        stats: result.stats, // Incluido en la misma respuesta
       });
       
     } catch (error: any) {

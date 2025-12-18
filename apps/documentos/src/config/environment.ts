@@ -27,10 +27,16 @@ const envSchema = z.object({
   MINIO_PUBLIC_BASE_URL: z.string().url().optional(),
   MINIO_INTERNAL_BASE_URL: z.string().url().optional(),
   
-  // Flowise IA
+  // Flowise IA (Clasificación)
   FLOWISE_ENDPOINT: z.string().url().optional(),
   FLOWISE_API_KEY: z.string().optional(),
   FLOWISE_FLOW_ID: z.string().optional(),
+  
+  // Flowise IA (Validación de documentos)
+  FLOWISE_VALIDATION_ENABLED: z.string().transform(val => val === 'true').default('false'),
+  FLOWISE_VALIDATION_BASE_URL: z.string().url().optional(),
+  FLOWISE_VALIDATION_FLOW_ID: z.string().optional(),
+  FLOWISE_VALIDATION_TIMEOUT: z.string().transform(val => parseInt(val)).default('60000'),
   
   // Redis para queues
   REDIS_URL: z.string().default('redis://localhost:6379'),

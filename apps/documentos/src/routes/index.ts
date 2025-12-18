@@ -33,6 +33,7 @@ import complianceRoutes from './compliance.routes';
 import auditLogsRoutes from './audit.routes';
 import portalClienteRoutes from './portal-cliente.routes';
 import portalTransportistaRoutes from './portal-transportista.routes';
+import entityDataRoutes from './entity-data.routes';
 
 const router = Router();
 
@@ -103,6 +104,7 @@ router.use('/api/docs/empresas-transportistas', authenticate, tenantResolver, em
 router.use('/api/docs/approval', authenticate, tenantResolver, approvalRoutes);
 router.use('/api/docs/compliance', authenticate, tenantResolver, complianceRoutes);
 router.use('/api/docs/audit', authenticate, tenantResolver, auditLogsRoutes);
+router.use('/api/docs/entities', authenticate, tenantResolver, entityDataRoutes);
 
 // =================================
 // RUTA RAÍZ - Información del Servicio

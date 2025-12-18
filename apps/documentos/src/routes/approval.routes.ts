@@ -37,6 +37,9 @@ router.post('/pending/:id/reject', authorize([UserRole.ADMIN, UserRole.SUPERADMI
 router.get('/stats', authorize([UserRole.ADMIN, UserRole.SUPERADMIN, UserRole.ADMIN_INTERNO, UserRole.DADOR_DE_CARGA]), ApprovalController.getStats);
 router.post('/pending/batch-approve', authorize([UserRole.ADMIN, UserRole.SUPERADMIN, UserRole.ADMIN_INTERNO, UserRole.DADOR_DE_CARGA]), approvalRateLimit, ApprovalController.batchApprove);
 
+// Rechequeo con IA (solo admins)
+router.post('/pending/:id/recheck', authorize([UserRole.SUPERADMIN, UserRole.ADMIN_INTERNO]), ApprovalController.recheckDocument);
+
 export default router;
 
 

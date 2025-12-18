@@ -221,6 +221,87 @@ export class ApprovalController {
       res.status(500).json({ success: false, message: 'Error interno del servidor', code: 'INTERNAL_ERROR' });
     }
   }
+
+  /**
+   * Rechequear documento con IA
+   * POST /approval/pending/:id/recheck
+   */
+  static async recheckDocument(req: Request, res: Response): Promise<void> {
+    try {
+      const tenantEmpresaId = (req as any).tenantId as number;
+      const userId = ((req as any).user?.id ?? (req as any).user?.userId) as number | undefined;
+      const id = Number((req.params as any).id);
+
+      if (!userId) {
+        res.status(401).json({ success: false, message: 'Usuario no identificado', code: 'USER_NOT_IDENTIFIED' });
+        return;
+      }
+
+      // Importar servicios necesarios
+      const { queueService } = await import('../services/queue.service');
+      const { documentValidationService } = await import('../services/document-validation.service');
+      const { prisma } = await import('../config/database');
+
+      // Verificar si la validación IA está habilitada
+      if (!documentValidationService.isEnabled()) {
+        res.status(400).json({ 
+          success: false, 
+          message: 'Validación con IA no está habilitada', 
+          code: 'VALIDATION_DISABLED' 
+        });
+        return;
+      }
+
+      // Verificar que el documento existe y pertenece al tenant
+      const document = await prisma.document.findFirst({
+        where: {
+          id,
+          tenantEmpresaId,
+          status: 'PENDIENTE_APROBACION',
+        },
+        select: { id: true, status: true },
+      });
+
+      if (!document) {
+        res.status(404).json({ 
+          success: false, 
+          message: 'Documento no encontrado o no está pendiente de aprobación', 
+          code: 'NOT_FOUND' 
+        });
+        return;
+      }
+
+      // Encolar para rechequeo
+      const jobId = await queueService.addDocumentAIValidation({
+        documentId: id,
+        solicitadoPor: userId,
+        esRechequeo: true,
+      });
+
+      // Registrar en auditoría
+      void AuditService.log({
+        tenantEmpresaId,
+        userId,
+        userRole: (req as any).user?.role,
+        method: req.method,
+        path: req.originalUrl || req.path,
+        statusCode: 200,
+        action: 'APPROVAL_RECHECK_REQUESTED',
+        entityType: 'DOCUMENT',
+        entityId: id,
+        details: { jobId },
+      });
+
+      res.json({
+        success: true,
+        message: 'Documento encolado para rechequeo con IA',
+        data: { documentId: id, jobId },
+      });
+    } catch (error) {
+      AppLogger.error('ApprovalController.recheckDocument error:', error);
+      res.status(500).json({ success: false, message: 'Error interno del servidor', code: 'INTERNAL_ERROR' });
+    }
+  }
 }
 
 

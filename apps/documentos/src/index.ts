@@ -8,6 +8,7 @@ import { getEnvironment, isServiceEnabled } from './config/environment';
 import { db } from './config/database';
 import { errorHandler, notFoundHandler } from './middlewares/error.middleware';
 import { getDocumentValidationWorker, closeDocumentValidationWorker } from './workers/document-validation.worker';
+import { startDocumentAIValidationWorker, stopDocumentAIValidationWorker } from './workers/document-ai-validation.worker';
 import { queueService } from './services/queue.service';
 import { schedulerService } from './services/scheduler.service';
 import { SystemConfigService } from './services/system-config.service';
@@ -45,6 +46,16 @@ const main = async (): Promise<void> => {
       // Inicializar workers asíncronos
       getDocumentValidationWorker();
       (await import('./workers/notifications.worker')).getNotificationsWorker();
+      
+      // Inicializar worker de validación IA (si está habilitado)
+      const { documentValidationService } = await import('./services/document-validation.service');
+      if (documentValidationService.isEnabled()) {
+        startDocumentAIValidationWorker();
+        AppLogger.info('🤖 Worker de validación IA habilitado');
+      } else {
+        AppLogger.info('⏭️ Worker de validación IA deshabilitado (FLOWISE_VALIDATION_ENABLED=false)');
+      }
+      
       AppLogger.info('🔄 Workers de validación inicializados');
 
       // Inicializar configuraciones del sistema
@@ -189,6 +200,7 @@ const gracefulShutdown = async (signal: string): Promise<void> => {
 
       // Cerrar workers y colas
       await closeDocumentValidationWorker();
+      await stopDocumentAIValidationWorker();
       await queueService.close();
 
       // Desconectar base de datos

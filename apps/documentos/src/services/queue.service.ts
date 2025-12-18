@@ -14,10 +14,18 @@ interface DocumentValidationJobData {
   entityType: string;
 }
 
+interface DocumentAIValidationJobData {
+  documentId: number;
+  solicitadoPor?: number;
+  esRechequeo?: boolean;
+}
+
 class QueueService {
   private static instance: QueueService;
   private redis: Redis;
   private documentValidationQueue: Queue<DocumentValidationJobData>;
+  // Cola para validación IA (control de documentos)
+  private documentAIValidationQueue: Queue<DocumentAIValidationJobData>;
   // Cola para verificación de cumplimiento (no envía notificaciones por sí misma)
   private complianceQueue: Queue<{ type: 'verify-missing-equipo'; tenantId: number; equipoId: number }>;
 
@@ -51,6 +59,23 @@ class QueueService {
     (this.documentValidationQueue as any).on('failed', async () => {
       try { await this.incrementDailyCounter('failed'); } catch {}
     });
+
+    // Crear cola de validación IA (control de documentos)
+    this.documentAIValidationQueue = new Queue<DocumentAIValidationJobData>(
+      'document-ai-validation',
+      {
+        connection: this.redis,
+        defaultJobOptions: {
+          removeOnComplete: 50,
+          removeOnFail: 50,
+          attempts: 3,
+          backoff: {
+            type: 'exponential',
+            delay: 5000,
+          },
+        },
+      }
+    );
 
     // Crear cola de verificación de cumplimiento
     this.complianceQueue = new Queue<{ type: 'verify-missing-equipo'; tenantId: number; equipoId: number }>(
@@ -97,6 +122,31 @@ class QueueService {
       });
     } catch (error) {
       AppLogger.error('💥 Error agregando documento a cola:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Agregar documento a cola de validación IA
+   */
+  public async addDocumentAIValidation(data: DocumentAIValidationJobData): Promise<string | undefined> {
+    try {
+      const job = await this.documentAIValidationQueue.add(
+        'validate-document-ai',
+        data,
+        {
+          delay: 500,
+        }
+      );
+
+      AppLogger.info(`🤖 Documento ${data.documentId} agregado a cola de validación IA`, {
+        jobId: job.id,
+        esRechequeo: data.esRechequeo || false,
+      });
+
+      return job.id;
+    } catch (error) {
+      AppLogger.error('💥 Error agregando documento a cola de validación IA:', error);
       throw error;
     }
   }
@@ -261,6 +311,8 @@ class QueueService {
   public async close(): Promise<void> {
     try {
       await this.documentValidationQueue.close();
+      await this.documentAIValidationQueue.close();
+      await this.complianceQueue.close();
       await this.redis.quit();
       AppLogger.info('📬 Queue Service cerrado');
     } catch (error) {

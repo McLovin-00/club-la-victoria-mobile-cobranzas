@@ -1,18 +1,23 @@
 import { useMemo, useState, useEffect } from 'react';
 import { useParams, useLocation, useNavigate } from 'react-router-dom';
-import { useApprovePendingDocumentMutation, useGetApprovalPendingByIdQuery, useRejectPendingDocumentMutation, useGetTemplatesQuery } from '../api/documentosApiSlice';
+import { useApprovePendingDocumentMutation, useGetApprovalPendingByIdQuery, useRejectPendingDocumentMutation, useRecheckDocumentWithAIMutation, useGetTemplatesQuery } from '../api/documentosApiSlice';
 import { useRoleBasedNavigation } from '../../../hooks/useRoleBasedNavigation';
 import { formatDateTime } from '../../../utils/formatters';
 import type { ApprovalPendingDocument, EntityType } from '../types/entities';
+import { useAppSelector } from '../../../store/hooks';
+import { ArrowPathIcon, ExclamationTriangleIcon, InformationCircleIcon, ShieldExclamationIcon } from '@heroicons/react/24/outline';
 
 export default function ApprovalDetailPage() {
   const { id } = useParams();
   const navigate = useNavigate();
   const { goBack } = useRoleBasedNavigation();
   const docId = Number(id);
-  const { data, isFetching, error } = useGetApprovalPendingByIdQuery({ id: docId }, { skip: !docId });
+  const { data, isFetching, error, refetch } = useGetApprovalPendingByIdQuery({ id: docId }, { skip: !docId });
   const [approve, { isLoading: approving }] = useApprovePendingDocumentMutation();
   const [reject, { isLoading: rejecting }] = useRejectPendingDocumentMutation();
+  const [recheckWithAI, { isLoading: rechecking }] = useRecheckDocumentWithAIMutation();
+  const userRole = useAppSelector((s) => (s as any).auth?.user?.role) as string | undefined;
+  const canRecheck = userRole === 'SUPERADMIN' || userRole === 'ADMIN_INTERNO';
 
   const [entityType, setEntityType] = useState<EntityType | ''>('');
   const [entityId, setEntityId] = useState<string>('');
@@ -260,6 +265,23 @@ export default function ApprovalDetailPage() {
     await reject({ id: docId, reason: rejectReason || '', reviewNotes: reviewNotes || undefined });
     navigate('/documentos/aprobacion');
   };
+  const onRecheck = async () => {
+    try {
+      await recheckWithAI({ id: docId }).unwrap();
+      // Refrescar después de 2 segundos para dar tiempo al proceso
+      setTimeout(() => refetch(), 2000);
+    } catch (e) {
+      console.error('Error rechecking document:', e);
+    }
+  };
+  
+  // Disparidades del documento
+  const disparidades = useMemo(() => {
+    const clf = classification || (info as any)?.data?.classification;
+    return (clf as any)?.disparidades || [];
+  }, [classification, info]);
+  
+  const tieneDisparidades = disparidades.length > 0;
 
   return (
     <div className="p-6 space-y-6">
@@ -276,6 +298,17 @@ export default function ApprovalDetailPage() {
             <p className="text-muted-foreground">Verificá la clasificación y confirmá los datos antes de aprobar.</p>
           </div>
         </div>
+        {canRecheck && (
+          <button
+            onClick={onRecheck}
+            disabled={rechecking}
+            className="inline-flex items-center gap-2 px-4 py-2 rounded-lg border border-blue-300 bg-blue-50 text-blue-700 hover:bg-blue-100 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            title="Rechequear con IA"
+          >
+            <ArrowPathIcon className={`h-5 w-5 ${rechecking ? 'animate-spin' : ''}`} />
+            {rechecking ? 'Rechecando...' : 'Rechequear con IA'}
+          </button>
+        )}
       </header>
 
       <section className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -316,6 +349,21 @@ export default function ApprovalDetailPage() {
                 } catch { return '-'; } 
               })()} 
             />
+
+            {/* Panel de disparidades */}
+            {tieneDisparidades && (
+              <div className="mt-4 p-3 rounded-lg border border-amber-200 bg-amber-50">
+                <div className="flex items-center gap-2 mb-2 text-amber-800 font-medium">
+                  <ExclamationTriangleIcon className="h-5 w-5" />
+                  Disparidades detectadas
+                </div>
+                <div className="space-y-2">
+                  {disparidades.map((d: any, i: number) => (
+                    <DisparidadItem key={i} disparidad={d} />
+                  ))}
+                </div>
+              </div>
+            )}
 
             <div className="pt-2 border-t" />
 
@@ -424,6 +472,76 @@ function Field({ label, value }: { label: string; value: string }) {
     <div className="flex items-center justify-between gap-3 text-sm">
       <div className="text-muted-foreground">{label}</div>
       <div className="font-medium">{value}</div>
+    </div>
+  );
+}
+
+interface Disparidad {
+  campo: string;
+  valorEnSistema: unknown;
+  valorEnDocumento: unknown;
+  severidad: 'critica' | 'advertencia' | 'info';
+  mensaje: string;
+}
+
+function DisparidadItem({ disparidad }: { disparidad: Disparidad }) {
+  const severidadConfig = {
+    critica: {
+      icon: ShieldExclamationIcon,
+      bg: 'bg-red-50',
+      border: 'border-red-200',
+      text: 'text-red-700',
+      badge: 'bg-red-100 text-red-800',
+    },
+    advertencia: {
+      icon: ExclamationTriangleIcon,
+      bg: 'bg-amber-50',
+      border: 'border-amber-200',
+      text: 'text-amber-700',
+      badge: 'bg-amber-100 text-amber-800',
+    },
+    info: {
+      icon: InformationCircleIcon,
+      bg: 'bg-blue-50',
+      border: 'border-blue-200',
+      text: 'text-blue-700',
+      badge: 'bg-blue-100 text-blue-800',
+    },
+  };
+  
+  const config = severidadConfig[disparidad.severidad] || severidadConfig.info;
+  const Icon = config.icon;
+  
+  const formatValue = (val: unknown): string => {
+    if (val === null || val === undefined) return '-';
+    if (typeof val === 'object') return JSON.stringify(val);
+    return String(val);
+  };
+  
+  return (
+    <div className={`p-2 rounded border ${config.border} ${config.bg}`}>
+      <div className="flex items-start gap-2">
+        <Icon className={`h-4 w-4 mt-0.5 ${config.text}`} />
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2 mb-1">
+            <span className={`text-xs font-medium px-1.5 py-0.5 rounded ${config.badge}`}>
+              {disparidad.severidad.toUpperCase()}
+            </span>
+            <span className="text-xs font-medium text-gray-700">{disparidad.campo}</span>
+          </div>
+          <p className={`text-xs ${config.text}`}>{disparidad.mensaje}</p>
+          <div className="mt-1 grid grid-cols-2 gap-2 text-xs">
+            <div>
+              <span className="text-gray-500">En sistema:</span>
+              <span className="ml-1 font-mono">{formatValue(disparidad.valorEnSistema)}</span>
+            </div>
+            <div>
+              <span className="text-gray-500">En documento:</span>
+              <span className="ml-1 font-mono">{formatValue(disparidad.valorEnDocumento)}</span>
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }

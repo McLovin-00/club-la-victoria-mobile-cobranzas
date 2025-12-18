@@ -103,6 +103,7 @@ export interface RemitosListResponse {
     total: number;
     pages: number;
   };
+  stats: RemitoStats; // Stats incluidos en la respuesta (optimizado)
 }
 
 export const ESTADO_LABELS: Record<RemitoEstado, string> = {

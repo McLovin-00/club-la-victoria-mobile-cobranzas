@@ -1,34 +1,25 @@
 import { useState } from 'react';
 import { 
   DocumentPlusIcon,
-  FunnelIcon,
   MagnifyingGlassIcon,
-  ChartBarIcon,
-  ClockIcon,
-  CheckCircleIcon,
-  XCircleIcon,
   ArrowPathIcon,
 } from '@heroicons/react/24/outline';
 import { useSelector } from 'react-redux';
 import { selectCurrentUser } from '../../auth/authSlice';
-import { useGetRemitosQuery, useGetStatsQuery } from '../api/remitosApiSlice';
+import { useGetRemitosQuery } from '../api/remitosApiSlice';
 import { RemitoCard } from '../components/RemitoCard';
 import { RemitoUploader } from '../components/RemitoUploader';
 import { RemitoDetail } from '../components/RemitoDetail';
 import type { Remito, RemitoEstado } from '../types';
 
-const TABS = [
-  { id: 'todos', label: 'Todos', icon: ChartBarIcon },
-  { id: 'PENDIENTE_APROBACION', label: 'Pendientes', icon: ClockIcon },
-  { id: 'APROBADO', label: 'Aprobados', icon: CheckCircleIcon },
-  { id: 'RECHAZADO', label: 'Rechazados', icon: XCircleIcon },
-] as const;
+type FilterType = 'todos' | 'PENDIENTE_APROBACION' | 'APROBADO' | 'RECHAZADO';
 
 export function RemitosPage() {
   const user = useSelector(selectCurrentUser);
   const canApprove = user?.role === 'SUPERADMIN' || user?.role === 'ADMIN_INTERNO' || user?.role === 'DADOR_CARGA';
   
-  const [activeTab, setActiveTab] = useState<string>('todos');
+  // Por defecto mostrar pendientes
+  const [activeFilter, setActiveFilter] = useState<FilterType>('PENDIENTE_APROBACION');
   const [search, setSearch] = useState('');
   const [showUploader, setShowUploader] = useState(false);
   const [selectedRemito, setSelectedRemito] = useState<Remito | null>(null);
@@ -36,7 +27,7 @@ export function RemitosPage() {
   
   // Query params
   const queryParams = {
-    estado: activeTab !== 'todos' ? activeTab as RemitoEstado : undefined,
+    estado: activeFilter !== 'todos' ? activeFilter as RemitoEstado : undefined,
     numeroRemito: search || undefined,
     page,
     limit: 20,
@@ -45,17 +36,19 @@ export function RemitosPage() {
   const { data: remitosData, isLoading, isFetching, refetch } = useGetRemitosQuery(queryParams, {
     refetchOnMountOrArgChange: true,
   });
-  const { data: statsData } = useGetStatsQuery(undefined, {
-    refetchOnMountOrArgChange: true,
-  });
   
   const remitos = remitosData?.data || [];
   const pagination = remitosData?.pagination;
-  const stats = statsData?.data;
+  const stats = remitosData?.stats; // Stats vienen incluidos en la misma respuesta (optimizado)
   
   const handleUploadSuccess = () => {
     setShowUploader(false);
     refetch();
+  };
+
+  const handleFilterClick = (filter: FilterType) => {
+    setActiveFilter(filter);
+    setPage(1);
   };
   
   // Si hay un remito seleccionado, mostrar el detalle
@@ -102,13 +95,37 @@ export function RemitosPage() {
         </div>
       </div>
       
-      {/* Stats */}
+      {/* Stats - Clickeables para filtrar */}
       {stats && (
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-          <StatCard label="Total" value={stats.total} color="blue" />
-          <StatCard label="Pendientes" value={stats.pendientes} color="yellow" />
-          <StatCard label="Aprobados" value={stats.aprobados} color="green" />
-          <StatCard label="Rechazados" value={stats.rechazados} color="red" />
+          <StatCard 
+            label="Total" 
+            value={stats.total} 
+            color="blue" 
+            active={activeFilter === 'todos'}
+            onClick={() => handleFilterClick('todos')}
+          />
+          <StatCard 
+            label="Pendientes" 
+            value={stats.pendientes} 
+            color="yellow" 
+            active={activeFilter === 'PENDIENTE_APROBACION'}
+            onClick={() => handleFilterClick('PENDIENTE_APROBACION')}
+          />
+          <StatCard 
+            label="Aprobados" 
+            value={stats.aprobados} 
+            color="green" 
+            active={activeFilter === 'APROBADO'}
+            onClick={() => handleFilterClick('APROBADO')}
+          />
+          <StatCard 
+            label="Rechazados" 
+            value={stats.rechazados} 
+            color="red" 
+            active={activeFilter === 'RECHAZADO'}
+            onClick={() => handleFilterClick('RECHAZADO')}
+          />
         </div>
       )}
       
@@ -119,27 +136,8 @@ export function RemitosPage() {
         />
       )}
       
-      {/* Tabs y búsqueda */}
-      <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
-        <div className="flex gap-1 p-1 bg-slate-100 dark:bg-slate-800 rounded-lg overflow-x-auto">
-          {TABS.map((tab) => (
-            <button
-              key={tab.id}
-              onClick={() => { setActiveTab(tab.id); setPage(1); }}
-              className={`
-                flex items-center gap-2 px-3 py-2 rounded-md text-sm font-medium whitespace-nowrap transition-colors
-                ${activeTab === tab.id 
-                  ? 'bg-white dark:bg-slate-700 text-slate-900 dark:text-white shadow-sm'
-                  : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
-                }
-              `}
-            >
-              <tab.icon className="h-4 w-4" />
-              {tab.label}
-            </button>
-          ))}
-        </div>
-        
+      {/* Búsqueda */}
+      <div className="flex justify-end">
         <div className="relative w-full sm:w-64">
           <MagnifyingGlassIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
           <input
@@ -154,7 +152,7 @@ export function RemitosPage() {
       
       {/* Lista de remitos */}
       {isLoading ? (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div className="space-y-3">
           {[...Array(6)].map((_, i) => (
             <div key={i} className="bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700 p-4 animate-pulse">
               <div className="h-5 bg-slate-200 dark:bg-slate-700 rounded w-1/2 mb-3" />
@@ -169,10 +167,13 @@ export function RemitosPage() {
         <div className="text-center py-12 bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700">
           <DocumentPlusIcon className="h-12 w-12 mx-auto text-slate-400 mb-4" />
           <h3 className="text-lg font-medium text-slate-900 dark:text-white mb-2">
-            No hay remitos
+            No hay remitos {activeFilter !== 'todos' && getFilterLabel(activeFilter)}
           </h3>
           <p className="text-slate-500 dark:text-slate-400">
-            Cargá tu primer remito para comenzar
+            {activeFilter === 'todos' 
+              ? 'Cargá tu primer remito para comenzar'
+              : 'No se encontraron remitos con este estado'
+            }
           </p>
         </div>
       ) : (
@@ -215,28 +216,60 @@ export function RemitosPage() {
   );
 }
 
-// Componente de tarjeta de estadísticas
+// Helper para obtener label del filtro
+function getFilterLabel(filter: FilterType): string {
+  const labels: Record<FilterType, string> = {
+    todos: '',
+    PENDIENTE_APROBACION: 'pendientes',
+    APROBADO: 'aprobados',
+    RECHAZADO: 'rechazados',
+  };
+  return labels[filter];
+}
+
+// Componente de tarjeta de estadísticas - ahora clickeable
 interface StatCardProps {
   label: string;
   value: number;
   color: 'blue' | 'yellow' | 'green' | 'red';
+  active?: boolean;
+  onClick?: () => void;
 }
 
-function StatCard({ label, value, color }: StatCardProps) {
+function StatCard({ label, value, color, active, onClick }: StatCardProps) {
   const colors = {
-    blue: 'bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 border-blue-200 dark:border-blue-800',
-    yellow: 'bg-yellow-50 dark:bg-yellow-900/20 text-yellow-600 dark:text-yellow-400 border-yellow-200 dark:border-yellow-800',
-    green: 'bg-green-50 dark:bg-green-900/20 text-green-600 dark:text-green-400 border-green-200 dark:border-green-800',
-    red: 'bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 border-red-200 dark:border-red-800',
+    blue: {
+      base: 'bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 border-blue-200 dark:border-blue-800',
+      active: 'ring-2 ring-blue-500 ring-offset-2 dark:ring-offset-slate-900',
+    },
+    yellow: {
+      base: 'bg-yellow-50 dark:bg-yellow-900/20 text-yellow-600 dark:text-yellow-400 border-yellow-200 dark:border-yellow-800',
+      active: 'ring-2 ring-yellow-500 ring-offset-2 dark:ring-offset-slate-900',
+    },
+    green: {
+      base: 'bg-green-50 dark:bg-green-900/20 text-green-600 dark:text-green-400 border-green-200 dark:border-green-800',
+      active: 'ring-2 ring-green-500 ring-offset-2 dark:ring-offset-slate-900',
+    },
+    red: {
+      base: 'bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 border-red-200 dark:border-red-800',
+      active: 'ring-2 ring-red-500 ring-offset-2 dark:ring-offset-slate-900',
+    },
   };
   
   return (
-    <div className={`p-4 rounded-xl border ${colors[color]}`}>
+    <button
+      onClick={onClick}
+      className={`
+        p-4 rounded-xl border text-left transition-all cursor-pointer
+        hover:scale-[1.02] hover:shadow-md
+        ${colors[color].base}
+        ${active ? colors[color].active : ''}
+      `}
+    >
       <div className="text-2xl font-bold">{value}</div>
       <div className="text-sm opacity-75">{label}</div>
-    </div>
+    </button>
   );
 }
 
 export default RemitosPage;
-

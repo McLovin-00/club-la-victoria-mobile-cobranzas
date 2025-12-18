@@ -836,6 +836,10 @@ export const documentosApiSlice = createApi({
       query: ({ id, ...body }) => ({ url: `/approval/pending/${id}/reject`, method: 'POST', body }),
       invalidatesTags: ['Approval', 'Dashboard', 'Document', 'Equipos'],
     }),
+    recheckDocumentWithAI: builder.mutation<{ success: boolean; message: string; data: { documentId: number; jobId: string } }, { id: number }>({
+      query: ({ id }) => ({ url: `/approval/pending/${id}/recheck`, method: 'POST' }),
+      invalidatesTags: (_result, _error, { id }) => [{ type: 'Approval', id }, 'Approval'],
+    }),
     batchApproveDocuments: builder.mutation<any, { items: Array<{ id: number; confirmedEntityType: string; confirmedEntityId: number; expiresAt?: string | null }>; reviewNotes?: string | null }>({
       query: (body) => ({ url: `/approval/pending/batch-approve`, method: 'POST', body }),
       invalidatesTags: ['Approval', 'Dashboard', 'Equipos'],
@@ -1161,6 +1165,7 @@ export const {
   useGetApprovalPendingByIdQuery,
   useApprovePendingDocumentMutation,
   useRejectPendingDocumentMutation,
+  useRecheckDocumentWithAIMutation,
   useBatchApproveDocumentsMutation,
   useGetApprovalStatsQuery,
   useGetApprovalKpisQuery,

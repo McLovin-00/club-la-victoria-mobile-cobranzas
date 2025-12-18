@@ -1,0 +1,327 @@
+# =============================================================================
+# Docker Compose para 10.3.0.246 - Ambiente de Desarrollo Alternativo
+# Puertos diferentes para coexistir con servicios nativos
+# =============================================================================
+
+networks:
+  core_net:
+    driver: bridge
+  edge_net:
+    driver: bridge
+
+volumes:
+  postgres_data:
+  redis_data:
+  minio_data:
+  flowise_data:
+
+services:
+  postgres:
+    image: postgres:16
+    container_name: bca_postgres_246
+    restart: always
+    environment:
+      POSTGRES_USER: evo
+      POSTGRES_PASSWORD: phoenix
+      POSTGRES_DB: monorepo-bca
+    command: [
+      "postgres",
+      "-c", "listen_addresses=*",
+      "-c", "shared_buffers=1GB",
+      "-c", "effective_cache_size=3GB", 
+      "-c", "work_mem=64MB",
+      "-c", "maintenance_work_mem=256MB",
+      "-c", "max_connections=100"
+    ]
+    ports:
+      - "5433:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./postgres/init:/docker-entrypoint-initdb.d:ro
+    deploy:
+      resources:
+        limits:
+          cpus: "1.0"
+          memory: "2G"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U evo -d monorepo-bca"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - core_net
+
+  redis:
+    image: redis:7-alpine
+    container_name: bca_redis_246
+    restart: always
+    command: [
+      "redis-server",
+      "--appendonly", "yes",
+      "--maxmemory", "512mb",
+      "--maxmemory-policy", "allkeys-lru"
+    ]
+    volumes:
+      - redis_data:/data
+    ports:
+      - "6381:6379"
+    deploy:
+      resources:
+        limits:
+          cpus: "0.3"
+          memory: "1G"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+    networks:
+      - core_net
+
+  minio:
+    image: minio/minio:latest
+    container_name: bca_minio_246
+    restart: always
+    command: ["server", "/data", "--address", ":9000", "--console-address", ":9001"]
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin
+      MINIO_API_CORS_ALLOW_ORIGIN: "*"
+    ports:
+      - "9002:9000"
+      - "9003:9001"
+    volumes:
+      - minio_data:/data
+    deploy:
+      resources:
+        limits:
+          cpus: "0.5"
+          memory: "1G"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+    networks:
+      - core_net
+      - edge_net
+
+  backend:
+    build:
+      context: ../..
+      dockerfile: ./deploy/stack-ip-10.3.0.246/Dockerfile.backend
+    image: bca/backend:246
+    container_name: bca_backend_246
+    restart: always
+    environment:
+      NODE_ENV: development
+      BACKEND_PORT: 4810
+      DATABASE_URL: postgresql://evo:phoenix@postgres:5432/monorepo-bca?schema=platform
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_NAME: monorepo-bca
+      DB_USER: evo
+      DB_PASSWORD: phoenix
+      DB_SCHEMA: platform
+      DB_ADMIN_DATABASE: monorepo-bca
+      JWT_PRIVATE_KEY_PATH: /run/secrets/jwt_private.pem
+      JWT_PUBLIC_KEY_PATH: /run/secrets/jwt_public.pem
+      FRONTEND_URLS: http://10.3.0.246:8560
+      CORS_ORIGIN: http://10.3.0.246:8560
+      ENABLE_BACKEND: "true"
+      ENABLE_DOCUMENTOS: "true"
+    ports:
+      - "4810:4810"
+    volumes:
+      - ./keys/jwt_private.pem:/run/secrets/jwt_private.pem:ro
+      - ./keys/jwt_public.pem:/run/secrets/jwt_public.pem:ro
+    depends_on:
+      - postgres
+      - redis
+    deploy:
+      resources:
+        limits:
+          cpus: "0.5"
+          memory: "1G"
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:4810/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    networks:
+      - core_net
+      - edge_net
+
+  documentos:
+    build:
+      context: ../../apps/documentos
+      dockerfile: Dockerfile
+    image: bca/documentos:246
+    container_name: bca_documentos_246
+    restart: always
+    environment:
+      NODE_ENV: development
+      ENABLE_DOCUMENTOS: "true"
+      DOCUMENTOS_PORT: 4812
+      DOCUMENTOS_DATABASE_URL: postgresql://evo:phoenix@postgres:5432/monorepo-bca?schema=documentos
+      DEFAULT_TENANT_ID: "1"
+      MINIO_ENDPOINT: 10.3.0.246:9002
+      MINIO_ACCESS_KEY: minioadmin
+      MINIO_SECRET_KEY: minioadmin
+      MINIO_USE_SSL: "false"
+      MINIO_REGION: us-east-1
+      MINIO_BUCKET_PREFIX: documentos-empresa
+      MINIO_PUBLIC_BASE_URL: http://10.3.0.246:9002
+      MINIO_INTERNAL_BASE_URL: http://10.3.0.246:9002
+      REDIS_URL: redis://redis:6379
+      SEED: "true"
+      FRONTEND_URLS: "http://10.3.0.246:8560"
+      FLOWISE_ENDPOINT: http://10.3.0.246:3006/api/v1/extract
+      # Validación de documentos con IA
+      FLOWISE_VALIDATION_ENABLED: "false"
+      FLOWISE_VALIDATION_BASE_URL: http://10.3.0.246:3006
+      FLOWISE_VALIDATION_FLOW_ID: bf6fc420-6e91-4886-a9ca-a86c285ee49a
+      FLOWISE_VALIDATION_TIMEOUT: "60000"
+      JWT_PUBLIC_KEY_PATH: /keys/jwt_public.pem
+      JWT_PRIVATE_KEY_PATH: /keys/jwt_private.pem
+    volumes:
+      - ./keys:/keys:ro
+    ports:
+      - "4812:4812"
+    depends_on:
+      - postgres
+      - minio
+      - redis
+    deploy:
+      resources:
+        limits:
+          cpus: "0.8"
+          memory: "2G"
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:4812/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    networks:
+      - core_net
+      - edge_net
+
+  remitos:
+    build:
+      context: ../../apps/remitos
+      dockerfile: Dockerfile
+    image: bca/remitos:246
+    container_name: bca_remitos_246
+    restart: always
+    environment:
+      NODE_ENV: production
+      REMITOS_PORT: 4813
+      REMITOS_DATABASE_URL: postgresql://evo:phoenix@postgres:5432/monorepo-bca?schema=remitos
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      MINIO_ENDPOINT: 10.3.0.246
+      MINIO_PORT: 9002
+      MINIO_ACCESS_KEY: minioadmin
+      MINIO_SECRET_KEY: minioadmin
+      MINIO_USE_SSL: "false"
+      MINIO_BUCKET: remitos
+      JWT_PUBLIC_KEY_PATH: /keys/jwt_public.pem
+      FRONTEND_URLS: http://10.3.0.246:8560
+      FLOWISE_ENABLED: "true"
+      FLOWISE_BASE_URL: http://10.3.0.246:3006
+      FLOWISE_FLOW_ID: ded2fa07-298d-47b8-be58-d180c399163f
+      FLOWISE_TIMEOUT: "60000"
+    volumes:
+      - ./keys:/keys:ro
+    ports:
+      - "4813:4813"
+    depends_on:
+      - postgres
+      - minio
+      - redis
+      - flowise
+    deploy:
+      resources:
+        limits:
+          cpus: "0.3"
+          memory: "1G"
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:4813/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    networks:
+      - core_net
+      - edge_net
+
+  flowise:
+    image: flowiseai/flowise:latest
+    container_name: bca_flowise_246
+    restart: always
+    environment:
+      PORT: 3006
+      FLOWISE_USERNAME: admin
+      FLOWISE_PASSWORD: change-me
+      OVERRIDE_DATABASE: "true"
+      DATABASE_TYPE: postgres
+      DATABASE_HOST: postgres
+      DATABASE_PORT: 5432
+      DATABASE_USER: evo
+      DATABASE_PASSWORD: phoenix
+      DATABASE_NAME: monorepo-bca
+      DATABASE_SCHEMA: flowise
+      NODE_ENV: development
+      FLOWISE_SECRETKEY_OVERWRITE: flowise-secret-key-2025
+      CORS_ORIGINS: "*"
+    volumes:
+      - flowise_data:/root/.flowise
+    ports:
+      - "3006:3006"
+    depends_on:
+      - postgres
+    deploy:
+      resources:
+        limits:
+          cpus: "0.5"
+          memory: "2G"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3006/api/v1/ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    networks:
+      - core_net
+      - edge_net
+
+  frontend:
+    build:
+      context: ../..
+      dockerfile: ./deploy/stack-ip-10.3.0.246/Dockerfile.frontend
+      args:
+        VITE_API_URL: http://10.3.0.246:4810
+        VITE_API_BASE_URL: http://10.3.0.246:4810
+        VITE_DOCUMENTOS_API_URL: http://10.3.0.246:4812
+        VITE_DOCUMENTOS_WS_URL: http://10.3.0.246:4812
+        VITE_REMITOS_API_URL: http://10.3.0.246:4813/api/remitos
+        VITE_APP_TITLE: BCA Group - Testing
+    image: bca/frontend:246
+    container_name: bca_frontend_246
+    restart: always
+    ports:
+      - "8560:8550"
+    depends_on:
+      - backend
+      - documentos
+    deploy:
+      resources:
+        limits:
+          cpus: "0.3"
+          memory: "512M"
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://127.0.0.1:8550/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+    networks:
+      - edge_net
+
