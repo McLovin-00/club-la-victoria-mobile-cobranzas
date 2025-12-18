@@ -82,8 +82,8 @@ export function authorize(allowedRoles: string[]) {
 // Roles que pueden subir remitos
 export const ROLES_UPLOAD = ['SUPERADMIN', 'ADMIN_INTERNO', 'DADOR_DE_CARGA', 'TRANSPORTISTA', 'CHOFER'];
 
-// Roles que pueden aprobar/rechazar
-export const ROLES_APPROVE = ['SUPERADMIN', 'ADMIN_INTERNO'];
+// Roles que pueden aprobar/rechazar/reprocesar
+export const ROLES_APPROVE = ['SUPERADMIN', 'ADMIN_INTERNO', 'DADOR_CARGA'];
 
 // Roles que pueden ver todos los remitos
 export const ROLES_VIEW_ALL = ['SUPERADMIN', 'ADMIN_INTERNO'];

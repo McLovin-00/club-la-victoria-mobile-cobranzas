@@ -26,7 +26,7 @@ const TABS = [
 
 export function RemitosPage() {
   const user = useSelector(selectCurrentUser);
-  const isAdmin = user?.role === 'SUPERADMIN' || user?.role === 'ADMIN_INTERNO';
+  const canApprove = user?.role === 'SUPERADMIN' || user?.role === 'ADMIN_INTERNO' || user?.role === 'DADOR_CARGA';
   
   const [activeTab, setActiveTab] = useState<string>('todos');
   const [search, setSearch] = useState('');
@@ -76,7 +76,7 @@ export function RemitosPage() {
         <RemitoDetail
           remito={selectedRemito}
           onBack={() => setSelectedRemito(null)}
-          canApprove={isAdmin}
+          canApprove={canApprove}
         />
       </div>
     );
@@ -194,7 +194,7 @@ export function RemitosPage() {
                 key={remito.id}
                 remito={remito}
                 onClick={() => setSelectedRemito(remito)}
-                onReprocess={isAdmin ? handleReprocess : undefined}
+                onReprocess={canApprove ? handleReprocess : undefined}
                 isReprocessing={reprocessingId === remito.id}
               />
             ))}
