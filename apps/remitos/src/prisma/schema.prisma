@@ -43,6 +43,7 @@ enum RemitoAction {
   EQUIPO_VINCULADO
   APROBADO
   RECHAZADO
+  REPROCESAR_SOLICITADO
 }
 
 // =================================

@@ -38,8 +38,7 @@ export function authenticate(req: AuthRequest, res: Response, next: NextFunction
     
     // Mapear campos del JWT al formato esperado
     req.user = {
-      id: decoded.userId || decoded.id || decoded.sub,
-      userId: decoded.userId,
+      userId: decoded.userId || decoded.id || decoded.sub,
       email: decoded.email,
       role: decoded.role,
       empresaId: decoded.empresaId,

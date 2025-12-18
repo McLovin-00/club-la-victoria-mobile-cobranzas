@@ -52,7 +52,7 @@ export class ConfigController {
         flowId,
         timeout,
         systemPrompt,
-      }, req.user!.id);
+      }, req.user!.userId);
       
       res.json({
         success: true,
