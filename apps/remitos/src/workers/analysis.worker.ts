@@ -152,17 +152,19 @@ async function processJob(job: Job<RemitoAnalysisJobData>): Promise<void> {
     }
     
   } catch (error: any) {
-    AppLogger.error(`💥 Error procesando remito #${remitoId}:`, error);
+    // Evitar referencias circulares al loggear errores
+    const errorMessage = error.message || 'Error interno';
+    AppLogger.error(`💥 Error procesando remito #${remitoId}:`, { message: errorMessage });
     
     await prisma.remito.update({
       where: { id: remitoId },
       data: {
         estado: 'ERROR_ANALISIS',
-        erroresAnalisis: [error.message || 'Error interno'],
+        erroresAnalisis: [errorMessage],
       },
     });
     
-    throw error; // Re-throw para que BullMQ reintente
+    throw new Error(errorMessage); // Re-throw limpio para que BullMQ reintente
   }
 }
 

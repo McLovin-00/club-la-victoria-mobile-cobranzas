@@ -24,7 +24,9 @@ export class FlowiseService {
         return { success: false, error: 'Flowise no está configurado correctamente' };
       }
       
-      const endpoint = `${config.baseUrl}/prediction/${config.flowId}`;
+      // Endpoint correcto incluye /api/v1/
+      const baseUrl = config.baseUrl.endsWith('/') ? config.baseUrl.slice(0, -1) : config.baseUrl;
+      const endpoint = `${baseUrl}/api/v1/prediction/${config.flowId}`;
       
       AppLogger.info('🤖 Enviando remito a Flowise para análisis...');
       
@@ -57,10 +59,13 @@ export class FlowiseService {
       return { success: false, error: 'Respuesta inválida de Flowise' };
       
     } catch (error: any) {
-      AppLogger.error('💥 Error en análisis Flowise:', error);
+      // Evitar referencias circulares al loggear errores de axios
+      const errorMessage = error.message || 'Error de conexión con Flowise';
+      const errorDetails = error.response?.data?.message || error.response?.status || '';
+      AppLogger.error('💥 Error en análisis Flowise:', { message: errorMessage, details: errorDetails });
       return { 
         success: false, 
-        error: error.message || 'Error de conexión con Flowise' 
+        error: errorMessage 
       };
     }
   }
@@ -136,7 +141,8 @@ export class FlowiseService {
         return { success: false, message: 'URL de Flowise no configurada' };
       }
       
-      const response = await axios.get(`${config.baseUrl}/chatflows`, {
+      const baseUrl = config.baseUrl.endsWith('/') ? config.baseUrl.slice(0, -1) : config.baseUrl;
+      const response = await axios.get(`${baseUrl}/api/v1/chatflows`, {
         headers: config.apiKey ? { 'Authorization': `Bearer ${config.apiKey}` } : {},
         timeout: 10000,
       });
