@@ -57,6 +57,8 @@ import TransportistaDashboard from './features/transportista/pages/Transportista
 import DadorDashboard from './features/dador/pages/DadorDashboard';
 // Portal Chofer
 import ChoferDashboard from './features/chofer/pages/ChoferDashboard';
+// Remitos
+import { RemitosPage } from './features/remitos/pages/RemitosPage';
 
 function App() {
   return (
@@ -250,6 +252,11 @@ function App() {
               {/* Portal Chofer */}
               <Route element={<RequireAuth allowedRoles={['CHOFER', 'ADMIN', 'SUPERADMIN', 'ADMIN_INTERNO', 'DADOR_DE_CARGA', 'TRANSPORTISTA']} />}> 
                 <Route path='/chofer' element={<ChoferDashboard />} />
+              </Route>
+
+              {/* Remitos - Roles que pueden subir y ver */}
+              <Route element={<RequireAuth allowedRoles={['SUPERADMIN', 'ADMIN_INTERNO', 'DADOR_DE_CARGA', 'TRANSPORTISTA', 'CHOFER']} />}> 
+                <Route path='/remitos' element={<RemitosPage />} />
               </Route>
 
               {/* Ruta de Mi Perfil para todos los usuarios */}

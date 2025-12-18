@@ -12,6 +12,7 @@ import {
   UsersIcon,
   ClipboardDocumentListIcon,
   DocumentTextIcon,
+  ClipboardDocumentCheckIcon,
 } from '@heroicons/react/24/outline';
 import { ThemeToggle } from '../ui/theme-toggle';
 import { Logger } from '../../lib/utils';
@@ -216,6 +217,13 @@ const SidebarContent = ({ closeSidebar }: SidebarContentProps) => {
                 text='Usuarios'
                 closeSidebar={closeSidebar}
               />
+              {/* Remitos - visible para todos los roles que suben remitos */}
+              <NavItem
+                to='/remitos'
+                icon={ClipboardDocumentCheckIcon}
+                text='Remitos'
+                closeSidebar={closeSidebar}
+              />
             </div>
           </div>
         )}
@@ -270,6 +278,14 @@ const SidebarContent = ({ closeSidebar }: SidebarContentProps) => {
                   closeSidebar={closeSidebar}
                 />
               )}
+
+              {/* Gestión de Remitos */}
+              <NavItem
+                to='/remitos'
+                icon={ClipboardDocumentCheckIcon}
+                text='Remitos'
+                closeSidebar={closeSidebar}
+              />
 
               {/* Eliminado: Calidad (QMS) */}
 

@@ -6,28 +6,25 @@
 # =============================================================================
 # syntax=docker/dockerfile:1.7
 
-FROM node:20-alpine AS deps
-
-WORKDIR /app
-
-COPY package.json ./
-
-# Instalar dependencias completas para compilación
-RUN --mount=type=cache,target=/root/.npm \
-    sh -c "if [ -f package-lock.json ]; then npm ci; else npm install; fi"
-
 FROM node:20-alpine AS builder
 
 WORKDIR /app
 
-COPY --from=deps /app/node_modules ./node_modules
+# Copiar archivos de dependencias del monorepo
+COPY package.json package-lock.json ./
+COPY apps/documentos/package.json ./apps/documentos/
+
+# Instalar dependencias del monorepo (incluyendo workspaces)
+RUN --mount=type=cache,target=/root/.npm npm ci --workspaces --include-workspace-root
+
+# Copiar código fuente
 COPY . .
 
 ENV TS_NODE_PROJECT=./apps/documentos/tsconfig.standalone.json
 
 # Generar Prisma client y compilar TypeScript
-RUN npx prisma generate --schema=apps/documentos/src/prisma/schema.prisma && \
-    npx tsc -p apps/documentos/tsconfig.standalone.json
+RUN ./node_modules/.bin/prisma generate --schema=apps/documentos/src/prisma/schema.prisma && \
+    ./node_modules/.bin/tsc -p apps/documentos/tsconfig.standalone.json
 
 FROM node:20-alpine AS runner
 

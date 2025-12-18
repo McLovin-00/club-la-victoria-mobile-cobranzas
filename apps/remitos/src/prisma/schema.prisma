@@ -1,0 +1,215 @@
+// Prisma Schema para Microservicio Remitos
+// "Simplicidad es la sofisticación definitiva"
+
+generator client {
+  provider      = "prisma-client-js"
+  output        = "../../node_modules/.prisma/remitos"
+  binaryTargets = ["native", "linux-musl-openssl-3.0.x"]
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("REMITOS_DATABASE_URL")
+  directUrl = env("REMITOS_DATABASE_URL")
+}
+
+// =================================
+// ENUMS
+// =================================
+
+enum RemitoEstado {
+  PENDIENTE_ANALISIS    // Foto subida, esperando IA
+  EN_ANALISIS           // Flowise procesando
+  PENDIENTE_APROBACION  // IA completó, esperando ADMIN_INTERNO
+  APROBADO              // Confirmado
+  RECHAZADO             // Rechazado
+  ERROR_ANALISIS        // Error en OCR/IA
+}
+
+enum TipoImagen {
+  REMITO_PRINCIPAL      // Foto principal del remito
+  REMITO_REVERSO        // Dorso si aplica
+  TICKET_DESTINO        // Ticket de pesaje destino
+  ADICIONAL             // Imagen de soporte
+}
+
+enum RemitoAction {
+  CREADO
+  IMAGEN_AGREGADA
+  ANALISIS_INICIADO
+  ANALISIS_COMPLETADO
+  ANALISIS_FALLIDO
+  DATOS_EDITADOS
+  EQUIPO_VINCULADO
+  APROBADO
+  RECHAZADO
+}
+
+// =================================
+// MODELOS
+// =================================
+
+model Remito {
+  id                    Int              @id @default(autoincrement())
+  createdAt             DateTime         @default(now()) @map("created_at")
+  updatedAt             DateTime         @updatedAt @map("updated_at")
+  
+  // ═══════════════════════════════════════════════════════════════
+  // DATOS EXTRAÍDOS POR IA
+  // ═══════════════════════════════════════════════════════════════
+  
+  numeroRemito          String?          @map("numero_remito") @db.VarChar(50)
+  fechaOperacion        DateTime?        @map("fecha_operacion")
+  
+  // Emisor (cantera/origen)
+  emisorNombre          String?          @map("emisor_nombre") @db.VarChar(200)
+  emisorDetalle         String?          @map("emisor_detalle") @db.VarChar(200)
+  
+  // Cliente destino
+  clienteNombre         String?          @map("cliente_nombre") @db.VarChar(200)
+  
+  // Producto
+  producto              String?          @db.VarChar(300)
+  
+  // Transportista
+  transportistaNombre   String?          @map("transportista_nombre") @db.VarChar(200)
+  
+  // Chofer
+  choferNombre          String?          @map("chofer_nombre") @db.VarChar(200)
+  choferDni             String?          @map("chofer_dni") @db.VarChar(20)
+  
+  // Patentes
+  patenteChasis         String?          @map("patente_chasis") @db.VarChar(20)
+  patenteAcoplado       String?          @map("patente_acoplado") @db.VarChar(20)
+  
+  // Pesos ORIGEN (kg)
+  pesoOrigenBruto       Decimal?         @map("peso_origen_bruto") @db.Decimal(12, 2)
+  pesoOrigenTara        Decimal?         @map("peso_origen_tara") @db.Decimal(12, 2)
+  pesoOrigenNeto        Decimal?         @map("peso_origen_neto") @db.Decimal(12, 2)
+  
+  // Pesos DESTINO (kg) - opcionales
+  pesoDestinoBruto      Decimal?         @map("peso_destino_bruto") @db.Decimal(12, 2)
+  pesoDestinoTara       Decimal?         @map("peso_destino_tara") @db.Decimal(12, 2)
+  pesoDestinoNeto       Decimal?         @map("peso_destino_neto") @db.Decimal(12, 2)
+  tieneTicketDestino    Boolean          @default(false) @map("tiene_ticket_destino")
+  
+  // ═══════════════════════════════════════════════════════════════
+  // VINCULACIÓN CON SISTEMA (IDs de schema documentos)
+  // ═══════════════════════════════════════════════════════════════
+  
+  equipoId              Int?             @map("equipo_id")
+  choferId              Int?             @map("chofer_id")
+  camionId              Int?             @map("camion_id")
+  acopladoId            Int?             @map("acoplado_id")
+  empresaTransportistaId Int?            @map("empresa_transportista_id")
+  
+  // Multi-tenant
+  dadorCargaId          Int              @map("dador_carga_id")
+  tenantEmpresaId       Int              @map("tenant_empresa_id")
+  
+  // ═══════════════════════════════════════════════════════════════
+  // FLUJO Y ESTADO
+  // ═══════════════════════════════════════════════════════════════
+  
+  estado                RemitoEstado     @default(PENDIENTE_ANALISIS)
+  
+  // Quién subió
+  cargadoPorUserId      Int              @map("cargado_por_user_id")
+  cargadoPorRol         String           @map("cargado_por_rol") @db.VarChar(50)
+  
+  // Aprobación (solo ADMIN_INTERNO)
+  aprobadoPorUserId     Int?             @map("aprobado_por_user_id")
+  aprobadoAt            DateTime?        @map("aprobado_at")
+  
+  // Rechazo
+  rechazadoPorUserId    Int?             @map("rechazado_por_user_id")
+  rechazadoAt           DateTime?        @map("rechazado_at")
+  motivoRechazo         String?          @map("motivo_rechazo") @db.Text
+  
+  // ═══════════════════════════════════════════════════════════════
+  // ANÁLISIS IA
+  // ═══════════════════════════════════════════════════════════════
+  
+  datosOriginalesIA     Json?            @map("datos_originales_ia")
+  confianzaIA           Decimal?         @map("confianza_ia") @db.Decimal(5, 2)
+  camposDetectados      String[]         @default([]) @map("campos_detectados")
+  erroresAnalisis       String[]         @default([]) @map("errores_analisis")
+  analizadoAt           DateTime?        @map("analizado_at")
+  
+  // ═══════════════════════════════════════════════════════════════
+  // RELACIONES
+  // ═══════════════════════════════════════════════════════════════
+  
+  imagenes              RemitoImagen[]
+  historial             RemitoHistory[]
+  
+  @@index([estado])
+  @@index([dadorCargaId])
+  @@index([tenantEmpresaId])
+  @@index([equipoId])
+  @@index([numeroRemito])
+  @@index([patenteChasis])
+  @@index([patenteAcoplado])
+  @@index([fechaOperacion])
+  @@index([cargadoPorUserId])
+  @@map("remitos")
+}
+
+model RemitoImagen {
+  id            Int         @id @default(autoincrement())
+  remitoId      Int         @map("remito_id")
+  remito        Remito      @relation(fields: [remitoId], references: [id], onDelete: Cascade)
+  
+  // MinIO
+  bucketName    String      @map("bucket_name") @db.VarChar(100)
+  objectKey     String      @map("object_key") @db.VarChar(500)
+  fileName      String      @map("file_name") @db.VarChar(255)
+  mimeType      String      @map("mime_type") @db.VarChar(100)
+  size          Int
+  
+  // Tipo y orden
+  tipo          TipoImagen  @default(REMITO_PRINCIPAL)
+  orden         Int         @default(1)
+  
+  // Procesamiento IA
+  procesadoPorIA Boolean    @default(false) @map("procesado_por_ia")
+  
+  createdAt     DateTime    @default(now()) @map("created_at")
+  
+  @@index([remitoId])
+  @@map("remito_imagenes")
+}
+
+model RemitoHistory {
+  id          Int           @id @default(autoincrement())
+  remitoId    Int           @map("remito_id")
+  remito      Remito        @relation(fields: [remitoId], references: [id], onDelete: Cascade)
+  
+  action      RemitoAction
+  userId      Int           @map("user_id")
+  userRole    String        @map("user_role") @db.VarChar(50)
+  payload     Json?
+  
+  createdAt   DateTime      @default(now()) @map("created_at")
+  
+  @@index([remitoId])
+  @@index([createdAt])
+  @@map("remito_history")
+}
+
+// =================================
+// CONFIGURACIÓN DEL SISTEMA
+// =================================
+
+model RemitoSystemConfig {
+  id            Int       @id @default(autoincrement())
+  key           String    @unique @db.VarChar(100)
+  value         String    @db.Text
+  encrypted     Boolean   @default(false)
+  description   String?   @db.VarChar(255)
+  updatedAt     DateTime  @updatedAt @map("updated_at")
+  updatedBy     Int?      @map("updated_by")
+  
+  @@map("remito_system_config")
+}
+
