@@ -203,6 +203,12 @@ export function startAnalysisWorker(): Worker<RemitoAnalysisJobData> {
       max: 10,
       duration: 60000, // 10 jobs por minuto máximo
     },
+    settings: {
+      backoffStrategy: (attemptsMade: number) => {
+        // Esperar 5s, 15s, 30s entre reintentos
+        return Math.min(attemptsMade * 5000, 30000);
+      },
+    },
   });
   
   worker.on('completed', (job) => {

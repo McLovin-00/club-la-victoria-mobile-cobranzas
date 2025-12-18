@@ -65,5 +65,13 @@ router.post(
   RemitosController.reject
 );
 
+// POST /remitos/:id/reprocess - Reprocesar remito con IA (solo ADMIN_INTERNO)
+router.post(
+  '/:id/reprocess',
+  authenticate,
+  authorize(ROLES_APPROVE),
+  RemitosController.reprocess
+);
+
 export default router;
 

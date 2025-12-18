@@ -5,16 +5,29 @@ import {
   UserIcon,
   CalendarIcon,
   ScaleIcon,
+  ArrowPathIcon,
 } from '@heroicons/react/24/outline';
 
 interface RemitoCardProps {
   remito: Remito;
   onClick?: () => void;
+  onReprocess?: (id: number) => void;
+  isReprocessing?: boolean;
 }
 
-export function RemitoCard({ remito, onClick }: RemitoCardProps) {
+export function RemitoCard({ remito, onClick, onReprocess, isReprocessing }: RemitoCardProps) {
   const estadoLabel = ESTADO_LABELS[remito.estado];
   const estadoColor = ESTADO_COLORS[remito.estado];
+  
+  // Mostrar botón de reprocesar si no está aprobado
+  const canReprocess = remito.estado !== 'APROBADO' && onReprocess;
+  
+  const handleReprocess = (e: React.MouseEvent) => {
+    e.stopPropagation(); // Evitar que se dispare onClick del card
+    if (onReprocess) {
+      onReprocess(remito.id);
+    }
+  };
   
   const formatDate = (dateStr: string | null) => {
     if (!dateStr) return '-';
@@ -46,9 +59,27 @@ export function RemitoCard({ remito, onClick }: RemitoCardProps) {
             {remito.numeroRemito || `#${remito.id}`}
           </span>
         </div>
-        <span className={`px-2.5 py-1 text-xs font-medium rounded-full ${estadoColor}`}>
-          {estadoLabel}
-        </span>
+        <div className="flex items-center gap-2">
+          <span className={`px-2.5 py-1 text-xs font-medium rounded-full ${estadoColor}`}>
+            {estadoLabel}
+          </span>
+          {canReprocess && (
+            <button
+              onClick={handleReprocess}
+              disabled={isReprocessing}
+              className={`
+                p-1.5 rounded-full transition-colors
+                ${isReprocessing 
+                  ? 'bg-slate-100 text-slate-400 cursor-not-allowed' 
+                  : 'bg-blue-50 text-blue-600 hover:bg-blue-100 dark:bg-blue-900/30 dark:text-blue-400 dark:hover:bg-blue-900/50'
+                }
+              `}
+              title="Reprocesar con IA"
+            >
+              <ArrowPathIcon className={`h-4 w-4 ${isReprocessing ? 'animate-spin' : ''}`} />
+            </button>
+          )}
+        </div>
       </div>
       
       {/* Info principal */}

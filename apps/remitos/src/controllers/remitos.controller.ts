@@ -90,7 +90,7 @@ export class RemitosController {
         {
           tenantEmpresaId,
           dadorCargaId: parseInt(dadorCargaId as string),
-          cargadoPorUserId: req.user!.id,
+          cargadoPorUserId: req.user!.userId,
           cargadoPorRol: req.user!.role,
         },
         {
@@ -135,7 +135,7 @@ export class RemitosController {
         numeroRemito: numeroRemito as string,
         fechaDesde: fechaDesde ? new Date(fechaDesde as string) : undefined,
         fechaHasta: fechaHasta ? new Date(fechaHasta as string) : undefined,
-        userId: req.user?.id,
+        userId: req.user?.userId,
         userRole: req.user?.role,
         page: page ? parseInt(page as string) : 1,
         limit: limit ? parseInt(limit as string) : 20,
@@ -164,7 +164,7 @@ export class RemitosController {
     try {
       const id = parseInt(req.params.id);
       
-      const remito = await RemitoService.getById(id, req.user?.id, req.user?.role);
+      const remito = await RemitoService.getById(id, req.user?.userId, req.user?.role);
       
       if (!remito) {
         throw createError('Remito no encontrado', 404, 'NOT_FOUND');
@@ -204,7 +204,7 @@ export class RemitosController {
     try {
       const id = parseInt(req.params.id);
       
-      const remito = await RemitoService.approve(id, req.user!.id);
+      const remito = await RemitoService.approve(id, req.user!.userId);
       
       res.json({
         success: true,
@@ -234,7 +234,7 @@ export class RemitosController {
         throw createError('Motivo de rechazo requerido (mín 5 caracteres)', 400, 'VALIDATION_ERROR');
       }
       
-      const remito = await RemitoService.reject(id, req.user!.id, motivo.trim());
+      const remito = await RemitoService.reject(id, req.user!.userId, motivo.trim());
       
       res.json({
         success: true,
@@ -285,7 +285,7 @@ export class RemitosController {
     try {
       const remitoId = parseInt(req.params.id);
       
-      const remito = await RemitoService.getById(remitoId, req.user?.id, req.user?.role);
+      const remito = await RemitoService.getById(remitoId, req.user?.userId, req.user?.role);
       
       if (!remito) {
         throw createError('Remito no encontrado', 404, 'NOT_FOUND');
@@ -311,6 +311,32 @@ export class RemitosController {
       res.status(status).json({
         success: false,
         error: error.code || 'IMAGE_ERROR',
+        message: error.message,
+      });
+    }
+  }
+  
+  /**
+   * POST /remitos/:id/reprocess - Reprocesar remito con IA
+   */
+  static async reprocess(req: AuthRequest, res: Response): Promise<void> {
+    try {
+      const id = parseInt(req.params.id);
+      
+      const result = await RemitoService.reprocess(id, req.user!.userId);
+      
+      res.json({
+        success: true,
+        message: 'Remito encolado para reprocesamiento',
+        data: result,
+      });
+      
+    } catch (error: any) {
+      AppLogger.error('Error reprocesando remito:', error);
+      const status = error.statusCode || 500;
+      res.status(status).json({
+        success: false,
+        error: error.code || 'REPROCESS_ERROR',
         message: error.message,
       });
     }

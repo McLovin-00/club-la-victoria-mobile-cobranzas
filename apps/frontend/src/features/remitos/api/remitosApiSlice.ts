@@ -104,6 +104,22 @@ export const remitosApiSlice = createApi({
       query: ({ remitoId, imagenId }) => `/${remitoId}/image/${imagenId}`,
     }),
     
+    // Reprocesar remito con IA
+    reprocessRemito: builder.mutation<
+      { success: boolean; message: string; data: { id: number; estado: string; jobId: string } },
+      number
+    >({
+      query: (id) => ({
+        url: `/${id}/reprocess`,
+        method: 'POST',
+      }),
+      invalidatesTags: (_result, _error, id) => [
+        { type: 'Remito', id },
+        'Remito',
+        'RemitoStats',
+      ],
+    }),
+    
   }),
 });
 
@@ -113,6 +129,7 @@ export const {
   useUploadRemitoMutation,
   useApproveRemitoMutation,
   useRejectRemitoMutation,
+  useReprocessRemitoMutation,
   useGetStatsQuery,
   useGetImageUrlQuery,
 } = remitosApiSlice;

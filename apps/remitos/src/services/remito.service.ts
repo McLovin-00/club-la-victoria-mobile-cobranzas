@@ -363,4 +363,66 @@ export class RemitoService {
     
     return { total, pendientes, aprobados, rechazados };
   }
+  
+  /**
+   * Reprocesar remito con IA
+   * Solo para remitos con estado ERROR_ANALISIS, PENDIENTE_ANALISIS o PENDIENTE_APROBACION
+   */
+  static async reprocess(id: number, userId: number): Promise<{ id: number; estado: string; jobId: string }> {
+    const prisma = db.getClient();
+    
+    const remito = await prisma.remito.findUnique({
+      where: { id },
+      include: {
+        imagenes: { orderBy: { orden: 'asc' }, take: 1 },
+      },
+    });
+    
+    if (!remito) {
+      throw new Error('Remito no encontrado');
+    }
+    
+    // Solo reprocesar si no está aprobado
+    if (remito.estado === 'APROBADO') {
+      throw new Error('No se puede reprocesar un remito aprobado');
+    }
+    
+    const imagenPrincipal = remito.imagenes[0];
+    if (!imagenPrincipal) {
+      throw new Error('No se encontró imagen del remito');
+    }
+    
+    // Actualizar estado a PENDIENTE_ANALISIS
+    await prisma.remito.update({
+      where: { id },
+      data: { 
+        estado: 'PENDIENTE_ANALISIS',
+        erroresAnalisis: [],
+      },
+    });
+    
+    // Registrar en historial
+    await prisma.remitoHistory.create({
+      data: {
+        remitoId: id,
+        action: 'REPROCESAR_SOLICITADO',
+        userId,
+        userRole: 'ADMIN_INTERNO',
+      },
+    });
+    
+    // Encolar análisis
+    const jobId = await queueService.addAnalysisJob({
+      remitoId: remito.id,
+      imagenId: imagenPrincipal.id,
+      tenantEmpresaId: remito.tenantEmpresaId,
+      bucketName: imagenPrincipal.bucketName,
+      objectKey: imagenPrincipal.objectKey,
+      originalInputsCount: 1,
+    });
+    
+    AppLogger.info('🔄 Remito encolado para reprocesamiento', { id, userId, jobId });
+    
+    return { id, estado: 'PENDIENTE_ANALISIS', jobId };
+  }
 }
