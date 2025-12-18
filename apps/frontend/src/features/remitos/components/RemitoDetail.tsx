@@ -6,12 +6,12 @@ import {
   TruckIcon,
   UserIcon,
   CalendarIcon,
-  ScaleIcon,
   MapPinIcon,
   ArrowLeftIcon,
+  ArrowPathIcon,
 } from '@heroicons/react/24/outline';
 import { Remito, ESTADO_LABELS, ESTADO_COLORS } from '../types';
-import { useApproveRemitoMutation, useRejectRemitoMutation } from '../api/remitosApiSlice';
+import { useApproveRemitoMutation, useRejectRemitoMutation, useGetRemitoQuery } from '../api/remitosApiSlice';
 
 interface RemitoDetailProps {
   remito: Remito;
@@ -19,9 +19,13 @@ interface RemitoDetailProps {
   canApprove?: boolean;
 }
 
-export function RemitoDetail({ remito, onBack, canApprove = false }: RemitoDetailProps) {
+export function RemitoDetail({ remito: initialRemito, onBack, canApprove = false }: RemitoDetailProps) {
   const [showRejectModal, setShowRejectModal] = useState(false);
   const [rejectMotivo, setRejectMotivo] = useState('');
+  
+  // Obtener el remito completo con URLs de imágenes
+  const { data: remitoData, isLoading: loadingRemito } = useGetRemitoQuery(initialRemito.id);
+  const remito = remitoData?.data || initialRemito;
   
   const [approve, { isLoading: approving }] = useApproveRemitoMutation();
   const [reject, { isLoading: rejecting }] = useRejectRemitoMutation();
@@ -65,6 +69,15 @@ export function RemitoDetail({ remito, onBack, canApprove = false }: RemitoDetai
   };
   
   const isPendingApproval = remito.estado === 'PENDIENTE_APROBACION';
+  
+  // Loading state
+  if (loadingRemito) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <ArrowPathIcon className="h-8 w-8 animate-spin text-blue-500" />
+      </div>
+    );
+  }
   
   return (
     <div className="space-y-6">

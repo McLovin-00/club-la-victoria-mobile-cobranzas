@@ -249,23 +249,35 @@ export class RemitoService {
       return isNaN(d.getTime()) ? null : d;
     };
     
+    // Extraer string de campos que pueden venir como objetos
+    const extractString = (val: any): string | null => {
+      if (val === null || val === undefined) return null;
+      if (typeof val === 'string') return val;
+      if (typeof val === 'object') {
+        // Priorizar: nombre > descripcion > el primer valor string
+        return val.nombre || val.descripcion || val.detalle || 
+               Object.values(val).find(v => typeof v === 'string') as string || null;
+      }
+      return String(val);
+    };
+    
     await prisma.remito.update({
       where: { id },
       data: {
         numeroRemito: data.numeroRemito,
         fechaOperacion: parseDate(data.fechaOperacion),
-        emisorNombre: data.emisor.nombre,
-        emisorDetalle: data.emisor.detalle,
-        clienteNombre: data.cliente,
-        producto: data.producto,
-        transportistaNombre: data.transportista,
-        choferNombre: data.chofer.nombre,
-        choferDni: data.chofer.dni,
-        patenteChasis: data.patentes.chasis,
-        patenteAcoplado: data.patentes.acoplado,
-        pesoOrigenBruto: data.pesosOrigen.bruto,
-        pesoOrigenTara: data.pesosOrigen.tara,
-        pesoOrigenNeto: data.pesosOrigen.neto,
+        emisorNombre: data.emisor?.nombre || extractString(data.emisor),
+        emisorDetalle: data.emisor?.detalle || null,
+        clienteNombre: extractString(data.cliente),
+        producto: extractString(data.producto),
+        transportistaNombre: extractString(data.transportista),
+        choferNombre: data.chofer?.nombre || extractString(data.chofer),
+        choferDni: data.chofer?.dni || null,
+        patenteChasis: data.patentes?.chasis || null,
+        patenteAcoplado: data.patentes?.acoplado || null,
+        pesoOrigenBruto: data.pesosOrigen?.bruto ?? null,
+        pesoOrigenTara: data.pesosOrigen?.tara ?? null,
+        pesoOrigenNeto: data.pesosOrigen?.neto ?? null,
         pesoDestinoBruto: data.pesosDestino?.bruto ?? null,
         pesoDestinoTara: data.pesosDestino?.tara ?? null,
         pesoDestinoNeto: data.pesosDestino?.neto ?? null,
