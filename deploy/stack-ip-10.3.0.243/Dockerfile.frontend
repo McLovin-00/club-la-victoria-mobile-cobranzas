@@ -1,9 +1,8 @@
 # =============================================================================
 # Dockerfile.frontend - DESARROLLO/STAGING (10.3.0.243)
 # =============================================================================
-# Usa goStatic como servidor web ultra-liviano (~8MB total)
+# Usa nginx:alpine como servidor web
 # NO incluye proxy reverso - los servicios se acceden directamente por IP:puerto
-# Healthcheck habilitado con wget en base alpine
 # =============================================================================
 
 FROM node:20-alpine AS build
@@ -34,19 +33,27 @@ ENV VITE_API_URL=$VITE_API_URL \
 
 RUN npm run -w apps/frontend build
 
-# Production stage - Alpine con goStatic (ultra-liviano)
-FROM alpine:3.20
+# Production stage - nginx:alpine
+FROM nginx:alpine
 
-# Instalar wget para healthcheck
-RUN apk add --no-cache wget ca-certificates
-
-# Copiar goStatic desde su imagen oficial
-COPY --from=pierrezemb/gostatic:latest /goStatic /goStatic
+# Configuración nginx para SPA
+RUN echo 'server { \
+    listen 8550; \
+    root /usr/share/nginx/html; \
+    index index.html; \
+    location / { \
+        try_files $uri $uri/ /index.html; \
+    } \
+    location /health { \
+        access_log off; \
+        return 200 "OK"; \
+        add_header Content-Type text/plain; \
+    } \
+}' > /etc/nginx/conf.d/default.conf
 
 # Copiar archivos estáticos del build
-COPY --from=build /app/apps/frontend/dist /srv/http
+COPY --from=build /app/apps/frontend/dist /usr/share/nginx/html
 
 EXPOSE 8550
 
-# goStatic con health endpoint habilitado y fallback para SPA
-CMD ["/goStatic", "-port", "8550", "-enable-health", "-fallback", "index.html"]
+CMD ["nginx", "-g", "daemon off;"]
