@@ -103,11 +103,32 @@ export function RemitoDetail({ remito: initialRemito, onBack, canApprove = false
             📄 Imagen del Remito
           </h3>
           {remito.imagenes.length > 0 && remito.imagenes[0].url ? (
-            <img
-              src={remito.imagenes[0].url}
-              alt="Remito"
-              className="w-full rounded-lg max-h-[500px] object-contain bg-slate-100 dark:bg-slate-700"
-            />
+            remito.imagenes[0].mimeType === 'application/pdf' ? (
+              // Mostrar PDF embebido o link
+              <div className="space-y-3">
+                <iframe
+                  src={remito.imagenes[0].url}
+                  className="w-full h-[500px] rounded-lg border border-slate-200 dark:border-slate-600"
+                  title="Remito PDF"
+                />
+                <a
+                  href={remito.imagenes[0].url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center justify-center gap-2 px-4 py-2 bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 rounded-lg hover:bg-blue-100 dark:hover:bg-blue-900/50 transition-colors"
+                >
+                  <DocumentTextIcon className="h-5 w-5" />
+                  Abrir PDF en nueva pestaña
+                </a>
+              </div>
+            ) : (
+              // Mostrar imagen
+              <img
+                src={remito.imagenes[0].url}
+                alt="Remito"
+                className="w-full rounded-lg max-h-[500px] object-contain bg-slate-100 dark:bg-slate-700"
+              />
+            )
           ) : (
             <div className="h-64 flex items-center justify-center bg-slate-100 dark:bg-slate-700 rounded-lg">
               <DocumentTextIcon className="h-16 w-16 text-slate-400" />
