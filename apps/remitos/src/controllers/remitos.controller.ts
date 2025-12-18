@@ -2,6 +2,7 @@ import { Response } from 'express';
 import { AuthRequest } from '../types';
 import { RemitoService } from '../services/remito.service';
 import { minioService } from '../services/minio.service';
+import { MediaService } from '../services/media.service';
 import { createError } from '../middlewares/error.middleware';
 import { AppLogger } from '../config/logger';
 
@@ -9,36 +10,93 @@ export class RemitosController {
   
   /**
    * POST /remitos - Crear nuevo remito
+   * Acepta:
+   * - Múltiples imágenes (se componen en PDF para almacenar)
+   * - Un único PDF (se almacena tal cual)
+   * - Base64 en body.documentsBase64[]
    */
   static async create(req: AuthRequest, res: Response): Promise<void> {
     try {
-      const file = (req as any).file;
+      // Normalizar archivos desde multer (puede ser array o single)
+      const anyReq = req as any;
+      const filesFromMulter: Express.Multer.File[] = 
+        Array.isArray(anyReq.files?.imagenes) ? anyReq.files.imagenes :
+        Array.isArray(anyReq.files) ? anyReq.files :
+        anyReq.file ? [anyReq.file] : [];
       
-      if (!file) {
-        throw createError('Imagen del remito requerida', 400, 'FILE_REQUIRED');
+      // También aceptar base64 desde body
+      const base64Raw = (req.body as any).documentsBase64;
+      const base64Inputs: string[] = Array.isArray(base64Raw) 
+        ? base64Raw 
+        : (typeof base64Raw === 'string' && base64Raw ? [base64Raw] : []);
+      
+      // Construir lista de inputs
+      const inputs: Array<{ buffer: Buffer; mimeType: string; fileName: string }> = [];
+      
+      for (const f of filesFromMulter) {
+        inputs.push({ buffer: f.buffer, mimeType: f.mimetype, fileName: f.originalname });
       }
       
-      // Validar tipo de archivo
-      if (!file.mimetype.startsWith('image/')) {
-        throw createError('Solo se permiten imágenes (JPG, PNG)', 400, 'INVALID_FILE_TYPE');
+      for (const b64 of base64Inputs) {
+        try {
+          const decoded = MediaService.decodeDataUrl(b64);
+          inputs.push({ ...decoded, fileName: decoded.fileName || 'capture.jpg' });
+        } catch {
+          throw createError('Base64 inválido', 400, 'INVALID_BASE64');
+        }
+      }
+      
+      if (inputs.length === 0) {
+        throw createError('Se requiere al menos una imagen o PDF', 400, 'FILE_REQUIRED');
+      }
+      
+      // Validar tipos de archivo
+      const hasPdf = inputs.some(i => MediaService.isPdf(i.mimeType));
+      const hasImages = inputs.some(i => MediaService.isImage(i.mimeType));
+      
+      // No mezclar PDF con imágenes
+      if (hasPdf && hasImages) {
+        throw createError('No se puede mezclar PDF con imágenes', 400, 'MIXED_INPUT_ERROR');
+      }
+      
+      // Si hay un PDF único, validar que solo sea uno
+      if (hasPdf && inputs.length > 1) {
+        throw createError('Solo se permite un PDF por remito', 400, 'MULTIPLE_PDF_ERROR');
       }
       
       // Obtener tenant y dador
       const tenantEmpresaId = req.user?.tenantId || 1;
       const dadorCargaId = req.body.dadorCargaId || req.user?.dadorId || 1;
       
+      // Preparar buffer final (PDF para almacenamiento)
+      let finalPdfBuffer: Buffer;
+      let originalInputs = inputs; // Guardar para análisis
+      
+      if (hasPdf) {
+        // PDF único: almacenar tal cual
+        finalPdfBuffer = inputs[0].buffer;
+      } else {
+        // Múltiples imágenes: componer en PDF
+        const mediaInputs = inputs.map(i => ({
+          buffer: i.buffer,
+          mimeType: i.mimeType,
+          fileName: i.fileName,
+        }));
+        finalPdfBuffer = await MediaService.composePdfFromImages(mediaInputs);
+      }
+      
+      // Crear remito con el PDF y los inputs originales para análisis
       const result = await RemitoService.create(
         {
           tenantEmpresaId,
-          dadorCargaId: parseInt(dadorCargaId),
+          dadorCargaId: parseInt(dadorCargaId as string),
           cargadoPorUserId: req.user!.id,
           cargadoPorRol: req.user!.role,
         },
         {
-          buffer: file.buffer,
-          originalname: file.originalname,
-          mimetype: file.mimetype,
-          size: file.size,
+          pdfBuffer: finalPdfBuffer,
+          originalInputs,
+          fileName: `remito_${Date.now()}.pdf`,
         }
       );
       
@@ -48,7 +106,7 @@ export class RemitosController {
         data: {
           id: result.remito.id,
           estado: result.remito.estado,
-          imagenId: result.imagen.id,
+          imagenesCount: result.imagenes.length,
         },
       });
       
@@ -258,4 +316,3 @@ export class RemitosController {
     }
   }
 }
-

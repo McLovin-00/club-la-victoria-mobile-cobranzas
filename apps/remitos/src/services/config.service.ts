@@ -12,23 +12,57 @@ export interface FlowiseConfig {
 
 const FLOWISE_PREFIX = 'flowise.';
 
-const DEFAULT_PROMPT = `Analiza la imagen del remito de transporte y extrae los siguientes campos en formato JSON:
+const DEFAULT_PROMPT = `Eres un experto en lectura de remitos de transporte de áridos y materiales de construcción en Argentina.
 
+Analiza la imagen del remito y extrae TODOS los datos visibles en formato JSON estricto.
+
+FORMATO DE RESPUESTA OBLIGATORIO:
+\`\`\`json
 {
-  "numeroRemito": "string o null",
-  "fechaOperacion": "DD/MM/YYYY o null",
-  "emisor": { "nombre": "string", "detalle": "string o null" },
-  "cliente": "string o null",
-  "producto": "string o null",
-  "transportista": "string o null",
-  "chofer": { "nombre": "string", "dni": "string o null" },
-  "patentes": { "chasis": "string o null", "acoplado": "string o null" },
-  "pesosOrigen": { "bruto": number, "tara": number, "neto": number },
-  "pesosDestino": { "bruto": number, "tara": number, "neto": number } | null,
-  "confianza": 0-100,
-  "camposDetectados": ["lista de campos detectados"],
-  "errores": ["lista de problemas"]
-}`;
+  "numeroRemito": "0012-00026443",
+  "fechaOperacion": "17/05/2025",
+  "emisor": {
+    "nombre": "RAIMUNDO DARIO",
+    "detalle": "Cantera La Chola II"
+  },
+  "cliente": "PROSIL",
+  "producto": "TN. ARENA LAVADA CLASIFICADA #100 ER",
+  "transportista": "QUEBRACHO BLANCO",
+  "chofer": {
+    "nombre": "RODRIGUEZ, RAIMUNDO DARIO",
+    "dni": "12345678"
+  },
+  "patentes": {
+    "chasis": "AG-492-LP",
+    "acoplado": "AG-413-RI"
+  },
+  "pesosOrigen": {
+    "bruto": 52300,
+    "tara": 16360,
+    "neto": 35940
+  },
+  "pesosDestino": {
+    "bruto": 51360,
+    "tara": 16540,
+    "neto": 34820
+  },
+  "confianza": 85,
+  "camposDetectados": ["numeroRemito", "fechaOperacion", "emisor", "cliente", "producto", "transportista", "chofer", "patentes", "pesosOrigen", "pesosDestino"],
+  "errores": []
+}
+\`\`\`
+
+REGLAS IMPORTANTES:
+1. Los PESOS son números en KILOGRAMOS sin puntos ni "kg" (52300, no "52.300 kg")
+2. Las PATENTES en formato argentino (AA-123-BB o ABC123)
+3. La FECHA en formato DD/MM/YYYY
+4. Si no hay ticket de destino, pesosDestino = null
+5. Si no puedes leer un campo, ponlo como null
+6. La confianza (0-100) refleja qué tan seguro estás de la extracción
+7. Lista en "errores" los campos ilegibles o problemas encontrados
+8. Lista en "camposDetectados" solo los campos que pudiste leer correctamente
+
+DEVUELVE SOLO EL JSON, sin explicaciones adicionales.`;
 
 export class ConfigService {
   

@@ -5,18 +5,17 @@ import { queueService } from './queue.service';
 import { FlowiseRemitoResponse } from '../types';
 import type { Remito, RemitoImagen, RemitoHistory } from '../../node_modules/.prisma/remitos';
 
-// Helper para crear Decimal
-const toDecimal = (val: number | null): any => {
-  if (val === null) return null;
-  // Prisma acepta number para Decimal en input
-  return val;
-};
-
 export interface CreateRemitoInput {
   tenantEmpresaId: number;
   dadorCargaId: number;
   cargadoPorUserId: number;
   cargadoPorRol: string;
+}
+
+export interface RemitoFileInput {
+  pdfBuffer: Buffer;  // PDF final para almacenar
+  originalInputs: Array<{ buffer: Buffer; mimeType: string; fileName: string }>;  // Inputs originales para análisis
+  fileName: string;
 }
 
 export interface RemitoFilters {
@@ -35,12 +34,13 @@ export interface RemitoFilters {
 export class RemitoService {
   
   /**
-   * Crear remito con imagen
+   * Crear remito con imagen(es)
+   * Acepta múltiples imágenes compuestas en PDF o un PDF único
    */
   static async create(
     input: CreateRemitoInput,
-    file: { buffer: Buffer; originalname: string; mimetype: string; size: number }
-  ): Promise<{ remito: Remito; imagen: RemitoImagen }> {
+    file: RemitoFileInput
+  ): Promise<{ remito: Remito; imagenes: RemitoImagen[] }> {
     const prisma = db.getClient();
     
     // Crear remito en estado PENDIENTE_ANALISIS
@@ -54,28 +54,58 @@ export class RemitoService {
       },
     });
     
-    // Subir imagen a MinIO
+    // Subir PDF final a MinIO (documento almacenado)
     const { bucketName, objectKey } = await minioService.uploadRemitoImage(
       input.tenantEmpresaId,
       remito.id,
-      file.originalname,
-      file.buffer,
-      file.mimetype
+      file.fileName,
+      file.pdfBuffer,
+      'application/pdf'
     );
     
-    // Crear registro de imagen
-    const imagen = await prisma.remitoImagen.create({
+    // Crear registro de imagen principal (el PDF)
+    const imagenPrincipal = await prisma.remitoImagen.create({
       data: {
         remitoId: remito.id,
         bucketName,
         objectKey,
-        fileName: file.originalname,
-        mimeType: file.mimetype,
-        size: file.size,
+        fileName: file.fileName,
+        mimeType: 'application/pdf',
+        size: file.pdfBuffer.length,
         tipo: 'REMITO_PRINCIPAL',
         orden: 1,
       },
     });
+    
+    const imagenes: RemitoImagen[] = [imagenPrincipal];
+    
+    // Si hay múltiples inputs originales, guardarlos como imágenes adicionales para análisis
+    if (file.originalInputs.length > 1) {
+      for (let i = 0; i < file.originalInputs.length; i++) {
+        const orig = file.originalInputs[i];
+        const { bucketName: bk, objectKey: ok } = await minioService.uploadRemitoImage(
+          input.tenantEmpresaId,
+          remito.id,
+          `original_${i + 1}_${orig.fileName}`,
+          orig.buffer,
+          orig.mimeType
+        );
+        
+        const imgAdicional = await prisma.remitoImagen.create({
+          data: {
+            remitoId: remito.id,
+            bucketName: bk,
+            objectKey: ok,
+            fileName: orig.fileName,
+            mimeType: orig.mimeType,
+            size: orig.buffer.length,
+            tipo: 'ADICIONAL',
+            orden: i + 2,
+          },
+        });
+        imagenes.push(imgAdicional);
+      }
+    }
     
     // Registrar en historial
     await prisma.remitoHistory.create({
@@ -84,22 +114,30 @@ export class RemitoService {
         action: 'CREADO',
         userId: input.cargadoPorUserId,
         userRole: input.cargadoPorRol,
-        payload: { imagenId: imagen.id },
+        payload: { 
+          imagenesCount: imagenes.length,
+          fileName: file.fileName,
+        },
       },
     });
     
-    // Encolar análisis IA
+    // Encolar análisis IA (usar primera imagen o el PDF)
     await queueService.addAnalysisJob({
       remitoId: remito.id,
-      imagenId: imagen.id,
+      imagenId: imagenPrincipal.id,
       tenantEmpresaId: input.tenantEmpresaId,
-      bucketName,
-      objectKey,
+      bucketName: imagenPrincipal.bucketName,
+      objectKey: imagenPrincipal.objectKey,
+      // Incluir todos los inputs originales para análisis
+      originalInputsCount: file.originalInputs.length,
     });
     
-    AppLogger.info('📝 Remito creado y encolado para análisis', { id: remito.id });
+    AppLogger.info('📝 Remito creado y encolado para análisis', { 
+      id: remito.id, 
+      imagenes: imagenes.length 
+    });
     
-    return { remito, imagen };
+    return { remito, imagenes };
   }
   
   /**
@@ -196,16 +234,19 @@ export class RemitoService {
   /**
    * Actualizar datos del remito (post-análisis o edición manual)
    */
-  static async updateFromAnalysis(id: number, data: FlowiseRemitoResponse) {
+  static async updateFromAnalysis(id: number, data: FlowiseRemitoResponse): Promise<void> {
     const prisma = db.getClient();
     
     const parseDate = (str: string | null): Date | null => {
       if (!str) return null;
+      // Intentar formato DD/MM/YYYY
       const parts = str.split('/');
       if (parts.length === 3) {
         return new Date(`${parts[2]}-${parts[1]}-${parts[0]}`);
       }
-      return null;
+      // Intentar ISO
+      const d = new Date(str);
+      return isNaN(d.getTime()) ? null : d;
     };
     
     await prisma.remito.update({
@@ -302,7 +343,12 @@ export class RemitoService {
   /**
    * Estadísticas de remitos
    */
-  static async getStats(tenantEmpresaId: number, dadorCargaId?: number) {
+  static async getStats(tenantEmpresaId: number, dadorCargaId?: number): Promise<{
+    total: number;
+    pendientes: number;
+    aprobados: number;
+    rechazados: number;
+  }> {
     const prisma = db.getClient();
     
     const where: any = { tenantEmpresaId };
@@ -318,4 +364,3 @@ export class RemitoService {
     return { total, pendientes, aprobados, rechazados };
   }
 }
-

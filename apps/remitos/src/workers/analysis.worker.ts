@@ -4,6 +4,7 @@ import { getEnvironment } from '../config/environment';
 import { AppLogger } from '../config/logger';
 import { db } from '../config/database';
 import { minioService } from '../services/minio.service';
+import { MediaService } from '../services/media.service';
 import { FlowiseService } from '../services/flowise.service';
 import { RemitoService } from '../services/remito.service';
 import { RemitoAnalysisJobData } from '../types';
@@ -21,9 +22,12 @@ const QUEUE_NAME = 'remitos-analysis';
 let worker: Worker<RemitoAnalysisJobData> | null = null;
 
 async function processJob(job: Job<RemitoAnalysisJobData>): Promise<void> {
-  const { remitoId, imagenId, bucketName, objectKey } = job.data;
+  const { remitoId, imagenId, bucketName, objectKey, originalInputsCount } = job.data;
   
-  AppLogger.info(`🔄 Procesando análisis de remito #${remitoId}`, { jobId: job.id });
+  AppLogger.info(`🔄 Procesando análisis de remito #${remitoId}`, { 
+    jobId: job.id,
+    originalInputsCount 
+  });
   
   const prisma = db.getClient();
   
@@ -44,9 +48,54 @@ async function processJob(job: Job<RemitoAnalysisJobData>): Promise<void> {
       },
     });
     
-    // Obtener imagen de MinIO
-    const imageBuffer = await minioService.getObject(bucketName, objectKey);
-    const imageBase64 = imageBuffer.toString('base64');
+    // Obtener imagen(es) de MinIO
+    const fileBuffer = await minioService.getObject(bucketName, objectKey);
+    
+    // Determinar si es PDF o imagen
+    const isPdf = objectKey.toLowerCase().endsWith('.pdf');
+    
+    let imageForAnalysis: Buffer;
+    
+    if (isPdf) {
+      // Si es PDF, intentar obtener las imágenes originales o convertir
+      // Primero buscar imágenes adicionales (originales)
+      const additionalImages = await prisma.remitoImagen.findMany({
+        where: { remitoId, tipo: 'ADICIONAL' },
+        orderBy: { orden: 'asc' },
+      });
+      
+      if (additionalImages.length > 0) {
+        // Usar las imágenes originales para análisis
+        const imageBuffers: Buffer[] = [];
+        for (const img of additionalImages) {
+          const buf = await minioService.getObject(img.bucketName, img.objectKey);
+          // Normalizar y redimensionar para análisis
+          const normalized = await MediaService.resizeForAnalysis(buf);
+          imageBuffers.push(normalized);
+        }
+        
+        // Si hay múltiples, componer en grid
+        if (imageBuffers.length > 1) {
+          imageForAnalysis = await MediaService.composeImageGrid(imageBuffers);
+        } else {
+          imageForAnalysis = imageBuffers[0];
+        }
+        
+        AppLogger.info(`📸 Usando ${imageBuffers.length} imágenes originales para análisis`);
+      } else {
+        // No hay imágenes originales, usar el PDF tal cual
+        // Nota: Flowise puede no procesar PDFs directamente
+        // En producción se usaría pdf2pic o similar
+        AppLogger.warn('⚠️ PDF sin imágenes originales, análisis puede fallar');
+        imageForAnalysis = fileBuffer;
+      }
+    } else {
+      // Es una imagen, normalizar para análisis
+      imageForAnalysis = await MediaService.resizeForAnalysis(fileBuffer);
+    }
+    
+    // Convertir a base64 para Flowise
+    const imageBase64 = imageForAnalysis.toString('base64');
     
     // Enviar a Flowise
     const result = await FlowiseService.analyzeRemito(imageBase64);
@@ -55,7 +104,7 @@ async function processJob(job: Job<RemitoAnalysisJobData>): Promise<void> {
       // Actualizar remito con datos extraídos
       await RemitoService.updateFromAnalysis(remitoId, result.data);
       
-      // Marcar imagen como procesada
+      // Marcar imagen principal como procesada
       await prisma.remitoImagen.update({
         where: { id: imagenId },
         data: { procesadoPorIA: true },
@@ -76,6 +125,7 @@ async function processJob(job: Job<RemitoAnalysisJobData>): Promise<void> {
       
       AppLogger.info(`✅ Análisis completado para remito #${remitoId}`, {
         confianza: result.data.confianza,
+        campos: result.data.camposDetectados.length,
       });
       
     } else {
@@ -148,4 +198,3 @@ export async function stopAnalysisWorker(): Promise<void> {
   }
   await connection.quit();
 }
-

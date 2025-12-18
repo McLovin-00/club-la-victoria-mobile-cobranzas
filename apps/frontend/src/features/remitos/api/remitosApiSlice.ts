@@ -39,14 +39,17 @@ export const remitosApiSlice = createApi({
       providesTags: (_result, _error, id) => [{ type: 'Remito', id }],
     }),
     
-    // Subir nuevo remito
+    // Subir nuevo remito (múltiples imágenes o PDF)
     uploadRemito: builder.mutation<
-      { success: boolean; data: { id: number; estado: string; imagenId: number } },
-      { file: File; dadorCargaId?: number }
+      { success: boolean; data: { id: number; estado: string; imagenesCount: number } },
+      { files: File[]; dadorCargaId?: number }
     >({
-      query: ({ file, dadorCargaId }) => {
+      query: ({ files, dadorCargaId }) => {
         const formData = new FormData();
-        formData.append('imagen', file);
+        // Agregar todos los archivos con el mismo nombre de campo
+        for (const file of files) {
+          formData.append('imagenes', file);
+        }
         if (dadorCargaId) formData.append('dadorCargaId', String(dadorCargaId));
         return {
           url: '',
