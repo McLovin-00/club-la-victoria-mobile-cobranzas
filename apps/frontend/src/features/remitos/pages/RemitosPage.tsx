@@ -42,8 +42,12 @@ export function RemitosPage() {
     limit: 20,
   };
   
-  const { data: remitosData, isLoading, isFetching, refetch } = useGetRemitosQuery(queryParams);
-  const { data: statsData } = useGetStatsQuery();
+  const { data: remitosData, isLoading, isFetching, refetch } = useGetRemitosQuery(queryParams, {
+    refetchOnMountOrArgChange: true,
+  });
+  const { data: statsData } = useGetStatsQuery(undefined, {
+    refetchOnMountOrArgChange: true,
+  });
   
   const remitos = remitosData?.data || [];
   const pagination = remitosData?.pagination;
@@ -173,7 +177,7 @@ export function RemitosPage() {
         </div>
       ) : (
         <>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          <div className="grid gap-3">
             {remitos.map((remito) => (
               <RemitoCard
                 key={remito.id}

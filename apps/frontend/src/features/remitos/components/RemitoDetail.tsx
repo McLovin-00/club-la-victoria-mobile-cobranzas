@@ -72,6 +72,8 @@ export function RemitoDetail({ remito: initialRemito, onBack, canApprove = false
   const handleReprocess = async () => {
     try {
       await reprocess(remito.id).unwrap();
+      // Volver a la lista después de reprocesar
+      onBack();
     } catch (err) {
       console.error('Error reprocesando:', err);
     }
