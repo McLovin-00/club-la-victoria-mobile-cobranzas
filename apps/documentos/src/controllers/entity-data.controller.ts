@@ -42,8 +42,14 @@ export class EntityDataController {
         orderBy: { uploadedAt: 'desc' },
       });
 
-      // Consolidar datos extraídos de todas las clasificaciones
+      // Consolidar datos extraídos de todas las clasificaciones, agrupados por documento
       const extractedData: Record<string, any> = {};
+      const extractedDataByDocument: Array<{
+        documentId: number;
+        templateName: string | null;
+        uploadedAt: Date;
+        data: Record<string, any>;
+      }> = [];
       const disparidades: any[] = [];
       let lastValidation: Date | null = null;
 
@@ -62,14 +68,28 @@ export class EntityDataController {
           }
         }
 
-        // Agregar datos de aiResponse
+        // Agregar datos de aiResponse con info del documento origen
         if (classification.aiResponse && typeof classification.aiResponse === 'object') {
           const aiResp = classification.aiResponse as any;
+          const docData: Record<string, any> = {};
+          
           if (aiResp.datosExtraidos) {
             Object.assign(extractedData, aiResp.datosExtraidos);
+            Object.assign(docData, aiResp.datosExtraidos);
           }
           if (aiResp.datosNuevos) {
             Object.assign(extractedData, aiResp.datosNuevos);
+            Object.assign(docData, aiResp.datosNuevos);
+          }
+          
+          // Si hay datos de este documento, agregarlo al array agrupado
+          if (Object.keys(docData).length > 0) {
+            extractedDataByDocument.push({
+              documentId: doc.id,
+              templateName: doc.template?.name || null,
+              uploadedAt: doc.uploadedAt,
+              data: docData,
+            });
           }
         }
 
@@ -97,6 +117,7 @@ export class EntityDataController {
           entityType,
           entityId,
           extractedData,
+          extractedDataByDocument,
           disparidades,
           lastValidation,
           documentsCount: documents.length,

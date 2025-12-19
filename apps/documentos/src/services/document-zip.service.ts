@@ -195,31 +195,12 @@ export class DocumentZipService {
       const now = new Date();
       let processed = 0;
       for (const equipoId of equipoIds) {
-        // Cargar equipo con relaciones para el Excel
+        // Cargar equipo con relación empresaTransportista
         const equipo = await prisma.equipo.findUnique({
           where: { id: equipoId },
-          select: {
-            id: true,
-            tenantEmpresaId: true,
-            dadorCargaId: true,
-            empresaTransportistaId: true,
-            driverId: true,
-            truckId: true,
-            trailerId: true,
-            truckPlateNorm: true,
-            trailerPlateNorm: true,
-            driverDniNorm: true,
+          include: {
             empresaTransportista: {
               select: { cuit: true, razonSocial: true }
-            },
-            driver: {
-              select: { dni: true, nombre: true, apellido: true }
-            },
-            truck: {
-              select: { patente: true }
-            },
-            trailer: {
-              select: { patente: true }
             },
           },
         });
@@ -231,16 +212,32 @@ export class DocumentZipService {
           continue;
         }
 
+        // Consultar datos del chofer, camión y acoplado por separado
+        const [chofer, camion, acoplado] = await Promise.all([
+          prisma.chofer.findUnique({
+            where: { id: equipo.driverId },
+            select: { dni: true, nombre: true, apellido: true }
+          }),
+          prisma.camion.findUnique({
+            where: { id: equipo.truckId },
+            select: { patente: true }
+          }),
+          equipo.trailerId ? prisma.acoplado.findUnique({
+            where: { id: equipo.trailerId },
+            select: { patente: true }
+          }) : Promise.resolve(null),
+        ]);
+
         // Agregar datos del equipo al array para el Excel
         excelRows.push({
           equipoId: equipo.id,
           empresaCuit: equipo.empresaTransportista?.cuit || '',
           empresaRazonSocial: equipo.empresaTransportista?.razonSocial || '',
-          choferDni: equipo.driver?.dni || equipo.driverDniNorm || '',
-          choferNombre: equipo.driver?.nombre || '',
-          choferApellido: equipo.driver?.apellido || '',
-          camionPatente: equipo.truck?.patente || equipo.truckPlateNorm || '',
-          acopladoPatente: equipo.trailer?.patente || equipo.trailerPlateNorm || '',
+          choferDni: chofer?.dni || equipo.driverDniNorm || '',
+          choferNombre: chofer?.nombre || '',
+          choferApellido: chofer?.apellido || '',
+          camionPatente: camion?.patente || equipo.truckPlateNorm || '',
+          acopladoPatente: acoplado?.patente || equipo.trailerPlateNorm || '',
         });
 
         const entityClauses: any[] = [];

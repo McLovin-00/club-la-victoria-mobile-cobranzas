@@ -376,17 +376,40 @@ export const ConsultaPage: React.FC = () => {
         
         {hasData ? (
           <div className='space-y-2'>
-            {/* Datos extraídos */}
-            {data.extractedData && Object.keys(data.extractedData).length > 0 && (
+            {/* Datos extraídos agrupados por documento */}
+            {data.extractedDataByDocument && data.extractedDataByDocument.length > 0 ? (
+              <div className='space-y-3'>
+                {data.extractedDataByDocument.map((docData: any, idx: number) => (
+                  <div key={idx} className='bg-gray-50 rounded p-2'>
+                    <p className='text-xs font-semibold text-blue-700 mb-1 border-b border-blue-200 pb-1'>
+                      📄 {docData.templateName || 'Documento sin plantilla'}
+                      {docData.uploadedAt && (
+                        <span className='text-gray-500 font-normal ml-2'>
+                          ({new Date(docData.uploadedAt).toLocaleDateString()})
+                        </span>
+                      )}
+                    </p>
+                    <div className='text-sm space-y-1'>
+                      {Object.entries(docData.data).map(([key, value]) => (
+                        <p key={key}>
+                          <span className='font-medium capitalize'>{key.replace(/([A-Z])/g, ' $1').trim()}:</span>{' '}
+                          {typeof value === 'object' ? JSON.stringify(value) : String(value)}
+                        </p>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : data.extractedData && Object.keys(data.extractedData).length > 0 ? (
               <div className='text-sm space-y-1'>
                 {Object.entries(data.extractedData).map(([key, value]) => (
                   <p key={key}>
                     <span className='font-medium capitalize'>{key.replace(/([A-Z])/g, ' $1').trim()}:</span>{' '}
-                    {String(value)}
+                    {typeof value === 'object' ? JSON.stringify(value) : String(value)}
                   </p>
                 ))}
               </div>
-            )}
+            ) : null}
             
             {/* Disparidades */}
             {data.disparidades && data.disparidades.length > 0 && (
@@ -400,6 +423,11 @@ export const ConsultaPage: React.FC = () => {
                       'bg-blue-50 text-blue-700'
                     }`}>
                       <strong>{d.campo}:</strong> {d.mensaje}
+                      {d.templateName && (
+                        <span className='block text-xs opacity-70 italic'>
+                          📄 Fuente: {d.templateName}
+                        </span>
+                      )}
                       {d.valorEnSistema && d.valorEnDocumento && (
                         <span className='block text-xs opacity-80'>
                           Sistema: {d.valorEnSistema} | Documento: {d.valorEnDocumento}

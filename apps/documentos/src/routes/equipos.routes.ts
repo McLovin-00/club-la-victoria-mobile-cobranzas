@@ -50,6 +50,18 @@ async function streamVigentesZip(equipoIdsInput: number[], res: any) {
   archive.on('error', (err: any) => res.status(500).end(String(err)));
   archive.pipe(res);
 
+  // Array para almacenar datos de equipos para el Excel
+  const excelRows: Array<{
+    equipoId: number;
+    empresaCuit: string;
+    empresaRazonSocial: string;
+    choferDni: string;
+    choferNombre: string;
+    choferApellido: string;
+    camionPatente: string;
+    acopladoPatente: string;
+  }> = [];
+
   try {
     const { minioService } = await import('../services/minio.service');
     for (const equipoId of equipoIds) {
@@ -57,10 +69,38 @@ async function streamVigentesZip(equipoIdsInput: number[], res: any) {
       const equipo = await prisma.equipo.findUnique({
         where: { id: equipoId },
         include: {
-          empresaTransportista: { select: { id: true, cuit: true } },
+          empresaTransportista: { select: { id: true, cuit: true, razonSocial: true } },
         },
       });
       if (!equipo) continue;
+
+      // Consultar datos del chofer, camión y acoplado
+      const [chofer, camion, acoplado] = await Promise.all([
+        prisma.chofer.findUnique({
+          where: { id: equipo.driverId },
+          select: { dni: true, nombre: true, apellido: true }
+        }),
+        prisma.camion.findUnique({
+          where: { id: equipo.truckId },
+          select: { patente: true }
+        }),
+        equipo.trailerId ? prisma.acoplado.findUnique({
+          where: { id: equipo.trailerId },
+          select: { patente: true }
+        }) : Promise.resolve(null),
+      ]);
+
+      // Agregar datos del equipo al array para el Excel
+      excelRows.push({
+        equipoId: equipo.id,
+        empresaCuit: equipo.empresaTransportista?.cuit || '',
+        empresaRazonSocial: equipo.empresaTransportista?.razonSocial || '',
+        choferDni: chofer?.dni || equipo.driverDniNorm || '',
+        choferNombre: chofer?.nombre || '',
+        choferApellido: chofer?.apellido || '',
+        camionPatente: camion?.patente || equipo.truckPlateNorm || '',
+        acopladoPatente: acoplado?.patente || equipo.trailerPlateNorm || '',
+      });
 
       // Obtener datos adicionales de las entidades
       const transportistaCuit = equipo.empresaTransportista?.cuit || 'SIN_CUIT';
@@ -118,6 +158,60 @@ async function streamVigentesZip(equipoIdsInput: number[], res: any) {
         const name = `${mainFolder}/${subfolder}/${safeTpl}.${ext}`;
         archive.append(stream as any, { name });
       }
+    }
+
+    // Generar Excel con resumen de equipos
+    if (excelRows.length > 0) {
+      const ExcelJS = await import('exceljs');
+      const workbook = new ExcelJS.Workbook();
+      workbook.creator = 'BCA Documentos';
+      workbook.created = new Date();
+
+      const sheet = workbook.addWorksheet('Equipos', {
+        properties: { tabColor: { argb: '2563eb' } }
+      });
+
+      sheet.columns = [
+        { header: 'ID Equipo', key: 'equipoId', width: 12 },
+        { header: 'Empresa CUIT', key: 'empresaCuit', width: 18 },
+        { header: 'Empresa Razón Social', key: 'empresaRazonSocial', width: 35 },
+        { header: 'Chofer DNI', key: 'choferDni', width: 15 },
+        { header: 'Chofer Nombre', key: 'choferNombre', width: 20 },
+        { header: 'Chofer Apellido', key: 'choferApellido', width: 20 },
+        { header: 'Camión Patente', key: 'camionPatente', width: 15 },
+        { header: 'Acoplado Patente', key: 'acopladoPatente', width: 15 },
+      ];
+
+      const headerRow = sheet.getRow(1);
+      headerRow.font = { bold: true, color: { argb: 'FFFFFF' } };
+      headerRow.fill = {
+        type: 'pattern',
+        pattern: 'solid',
+        fgColor: { argb: '2563eb' }
+      };
+      headerRow.alignment = { vertical: 'middle', horizontal: 'center' };
+      headerRow.height = 22;
+
+      for (const row of excelRows) {
+        sheet.addRow(row);
+      }
+
+      sheet.eachRow((row, rowNumber) => {
+        row.eachCell((cell) => {
+          cell.border = {
+            top: { style: 'thin', color: { argb: 'D1D5DB' } },
+            left: { style: 'thin', color: { argb: 'D1D5DB' } },
+            bottom: { style: 'thin', color: { argb: 'D1D5DB' } },
+            right: { style: 'thin', color: { argb: 'D1D5DB' } }
+          };
+          if (rowNumber > 1) {
+            cell.alignment = { vertical: 'middle' };
+          }
+        });
+      });
+
+      const excelBuffer = await workbook.xlsx.writeBuffer();
+      archive.append(Buffer.from(excelBuffer), { name: 'resumen_equipos.xlsx' });
     }
   } catch (err) {
     AppLogger.error('💥 Error generando ZIP masivo', err);
