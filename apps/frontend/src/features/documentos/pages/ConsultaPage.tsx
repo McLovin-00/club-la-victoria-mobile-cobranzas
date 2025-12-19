@@ -223,9 +223,10 @@ export const ConsultaPage: React.FC = () => {
     
     try {
       // Buscar datos de empresa transportista
-      if (equipo.empresaTransportistaId || equipo.empresa_transportista_id) {
+      const empresaId = equipo.empresaTransportistaId || equipo.empresa_transportista_id;
+      if (empresaId) {
         try {
-          const resp = await fetch(`${baseUrl}/api/docs/entities/EMPRESA_TRANSPORTISTA/${equipo.empresaTransportistaId || equipo.empresa_transportista_id}/extracted-data`, { headers });
+          const resp = await fetch(`${baseUrl}/api/docs/entities/EMPRESA_TRANSPORTISTA/${empresaId}/extracted-data`, { headers });
           if (resp.ok) {
             const json = await resp.json();
             setIaData(prev => ({ ...prev, empresaTransportista: json?.data || json }));
@@ -233,8 +234,8 @@ export const ConsultaPage: React.FC = () => {
         } catch { /* ignore */ }
       }
       
-      // Buscar datos del chofer
-      const choferId = equipo.choferIdDb || equipo.choferId || equipo.driver_id;
+      // Buscar datos del chofer - el backend devuelve driverId
+      const choferId = equipo.driverId || equipo.choferIdDb || equipo.choferId || equipo.driver_id;
       if (choferId) {
         try {
           const resp = await fetch(`${baseUrl}/api/docs/entities/CHOFER/${choferId}/extracted-data`, { headers });
@@ -245,8 +246,8 @@ export const ConsultaPage: React.FC = () => {
         } catch { /* ignore */ }
       }
       
-      // Buscar datos del camión
-      const camionId = equipo.camionIdDb || equipo.camionId || equipo.truck_id;
+      // Buscar datos del camión - el backend devuelve truckId
+      const camionId = equipo.truckId || equipo.camionIdDb || equipo.camionId || equipo.truck_id;
       if (camionId) {
         try {
           const resp = await fetch(`${baseUrl}/api/docs/entities/CAMION/${camionId}/extracted-data`, { headers });
@@ -257,8 +258,8 @@ export const ConsultaPage: React.FC = () => {
         } catch { /* ignore */ }
       }
       
-      // Buscar datos del acoplado
-      const acopladoId = equipo.acopladoIdDb || equipo.acopladoId || equipo.trailer_id;
+      // Buscar datos del acoplado - el backend devuelve trailerId
+      const acopladoId = equipo.trailerId || equipo.acopladoIdDb || equipo.acopladoId || equipo.trailer_id;
       if (acopladoId) {
         try {
           const resp = await fetch(`${baseUrl}/api/docs/entities/ACOPLADO/${acopladoId}/extracted-data`, { headers });
@@ -968,10 +969,10 @@ export const ConsultaPage: React.FC = () => {
                 <EntityDataSection
                   title='Empresa Transportista'
                   icon='🏢'
-                  identifier={iaDataEquipo?.empresaTransportistaNombre || `ID: ${iaDataEquipo?.empresaTransportistaId || iaDataEquipo?.empresa_transportista_id || '-'}`}
+                  identifier={iaDataEquipo?.empresaTransportistaNombre || `ID: ${iaDataEquipo?.empresaTransportistaId || '-'}`}
                   data={iaData.empresaTransportista}
                   entityType='EMPRESA_TRANSPORTISTA'
-                  entityId={iaDataEquipo?.empresaTransportistaId || iaDataEquipo?.empresa_transportista_id}
+                  entityId={iaDataEquipo?.empresaTransportistaId}
                 />
                 
                 {/* Chofer */}
@@ -981,7 +982,7 @@ export const ConsultaPage: React.FC = () => {
                   identifier={`DNI: ${iaDataEquipo?.driverDniNorm || '-'}`}
                   data={iaData.chofer}
                   entityType='CHOFER'
-                  entityId={iaDataEquipo?.choferIdDb || iaDataEquipo?.choferId || iaDataEquipo?.driver_id}
+                  entityId={iaDataEquipo?.driverId}
                 />
                 
                 {/* Camión */}
@@ -991,7 +992,7 @@ export const ConsultaPage: React.FC = () => {
                   identifier={`Patente: ${iaDataEquipo?.truckPlateNorm || '-'}`}
                   data={iaData.camion}
                   entityType='CAMION'
-                  entityId={iaDataEquipo?.camionIdDb || iaDataEquipo?.camionId || iaDataEquipo?.truck_id}
+                  entityId={iaDataEquipo?.truckId}
                 />
                 
                 {/* Acoplado */}
@@ -1002,7 +1003,7 @@ export const ConsultaPage: React.FC = () => {
                     identifier={`Patente: ${iaDataEquipo?.trailerPlateNorm || '-'}`}
                     data={iaData.acoplado}
                     entityType='ACOPLADO'
-                    entityId={iaDataEquipo?.acopladoIdDb || iaDataEquipo?.acopladoId || iaDataEquipo?.trailer_id}
+                    entityId={iaDataEquipo?.trailerId}
                   />
                 )}
                 
