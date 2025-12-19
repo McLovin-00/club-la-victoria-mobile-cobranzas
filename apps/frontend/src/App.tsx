@@ -31,6 +31,7 @@ import ConsultaPage from './features/documentos/pages/ConsultaPage';
 import DadoresPage from './features/documentos/pages/DadoresPage';
 import ApprovalQueuePage from './features/documentos/pages/ApprovalQueuePage';
 import ApprovalDetailPage from './features/documentos/pages/ApprovalDetailPage';
+import ExtractedDataPage from './features/documentos/pages/ExtractedDataPage';
 import EmpresasTransportistasPage from './features/documentos/pages/EmpresasTransportistasPage';
 import EmpresaTransportistaDetailPage from './features/documentos/pages/EmpresaTransportistaDetailPage';
 // Eliminado: EmpresasDocPage (no existe)
@@ -208,6 +209,11 @@ function App() {
                 <Route path='/documentos/aprobacion/:id' element={
                   <ProtectedServiceRoute service="documentos">
                     <ApprovalDetailPage />
+                  </ProtectedServiceRoute>
+                } />
+                <Route path='/documentos/datos-extraidos' element={
+                  <ProtectedServiceRoute service="documentos">
+                    <ExtractedDataPage />
                   </ProtectedServiceRoute>
                 } />
                 <Route path='/dadores/:empresaId/documentos' element={

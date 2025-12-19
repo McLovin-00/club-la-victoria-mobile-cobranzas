@@ -10,6 +10,7 @@ export interface CreateRemitoInput {
   dadorCargaId: number;
   cargadoPorUserId: number;
   cargadoPorRol: string;
+  choferId?: number;  // ID del chofer que realiza el viaje
 }
 
 export interface RemitoFileInput {
@@ -50,6 +51,7 @@ export class RemitoService {
         dadorCargaId: input.dadorCargaId,
         cargadoPorUserId: input.cargadoPorUserId,
         cargadoPorRol: input.cargadoPorRol,
+        choferId: input.choferId,  // Vincular chofer si se proporciona
         estado: 'PENDIENTE_ANALISIS',
       },
     });

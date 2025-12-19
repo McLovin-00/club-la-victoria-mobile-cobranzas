@@ -115,19 +115,35 @@ export class MinIOService {
   }
 
   /**
-   * Generar path único para documento
+   * Generar path único para documento con nombre estandarizado
+   * Formato: {entityType}/{entityId}/{identificador}_{plantilla}.{ext}
    */
-  private generateObjectPath(
+  private async generateObjectPath(
     entityType: string,
     entityId: number,
     templateName: string,
     fileName: string
-  ): string {
-    const timestamp = Date.now();
+  ): Promise<string> {
     const extension = fileName.split('.').pop() || 'bin';
-    const sanitizedTemplate = templateName.toLowerCase().replace(/[^a-z0-9]/g, '-');
     
-    return `${entityType.toLowerCase()}/${entityId}/${sanitizedTemplate}/${timestamp}.${extension}`;
+    try {
+      // Importar dinámicamente para evitar dependencia circular
+      const { FileNamingService } = await import('./file-naming.service');
+      const standardizedName = await FileNamingService.generateStandardizedName(
+        entityType as any,
+        entityId,
+        templateName,
+        extension
+      );
+      
+      // Path: entityType/entityId/nombreEstandarizado
+      return `${entityType.toLowerCase()}/${entityId}/${standardizedName}`;
+    } catch (error) {
+      // Fallback al formato anterior si falla
+      const timestamp = Date.now();
+      const sanitizedTemplate = templateName.toLowerCase().replace(/[^a-z0-9]/g, '-');
+      return `${entityType.toLowerCase()}/${entityId}/${sanitizedTemplate}/${timestamp}.${extension}`;
+    }
   }
 
   /**
@@ -150,7 +166,7 @@ export class MinIOService {
       await this.ensureBucketExists(tenantEmpresaId);
       
       const bucketName = this.getBucketName(tenantEmpresaId);
-      const objectPath = this.generateObjectPath(entityType, entityId, templateName, fileName);
+      const objectPath = await this.generateObjectPath(entityType, entityId, templateName, fileName);
       
       // Metadatos del archivo (usar prefijo x-amz-meta- para compatibilidad S3)
       const sanitizeMeta = (value: string) => {

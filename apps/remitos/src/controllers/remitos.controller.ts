@@ -68,6 +68,14 @@ export class RemitosController {
       const tenantEmpresaId = req.user?.tenantId || 1;
       const dadorCargaId = req.body.dadorCargaId || req.user?.dadorId || 1;
       
+      // Obtener choferId: si el usuario es chofer, usar su propio ID; si no, usar el enviado
+      let choferId: number | undefined;
+      if (req.user?.role === 'CHOFER' && req.user?.choferId) {
+        choferId = req.user.choferId;
+      } else if (req.body.choferId) {
+        choferId = parseInt(req.body.choferId as string);
+      }
+      
       // Preparar buffer final (PDF para almacenamiento)
       let finalPdfBuffer: Buffer;
       const originalInputs = inputs; // Guardar para análisis
@@ -92,6 +100,7 @@ export class RemitosController {
           dadorCargaId: parseInt(dadorCargaId as string),
           cargadoPorUserId: req.user!.userId,
           cargadoPorRol: req.user!.role,
+          choferId, // Nuevo campo
         },
         {
           pdfBuffer: finalPdfBuffer,

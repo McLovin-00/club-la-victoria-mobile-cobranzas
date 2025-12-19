@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef } from 'react';
+import { useState, useCallback, useRef, useMemo } from 'react';
 import { 
   CloudArrowUpIcon, 
   XMarkIcon, 
@@ -6,12 +6,23 @@ import {
   DocumentIcon,
   PlusIcon,
   CameraIcon,
+  UserIcon,
+  MagnifyingGlassIcon,
 } from '@heroicons/react/24/outline';
 import { useUploadRemitoMutation } from '../api/remitosApiSlice';
+import { useGetChoferesQuery } from '../../documentos/api/documentosApiSlice';
+import { useAppSelector } from '../../../store/hooks';
 
 interface RemitoUploaderProps {
   onSuccess?: (remitoId: number) => void;
   dadorCargaId?: number;
+}
+
+interface ChoferOption {
+  id: number;
+  dni: string;
+  nombre?: string;
+  apellido?: string;
 }
 
 interface FilePreview {
@@ -24,10 +35,45 @@ interface FilePreview {
 export function RemitoUploader({ onSuccess, dadorCargaId }: RemitoUploaderProps) {
   const [files, setFiles] = useState<FilePreview[]>([]);
   const [isDragging, setIsDragging] = useState(false);
+  const [choferSearch, setChoferSearch] = useState('');
+  const [selectedChofer, setSelectedChofer] = useState<ChoferOption | null>(null);
+  const [showChoferDropdown, setShowChoferDropdown] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const cameraInputRef = useRef<HTMLInputElement>(null);
+  const choferSearchRef = useRef<HTMLInputElement>(null);
   
   const [uploadRemito, { isLoading, isError, error }] = useUploadRemitoMutation();
+  
+  // Obtener usuario actual
+  const user = useAppSelector((state) => state.auth?.user);
+  const userRole = user?.role || '';
+  const userChoferId = user?.choferId;
+  
+  // Si el usuario es CHOFER, no necesita selector
+  const isChofer = userRole === 'CHOFER';
+  
+  // Roles que necesitan seleccionar chofer manualmente
+  const needsChoferSelector = ['SUPERADMIN', 'ADMIN_INTERNO', 'DADOR_DE_CARGA', 'TRANSPORTISTA'].includes(userRole);
+  
+  // Buscar choferes
+  const empresaId = user?.empresaId || 1;
+  const { data: choferesData } = useGetChoferesQuery(
+    { empresaId, q: choferSearch, activo: true, limit: 10 },
+    { skip: !needsChoferSelector || choferSearch.length < 2 }
+  );
+  
+  const choferes = useMemo(() => choferesData?.data || [], [choferesData]);
+  
+  const handleSelectChofer = (chofer: ChoferOption) => {
+    setSelectedChofer(chofer);
+    setChoferSearch(`${chofer.nombre || ''} ${chofer.apellido || ''} - ${chofer.dni}`.trim());
+    setShowChoferDropdown(false);
+  };
+  
+  const clearChofer = () => {
+    setSelectedChofer(null);
+    setChoferSearch('');
+  };
   
   const handleFiles = useCallback((selectedFiles: FileList | File[]) => {
     const newFiles: FilePreview[] = [];
@@ -102,25 +148,29 @@ export function RemitoUploader({ onSuccess, dadorCargaId }: RemitoUploaderProps)
   const handleSubmit = async () => {
     if (files.length === 0) return;
     
+    // Si necesita selector de chofer y no seleccionó uno, advertir
+    if (needsChoferSelector && !selectedChofer) {
+      alert('Debe seleccionar un chofer');
+      return;
+    }
+    
     try {
-      // Crear FormData con todos los archivos
-      const formData = new FormData();
-      for (const f of files) {
-        formData.append('imagenes', f.file);
-      }
-      if (dadorCargaId) {
-        formData.append('dadorCargaId', String(dadorCargaId));
-      }
+      // Determinar choferId
+      const choferId = isChofer 
+        ? userChoferId  // Usuario chofer: usar su propio ID
+        : selectedChofer?.id;  // Otros roles: usar el seleccionado
       
       // Usar el mutation (que internamente usa fetch con FormData)
       const result = await uploadRemito({ 
         files: files.map(f => f.file), 
-        dadorCargaId 
+        dadorCargaId,
+        choferId,
       }).unwrap();
       
       if (result.success) {
         onSuccess?.(result.data.id);
         setFiles([]);
+        clearChofer();
       }
     } catch (err) {
       console.error('Error subiendo remito:', err);
@@ -151,6 +201,90 @@ export function RemitoUploader({ onSuccess, dadorCargaId }: RemitoUploaderProps)
         )}
       </div>
       
+      {/* Selector de Chofer (solo para roles que no son chofer) */}
+      {needsChoferSelector && (
+        <div className="mb-4">
+          <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+            <UserIcon className="inline h-4 w-4 mr-1" />
+            Chofer
+          </label>
+          <div className="relative">
+            <div className="flex gap-2">
+              <div className="relative flex-1">
+                <MagnifyingGlassIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+                <input
+                  ref={choferSearchRef}
+                  type="text"
+                  value={choferSearch}
+                  onChange={(e) => {
+                    setChoferSearch(e.target.value);
+                    setShowChoferDropdown(true);
+                    if (selectedChofer) setSelectedChofer(null);
+                  }}
+                  onFocus={() => setShowChoferDropdown(true)}
+                  onBlur={() => setTimeout(() => setShowChoferDropdown(false), 200)}
+                  placeholder="Buscar por nombre o DNI..."
+                  className="w-full pl-9 pr-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-slate-900 dark:text-white placeholder-slate-400 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                />
+                
+                {/* Dropdown de resultados */}
+                {showChoferDropdown && choferes.length > 0 && !selectedChofer && (
+                  <div className="absolute z-50 w-full mt-1 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-600 rounded-lg shadow-lg max-h-48 overflow-y-auto">
+                    {choferes.map((chofer) => (
+                      <button
+                        key={chofer.id}
+                        type="button"
+                        onClick={() => handleSelectChofer(chofer)}
+                        className="w-full px-3 py-2 text-left hover:bg-slate-100 dark:hover:bg-slate-700 flex items-center gap-2"
+                      >
+                        <UserIcon className="h-4 w-4 text-slate-400" />
+                        <span className="font-medium text-slate-900 dark:text-white">
+                          {chofer.nombre || ''} {chofer.apellido || ''}
+                        </span>
+                        <span className="text-slate-500 text-sm">
+                          DNI: {chofer.dni}
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+              
+              {selectedChofer && (
+                <button
+                  type="button"
+                  onClick={clearChofer}
+                  className="p-2 text-slate-500 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg"
+                  title="Limpiar selección"
+                >
+                  <XMarkIcon className="h-5 w-5" />
+                </button>
+              )}
+            </div>
+            
+            {/* Indicador de chofer seleccionado */}
+            {selectedChofer && (
+              <div className="mt-2 p-2 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg flex items-center gap-2">
+                <UserIcon className="h-4 w-4 text-green-600" />
+                <span className="text-sm text-green-700 dark:text-green-400">
+                  <strong>{selectedChofer.nombre} {selectedChofer.apellido}</strong> - DNI: {selectedChofer.dni}
+                </span>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+      
+      {/* Info para usuario chofer */}
+      {isChofer && (
+        <div className="mb-4 p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
+          <div className="flex items-center gap-2 text-blue-700 dark:text-blue-400">
+            <UserIcon className="h-4 w-4" />
+            <span className="text-sm">Los remitos se asociarán automáticamente a tu perfil de chofer</span>
+          </div>
+        </div>
+      )}
+
       {/* Área de drop / selección */}
       {files.length === 0 ? (
         <div

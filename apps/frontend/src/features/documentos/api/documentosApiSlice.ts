@@ -1076,6 +1076,40 @@ export const documentosApiSlice = createApi({
       query: () => '/dashboard/stats-por-rol',
       transformResponse: (r: any) => r?.data ?? {},
     }),
+    
+    // =================================
+    // DATOS EXTRAÍDOS POR IA
+    // =================================
+    getExtractedDataList: builder.query<
+      { data: any[]; pagination: { page: number; limit: number; total: number; pages: number } },
+      { entityType?: string; page?: number; limit?: number }
+    >({
+      query: ({ entityType, page = 1, limit = 20 }) => ({
+        url: `/entities/extracted-data`,
+        params: { entityType, page, limit },
+      }),
+      transformResponse: (r: any) => ({
+        data: r?.data ?? [],
+        pagination: r?.pagination ?? { page: 1, limit: 20, total: 0, pages: 0 },
+      }),
+    }),
+    getEntityExtractedData: builder.query<any, { entityType: string; entityId: number }>({
+      query: ({ entityType, entityId }) => `/entities/${entityType}/${entityId}/extracted-data`,
+      transformResponse: (r: any) => r?.data ?? null,
+    }),
+    getEntityExtractionHistory: builder.query<
+      { data: any[]; pagination: { page: number; limit: number; total: number; pages: number } },
+      { entityType: string; entityId: number; page?: number; limit?: number }
+    >({
+      query: ({ entityType, entityId, page = 1, limit = 20 }) => ({
+        url: `/entities/${entityType}/${entityId}/extraction-history`,
+        params: { page, limit },
+      }),
+      transformResponse: (r: any) => ({
+        data: r?.data ?? [],
+        pagination: r?.pagination ?? { page: 1, limit: 20, total: 0, pages: 0 },
+      }),
+    }),
   }),
 });
 
@@ -1205,4 +1239,8 @@ export const {
   useResubmitDocumentMutation,
   // Stats por rol
   useGetStatsPorRolQuery,
+  // Datos extraídos por IA
+  useGetExtractedDataListQuery,
+  useGetEntityExtractedDataQuery,
+  useGetEntityExtractionHistoryQuery,
 } = documentosApiSlice;
