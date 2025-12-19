@@ -168,9 +168,10 @@ export class DocumentValidationService {
           question,
           uploads: [
             {
-              type: 'file:full',
+              type: 'file',
               name: request.fileName,
               data: `data:${request.mimeType};base64,${request.imageBase64}`,
+              mime: request.mimeType,
             },
           ],
         },
@@ -297,6 +298,7 @@ ${JSON.stringify(request.datosEntidad, null, 2)}
         confidence: result.confianza,
         aiResponse: result as unknown as Record<string, unknown>,
         detectedDocumentType: result.tipoDocumentoDetectado,
+        validationStatus: 'validated', // Marcar como validado por IA
         updatedAt: new Date(),
       },
       create: {
@@ -311,6 +313,7 @@ ${JSON.stringify(request.datosEntidad, null, 2)}
         confidence: result.confianza,
         aiResponse: result as unknown as Record<string, unknown>,
         detectedDocumentType: result.tipoDocumentoDetectado,
+        validationStatus: 'validated', // Marcar como validado por IA
       },
     });
   }
@@ -333,10 +336,10 @@ ${JSON.stringify(request.datosEntidad, null, 2)}
         entityId: doc.entityId,
         documentId: request.documentId,
         templateName: request.tipoDocumento,
-        datosExtraidos: result.datosExtraidos,
-        disparidades: result.disparidades,
-        esValido: result.esDocumentoCorrecto,
-        confianza: result.confianza,
+        datosExtraidos: result.datosExtraidos ?? {}, // Valor por defecto si es undefined
+        disparidades: result.disparidades ?? [], // Valor por defecto si es undefined
+        esValido: result.esDocumentoCorrecto ?? false,
+        confianza: result.confianza ?? 0,
         solicitadoPor: request.solicitadoPor || null,
         esRechequeo: request.esRechequeo || false,
       },

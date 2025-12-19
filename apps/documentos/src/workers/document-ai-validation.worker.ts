@@ -5,6 +5,7 @@ import { AppLogger } from '../config/logger';
 import { db } from '../config/database';
 import { minioService } from '../services/minio.service';
 import { documentValidationService } from '../services/document-validation.service';
+import { PdfRasterizeService } from '../services/pdf-rasterize.service';
 
 /**
  * Worker para validación de documentos con IA (Control de Documentos)
@@ -33,16 +34,21 @@ class DocumentAIValidationWorker {
     const url = env.REDIS_URL || 'redis://localhost:6379';
     this.redis = new Redis(url, { maxRetriesPerRequest: null });
 
+    // Concurrencia configurable vía env (default: 3 validaciones en paralelo)
+    const concurrency = parseInt(process.env.FLOWISE_VALIDATION_CONCURRENCY || '3', 10);
+    
     this.worker = new Worker(
       'document-ai-validation',
       this.processValidation.bind(this),
       {
         connection: this.redis,
-        concurrency: 1, // Una validación a la vez para no sobrecargar Flowise
+        concurrency,
         removeOnComplete: { count: 50 },
         removeOnFail: { count: 100 },
       }
     );
+    
+    AppLogger.info(`🤖 Worker IA configurado con concurrencia: ${concurrency}`);
 
     this.setupEventHandlers();
     AppLogger.info('🤖 Document AI Validation Worker iniciado');
@@ -79,7 +85,7 @@ class DocumentAIValidationWorker {
         return { success: false, documentId, error: 'DOCUMENT_NOT_FOUND' };
       }
 
-      // Obtener imagen del documento desde MinIO
+      // Obtener archivo del documento desde MinIO
       const [bucketName, ...pathParts] = document.filePath.split('/');
       const objectPath = pathParts.join('/');
       
@@ -95,8 +101,36 @@ class DocumentAIValidationWorker {
         return { success: false, documentId, error: 'MINIO_ERROR' };
       }
 
-      // Convertir a base64
-      const imageBase64 = fileBuffer.toString('base64');
+      // Si es PDF, rasterizar a imagen antes de enviar a Flowise
+      let imageBase64: string;
+      let mimeType = document.mimeType;
+      
+      const isPdf = document.mimeType === 'application/pdf' || 
+                    document.fileName.toLowerCase().endsWith('.pdf');
+      
+      if (isPdf) {
+        AppLogger.info(`📄 Documento ${documentId} es PDF, rasterizando...`);
+        try {
+          const imageBuffers = await PdfRasterizeService.pdfToImages(fileBuffer);
+          if (imageBuffers.length === 0) {
+            throw new Error('No se pudieron extraer imágenes del PDF');
+          }
+          // Usar la primera página para validación (o combinar si hay varias)
+          // Por ahora usamos solo la primera página
+          imageBase64 = imageBuffers[0].toString('base64');
+          mimeType = 'image/jpeg';
+          AppLogger.info(`📸 PDF rasterizado: ${imageBuffers.length} páginas, usando primera`);
+        } catch (pdfError) {
+          AppLogger.error(`💥 Error rasterizando PDF`, {
+            documentId,
+            error: pdfError instanceof Error ? pdfError.message : 'Unknown',
+          });
+          return { success: false, documentId, error: 'PDF_RASTERIZE_ERROR' };
+        }
+      } else {
+        // Es imagen, usar directamente
+        imageBase64 = fileBuffer.toString('base64');
+      }
 
       // Obtener datos de la entidad
       const datosEntidad = await documentValidationService.getEntityData(
@@ -108,7 +142,7 @@ class DocumentAIValidationWorker {
       const result = await documentValidationService.validateDocument({
         documentId,
         imageBase64,
-        mimeType: document.mimeType,
+        mimeType, // Puede ser 'image/jpeg' si fue rasterizado desde PDF
         fileName: document.fileName,
         tipoDocumento: document.template.name,
         tipoEntidad: document.entityType,

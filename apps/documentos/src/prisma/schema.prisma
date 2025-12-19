@@ -437,6 +437,7 @@ model DocumentClassification {
   tieneDisparidades     Boolean     @default(false) @map("tiene_disparidades")
   vencimientoDetectado  DateTime?   @map("vencimiento_detectado")
   vencimientoOrigen     String?     @map("vencimiento_origen") @db.VarChar(20)
+  validationStatus      String?     @map("validation_status") @db.VarChar(50)
 
   document Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
 

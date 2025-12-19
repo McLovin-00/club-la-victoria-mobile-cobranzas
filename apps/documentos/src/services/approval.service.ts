@@ -73,7 +73,27 @@ export class ApprovalService {
         } catch {
           // Si falla, entityNaturalId queda null
         }
-        return { ...doc, entityNaturalId };
+        // Agregar estado de validación IA
+        const disparidades = (doc.classification as any)?.disparidades as any[] | null;
+        const hasDisparidades = Array.isArray(disparidades) && disparidades.length > 0;
+        
+        // Determinar si fue validado por IA (tiene disparidades O tiene validationStatus)
+        const fueValidado = hasDisparidades || (doc.classification as any)?.validationStatus === 'validated';
+        
+        const iaValidation = doc.classification ? {
+          validationStatus: fueValidado ? 'validated' : ((doc.classification as any)?.validationStatus || null),
+          hasDisparities: hasDisparidades,
+          disparitiesCount: hasDisparidades ? disparidades.length : 0,
+          disparitiesSeverity: hasDisparidades 
+            ? disparidades.some((d: any) => d.severidad === 'critica') 
+              ? 'critica' 
+              : disparidades.some((d: any) => d.severidad === 'advertencia')
+                ? 'advertencia'
+                : 'info'
+            : null,
+        } : null;
+        
+        return { ...doc, entityNaturalId, iaValidation };
       })
     );
 

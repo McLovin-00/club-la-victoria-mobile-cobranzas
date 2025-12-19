@@ -17,7 +17,7 @@ export default function ApprovalDetailPage() {
   const [reject, { isLoading: rejecting }] = useRejectPendingDocumentMutation();
   const [recheckWithAI, { isLoading: rechecking }] = useRecheckDocumentWithAIMutation();
   const userRole = useAppSelector((s) => (s as any).auth?.user?.role) as string | undefined;
-  const canRecheck = userRole === 'SUPERADMIN' || userRole === 'ADMIN_INTERNO';
+  const canRecheck = userRole === 'SUPERADMIN' || userRole === 'ADMIN_INTERNO' || userRole === 'DADOR_DE_CARGA';
 
   const [entityType, setEntityType] = useState<EntityType | ''>('');
   const [entityId, setEntityId] = useState<string>('');
