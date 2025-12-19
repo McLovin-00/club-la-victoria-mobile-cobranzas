@@ -1,6 +1,18 @@
 import { AppLogger } from '../config/logger';
 import { prisma } from '../config/database';
 import type { Worker as WorkerType } from 'worker_threads';
+import ExcelJS from 'exceljs';
+
+type EquipoExcelRow = {
+  equipoId: number;
+  empresaCuit: string;
+  empresaRazonSocial: string;
+  choferDni: string;
+  choferNombre: string;
+  choferApellido: string;
+  camionPatente: string;
+  acopladoPatente: string;
+};
 
 type ZipJob = {
   id: string;
@@ -176,11 +188,14 @@ export class DocumentZipService {
       });
       zipStream.pipe(out);
 
+      // Almacenamos datos de cada equipo para el Excel
+      const excelRows: EquipoExcelRow[] = [];
+
       // Por cada equipo, seleccionar documentos vigentes y agregarlos al ZIP
       const now = new Date();
       let processed = 0;
       for (const equipoId of equipoIds) {
-        // Cargar equipo
+        // Cargar equipo con relaciones para el Excel
         const equipo = await prisma.equipo.findUnique({
           where: { id: equipoId },
           select: {
@@ -194,6 +209,18 @@ export class DocumentZipService {
             truckPlateNorm: true,
             trailerPlateNorm: true,
             driverDniNorm: true,
+            empresaTransportista: {
+              select: { cuit: true, razonSocial: true }
+            },
+            driver: {
+              select: { dni: true, nombre: true, apellido: true }
+            },
+            truck: {
+              select: { patente: true }
+            },
+            trailer: {
+              select: { patente: true }
+            },
           },
         });
         if (!equipo || equipo.tenantEmpresaId !== tenantEmpresaId) {
@@ -203,6 +230,18 @@ export class DocumentZipService {
           store.set(jobId, { ...job });
           continue;
         }
+
+        // Agregar datos del equipo al array para el Excel
+        excelRows.push({
+          equipoId: equipo.id,
+          empresaCuit: equipo.empresaTransportista?.cuit || '',
+          empresaRazonSocial: equipo.empresaTransportista?.razonSocial || '',
+          choferDni: equipo.driver?.dni || equipo.driverDniNorm || '',
+          choferNombre: equipo.driver?.nombre || '',
+          choferApellido: equipo.driver?.apellido || '',
+          camionPatente: equipo.truck?.patente || equipo.truckPlateNorm || '',
+          acopladoPatente: equipo.trailer?.patente || equipo.trailerPlateNorm || '',
+        });
 
         const entityClauses: any[] = [];
         if (equipo.empresaTransportistaId) entityClauses.push({ entityType: 'EMPRESA_TRANSPORTISTA' as any, entityId: equipo.empresaTransportistaId });
@@ -255,6 +294,10 @@ export class DocumentZipService {
         try { AppLogger.debug?.('⏳ Progreso ZIP job', { jobId, processed, total: equipoIds.length, progress: job.progress }); } catch {}
       }
 
+      // Generar Excel con resumen de equipos
+      const excelBuffer = await this.generateEquiposExcel(excelRows);
+      zipStream.append(excelBuffer, { name: 'resumen_equipos.xlsx' });
+
       await zipStream.finalize();
 
       // Esperar a que termine de escribir
@@ -279,6 +322,66 @@ export class DocumentZipService {
       try { AppLogger.error('💥 ZIP job failed', { jobId, error: e?.message }); } catch {}
       throw e;
     }
+  }
+
+  /**
+   * Genera un archivo Excel con el resumen de equipos
+   */
+  private static async generateEquiposExcel(rows: EquipoExcelRow[]): Promise<Buffer> {
+    const workbook = new ExcelJS.Workbook();
+    workbook.creator = 'BCA Documentos';
+    workbook.created = new Date();
+
+    const sheet = workbook.addWorksheet('Equipos', {
+      properties: { tabColor: { argb: '2563eb' } }
+    });
+
+    // Definir columnas
+    sheet.columns = [
+      { header: 'ID Equipo', key: 'equipoId', width: 12 },
+      { header: 'Empresa CUIT', key: 'empresaCuit', width: 18 },
+      { header: 'Empresa Razón Social', key: 'empresaRazonSocial', width: 35 },
+      { header: 'Chofer DNI', key: 'choferDni', width: 15 },
+      { header: 'Chofer Nombre', key: 'choferNombre', width: 20 },
+      { header: 'Chofer Apellido', key: 'choferApellido', width: 20 },
+      { header: 'Camión Patente', key: 'camionPatente', width: 15 },
+      { header: 'Acoplado Patente', key: 'acopladoPatente', width: 15 },
+    ];
+
+    // Estilo de encabezados
+    const headerRow = sheet.getRow(1);
+    headerRow.font = { bold: true, color: { argb: 'FFFFFF' } };
+    headerRow.fill = {
+      type: 'pattern',
+      pattern: 'solid',
+      fgColor: { argb: '2563eb' }
+    };
+    headerRow.alignment = { vertical: 'middle', horizontal: 'center' };
+    headerRow.height = 22;
+
+    // Agregar filas de datos
+    for (const row of rows) {
+      sheet.addRow(row);
+    }
+
+    // Aplicar bordes y alineación a todas las filas de datos
+    sheet.eachRow((row, rowNumber) => {
+      row.eachCell((cell) => {
+        cell.border = {
+          top: { style: 'thin', color: { argb: 'D1D5DB' } },
+          left: { style: 'thin', color: { argb: 'D1D5DB' } },
+          bottom: { style: 'thin', color: { argb: 'D1D5DB' } },
+          right: { style: 'thin', color: { argb: 'D1D5DB' } }
+        };
+        if (rowNumber > 1) {
+          cell.alignment = { vertical: 'middle' };
+        }
+      });
+    });
+
+    // Generar buffer
+    const buffer = await workbook.xlsx.writeBuffer();
+    return Buffer.from(buffer);
   }
 }
 
