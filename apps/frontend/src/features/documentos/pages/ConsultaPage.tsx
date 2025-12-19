@@ -10,7 +10,7 @@ import { Label } from '../../../components/ui/label';
 import { ConfirmContext } from '../../../contexts/confirmContext';
 import { useGetDadoresQuery, useGetTemplatesQuery, useGetClientsQuery, useLazySearchEquiposQuery, useGetDefaultsQuery, useLazyGetEquipoComplianceQuery, useDeleteEquipoMutation, useGetEquipoComplianceQuery, useSearchEquiposByDnisMutation, useGetEmpresasTransportistasQuery, useSearchEquiposPagedQuery, useToggleEquipoActivoMutation } from '../api/documentosApiSlice';
 import { showToast } from '../../../components/ui/Toast.utils';
-import { ArrowLeftIcon, ChevronLeftIcon, ChevronRightIcon, ExclamationTriangleIcon, ClockIcon, CheckCircleIcon, DocumentTextIcon } from '@heroicons/react/24/outline';
+import { ArrowLeftIcon, ChevronLeftIcon, ChevronRightIcon, ExclamationTriangleIcon, ClockIcon, CheckCircleIcon, DocumentTextIcon, SparklesIcon, XMarkIcon } from '@heroicons/react/24/outline';
 
 type FilterType = 'todos' | 'dador' | 'cliente' | 'empresa';
 type ComplianceFilter = 'all' | 'faltantes' | 'vencidos' | 'por_vencer';
@@ -194,6 +194,66 @@ export const ConsultaPage: React.FC = () => {
   const [showSearchModal, setShowSearchModal] = useState(false);
   const [isDownloading, setIsDownloading] = useState(false);
   const [isDownloadingSingle, setIsDownloadingSingle] = useState<number | null>(null);
+  
+  // Estado para modal de datos extraídos por IA
+  const [showIADataModal, setShowIADataModal] = useState(false);
+  const [iaDataEquipo, setIaDataEquipo] = useState<any>(null);
+  const [iaDataLoading, setIaDataLoading] = useState(false);
+  const [iaData, setIaData] = useState<{
+    chofer: any | null;
+    camion: any | null;
+    acoplado: any | null;
+  }>({ chofer: null, camion: null, acoplado: null });
+  
+  // Verificar si el usuario puede ver datos IA
+  const canViewIAData = ['SUPERADMIN', 'ADMIN_INTERNO'].includes(userRole || '');
+  
+  const fetchIAData = async (equipo: any) => {
+    setIaDataEquipo(equipo);
+    setShowIADataModal(true);
+    setIaDataLoading(true);
+    setIaData({ chofer: null, camion: null, acoplado: null });
+    
+    const baseUrl = import.meta.env.VITE_DOCUMENTOS_API_URL || '';
+    const headers = { Authorization: `Bearer ${authToken}` };
+    
+    try {
+      // Buscar datos del chofer por DNI
+      if (equipo.driverDniNorm) {
+        try {
+          const resp = await fetch(`${baseUrl}/api/docs/entities/CHOFER/${equipo.choferIdDb || equipo.choferId || 0}/extracted-data`, { headers });
+          if (resp.ok) {
+            const json = await resp.json();
+            setIaData(prev => ({ ...prev, chofer: json?.data || json }));
+          }
+        } catch { /* ignore */ }
+      }
+      
+      // Buscar datos del camión
+      if (equipo.camionIdDb || equipo.camionId) {
+        try {
+          const resp = await fetch(`${baseUrl}/api/docs/entities/CAMION/${equipo.camionIdDb || equipo.camionId}/extracted-data`, { headers });
+          if (resp.ok) {
+            const json = await resp.json();
+            setIaData(prev => ({ ...prev, camion: json?.data || json }));
+          }
+        } catch { /* ignore */ }
+      }
+      
+      // Buscar datos del acoplado
+      if (equipo.acopladoIdDb || equipo.acopladoId) {
+        try {
+          const resp = await fetch(`${baseUrl}/api/docs/entities/ACOPLADO/${equipo.acopladoIdDb || equipo.acopladoId}/extracted-data`, { headers });
+          if (resp.ok) {
+            const json = await resp.json();
+            setIaData(prev => ({ ...prev, acoplado: json?.data || json }));
+          }
+        } catch { /* ignore */ }
+      }
+    } finally {
+      setIaDataLoading(false);
+    }
+  };
 
   const onSearchByText = async () => {
     try {
@@ -715,6 +775,105 @@ export const ConsultaPage: React.FC = () => {
         </div>
       )}
       
+      {/* Modal de Datos Extraídos por IA */}
+      {showIADataModal && (
+        <div className='fixed inset-0 bg-black/50 flex items-center justify-center z-50' onClick={() => setShowIADataModal(false)}>
+          <div className='bg-white dark:bg-slate-900 rounded-lg p-6 w-full max-w-2xl shadow-xl max-h-[80vh] overflow-y-auto' onClick={(e) => e.stopPropagation()}>
+            <div className='flex items-center justify-between mb-4'>
+              <h3 className='text-lg font-semibold flex items-center gap-2'>
+                <SparklesIcon className='h-5 w-5 text-purple-600' />
+                Datos Extraídos por IA - Equipo #{iaDataEquipo?.id}
+              </h3>
+              <button onClick={() => setShowIADataModal(false)} className='p-1 hover:bg-gray-100 rounded'>
+                <XMarkIcon className='h-5 w-5' />
+              </button>
+            </div>
+            
+            {iaDataLoading ? (
+              <div className='text-center py-8'>
+                <div className='animate-spin rounded-full h-8 w-8 border-b-2 border-purple-600 mx-auto mb-2'></div>
+                <p className='text-sm text-gray-500'>Cargando datos extraídos...</p>
+              </div>
+            ) : (
+              <div className='space-y-4'>
+                {/* Chofer */}
+                <div className='border rounded-lg p-4'>
+                  <h4 className='font-medium text-sm text-gray-600 mb-2'>👤 Chofer (DNI: {iaDataEquipo?.driverDniNorm})</h4>
+                  {iaData.chofer ? (
+                    <div className='text-sm space-y-1'>
+                      {iaData.chofer.cuil && <p><span className='font-medium'>CUIL:</span> {iaData.chofer.cuil}</p>}
+                      {iaData.chofer.numeroLicencia && <p><span className='font-medium'>Licencia:</span> {iaData.chofer.numeroLicencia}</p>}
+                      {iaData.chofer.clasesLicencia && <p><span className='font-medium'>Clases:</span> {iaData.chofer.clasesLicencia}</p>}
+                      {iaData.chofer.fechaNacimiento && <p><span className='font-medium'>Fecha Nac:</span> {iaData.chofer.fechaNacimiento}</p>}
+                      {iaData.chofer.nacionalidad && <p><span className='font-medium'>Nacionalidad:</span> {iaData.chofer.nacionalidad}</p>}
+                      {iaData.chofer.domicilio && <p><span className='font-medium'>Domicilio:</span> {iaData.chofer.domicilio}</p>}
+                      {iaData.chofer.obraSocial && <p><span className='font-medium'>Obra Social:</span> {iaData.chofer.obraSocial}</p>}
+                      {Object.keys(iaData.chofer).length === 0 && <p className='text-gray-400'>Sin datos adicionales</p>}
+                    </div>
+                  ) : (
+                    <p className='text-gray-400 text-sm'>No hay datos extraídos por IA para este chofer</p>
+                  )}
+                </div>
+                
+                {/* Camión */}
+                <div className='border rounded-lg p-4'>
+                  <h4 className='font-medium text-sm text-gray-600 mb-2'>🚛 Camión (Patente: {iaDataEquipo?.truckPlateNorm})</h4>
+                  {iaData.camion ? (
+                    <div className='text-sm space-y-1'>
+                      {iaData.camion.anioFabricacion && <p><span className='font-medium'>Año:</span> {iaData.camion.anioFabricacion}</p>}
+                      {iaData.camion.marca && <p><span className='font-medium'>Marca:</span> {iaData.camion.marca}</p>}
+                      {iaData.camion.modelo && <p><span className='font-medium'>Modelo:</span> {iaData.camion.modelo}</p>}
+                      {iaData.camion.numeroMotor && <p><span className='font-medium'>Motor:</span> {iaData.camion.numeroMotor}</p>}
+                      {iaData.camion.numeroChasis && <p><span className='font-medium'>Chasis:</span> {iaData.camion.numeroChasis}</p>}
+                      {iaData.camion.titular && <p><span className='font-medium'>Titular:</span> {iaData.camion.titular}</p>}
+                      {iaData.camion.aseguradora && <p><span className='font-medium'>Aseguradora:</span> {iaData.camion.aseguradora}</p>}
+                      {iaData.camion.poliza && <p><span className='font-medium'>Póliza:</span> {iaData.camion.poliza}</p>}
+                      {Object.keys(iaData.camion).length === 0 && <p className='text-gray-400'>Sin datos adicionales</p>}
+                    </div>
+                  ) : (
+                    <p className='text-gray-400 text-sm'>No hay datos extraídos por IA para este camión</p>
+                  )}
+                </div>
+                
+                {/* Acoplado */}
+                {iaDataEquipo?.trailerPlateNorm && (
+                  <div className='border rounded-lg p-4'>
+                    <h4 className='font-medium text-sm text-gray-600 mb-2'>🚚 Acoplado (Patente: {iaDataEquipo?.trailerPlateNorm})</h4>
+                    {iaData.acoplado ? (
+                      <div className='text-sm space-y-1'>
+                        {iaData.acoplado.anioFabricacion && <p><span className='font-medium'>Año:</span> {iaData.acoplado.anioFabricacion}</p>}
+                        {iaData.acoplado.marca && <p><span className='font-medium'>Marca:</span> {iaData.acoplado.marca}</p>}
+                        {iaData.acoplado.modelo && <p><span className='font-medium'>Modelo:</span> {iaData.acoplado.modelo}</p>}
+                        {iaData.acoplado.numeroChasis && <p><span className='font-medium'>Chasis:</span> {iaData.acoplado.numeroChasis}</p>}
+                        {iaData.acoplado.tipoUnidad && <p><span className='font-medium'>Tipo:</span> {iaData.acoplado.tipoUnidad}</p>}
+                        {iaData.acoplado.configuracionEjes && <p><span className='font-medium'>Ejes:</span> {iaData.acoplado.configuracionEjes}</p>}
+                        {Object.keys(iaData.acoplado).length === 0 && <p className='text-gray-400'>Sin datos adicionales</p>}
+                      </div>
+                    ) : (
+                      <p className='text-gray-400 text-sm'>No hay datos extraídos por IA para este acoplado</p>
+                    )}
+                  </div>
+                )}
+                
+                {!iaData.chofer && !iaData.camion && !iaData.acoplado && (
+                  <div className='text-center py-4 text-gray-500'>
+                    <SparklesIcon className='h-12 w-12 mx-auto mb-2 opacity-30' />
+                    <p>No hay datos extraídos por IA disponibles para este equipo.</p>
+                    <p className='text-sm'>Los datos se extraen automáticamente cuando se procesan documentos con IA.</p>
+                  </div>
+                )}
+              </div>
+            )}
+            
+            <div className='mt-4 flex justify-end'>
+              <Button variant='outline' onClick={() => setShowIADataModal(false)}>
+                Cerrar
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className='grid gap-3'>
         {!isFetching && displayResults.map((it: any) => {
           const eq = it.equipo || it;
@@ -749,6 +908,18 @@ export const ConsultaPage: React.FC = () => {
               </div>
 
               <div className='flex flex-wrap justify-end items-center gap-2'>
+                {canViewIAData && (
+                  <Button
+                    variant='outline'
+                    size='sm'
+                    onClick={() => fetchIAData(eq)}
+                    className='text-purple-600 border-purple-300 hover:bg-purple-50'
+                    title='Ver datos extraídos por IA'
+                  >
+                    <SparklesIcon className='h-4 w-4 mr-1' />
+                    Datos IA
+                  </Button>
+                )}
                 <Button
                   variant='default'
                   size='sm'
