@@ -82,7 +82,7 @@ export const documentosApiSlice = createApi({
       return headers;
     },
   }),
-  tagTypes: ['DocumentTemplate', 'Document', 'Dashboard', 'Clients', 'Equipos', 'Search', 'ClientRequirements', 'Maestros', 'Approval', 'EmpresasTransportistas'],
+  tagTypes: ['DocumentTemplate', 'Document', 'Dashboard', 'Clients', 'Equipos', 'Search', 'ClientRequirements', 'Maestros', 'Approval', 'EmpresasTransportistas', 'ExtractedData'],
   endpoints: (builder) => ({
     // =================================
     // COMPLIANCE
@@ -1096,6 +1096,34 @@ export const documentosApiSlice = createApi({
     getEntityExtractedData: builder.query<any, { entityType: string; entityId: number }>({
       query: ({ entityType, entityId }) => `/entities/${entityType}/${entityId}/extracted-data`,
       transformResponse: (r: any) => r?.data ?? null,
+      providesTags: (_result, _error, { entityType, entityId }) => [
+        { type: 'ExtractedData' as const, id: `${entityType}-${entityId}` },
+      ],
+    }),
+    updateEntityExtractedData: builder.mutation<
+      { success: boolean; message: string },
+      { entityType: string; entityId: number; data: Record<string, any> }
+    >({
+      query: ({ entityType, entityId, data }) => ({
+        url: `/entities/${entityType}/${entityId}/extracted-data`,
+        method: 'PUT',
+        body: { data },
+      }),
+      invalidatesTags: (_result, _error, { entityType, entityId }) => [
+        { type: 'ExtractedData' as const, id: `${entityType}-${entityId}` },
+      ],
+    }),
+    deleteEntityExtractedData: builder.mutation<
+      { success: boolean; message: string; documentsAffected: number },
+      { entityType: string; entityId: number }
+    >({
+      query: ({ entityType, entityId }) => ({
+        url: `/entities/${entityType}/${entityId}/extracted-data`,
+        method: 'DELETE',
+      }),
+      invalidatesTags: (_result, _error, { entityType, entityId }) => [
+        { type: 'ExtractedData' as const, id: `${entityType}-${entityId}` },
+      ],
     }),
     getEntityExtractionHistory: builder.query<
       { data: any[]; pagination: { page: number; limit: number; total: number; pages: number } },
@@ -1243,4 +1271,6 @@ export const {
   useGetExtractedDataListQuery,
   useGetEntityExtractedDataQuery,
   useGetEntityExtractionHistoryQuery,
+  useUpdateEntityExtractedDataMutation,
+  useDeleteEntityExtractedDataMutation,
 } = documentosApiSlice;

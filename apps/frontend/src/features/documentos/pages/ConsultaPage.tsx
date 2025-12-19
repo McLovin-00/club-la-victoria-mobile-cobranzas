@@ -200,10 +200,14 @@ export const ConsultaPage: React.FC = () => {
   const [iaDataEquipo, setIaDataEquipo] = useState<any>(null);
   const [iaDataLoading, setIaDataLoading] = useState(false);
   const [iaData, setIaData] = useState<{
+    empresaTransportista: any | null;
     chofer: any | null;
     camion: any | null;
     acoplado: any | null;
-  }>({ chofer: null, camion: null, acoplado: null });
+  }>({ empresaTransportista: null, chofer: null, camion: null, acoplado: null });
+  const [confirmDelete, setConfirmDelete] = useState<{ entityType: string; entityId: number } | null>(null);
+  const [editingEntity, setEditingEntity] = useState<{ entityType: string; entityId: number; data: any } | null>(null);
+  const [editFormData, setEditFormData] = useState<Record<string, string>>({});
   
   // Verificar si el usuario puede ver datos IA
   const canViewIAData = ['SUPERADMIN', 'ADMIN_INTERNO'].includes(userRole || '');
@@ -212,16 +216,28 @@ export const ConsultaPage: React.FC = () => {
     setIaDataEquipo(equipo);
     setShowIADataModal(true);
     setIaDataLoading(true);
-    setIaData({ chofer: null, camion: null, acoplado: null });
+    setIaData({ empresaTransportista: null, chofer: null, camion: null, acoplado: null });
     
     const baseUrl = import.meta.env.VITE_DOCUMENTOS_API_URL || '';
     const headers = { Authorization: `Bearer ${authToken}` };
     
     try {
-      // Buscar datos del chofer por DNI
-      if (equipo.driverDniNorm) {
+      // Buscar datos de empresa transportista
+      if (equipo.empresaTransportistaId || equipo.empresa_transportista_id) {
         try {
-          const resp = await fetch(`${baseUrl}/api/docs/entities/CHOFER/${equipo.choferIdDb || equipo.choferId || 0}/extracted-data`, { headers });
+          const resp = await fetch(`${baseUrl}/api/docs/entities/EMPRESA_TRANSPORTISTA/${equipo.empresaTransportistaId || equipo.empresa_transportista_id}/extracted-data`, { headers });
+          if (resp.ok) {
+            const json = await resp.json();
+            setIaData(prev => ({ ...prev, empresaTransportista: json?.data || json }));
+          }
+        } catch { /* ignore */ }
+      }
+      
+      // Buscar datos del chofer
+      const choferId = equipo.choferIdDb || equipo.choferId || equipo.driver_id;
+      if (choferId) {
+        try {
+          const resp = await fetch(`${baseUrl}/api/docs/entities/CHOFER/${choferId}/extracted-data`, { headers });
           if (resp.ok) {
             const json = await resp.json();
             setIaData(prev => ({ ...prev, chofer: json?.data || json }));
@@ -230,9 +246,10 @@ export const ConsultaPage: React.FC = () => {
       }
       
       // Buscar datos del camión
-      if (equipo.camionIdDb || equipo.camionId) {
+      const camionId = equipo.camionIdDb || equipo.camionId || equipo.truck_id;
+      if (camionId) {
         try {
-          const resp = await fetch(`${baseUrl}/api/docs/entities/CAMION/${equipo.camionIdDb || equipo.camionId}/extracted-data`, { headers });
+          const resp = await fetch(`${baseUrl}/api/docs/entities/CAMION/${camionId}/extracted-data`, { headers });
           if (resp.ok) {
             const json = await resp.json();
             setIaData(prev => ({ ...prev, camion: json?.data || json }));
@@ -241,9 +258,10 @@ export const ConsultaPage: React.FC = () => {
       }
       
       // Buscar datos del acoplado
-      if (equipo.acopladoIdDb || equipo.acopladoId) {
+      const acopladoId = equipo.acopladoIdDb || equipo.acopladoId || equipo.trailer_id;
+      if (acopladoId) {
         try {
-          const resp = await fetch(`${baseUrl}/api/docs/entities/ACOPLADO/${equipo.acopladoIdDb || equipo.acopladoId}/extracted-data`, { headers });
+          const resp = await fetch(`${baseUrl}/api/docs/entities/ACOPLADO/${acopladoId}/extracted-data`, { headers });
           if (resp.ok) {
             const json = await resp.json();
             setIaData(prev => ({ ...prev, acoplado: json?.data || json }));
@@ -253,6 +271,156 @@ export const ConsultaPage: React.FC = () => {
     } finally {
       setIaDataLoading(false);
     }
+  };
+  
+  const handleDeleteIAData = async (entityType: string, entityId: number) => {
+    const baseUrl = import.meta.env.VITE_DOCUMENTOS_API_URL || '';
+    try {
+      const resp = await fetch(`${baseUrl}/api/docs/entities/${entityType}/${entityId}/extracted-data`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${authToken}` },
+      });
+      if (resp.ok) {
+        show('Datos IA eliminados correctamente');
+        setConfirmDelete(null);
+        // Recargar datos
+        if (iaDataEquipo) fetchIAData(iaDataEquipo);
+      } else {
+        show('Error al eliminar datos IA');
+      }
+    } catch {
+      show('Error al eliminar datos IA');
+    }
+  };
+  
+  const handleSaveEdit = async () => {
+    if (!editingEntity) return;
+    const baseUrl = import.meta.env.VITE_DOCUMENTOS_API_URL || '';
+    try {
+      const resp = await fetch(`${baseUrl}/api/docs/entities/${editingEntity.entityType}/${editingEntity.entityId}/extracted-data`, {
+        method: 'PUT',
+        headers: { 
+          Authorization: `Bearer ${authToken}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ data: editFormData }),
+      });
+      if (resp.ok) {
+        show('Datos actualizados correctamente');
+        setEditingEntity(null);
+        setEditFormData({});
+        // Recargar datos
+        if (iaDataEquipo) fetchIAData(iaDataEquipo);
+      } else {
+        show('Error al actualizar datos');
+      }
+    } catch {
+      show('Error al actualizar datos');
+    }
+  };
+  
+  const startEditing = (entityType: string, entityId: number, data: any) => {
+    setEditingEntity({ entityType, entityId, data });
+    // Extraer datos extraídos para el form
+    const extractedData = data?.extractedData || {};
+    setEditFormData({ ...extractedData });
+  };
+  
+  // Componente helper para renderizar datos de una entidad
+  const EntityDataSection = ({ 
+    title, 
+    icon, 
+    identifier, 
+    data, 
+    entityType, 
+    entityId 
+  }: { 
+    title: string; 
+    icon: string; 
+    identifier: string; 
+    data: any | null; 
+    entityType: string; 
+    entityId: number | undefined;
+  }) => {
+    if (!entityId) return null;
+    
+    const hasData = data && (
+      (data.extractedData && Object.keys(data.extractedData).length > 0) ||
+      (data.disparidades && data.disparidades.length > 0)
+    );
+    
+    return (
+      <div className='border rounded-lg p-4'>
+        <div className='flex items-center justify-between mb-2'>
+          <h4 className='font-medium text-sm text-gray-600'>{icon} {title} ({identifier})</h4>
+          {hasData && (
+            <div className='flex gap-1'>
+              <button
+                onClick={() => startEditing(entityType, entityId, data)}
+                className='text-xs px-2 py-1 bg-blue-50 text-blue-600 rounded hover:bg-blue-100'
+                title='Editar datos'
+              >
+                ✏️ Editar
+              </button>
+              <button
+                onClick={() => setConfirmDelete({ entityType, entityId })}
+                className='text-xs px-2 py-1 bg-red-50 text-red-600 rounded hover:bg-red-100'
+                title='Borrar datos IA'
+              >
+                🗑️ Borrar
+              </button>
+            </div>
+          )}
+        </div>
+        
+        {hasData ? (
+          <div className='space-y-2'>
+            {/* Datos extraídos */}
+            {data.extractedData && Object.keys(data.extractedData).length > 0 && (
+              <div className='text-sm space-y-1'>
+                {Object.entries(data.extractedData).map(([key, value]) => (
+                  <p key={key}>
+                    <span className='font-medium capitalize'>{key.replace(/([A-Z])/g, ' $1').trim()}:</span>{' '}
+                    {String(value)}
+                  </p>
+                ))}
+              </div>
+            )}
+            
+            {/* Disparidades */}
+            {data.disparidades && data.disparidades.length > 0 && (
+              <div className='mt-2 pt-2 border-t'>
+                <p className='text-xs font-medium text-orange-600 mb-1'>⚠️ Disparidades detectadas:</p>
+                <div className='space-y-1'>
+                  {data.disparidades.map((d: any, i: number) => (
+                    <div key={i} className={`text-xs p-2 rounded ${
+                      d.severidad === 'critica' ? 'bg-red-50 text-red-700' :
+                      d.severidad === 'advertencia' ? 'bg-yellow-50 text-yellow-700' :
+                      'bg-blue-50 text-blue-700'
+                    }`}>
+                      <strong>{d.campo}:</strong> {d.mensaje}
+                      {d.valorEnSistema && d.valorEnDocumento && (
+                        <span className='block text-xs opacity-80'>
+                          Sistema: {d.valorEnSistema} | Documento: {d.valorEnDocumento}
+                        </span>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+            
+            {data.lastValidation && (
+              <p className='text-xs text-gray-400 mt-2'>
+                Última validación: {new Date(data.lastValidation).toLocaleString()}
+              </p>
+            )}
+          </div>
+        ) : (
+          <p className='text-gray-400 text-sm'>No hay datos extraídos por IA para esta entidad</p>
+        )}
+      </div>
+    );
   };
 
   const onSearchByText = async () => {
@@ -796,66 +964,49 @@ export const ConsultaPage: React.FC = () => {
               </div>
             ) : (
               <div className='space-y-4'>
+                {/* Empresa Transportista */}
+                <EntityDataSection
+                  title='Empresa Transportista'
+                  icon='🏢'
+                  identifier={iaDataEquipo?.empresaTransportistaNombre || `ID: ${iaDataEquipo?.empresaTransportistaId || iaDataEquipo?.empresa_transportista_id || '-'}`}
+                  data={iaData.empresaTransportista}
+                  entityType='EMPRESA_TRANSPORTISTA'
+                  entityId={iaDataEquipo?.empresaTransportistaId || iaDataEquipo?.empresa_transportista_id}
+                />
+                
                 {/* Chofer */}
-                <div className='border rounded-lg p-4'>
-                  <h4 className='font-medium text-sm text-gray-600 mb-2'>👤 Chofer (DNI: {iaDataEquipo?.driverDniNorm})</h4>
-                  {iaData.chofer ? (
-                    <div className='text-sm space-y-1'>
-                      {iaData.chofer.cuil && <p><span className='font-medium'>CUIL:</span> {iaData.chofer.cuil}</p>}
-                      {iaData.chofer.numeroLicencia && <p><span className='font-medium'>Licencia:</span> {iaData.chofer.numeroLicencia}</p>}
-                      {iaData.chofer.clasesLicencia && <p><span className='font-medium'>Clases:</span> {iaData.chofer.clasesLicencia}</p>}
-                      {iaData.chofer.fechaNacimiento && <p><span className='font-medium'>Fecha Nac:</span> {iaData.chofer.fechaNacimiento}</p>}
-                      {iaData.chofer.nacionalidad && <p><span className='font-medium'>Nacionalidad:</span> {iaData.chofer.nacionalidad}</p>}
-                      {iaData.chofer.domicilio && <p><span className='font-medium'>Domicilio:</span> {iaData.chofer.domicilio}</p>}
-                      {iaData.chofer.obraSocial && <p><span className='font-medium'>Obra Social:</span> {iaData.chofer.obraSocial}</p>}
-                      {Object.keys(iaData.chofer).length === 0 && <p className='text-gray-400'>Sin datos adicionales</p>}
-                    </div>
-                  ) : (
-                    <p className='text-gray-400 text-sm'>No hay datos extraídos por IA para este chofer</p>
-                  )}
-                </div>
+                <EntityDataSection
+                  title='Chofer'
+                  icon='👤'
+                  identifier={`DNI: ${iaDataEquipo?.driverDniNorm || '-'}`}
+                  data={iaData.chofer}
+                  entityType='CHOFER'
+                  entityId={iaDataEquipo?.choferIdDb || iaDataEquipo?.choferId || iaDataEquipo?.driver_id}
+                />
                 
                 {/* Camión */}
-                <div className='border rounded-lg p-4'>
-                  <h4 className='font-medium text-sm text-gray-600 mb-2'>🚛 Camión (Patente: {iaDataEquipo?.truckPlateNorm})</h4>
-                  {iaData.camion ? (
-                    <div className='text-sm space-y-1'>
-                      {iaData.camion.anioFabricacion && <p><span className='font-medium'>Año:</span> {iaData.camion.anioFabricacion}</p>}
-                      {iaData.camion.marca && <p><span className='font-medium'>Marca:</span> {iaData.camion.marca}</p>}
-                      {iaData.camion.modelo && <p><span className='font-medium'>Modelo:</span> {iaData.camion.modelo}</p>}
-                      {iaData.camion.numeroMotor && <p><span className='font-medium'>Motor:</span> {iaData.camion.numeroMotor}</p>}
-                      {iaData.camion.numeroChasis && <p><span className='font-medium'>Chasis:</span> {iaData.camion.numeroChasis}</p>}
-                      {iaData.camion.titular && <p><span className='font-medium'>Titular:</span> {iaData.camion.titular}</p>}
-                      {iaData.camion.aseguradora && <p><span className='font-medium'>Aseguradora:</span> {iaData.camion.aseguradora}</p>}
-                      {iaData.camion.poliza && <p><span className='font-medium'>Póliza:</span> {iaData.camion.poliza}</p>}
-                      {Object.keys(iaData.camion).length === 0 && <p className='text-gray-400'>Sin datos adicionales</p>}
-                    </div>
-                  ) : (
-                    <p className='text-gray-400 text-sm'>No hay datos extraídos por IA para este camión</p>
-                  )}
-                </div>
+                <EntityDataSection
+                  title='Camión'
+                  icon='🚛'
+                  identifier={`Patente: ${iaDataEquipo?.truckPlateNorm || '-'}`}
+                  data={iaData.camion}
+                  entityType='CAMION'
+                  entityId={iaDataEquipo?.camionIdDb || iaDataEquipo?.camionId || iaDataEquipo?.truck_id}
+                />
                 
                 {/* Acoplado */}
                 {iaDataEquipo?.trailerPlateNorm && (
-                  <div className='border rounded-lg p-4'>
-                    <h4 className='font-medium text-sm text-gray-600 mb-2'>🚚 Acoplado (Patente: {iaDataEquipo?.trailerPlateNorm})</h4>
-                    {iaData.acoplado ? (
-                      <div className='text-sm space-y-1'>
-                        {iaData.acoplado.anioFabricacion && <p><span className='font-medium'>Año:</span> {iaData.acoplado.anioFabricacion}</p>}
-                        {iaData.acoplado.marca && <p><span className='font-medium'>Marca:</span> {iaData.acoplado.marca}</p>}
-                        {iaData.acoplado.modelo && <p><span className='font-medium'>Modelo:</span> {iaData.acoplado.modelo}</p>}
-                        {iaData.acoplado.numeroChasis && <p><span className='font-medium'>Chasis:</span> {iaData.acoplado.numeroChasis}</p>}
-                        {iaData.acoplado.tipoUnidad && <p><span className='font-medium'>Tipo:</span> {iaData.acoplado.tipoUnidad}</p>}
-                        {iaData.acoplado.configuracionEjes && <p><span className='font-medium'>Ejes:</span> {iaData.acoplado.configuracionEjes}</p>}
-                        {Object.keys(iaData.acoplado).length === 0 && <p className='text-gray-400'>Sin datos adicionales</p>}
-                      </div>
-                    ) : (
-                      <p className='text-gray-400 text-sm'>No hay datos extraídos por IA para este acoplado</p>
-                    )}
-                  </div>
+                  <EntityDataSection
+                    title='Acoplado'
+                    icon='🚚'
+                    identifier={`Patente: ${iaDataEquipo?.trailerPlateNorm || '-'}`}
+                    data={iaData.acoplado}
+                    entityType='ACOPLADO'
+                    entityId={iaDataEquipo?.acopladoIdDb || iaDataEquipo?.acopladoId || iaDataEquipo?.trailer_id}
+                  />
                 )}
                 
-                {!iaData.chofer && !iaData.camion && !iaData.acoplado && (
+                {!iaData.empresaTransportista && !iaData.chofer && !iaData.camion && !iaData.acoplado && (
                   <div className='text-center py-4 text-gray-500'>
                     <SparklesIcon className='h-12 w-12 mx-auto mb-2 opacity-30' />
                     <p>No hay datos extraídos por IA disponibles para este equipo.</p>
@@ -868,6 +1019,68 @@ export const ConsultaPage: React.FC = () => {
             <div className='mt-4 flex justify-end'>
               <Button variant='outline' onClick={() => setShowIADataModal(false)}>
                 Cerrar
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+      
+      {/* Modal de confirmación de borrado */}
+      {confirmDelete && (
+        <div className='fixed inset-0 bg-black/60 flex items-center justify-center z-[60]' onClick={() => setConfirmDelete(null)}>
+          <div className='bg-white dark:bg-slate-900 rounded-lg p-6 w-full max-w-md shadow-xl' onClick={(e) => e.stopPropagation()}>
+            <h4 className='text-lg font-semibold mb-4 text-red-600'>⚠️ Confirmar eliminación</h4>
+            <p className='text-sm text-gray-600 mb-4'>
+              ¿Estás seguro de que deseas eliminar todos los datos extraídos por IA de esta entidad?
+              Esta acción no se puede deshacer.
+            </p>
+            <div className='flex justify-end gap-2'>
+              <Button variant='outline' onClick={() => setConfirmDelete(null)}>
+                Cancelar
+              </Button>
+              <Button 
+                variant='destructive'
+                onClick={() => handleDeleteIAData(confirmDelete.entityType, confirmDelete.entityId)}
+              >
+                Eliminar datos
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+      
+      {/* Modal de edición */}
+      {editingEntity && (
+        <div className='fixed inset-0 bg-black/60 flex items-center justify-center z-[60]' onClick={() => setEditingEntity(null)}>
+          <div className='bg-white dark:bg-slate-900 rounded-lg p-6 w-full max-w-lg shadow-xl max-h-[80vh] overflow-y-auto' onClick={(e) => e.stopPropagation()}>
+            <h4 className='text-lg font-semibold mb-4'>✏️ Editar datos extraídos</h4>
+            <p className='text-xs text-gray-500 mb-4'>
+              {editingEntity.entityType} #{editingEntity.entityId}
+            </p>
+            <div className='space-y-3'>
+              {Object.entries(editFormData).map(([key, value]) => (
+                <div key={key}>
+                  <label className='block text-sm font-medium text-gray-700 mb-1 capitalize'>
+                    {key.replace(/([A-Z])/g, ' $1').trim()}
+                  </label>
+                  <input
+                    type='text'
+                    value={value || ''}
+                    onChange={(e) => setEditFormData(prev => ({ ...prev, [key]: e.target.value }))}
+                    className='w-full px-3 py-2 border rounded-md text-sm focus:ring-2 focus:ring-blue-500'
+                  />
+                </div>
+              ))}
+              {Object.keys(editFormData).length === 0 && (
+                <p className='text-gray-500 text-sm'>No hay datos para editar.</p>
+              )}
+            </div>
+            <div className='flex justify-end gap-2 mt-4'>
+              <Button variant='outline' onClick={() => setEditingEntity(null)}>
+                Cancelar
+              </Button>
+              <Button onClick={handleSaveEdit}>
+                Guardar cambios
               </Button>
             </div>
           </div>

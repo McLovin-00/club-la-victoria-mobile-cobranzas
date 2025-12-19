@@ -24,6 +24,20 @@ router.get(
   EntityDataController.getExtractedData
 );
 
+// Actualizar datos extraídos manualmente
+router.put(
+  '/:entityType/:entityId/extracted-data',
+  authorize(ADMIN_ROLES),
+  EntityDataController.updateExtractedData
+);
+
+// Borrar datos extraídos de una entidad
+router.delete(
+  '/:entityType/:entityId/extracted-data',
+  authorize(ADMIN_ROLES),
+  EntityDataController.deleteExtractedData
+);
+
 // Obtener historial de extracciones de una entidad
 router.get(
   '/:entityType/:entityId/extraction-history',
