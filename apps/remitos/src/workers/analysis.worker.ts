@@ -9,6 +9,7 @@ import { FlowiseService } from '../services/flowise.service';
 import { RemitoService } from '../services/remito.service';
 import { PdfService } from '../services/pdf.service';
 import { RemitoAnalysisJobData } from '../types';
+import type { RemitoEstado, RemitoAction } from '../../node_modules/.prisma/remitos';
 
 const env = getEnvironment();
 
@@ -26,11 +27,11 @@ let worker: Worker<RemitoAnalysisJobData> | null = null;
 // HELPERS
 // ============================================================================
 
-async function updateRemitoStatus(remitoId: number, estado: string): Promise<void> {
+async function updateRemitoStatus(remitoId: number, estado: RemitoEstado): Promise<void> {
   await db.getClient().remito.update({ where: { id: remitoId }, data: { estado } });
 }
 
-async function logHistory(remitoId: number, action: string, payload: any): Promise<void> {
+async function logHistory(remitoId: number, action: RemitoAction, payload: any): Promise<void> {
   await db.getClient().remitoHistory.create({
     data: { remitoId, action, userId: 0, userRole: 'SYSTEM', payload },
   });

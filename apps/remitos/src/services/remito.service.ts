@@ -3,7 +3,7 @@ import { AppLogger } from '../config/logger';
 import { minioService } from './minio.service';
 import { queueService } from './queue.service';
 import { FlowiseRemitoResponse } from '../types';
-import type { Remito, RemitoImagen, RemitoHistory } from '../../node_modules/.prisma/remitos';
+import type { Remito, RemitoImagen, RemitoHistory, RemitoAction } from '../../node_modules/.prisma/remitos';
 
 // ============================================================================
 // TYPES
@@ -137,7 +137,7 @@ async function uploadAdditionalImages(
   return imagenes;
 }
 
-async function logRemitoHistory(remitoId: number, action: string, userId: number, userRole: string, payload?: any): Promise<void> {
+async function logRemitoHistory(remitoId: number, action: RemitoAction, userId: number, userRole: string, payload?: any): Promise<void> {
   await db.getClient().remitoHistory.create({
     data: { remitoId, action, userId, userRole, payload },
   });
