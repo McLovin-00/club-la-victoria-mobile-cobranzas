@@ -3,54 +3,64 @@ import { EquipoService } from '../services/equipo.service';
 import { AuthRequest } from '../middlewares/auth.middleware';
 import { AuditService } from '../services/audit.service';
 
+// ============================================================================
+// HELPERS
+// ============================================================================
+function parseActivo(value: string | undefined): boolean | 'all' {
+  if (value === 'all') return 'all';
+  if (value === 'false') return false;
+  return true; // default
+}
+
+async function getDefaultDadorId(tenantId: number, bodyDadorId: any): Promise<number> {
+  const dadorId = Number(bodyDadorId);
+  if (dadorId && !Number.isNaN(dadorId)) return dadorId;
+
+  const { SystemConfigService } = await import('../services/system-config.service');
+  const def = await SystemConfigService.getConfig(`tenant:${tenantId}:defaults.defaultDadorId`);
+  return def ? Number(def) : 0;
+}
+
+function logAudit(req: AuthRequest, action: string, entityId: number, statusCode: number, details?: any): void {
+  void AuditService.log({
+    tenantEmpresaId: req.tenantId,
+    userId: req.user?.userId,
+    userRole: req.user?.role,
+    method: req.method,
+    path: req.originalUrl || req.path,
+    statusCode,
+    action,
+    entityType: 'EQUIPO',
+    entityId,
+    details,
+  });
+}
+
+// ============================================================================
+// CONTROLADOR
+// ============================================================================
 export class EquiposController {
   static async list(req: AuthRequest, res: Response) {
-    // dadorCargaId es opcional para admins (SUPERADMIN, ADMIN_INTERNO)
-    const rawDadorId = req.query.dadorCargaId;
-    const dadorCargaId = rawDadorId ? Number(rawDadorId) : undefined;
-    // Paginación opcional (con defaults definidos en schema)
-    const page = (req.query as any).page ? parseInt(String((req.query as any).page), 10) : 1;
-    const limit = (req.query as any).limit ? parseInt(String((req.query as any).limit), 10) : 20;
-    // Si es CHOFER, solo puede ver su propio equipo
+    const dadorCargaId = req.query.dadorCargaId ? Number(req.query.dadorCargaId) : undefined;
+    const page = parseInt(String((req.query as any).page), 10) || 1;
+    const limit = parseInt(String((req.query as any).limit), 10) || 20;
     const choferId = req.user?.role === ('CHOFER' as any) ? (req.user?.choferId ?? undefined) : undefined;
-    // Filtro de activo: 'all' | 'true' | 'false' (default: true para no admins)
-    const activoParam = (req.query as any).activo;
-    let activo: boolean | 'all' = true; // Por defecto solo activos
-    if (activoParam === 'all') {
-      activo = 'all';
-    } else if (activoParam === 'false') {
-      activo = false;
-    } else if (activoParam === 'true') {
-      activo = true;
-    }
-    const data = await EquipoService.list(req.tenantId!, dadorCargaId, page, limit, { choferId: choferId ?? undefined, activo });
+    const activo = parseActivo((req.query as any).activo);
+
+    const data = await EquipoService.list(req.tenantId!, dadorCargaId, page, limit, { choferId, activo });
     res.json({ success: true, data });
   }
 
-  /**
-   * Búsqueda paginada con filtros avanzados
-   * GET /api/docs/equipos/search-paged
-   */
   static async searchPaged(req: AuthRequest, res: Response) {
     const tenantId = req.tenantId!;
     const query = req.query as any;
-    
-    // Filtro de activo: 'all' | 'true' | 'false'
-    let activo: boolean | 'all' = true; // Por defecto solo activos
-    if (query.activo === 'all') {
-      activo = 'all';
-    } else if (query.activo === 'false') {
-      activo = false;
-    } else if (query.activo === 'true') {
-      activo = true;
-    }
-    
-    // Validar complianceFilter
+    const activo = parseActivo(query.activo);
+
     const validComplianceFilters = ['faltantes', 'vencidos', 'por_vencer'];
-    const complianceFilter = validComplianceFilters.includes(query.complianceFilter) 
+    const complianceFilter = validComplianceFilters.includes(query.complianceFilter)
       ? query.complianceFilter as 'faltantes' | 'vencidos' | 'por_vencer'
       : undefined;
-    
+
     const filters = {
       dadorCargaId: query.dadorCargaId ? Number(query.dadorCargaId) : undefined,
       clienteId: query.clienteId ? Number(query.clienteId) : undefined,
@@ -59,17 +69,16 @@ export class EquiposController {
       dni: query.dni || undefined,
       truckPlate: query.truckPlate || undefined,
       trailerPlate: query.trailerPlate || undefined,
-      // Si es CHOFER, forzar filtro a su propio equipo
       choferId: req.user?.role === ('CHOFER' as any) ? (req.user?.choferId ?? undefined) : undefined,
       activo,
       complianceFilter,
     };
-    
-    const page = query.page ? parseInt(query.page, 10) : 1;
-    const limit = query.limit ? parseInt(query.limit, 10) : 10;
-    
+
+    const page = parseInt(query.page, 10) || 1;
+    const limit = parseInt(query.limit, 10) || 10;
+
     const result = await EquipoService.searchPaginatedWithCompliance(tenantId, filters, page, limit);
-    
+
     res.json({
       success: true,
       data: result.equipos,
@@ -86,102 +95,60 @@ export class EquiposController {
   }
 
   static async getById(req: AuthRequest, res: Response) {
-    const equipoId = Number(req.params.id);
-    const data = await EquipoService.getById(equipoId);
+    const data = await EquipoService.getById(Number(req.params.id));
     res.json({ success: true, data });
   }
 
-  // Alta mínima desde identificadores (dni + patentes)
   static async createMinimal(req: AuthRequest, res: Response) {
-    // Permitir usar dador por defecto si no viene
     const tenantId = req.tenantId!;
-    let dadorId = Number(req.body.dadorCargaId);
-    if (!dadorId || Number.isNaN(dadorId)) {
-      const { SystemConfigService } = await import('../services/system-config.service');
-      const def = await SystemConfigService.getConfig(`tenant:${tenantId}:defaults.defaultDadorId`);
-      if (def) dadorId = Number(def);
-    }
+    const dadorId = await getDefaultDadorId(tenantId, req.body.dadorCargaId);
+
     const input = {
       tenantEmpresaId: tenantId,
       dadorCargaId: dadorId,
       dniChofer: String(req.body.dniChofer),
       patenteTractor: String(req.body.patenteTractor),
       patenteAcoplado: req.body.patenteAcoplado ? String(req.body.patenteAcoplado) : null,
-      choferPhones: Array.isArray(req.body.choferPhones) ? (req.body.choferPhones as string[]) : undefined,
+      choferPhones: Array.isArray(req.body.choferPhones) ? req.body.choferPhones : undefined,
     };
+
     const data = await EquipoService.createFromIdentifiers(input);
     res.status(201).json({ success: true, data });
   }
 
-  /**
-   * Alta Completa de Equipo - TRANSACCIONAL
-   * Crea empresa + chofer + camión + acoplado + equipo en una sola transacción
-   * Si algún componente ya existe (excepto empresa), retorna ERROR y hace ROLLBACK
-   */
   static async createCompleto(req: AuthRequest, res: Response) {
     const tenantId = req.tenantId!;
-    let dadorId = Number(req.body.dadorCargaId);
-    if (!dadorId || Number.isNaN(dadorId)) {
-      const { SystemConfigService } = await import('../services/system-config.service');
-      const def = await SystemConfigService.getConfig(`tenant:${tenantId}:defaults.defaultDadorId`);
-      if (def) dadorId = Number(def);
-    }
+    const dadorId = await getDefaultDadorId(tenantId, req.body.dadorCargaId);
 
     const input = {
       tenantEmpresaId: tenantId,
       dadorCargaId: dadorId,
-      
-      // Empresa Transportista
       empresaTransportistaCuit: String(req.body.empresaTransportistaCuit),
       empresaTransportistaNombre: String(req.body.empresaTransportistaNombre),
-      
-      // Chofer
       choferDni: String(req.body.choferDni),
       choferNombre: req.body.choferNombre ? String(req.body.choferNombre) : undefined,
       choferApellido: req.body.choferApellido ? String(req.body.choferApellido) : undefined,
-      choferPhones: Array.isArray(req.body.choferPhones) ? (req.body.choferPhones as string[]) : undefined,
-      
-      // Camión
+      choferPhones: Array.isArray(req.body.choferPhones) ? req.body.choferPhones : undefined,
       camionPatente: String(req.body.camionPatente),
       camionMarca: req.body.camionMarca ? String(req.body.camionMarca) : undefined,
       camionModelo: req.body.camionModelo ? String(req.body.camionModelo) : undefined,
-      
-      // Acoplado (opcional)
       acopladoPatente: req.body.acopladoPatente ? String(req.body.acopladoPatente) : null,
       acopladoTipo: req.body.acopladoTipo ? String(req.body.acopladoTipo) : undefined,
-      
-      // Clientes a asociar
-      clienteIds: Array.isArray(req.body.clienteIds) ? (req.body.clienteIds as number[]) : undefined,
+      clienteIds: Array.isArray(req.body.clienteIds) ? req.body.clienteIds : undefined,
     };
 
     const data = await EquipoService.createEquipoCompleto(input);
-    
-    // Log de auditoría
-    await AuditService.log({
-      tenantEmpresaId: tenantId,
-      userId: req.user?.userId,
-      userRole: req.user?.role,
-      method: req.method,
-      path: req.originalUrl || req.path,
-      statusCode: 201,
-      action: 'EQUIPO_ALTA_COMPLETA',
-      entityType: 'EQUIPO',
-      entityId: data.id,
-      details: {
-        dniChofer: input.choferDni,
-        patenteCamion: input.camionPatente,
-        patenteAcoplado: input.acopladoPatente,
-        cuitEmpresa: input.empresaTransportistaCuit,
-      },
+
+    logAudit(req, 'EQUIPO_ALTA_COMPLETA', data.id, 201, {
+      dniChofer: input.choferDni,
+      patenteCamion: input.camionPatente,
+      patenteAcoplado: input.acopladoPatente,
+      cuitEmpresa: input.empresaTransportistaCuit,
     });
 
     res.status(201).json({ success: true, data });
   }
 
-  /**
-   * Rollback de Alta Completa
-   * Elimina un equipo y opcionalmente sus componentes
-   */
   static async rollbackCompleto(req: AuthRequest, res: Response) {
     const equipoId = Number(req.params.id);
     const input = {
@@ -194,32 +161,14 @@ export class EquiposController {
     };
 
     const data = await EquipoService.rollbackAltaCompleta(input);
-    
-    // Log de auditoría
-    await AuditService.log({
-      tenantEmpresaId: req.tenantId,
-      userId: req.user?.userId,
-      userRole: req.user?.role,
-      method: req.method,
-      path: req.originalUrl || req.path,
-      statusCode: 200,
-      action: 'EQUIPO_ROLLBACK_COMPLETO',
-      entityType: 'EQUIPO',
-      entityId: equipoId,
-      details: input,
-    });
-
+    logAudit(req, 'EQUIPO_ROLLBACK_COMPLETO', equipoId, 200, input);
     res.json({ success: true, data });
   }
 
   static async create(req: AuthRequest, res: Response) {
     const tenantId = req.tenantId!;
-    let dadorId = Number(req.body.dadorCargaId);
-    if (!dadorId || Number.isNaN(dadorId)) {
-      const { SystemConfigService } = await import('../services/system-config.service');
-      const def = await SystemConfigService.getConfig(`tenant:${tenantId}:defaults.defaultDadorId`);
-      if (def) dadorId = Number(def);
-    }
+    const dadorId = await getDefaultDadorId(tenantId, req.body.dadorCargaId);
+
     const input = {
       tenantEmpresaId: tenantId,
       dadorCargaId: dadorId,
@@ -234,6 +183,7 @@ export class EquiposController {
       validTo: req.body.validTo ? new Date(req.body.validTo) : null,
       forceMove: req.body.forceMove === true,
     };
+
     const data = await EquipoService.create(input);
     res.status(201).json({ success: true, data });
   }
@@ -245,9 +195,9 @@ export class EquiposController {
       trailerPlate: req.body.trailerPlate,
       validTo: req.body.validTo ? new Date(req.body.validTo) : undefined,
       estado: req.body.estado,
-      empresaTransportistaId: typeof req.body.empresaTransportistaId === 'number' ? req.body.empresaTransportistaId : (
-        req.body.empresaTransportistaId ? Number(req.body.empresaTransportistaId) : undefined
-      ),
+      empresaTransportistaId: req.body.empresaTransportistaId !== undefined
+        ? Number(req.body.empresaTransportistaId)
+        : undefined,
     });
     res.json({ success: true, data });
   }
@@ -257,46 +207,23 @@ export class EquiposController {
     const clienteId = Number(req.params.clienteId);
     const asignadoDesde = new Date(req.body.asignadoDesde);
     const asignadoHasta = req.body.asignadoHasta ? new Date(req.body.asignadoHasta) : undefined;
+
     const data = await EquipoService.associateCliente(req.tenantId!, equipoId, clienteId, asignadoDesde, asignadoHasta);
     res.status(201).json({ success: true, data });
-    // Audit
-    void AuditService.log({
-      tenantEmpresaId: req.tenantId,
-      userId: req.user?.userId,
-      userRole: req.user?.role,
-      method: req.method,
-      path: req.originalUrl || req.path,
-      statusCode: 201,
-      action: 'EQUIPO_CLIENTE_ATTACH',
-      entityType: 'EQUIPO',
-      entityId: equipoId,
-      details: { clienteId, asignadoDesde, asignadoHasta },
-    });
+    logAudit(req, 'EQUIPO_CLIENTE_ATTACH', equipoId, 201, { clienteId, asignadoDesde, asignadoHasta });
   }
 
   static async removeCliente(req: AuthRequest, res: Response) {
     const equipoId = Number(req.params.equipoId);
     const clienteId = Number(req.params.clienteId);
+
     const data = await EquipoService.removeCliente(req.tenantId!, equipoId, clienteId);
     res.json({ success: true, data });
-    // Audit
-    void AuditService.log({
-      tenantEmpresaId: req.tenantId,
-      userId: req.user?.userId,
-      userRole: req.user?.role,
-      method: req.method,
-      path: req.originalUrl || req.path,
-      statusCode: 200,
-      action: 'EQUIPO_CLIENTE_DETACH',
-      entityType: 'EQUIPO',
-      entityId: equipoId,
-      details: { clienteId },
-    });
+    logAudit(req, 'EQUIPO_CLIENTE_DETACH', equipoId, 200, { clienteId });
   }
 
   static async delete(req: AuthRequest, res: Response) {
-    const equipoId = Number(req.params.id);
-    const data = await EquipoService.delete(equipoId);
+    const data = await EquipoService.delete(Number(req.params.id));
     res.json({ success: true, data });
   }
 
@@ -308,9 +235,6 @@ export class EquiposController {
     res.json({ success: true, data: rows });
   }
 
-  /**
-   * Actualizar entidades del equipo (chofer, camión, acoplado, empresa)
-   */
   static async updateEntidades(req: AuthRequest, res: Response) {
     const equipoId = Number(req.params.id);
     const input = {
@@ -327,74 +251,45 @@ export class EquiposController {
     res.json({ success: true, data });
   }
 
-  /**
-   * Agregar cliente a equipo
-   */
   static async addCliente(req: AuthRequest, res: Response) {
     const equipoId = Number(req.params.id);
-    const clienteId = Number(req.body.clienteId);
-
     const data = await EquipoService.addClienteToEquipo({
       equipoId,
-      clienteId,
+      clienteId: Number(req.body.clienteId),
       usuarioId: req.user?.userId ?? 0,
       tenantEmpresaId: req.tenantId!,
     });
-
     res.status(201).json({ success: true, data });
   }
 
-  /**
-   * Quitar cliente de equipo (con archivado de documentos exclusivos)
-   */
   static async removeClienteWithArchive(req: AuthRequest, res: Response) {
-    const equipoId = Number(req.params.id);
-    const clienteId = Number(req.params.clienteId);
-
     const data = await EquipoService.removeClienteFromEquipo({
-      equipoId,
-      clienteId,
+      equipoId: Number(req.params.id),
+      clienteId: Number(req.params.clienteId),
       usuarioId: req.user?.userId ?? 0,
       tenantEmpresaId: req.tenantId!,
     });
-
     res.json({ success: true, data });
   }
 
-  /**
-   * Transferir equipo a otro dador de carga (solo admin interno)
-   */
   static async transferir(req: AuthRequest, res: Response) {
-    const equipoId = Number(req.params.id);
-    const nuevoDadorCargaId = Number(req.body.nuevoDadorCargaId);
-    const motivo = req.body.motivo ? String(req.body.motivo) : undefined;
-
     const data = await EquipoService.transferirEquipo({
-      equipoId,
-      nuevoDadorCargaId,
+      equipoId: Number(req.params.id),
+      nuevoDadorCargaId: Number(req.body.nuevoDadorCargaId),
       usuarioId: req.user?.userId ?? 0,
       tenantEmpresaId: req.tenantId!,
-      motivo,
+      motivo: req.body.motivo ? String(req.body.motivo) : undefined,
     });
-
     res.json({ success: true, data });
   }
 
-  /**
-   * Obtener requisitos consolidados del equipo
-   */
   static async getRequisitos(req: AuthRequest, res: Response) {
-    const equipoId = Number(req.params.id);
-    const data = await EquipoService.getRequisitosEquipo(equipoId, req.tenantId!);
+    const data = await EquipoService.getRequisitosEquipo(Number(req.params.id), req.tenantId!);
     res.json({ success: true, data });
   }
 
-  /**
-   * Obtener historial de auditoría del equipo
-   */
   static async getAuditHistory(req: AuthRequest, res: Response) {
-    const equipoId = Number(req.params.id);
-    const data = await AuditService.getEquipoHistory(equipoId);
+    const data = await AuditService.getEquipoHistory(Number(req.params.id));
     res.json({ success: true, data });
   }
 }
