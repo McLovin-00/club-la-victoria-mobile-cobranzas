@@ -3,6 +3,9 @@ import { prisma } from '../config/database';
 import type { Worker as WorkerType } from 'worker_threads';
 import ExcelJS from 'exceljs';
 
+// ============================================================================
+// TIPOS
+// ============================================================================
 type EquipoExcelRow = {
   equipoId: number;
   empresaCuit: string;
@@ -19,7 +22,7 @@ type ZipJob = {
   tenantEmpresaId: number;
   createdAt: number;
   status: 'queued' | 'processing' | 'completed' | 'failed';
-  progress: number; // 0..1
+  progress: number;
   message?: string;
   totalEquipos: number;
   processedEquipos: number;
@@ -28,18 +31,199 @@ type ZipJob = {
   maxRetries?: number;
 };
 
+interface EquipoData {
+  id: number;
+  tenantEmpresaId: number;
+  dadorCargaId: number;
+  driverId: number;
+  truckId: number;
+  trailerId: number | null;
+  empresaTransportistaId: number | null;
+  driverDniNorm: string | null;
+  truckPlateNorm: string | null;
+  trailerPlateNorm: string | null;
+  empresaTransportista: { cuit: string; razonSocial: string } | null;
+}
+
+interface EntityRelations {
+  chofer: { dni: string; nombre: string; apellido: string } | null;
+  camion: { patente: string } | null;
+  acoplado: { patente: string } | null;
+}
+
+// ============================================================================
+// HELPERS DE CARGA DE DATOS
+// ============================================================================
+async function loadEquipoWithRelations(equipoId: number): Promise<{ equipo: EquipoData | null; relations: EntityRelations }> {
+  const equipo = await prisma.equipo.findUnique({
+    where: { id: equipoId },
+    include: {
+      empresaTransportista: { select: { cuit: true, razonSocial: true } },
+    },
+  }) as EquipoData | null;
+
+  if (!equipo) {
+    return { equipo: null, relations: { chofer: null, camion: null, acoplado: null } };
+  }
+
+  const [chofer, camion, acoplado] = await Promise.all([
+    prisma.chofer.findUnique({ where: { id: equipo.driverId }, select: { dni: true, nombre: true, apellido: true } }),
+    prisma.camion.findUnique({ where: { id: equipo.truckId }, select: { patente: true } }),
+    equipo.trailerId ? prisma.acoplado.findUnique({ where: { id: equipo.trailerId }, select: { patente: true } }) : null,
+  ]);
+
+  return { equipo, relations: { chofer, camion, acoplado } };
+}
+
+function buildExcelRow(equipo: EquipoData, relations: EntityRelations): EquipoExcelRow {
+  return {
+    equipoId: equipo.id,
+    empresaCuit: equipo.empresaTransportista?.cuit || '',
+    empresaRazonSocial: equipo.empresaTransportista?.razonSocial || '',
+    choferDni: relations.chofer?.dni || equipo.driverDniNorm || '',
+    choferNombre: relations.chofer?.nombre || '',
+    choferApellido: relations.chofer?.apellido || '',
+    camionPatente: relations.camion?.patente || equipo.truckPlateNorm || '',
+    acopladoPatente: relations.acoplado?.patente || equipo.trailerPlateNorm || '',
+  };
+}
+
+async function loadEquipoDocuments(equipo: EquipoData, now: Date): Promise<any[]> {
+  const entityClauses: any[] = [];
+  if (equipo.empresaTransportistaId) entityClauses.push({ entityType: 'EMPRESA_TRANSPORTISTA', entityId: equipo.empresaTransportistaId });
+  if (equipo.driverId) entityClauses.push({ entityType: 'CHOFER', entityId: equipo.driverId });
+  if (equipo.truckId) entityClauses.push({ entityType: 'CAMION', entityId: equipo.truckId });
+  if (equipo.trailerId) entityClauses.push({ entityType: 'ACOPLADO', entityId: equipo.trailerId });
+
+  return prisma.document.findMany({
+    where: {
+      tenantEmpresaId: equipo.tenantEmpresaId,
+      dadorCargaId: equipo.dadorCargaId,
+      status: 'APROBADO' as any,
+      AND: [
+        entityClauses.length ? { OR: entityClauses } : {},
+        { OR: [{ expiresAt: null }, { expiresAt: { gt: now } }] },
+      ],
+    } as any,
+    include: { template: { select: { name: true } } },
+    orderBy: { uploadedAt: 'desc' },
+  });
+}
+
+function parseFilePath(filePath: string, tenantEmpresaId: number): { bucketName: string; objectPath: string } {
+  if (filePath.includes('/')) {
+    const idx = filePath.indexOf('/');
+    return { bucketName: filePath.slice(0, idx), objectPath: filePath.slice(idx + 1) };
+  }
+  return { bucketName: `docs-t${tenantEmpresaId}`, objectPath: filePath };
+}
+
+function buildZipEntryName(doc: any, equipo: EquipoData): string {
+  const folder = doc.entityType === 'CHOFER' ? 'chofer' : doc.entityType === 'CAMION' ? 'camion' : 'acoplado';
+  const idLabel = doc.entityType === 'CHOFER'
+    ? (equipo.driverDniNorm || doc.entityId)
+    : doc.entityType === 'CAMION'
+      ? (equipo.truckPlateNorm || doc.entityId)
+      : (equipo.trailerPlateNorm || doc.entityId);
+  const templateName = (doc.template?.name || 'documento').replace(/[^a-z0-9_-]/gi, '_');
+  return `equipo_${equipo.id}/${folder}/${idLabel}_${templateName}_${doc.id}.pdf`;
+}
+
+// ============================================================================
+// GENERACIÓN DE EXCEL
+// ============================================================================
+async function generateEquiposExcel(rows: EquipoExcelRow[]): Promise<Buffer> {
+  const workbook = new ExcelJS.Workbook();
+  workbook.creator = 'BCA Documentos';
+  workbook.created = new Date();
+
+  const sheet = workbook.addWorksheet('Equipos', {
+    properties: { tabColor: { argb: '2563eb' } }
+  });
+
+  sheet.columns = [
+    { header: 'ID Equipo', key: 'equipoId', width: 12 },
+    { header: 'Empresa CUIT', key: 'empresaCuit', width: 18 },
+    { header: 'Empresa Razón Social', key: 'empresaRazonSocial', width: 35 },
+    { header: 'Chofer DNI', key: 'choferDni', width: 15 },
+    { header: 'Chofer Nombre', key: 'choferNombre', width: 20 },
+    { header: 'Chofer Apellido', key: 'choferApellido', width: 20 },
+    { header: 'Camión Patente', key: 'camionPatente', width: 15 },
+    { header: 'Acoplado Patente', key: 'acopladoPatente', width: 15 },
+  ];
+
+  // Estilo de encabezados
+  const headerRow = sheet.getRow(1);
+  headerRow.font = { bold: true, color: { argb: 'FFFFFF' } };
+  headerRow.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: '2563eb' } };
+  headerRow.alignment = { vertical: 'middle', horizontal: 'center' };
+  headerRow.height = 22;
+
+  for (const row of rows) {
+    sheet.addRow(row);
+  }
+
+  sheet.eachRow((row, rowNumber) => {
+    row.eachCell((cell) => {
+      cell.border = {
+        top: { style: 'thin', color: { argb: 'D1D5DB' } },
+        left: { style: 'thin', color: { argb: 'D1D5DB' } },
+        bottom: { style: 'thin', color: { argb: 'D1D5DB' } },
+        right: { style: 'thin', color: { argb: 'D1D5DB' } }
+      };
+      if (rowNumber > 1) {
+        cell.alignment = { vertical: 'middle' };
+      }
+    });
+  });
+
+  const buffer = await workbook.xlsx.writeBuffer();
+  return Buffer.from(buffer);
+}
+
+// ============================================================================
+// PROCESAMIENTO DE EQUIPO
+// ============================================================================
+async function processEquipoForZip(
+  equipoId: number,
+  tenantEmpresaId: number,
+  zipStream: any,
+  now: Date
+): Promise<EquipoExcelRow | null> {
+  const { equipo, relations } = await loadEquipoWithRelations(equipoId);
+
+  if (!equipo || equipo.tenantEmpresaId !== tenantEmpresaId) {
+    return null;
+  }
+
+  // Cargar documentos
+  const docs = await loadEquipoDocuments(equipo, now);
+
+  // Agregar documentos al ZIP
+  const { minioService } = await import('./minio.service');
+  for (const doc of docs) {
+    const { bucketName, objectPath } = parseFilePath(doc.filePath, tenantEmpresaId);
+    const stream = await minioService.getObject(bucketName, objectPath);
+    const entryName = buildZipEntryName(doc, equipo);
+    zipStream.append(stream as any, { name: entryName });
+  }
+
+  return buildExcelRow(equipo, relations);
+}
+
+// ============================================================================
+// SERVICIO PRINCIPAL
+// ============================================================================
 export class DocumentZipService {
   private static getStore(): Map<string, ZipJob> {
     (globalThis as any).__ZIP_JOBS = (globalThis as any).__ZIP_JOBS || new Map<string, ZipJob>();
     return (globalThis as any).__ZIP_JOBS;
   }
-  // For tests: force first failure per job when enabled via env
+
   private static forcedFailOnce = new Set<string>();
-  // Lazy worker ctor loader
-  private static _Worker: typeof WorkerType | null = null;
+
   private static get Worker(): typeof WorkerType | null {
     try {
-       
       const { Worker } = require('worker_threads') as typeof import('worker_threads');
       return Worker;
     } catch {
@@ -68,7 +252,8 @@ export class DocumentZipService {
       retryCount: 0,
       maxRetries: Number(process.env.DOCUMENT_ZIP_MAX_RETRIES || 2),
     });
-    // In test environment, avoid background async unless explicitly enabled
+
+    // Test environment mock
     if (process.env.NODE_ENV === 'test' && process.env.ZIP_ENABLE_ASYNC !== 'true') {
       const j = store.get(id)!;
       j.status = 'completed';
@@ -77,6 +262,7 @@ export class DocumentZipService {
       store.set(id, { ...j });
       return id;
     }
+
     setTimeout(() => this.startJobWithRetry(id, tenantEmpresaId, equipoIds).catch(() => {}), 10);
     return id;
   }
@@ -85,9 +271,10 @@ export class DocumentZipService {
     const store = this.getStore();
     const job = store.get(jobId);
     if (!job) return;
-    const attempt = (job.retryCount ?? 0) + 1;
+
     try {
-      try { AppLogger.info('📦 Iniciando ZIP job', { jobId, attempt, total: equipoIds.length }); } catch {}
+      AppLogger.info('📦 Iniciando ZIP job', { jobId, attempt: (job.retryCount ?? 0) + 1, total: equipoIds.length });
+      
       const useWorker = String(process.env.ZIP_USE_WORKER || '').toLowerCase() === 'true' && process.env.NODE_ENV !== 'test';
       if (useWorker && this.Worker) {
         await this.runInWorker(jobId, tenantEmpresaId, equipoIds);
@@ -95,65 +282,57 @@ export class DocumentZipService {
         await this.runJob(jobId, tenantEmpresaId, equipoIds);
       }
     } catch (err: any) {
-      const current = store.get(jobId);
-      if (!current) return;
-      const maxRetries = current.maxRetries ?? 0;
-      const nextRetry = (current.retryCount ?? 0) + 1;
-      const canRetry = nextRetry <= maxRetries;
-      if (canRetry) {
-        current.retryCount = nextRetry;
-        current.status = 'queued';
-        current.message = `Retrying (${nextRetry}/${maxRetries}) after error: ${err?.message || err}`;
-        store.set(jobId, { ...current });
-        const base = process.env.NODE_ENV === 'test' ? 200 : 1000;
-        const backoffMs = Math.min(30000, Math.pow(2, nextRetry) * base);
-        try { AppLogger.warn('🔁 Reintentando ZIP job', { jobId, nextRetry, backoffMs }); } catch {}
-        setTimeout(() => {
-          this.startJobWithRetry(jobId, tenantEmpresaId, equipoIds).catch(() => {});
-        }, backoffMs);
-        return;
-      }
-      // No retry left
-      current.status = 'failed';
-      current.message = err?.message || 'Error generando ZIP';
-      current.progress = 1;
-      store.set(jobId, { ...current });
-      try { AppLogger.error('💥 ZIP job falló sin reintentos restantes', { jobId, error: err?.message }); } catch {}
+      this.handleJobError(jobId, tenantEmpresaId, equipoIds, err);
     }
+  }
+
+  private static handleJobError(jobId: string, tenantEmpresaId: number, equipoIds: number[], err: any): void {
+    const store = this.getStore();
+    const current = store.get(jobId);
+    if (!current) return;
+
+    const maxRetries = current.maxRetries ?? 0;
+    const nextRetry = (current.retryCount ?? 0) + 1;
+
+    if (nextRetry <= maxRetries) {
+      current.retryCount = nextRetry;
+      current.status = 'queued';
+      current.message = `Retrying (${nextRetry}/${maxRetries}) after error: ${err?.message || err}`;
+      store.set(jobId, { ...current });
+
+      const backoffMs = Math.min(30000, Math.pow(2, nextRetry) * (process.env.NODE_ENV === 'test' ? 200 : 1000));
+      AppLogger.warn('🔁 Reintentando ZIP job', { jobId, nextRetry, backoffMs });
+      setTimeout(() => this.startJobWithRetry(jobId, tenantEmpresaId, equipoIds).catch(() => {}), backoffMs);
+      return;
+    }
+
+    current.status = 'failed';
+    current.message = err?.message || 'Error generando ZIP';
+    current.progress = 1;
+    store.set(jobId, { ...current });
+    AppLogger.error('💥 ZIP job falló sin reintentos restantes', { jobId, error: err?.message });
   }
 
   private static async runInWorker(jobId: string, tenantEmpresaId: number, equipoIds: number[]): Promise<void> {
     const Worker = this.Worker;
     if (!Worker) {
-      // fallback inline
       await this.runJob(jobId, tenantEmpresaId, equipoIds);
       return;
     }
-    // Resolve TS worker entry and ensure ts-node for TS runtime when not built
+
     const path = require('path');
     const workerPath = path.resolve(__dirname, '../workers/document-zip.worker.ts');
-    const execArgv: string[] = [];
-    // Enable ts-node when running uncompiled TS
-    execArgv.push('-r', 'ts-node/register/transpile-only');
     const worker = new Worker(workerPath, {
-      execArgv,
+      execArgv: ['-r', 'ts-node/register/transpile-only'],
       workerData: { jobId, tenantEmpresaId, equipoIds },
     });
-    // Avoid keeping process alive unnecessarily
+
     if (typeof worker.unref === 'function') worker.unref();
+
     await new Promise<void>((resolve, reject) => {
-      const onMessage = (msg: any) => {
-        if (msg?.ok) resolve();
-        else if (msg?.error) reject(new Error(msg.error));
-      };
-      const onError = (e: any) => reject(e);
-      const onExit = (code: number) => {
-        if (code === 0) resolve();
-        else reject(new Error(`Worker exited with code ${code}`));
-      };
-      worker.once('message', onMessage);
-      worker.once('error', onError);
-      worker.once('exit', onExit);
+      worker.once('message', (msg: any) => msg?.ok ? resolve() : reject(new Error(msg?.error)));
+      worker.once('error', reject);
+      worker.once('exit', (code: number) => code === 0 ? resolve() : reject(new Error(`Worker exited with code ${code}`)));
     });
   }
 
@@ -161,225 +340,63 @@ export class DocumentZipService {
     const store = this.getStore();
     const job = store.get(jobId);
     if (!job) return;
+
     job.status = 'processing';
     job.progress = 0.05;
     store.set(jobId, { ...job });
 
-    try {
-      // For testing retry path deterministically
-      if (process.env.ZIP_FORCE_FAIL_FIRST === 'true' && !this.forcedFailOnce.has(jobId)) {
-        this.forcedFailOnce.add(jobId);
-        throw new Error('Forced failure (test)');
-      }
-      const archiverMod = await import('archiver');
-      const archiver = (archiverMod as any).default || (archiverMod as any);
-      const { PassThrough } = await import('stream');
+    // Force fail for testing
+    if (process.env.ZIP_FORCE_FAIL_FIRST === 'true' && !this.forcedFailOnce.has(jobId)) {
+      this.forcedFailOnce.add(jobId);
+      throw new Error('Forced failure (test)');
+    }
 
-      // Construir ZIP en memoria con streaming
-      const zipStream = archiver('zip', { zlib: { level: 9 } });
-      const out = new PassThrough();
-      const chunks: Buffer[] = [];
-      out.on('data', (d: Buffer) => chunks.push(Buffer.from(d)));
+    const archiverMod = await import('archiver');
+    const archiver = (archiverMod as any).default || archiverMod;
+    const { PassThrough } = await import('stream');
 
-      // Manejo de errores de archiver
-      zipStream.on('error', (err: any) => {
-        try { AppLogger.error('💥 Error en construcción de ZIP:', err); } catch {}
-        throw err;
-      });
-      zipStream.pipe(out);
+    const zipStream = archiver('zip', { zlib: { level: 9 } });
+    const out = new PassThrough();
+    const chunks: Buffer[] = [];
+    out.on('data', (d: Buffer) => chunks.push(Buffer.from(d)));
+    zipStream.on('error', (err: any) => { AppLogger.error('💥 Error en ZIP:', err); throw err; });
+    zipStream.pipe(out);
 
-      // Almacenamos datos de cada equipo para el Excel
-      const excelRows: EquipoExcelRow[] = [];
+    const excelRows: EquipoExcelRow[] = [];
+    const now = new Date();
+    let processed = 0;
 
-      // Por cada equipo, seleccionar documentos vigentes y agregarlos al ZIP
-      const now = new Date();
-      let processed = 0;
-      for (const equipoId of equipoIds) {
-        // Cargar equipo con relación empresaTransportista
-        const equipo = await prisma.equipo.findUnique({
-          where: { id: equipoId },
-          include: {
-            empresaTransportista: {
-              select: { cuit: true, razonSocial: true }
-            },
-          },
-        });
-        if (!equipo || equipo.tenantEmpresaId !== tenantEmpresaId) {
-          processed += 1;
-          job.processedEquipos = processed;
-          job.progress = Math.min(0.05 + (processed / equipoIds.length) * 0.9, 0.95);
-          store.set(jobId, { ...job });
-          continue;
-        }
+    for (const equipoId of equipoIds) {
+      const row = await processEquipoForZip(equipoId, tenantEmpresaId, zipStream, now);
+      if (row) excelRows.push(row);
 
-        // Consultar datos del chofer, camión y acoplado por separado
-        const [chofer, camion, acoplado] = await Promise.all([
-          prisma.chofer.findUnique({
-            where: { id: equipo.driverId },
-            select: { dni: true, nombre: true, apellido: true }
-          }),
-          prisma.camion.findUnique({
-            where: { id: equipo.truckId },
-            select: { patente: true }
-          }),
-          equipo.trailerId ? prisma.acoplado.findUnique({
-            where: { id: equipo.trailerId },
-            select: { patente: true }
-          }) : Promise.resolve(null),
-        ]);
-
-        // Agregar datos del equipo al array para el Excel
-        excelRows.push({
-          equipoId: equipo.id,
-          empresaCuit: equipo.empresaTransportista?.cuit || '',
-          empresaRazonSocial: equipo.empresaTransportista?.razonSocial || '',
-          choferDni: chofer?.dni || equipo.driverDniNorm || '',
-          choferNombre: chofer?.nombre || '',
-          choferApellido: chofer?.apellido || '',
-          camionPatente: camion?.patente || equipo.truckPlateNorm || '',
-          acopladoPatente: acoplado?.patente || equipo.trailerPlateNorm || '',
-        });
-
-        const entityClauses: any[] = [];
-        if (equipo.empresaTransportistaId) entityClauses.push({ entityType: 'EMPRESA_TRANSPORTISTA' as any, entityId: equipo.empresaTransportistaId });
-        if (equipo.driverId) entityClauses.push({ entityType: 'CHOFER' as any, entityId: equipo.driverId });
-        if (equipo.truckId) entityClauses.push({ entityType: 'CAMION' as any, entityId: equipo.truckId });
-        if (equipo.trailerId) entityClauses.push({ entityType: 'ACOPLADO' as any, entityId: equipo.trailerId });
-
-        const docs = await prisma.document.findMany({
-          where: {
-            tenantEmpresaId: tenantEmpresaId,
-            dadorCargaId: equipo.dadorCargaId,
-            status: 'APROBADO' as any,
-            AND: [
-              entityClauses.length ? { OR: entityClauses } : {},
-              { OR: [{ expiresAt: null }, { expiresAt: { gt: now } }] },
-            ],
-          } as any,
-          include: { template: { select: { name: true } } },
-          orderBy: { uploadedAt: 'desc' },
-        });
-
-        for (const d of docs) {
-          let bucketName: string;
-          let objectPath: string;
-          if (typeof d.filePath === 'string' && d.filePath.includes('/')) {
-            const idx = d.filePath.indexOf('/');
-            bucketName = d.filePath.slice(0, idx);
-            objectPath = d.filePath.slice(idx + 1);
-          } else {
-            bucketName = `docs-t${tenantEmpresaId}`;
-            objectPath = d.filePath as any;
-          }
-          const { minioService } = await import('./minio.service');
-          const stream = await minioService.getObject(bucketName, objectPath);
-          const folder = (d as any).entityType === 'CHOFER' ? 'chofer' : (d as any).entityType === 'CAMION' ? 'camion' : 'acoplado';
-          const idLabel =
-            (d as any).entityType === 'CHOFER'
-              ? (equipo.driverDniNorm || (d as any).entityId)
-              : (d as any).entityType === 'CAMION'
-              ? (equipo.truckPlateNorm || (d as any).entityId)
-              : (equipo.trailerPlateNorm || (d as any).entityId);
-          const name = `equipo_${equipo.id}/${folder}/${idLabel}_${((d as any).template?.name || 'documento').replace(/[^a-z0-9_-]/gi, '_')}_${d.id}.pdf`;
-          zipStream.append(stream as any, { name });
-        }
-
-        processed += 1;
-        job.processedEquipos = processed;
-        job.progress = Math.min(0.05 + (processed / equipoIds.length) * 0.9, 0.95);
-        store.set(jobId, { ...job });
-        try { AppLogger.debug?.('⏳ Progreso ZIP job', { jobId, processed, total: equipoIds.length, progress: job.progress }); } catch {}
-      }
-
-      // Generar Excel con resumen de equipos
-      const excelBuffer = await this.generateEquiposExcel(excelRows);
-      zipStream.append(excelBuffer, { name: 'resumen_equipos.xlsx' });
-
-      await zipStream.finalize();
-
-      // Esperar a que termine de escribir
-      await new Promise<void>((resolve, reject) => {
-        out.on('finish', () => resolve());
-        out.on('error', (e: any) => reject(e));
-      });
-
-      const buffer = Buffer.concat(chunks);
-      const objectPath = `exports/zips/${jobId}.zip`;
-      const { minioService } = await import('./minio.service');
-      const uploaded = await minioService.uploadObject(tenantEmpresaId, objectPath, buffer, 'application/zip');
-
-      job.status = 'completed';
-      job.progress = 1;
-      job.artifact = uploaded;
+      processed += 1;
+      job.processedEquipos = processed;
+      job.progress = Math.min(0.05 + (processed / equipoIds.length) * 0.9, 0.95);
       store.set(jobId, { ...job });
-
-      try { AppLogger.info('📦 ZIP masivo generado', { jobId, size: buffer.length, objectPath: uploaded.objectPath }); } catch {}
-    } catch (e: any) {
-      // Propagar para que el manejador de reintentos decida
-      try { AppLogger.error('💥 ZIP job failed', { jobId, error: e?.message }); } catch {}
-      throw e;
-    }
-  }
-
-  /**
-   * Genera un archivo Excel con el resumen de equipos
-   */
-  private static async generateEquiposExcel(rows: EquipoExcelRow[]): Promise<Buffer> {
-    const workbook = new ExcelJS.Workbook();
-    workbook.creator = 'BCA Documentos';
-    workbook.created = new Date();
-
-    const sheet = workbook.addWorksheet('Equipos', {
-      properties: { tabColor: { argb: '2563eb' } }
-    });
-
-    // Definir columnas
-    sheet.columns = [
-      { header: 'ID Equipo', key: 'equipoId', width: 12 },
-      { header: 'Empresa CUIT', key: 'empresaCuit', width: 18 },
-      { header: 'Empresa Razón Social', key: 'empresaRazonSocial', width: 35 },
-      { header: 'Chofer DNI', key: 'choferDni', width: 15 },
-      { header: 'Chofer Nombre', key: 'choferNombre', width: 20 },
-      { header: 'Chofer Apellido', key: 'choferApellido', width: 20 },
-      { header: 'Camión Patente', key: 'camionPatente', width: 15 },
-      { header: 'Acoplado Patente', key: 'acopladoPatente', width: 15 },
-    ];
-
-    // Estilo de encabezados
-    const headerRow = sheet.getRow(1);
-    headerRow.font = { bold: true, color: { argb: 'FFFFFF' } };
-    headerRow.fill = {
-      type: 'pattern',
-      pattern: 'solid',
-      fgColor: { argb: '2563eb' }
-    };
-    headerRow.alignment = { vertical: 'middle', horizontal: 'center' };
-    headerRow.height = 22;
-
-    // Agregar filas de datos
-    for (const row of rows) {
-      sheet.addRow(row);
     }
 
-    // Aplicar bordes y alineación a todas las filas de datos
-    sheet.eachRow((row, rowNumber) => {
-      row.eachCell((cell) => {
-        cell.border = {
-          top: { style: 'thin', color: { argb: 'D1D5DB' } },
-          left: { style: 'thin', color: { argb: 'D1D5DB' } },
-          bottom: { style: 'thin', color: { argb: 'D1D5DB' } },
-          right: { style: 'thin', color: { argb: 'D1D5DB' } }
-        };
-        if (rowNumber > 1) {
-          cell.alignment = { vertical: 'middle' };
-        }
-      });
+    // Agregar Excel al ZIP
+    const excelBuffer = await generateEquiposExcel(excelRows);
+    zipStream.append(excelBuffer, { name: 'resumen_equipos.xlsx' });
+
+    await zipStream.finalize();
+    await new Promise<void>((resolve, reject) => {
+      out.on('finish', resolve);
+      out.on('error', reject);
     });
 
-    // Generar buffer
-    const buffer = await workbook.xlsx.writeBuffer();
-    return Buffer.from(buffer);
+    // Subir a MinIO
+    const buffer = Buffer.concat(chunks);
+    const objectPath = `exports/zips/${jobId}.zip`;
+    const { minioService } = await import('./minio.service');
+    const uploaded = await minioService.uploadObject(tenantEmpresaId, objectPath, buffer, 'application/zip');
+
+    job.status = 'completed';
+    job.progress = 1;
+    job.artifact = uploaded;
+    store.set(jobId, { ...job });
+
+    AppLogger.info('📦 ZIP masivo generado', { jobId, size: buffer.length, objectPath: uploaded.objectPath });
   }
 }
-
-
