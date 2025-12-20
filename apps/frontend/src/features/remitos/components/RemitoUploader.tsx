@@ -12,6 +12,7 @@ import {
 import { useUploadRemitoMutation } from '../api/remitosApiSlice';
 import { useGetChoferesQuery } from '../../documentos/api/documentosApiSlice';
 import { useAppSelector } from '../../../store/hooks';
+import { CameraCapture } from '../../documentos/components/CameraCapture';
 
 interface RemitoUploaderProps {
   onSuccess?: (remitoId: number) => void;
@@ -38,8 +39,8 @@ export function RemitoUploader({ onSuccess, dadorCargaId }: RemitoUploaderProps)
   const [choferSearch, setChoferSearch] = useState('');
   const [selectedChofer, setSelectedChofer] = useState<ChoferOption | null>(null);
   const [showChoferDropdown, setShowChoferDropdown] = useState(false);
+  const [cameraOpen, setCameraOpen] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const cameraInputRef = useRef<HTMLInputElement>(null);
   const choferSearchRef = useRef<HTMLInputElement>(null);
   
   const [uploadRemito, { isLoading, isError, error }] = useUploadRemitoMutation();
@@ -324,7 +325,7 @@ export function RemitoUploader({ onSuccess, dadorCargaId }: RemitoUploaderProps)
               Seleccionar archivos
             </button>
             <button
-              onClick={() => cameraInputRef.current?.click()}
+              onClick={() => setCameraOpen(true)}
               className="flex items-center gap-2 px-4 py-2 border border-slate-300 dark:border-slate-600 text-slate-700 dark:text-slate-300 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-700"
             >
               <CameraIcon className="h-5 w-5" />
@@ -438,14 +439,22 @@ export function RemitoUploader({ onSuccess, dadorCargaId }: RemitoUploaderProps)
         className="hidden"
       />
       
-      {/* Input cámara oculto */}
-      <input
-        ref={cameraInputRef}
-        type="file"
-        accept="image/*"
-        capture="environment"
-        onChange={(e) => e.target.files && handleFiles(e.target.files)}
-        className="hidden"
+      {/* Modal de cámara */}
+      <CameraCapture 
+        isOpen={cameraOpen} 
+        onClose={() => setCameraOpen(false)} 
+        title="Capturar fotos del remito" 
+        onCapture={(pics) => {
+          // Convertir las fotos a FilePreview y agregarlas
+          const newFiles: FilePreview[] = pics.map((file) => ({
+            id: `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+            file,
+            preview: URL.createObjectURL(file),
+            type: 'image' as const,
+          }));
+          setFiles((arr) => [...arr, ...newFiles]);
+          setCameraOpen(false);
+        }} 
       />
     </div>
   );
