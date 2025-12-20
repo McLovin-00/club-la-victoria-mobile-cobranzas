@@ -2,6 +2,7 @@ import { Response } from 'express';
 import { prisma } from '../config/database';
 import { ComplianceService } from '../services/compliance.service';
 import { AuthRequest } from '../middlewares/auth.middleware';
+import { AppLogger } from '../config/logger';
 
 function normalizeDni(dni: string): string {
   return (dni || '').replace(/\D+/g, '');
@@ -13,7 +14,7 @@ function normalizePlate(plate: string): string {
 
 export class SearchController {
   static async search(req: AuthRequest, res: Response) {
-    console.log('🔍 SearchController: query params recibidos:', req.query);
+    AppLogger.debug('🔍 SearchController: query params recibidos', { query: req.query });
     
     const empresaIdRaw = req.query.dadorCargaId;
     const empresaId = empresaIdRaw !== undefined && empresaIdRaw !== null && String(empresaIdRaw).trim() !== ''
@@ -28,7 +29,7 @@ export class SearchController {
       ? Number(empresaTransportistaIdRaw)
       : undefined;
     
-    console.log('🔍 SearchController: filtros parseados:', { empresaId, clienteId, empresaTransportistaId });
+    AppLogger.debug('🔍 SearchController: filtros parseados', { empresaId, clienteId, empresaTransportistaId });
     const dni = req.query.dni ? normalizeDni(String(req.query.dni)) : undefined;
     const truckPlate = req.query.truckPlate ? normalizePlate(String(req.query.truckPlate)) : undefined;
     const trailerPlate = req.query.trailerPlate ? normalizePlate(String(req.query.trailerPlate)) : undefined;
@@ -48,7 +49,7 @@ export class SearchController {
       ],
     };
     
-    console.log('🔍 SearchController: where clause:', JSON.stringify(where, null, 2));
+    AppLogger.debug('🔍 SearchController: where clause', { where });
 
     // Si filtramos por cliente, necesitamos una subconsulta
     let equipos: any[];

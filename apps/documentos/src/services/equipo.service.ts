@@ -319,7 +319,7 @@ export class EquipoService {
     }
     
     timings.total = Date.now() - startTime;
-    console.log(`[EquipoService.getComplianceStats] equipos=${total} timings=${JSON.stringify(timings)}`);
+    AppLogger.debug(`[EquipoService.getComplianceStats] equipos=${total}`, { timings });
     
     return {
       total,

@@ -406,7 +406,7 @@ export class ComplianceService {
       results.set(eq.id, result);
     }
 
-    console.log(`[Compliance.evaluateBatch] clienteId=${clienteId ?? 'ALL'} equipos=${equipos.length} time=${Date.now() - batchStartTime}ms`);
+    AppLogger.debug(`[Compliance.evaluateBatch] clienteId=${clienteId ?? 'ALL'} equipos=${equipos.length} time=${Date.now() - batchStartTime}ms`);
     return results;
   }
 }
