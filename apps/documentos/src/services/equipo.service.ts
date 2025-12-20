@@ -12,6 +12,126 @@ function normalizePlate(plate: string): string {
   return (plate || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
 }
 
+// ============================================================================
+// HELPERS PARA ATTACH COMPONENTS
+// ============================================================================
+type ComponentType = 'driver' | 'truck' | 'trailer';
+
+interface ResolveResult {
+  id: number;
+  normValue?: string;
+  originEquipoId: number | null;
+}
+
+async function resolveDriver(
+  tenantEmpresaId: number,
+  dadorCargaId: number,
+  equipoId: number,
+  driverId?: number,
+  driverDni?: string
+): Promise<ResolveResult | null> {
+  if (!driverId && !driverDni) return null;
+  
+  let id = driverId;
+  if (!id && driverDni) {
+    const dniNorm = normalizeDni(driverDni);
+    const ch = await prisma.chofer.findFirst({ where: { tenantEmpresaId, dadorCargaId, dniNorm } });
+    if (!ch) throw new Error('Chofer no encontrado');
+    id = ch.id;
+  }
+  
+  const originEquipoId = await closeOriginEquipo(tenantEmpresaId, equipoId, 'driverId', id!);
+  return { id: id!, normValue: driverDni ? normalizeDni(driverDni) : undefined, originEquipoId };
+}
+
+async function resolveTruck(
+  tenantEmpresaId: number,
+  dadorCargaId: number,
+  equipoId: number,
+  truckId?: number,
+  truckPlate?: string
+): Promise<ResolveResult | null> {
+  if (!truckId && !truckPlate) return null;
+  
+  let id = truckId;
+  if (!id && truckPlate) {
+    const pat = normalizePlate(truckPlate);
+    const tr = await prisma.camion.findFirst({ where: { tenantEmpresaId, dadorCargaId, patenteNorm: pat } });
+    if (!tr) throw new Error('Camión no encontrado');
+    id = tr.id;
+  }
+  
+  const originEquipoId = await closeOriginEquipo(tenantEmpresaId, equipoId, 'truckId', id!);
+  return { id: id!, normValue: truckPlate ? normalizePlate(truckPlate) : undefined, originEquipoId };
+}
+
+async function resolveTrailer(
+  tenantEmpresaId: number,
+  dadorCargaId: number,
+  equipoId: number,
+  trailerId?: number,
+  trailerPlate?: string
+): Promise<ResolveResult | null> {
+  if (!trailerId && !trailerPlate) return null;
+  
+  let id = trailerId ?? null;
+  if (!id && trailerPlate) {
+    const pat = normalizePlate(trailerPlate);
+    const ac = await prisma.acoplado.findFirst({ where: { tenantEmpresaId, dadorCargaId, patenteNorm: pat } });
+    if (!ac) throw new Error('Acoplado no encontrado');
+    id = ac.id;
+  }
+  
+  let originEquipoId: number | null = null;
+  if (id) {
+    originEquipoId = await detachTrailerFromOrigin(tenantEmpresaId, equipoId, id);
+  }
+  
+  return { id: id!, normValue: trailerPlate ? normalizePlate(trailerPlate) : undefined, originEquipoId };
+}
+
+async function closeOriginEquipo(
+  tenantEmpresaId: number,
+  currentEquipoId: number,
+  field: 'driverId' | 'truckId',
+  entityId: number
+): Promise<number | null> {
+  const origin = await prisma.equipo.findFirst({
+    where: { tenantEmpresaId, [field]: entityId, validTo: null, NOT: { id: currentEquipoId } },
+    select: { id: true }
+  });
+  
+  if (!origin) return null;
+  
+  const component = field === 'driverId' ? 'driver' : 'truck';
+  await prisma.$transaction([
+    prisma.equipo.update({ where: { id: origin.id }, data: { validTo: new Date(), estado: 'finalizada' as any } }),
+    prisma.equipoHistory.create({ data: { equipoId: origin.id, action: 'close', component, originEquipoId: currentEquipoId, payload: { reason: 'swap' } as any } })
+  ]);
+  
+  return origin.id;
+}
+
+async function detachTrailerFromOrigin(
+  tenantEmpresaId: number,
+  currentEquipoId: number,
+  trailerId: number
+): Promise<number | null> {
+  const origin = await prisma.equipo.findFirst({
+    where: { tenantEmpresaId, trailerId, validTo: null, NOT: { id: currentEquipoId } },
+    select: { id: true }
+  });
+  
+  if (!origin) return null;
+  
+  await prisma.$transaction([
+    prisma.equipo.update({ where: { id: origin.id }, data: { trailerId: null, trailerPlateNorm: null } }),
+    prisma.equipoHistory.create({ data: { equipoId: origin.id, action: 'detach', component: 'trailer', originEquipoId: currentEquipoId, payload: { reason: 'swap' } as any } })
+  ]);
+  
+  return origin.id;
+}
+
 export class EquipoService {
   static async list(
     tenantEmpresaId: number,
@@ -465,117 +585,91 @@ export class EquipoService {
     const equipo = await prisma.equipo.findUnique({ where: { id: equipoId }, select: { id: true, tenantEmpresaId: true, dadorCargaId: true } });
     if (!equipo || equipo.tenantEmpresaId !== tenantEmpresaId) throw new Error('Equipo no encontrado');
 
+    // Resolver componentes usando helpers
+    const driverResult = await resolveDriver(tenantEmpresaId, equipo.dadorCargaId, equipoId, data.driverId, data.driverDni);
+    const truckResult = await resolveTruck(tenantEmpresaId, equipo.dadorCargaId, equipoId, data.truckId, data.truckPlate);
+    const trailerResult = await resolveTrailer(tenantEmpresaId, equipo.dadorCargaId, equipoId, data.trailerId, data.trailerPlate);
+
+    // Construir updates
     const updates: any = {};
-    // Resolver driver
-    let driverOriginId: number | null = null;
-    if (data.driverId || data.driverDni) {
-      let driverId = data.driverId;
-      if (!driverId && data.driverDni) {
-        const dniNorm = normalizeDni(data.driverDni);
-        const ch = await prisma.chofer.findFirst({ where: { tenantEmpresaId, dadorCargaId: equipo.dadorCargaId, dniNorm } });
-        if (!ch) throw new Error('Chofer no encontrado');
-        driverId = ch.id;
-      }
-      // Permitir swap: si pertenece a otro equipo activo, cerrar ese equipo origen
-      const origin = await prisma.equipo.findFirst({ where: { tenantEmpresaId, driverId, validTo: null, NOT: { id: equipoId } }, select: { id: true } });
-      if (origin) {
-        driverOriginId = origin.id;
-        await prisma.$transaction([
-          prisma.equipo.update({ where: { id: origin.id }, data: { validTo: new Date(), estado: 'finalizada' as any } }),
-          prisma.equipoHistory.create({ data: { equipoId: origin.id, action: 'close', component: 'driver', originEquipoId: equipoId, payload: { reason: 'swap' } as any } })
-        ]);
-      }
-      updates.driverId = driverId;
-      updates.driverDniNorm = data.driverDni ? normalizeDni(data.driverDni) : undefined;
+    if (driverResult) {
+      updates.driverId = driverResult.id;
+      if (driverResult.normValue) updates.driverDniNorm = driverResult.normValue;
     }
-    // Resolver truck
-    let truckOriginId: number | null = null;
-    if (data.truckId || data.truckPlate) {
-      let truckId = data.truckId;
-      if (!truckId && data.truckPlate) {
-        const pat = normalizePlate(data.truckPlate);
-        const tr = await prisma.camion.findFirst({ where: { tenantEmpresaId, dadorCargaId: equipo.dadorCargaId, patenteNorm: pat } });
-        if (!tr) throw new Error('Camión no encontrado');
-        truckId = tr.id;
-      }
-      // Permitir swap: cerrar equipo origen que tenga ese camión activo
-      const origin = await prisma.equipo.findFirst({ where: { tenantEmpresaId, truckId, validTo: null, NOT: { id: equipoId } }, select: { id: true } });
-      if (origin) {
-        truckOriginId = origin.id;
-        await prisma.$transaction([
-          prisma.equipo.update({ where: { id: origin.id }, data: { validTo: new Date(), estado: 'finalizada' as any } }),
-          prisma.equipoHistory.create({ data: { equipoId: origin.id, action: 'close', component: 'truck', originEquipoId: equipoId, payload: { reason: 'swap' } as any } })
-        ]);
-      }
-      updates.truckId = truckId;
-      updates.truckPlateNorm = data.truckPlate ? normalizePlate(data.truckPlate) : undefined;
+    if (truckResult) {
+      updates.truckId = truckResult.id;
+      if (truckResult.normValue) updates.truckPlateNorm = truckResult.normValue;
     }
-    // Resolver trailer
-    let trailerOriginId: number | null = null;
-    if (data.trailerId || data.trailerPlate) {
-      let trailerId = data.trailerId ?? null;
-      if (!trailerId && data.trailerPlate) {
-        const pat = normalizePlate(data.trailerPlate);
-        const ac = await prisma.acoplado.findFirst({ where: { tenantEmpresaId, dadorCargaId: equipo.dadorCargaId, patenteNorm: pat } });
-        if (!ac) throw new Error('Acoplado no encontrado');
-        trailerId = ac.id;
-      }
-      // Permitir swap: si acoplado está en otro equipo activo, desasociarlo de origen
-      if (trailerId) {
-        const origin = await prisma.equipo.findFirst({ where: { tenantEmpresaId, trailerId, validTo: null, NOT: { id: equipoId } }, select: { id: true } });
-        if (origin) {
-          trailerOriginId = origin.id;
-          await prisma.$transaction([
-            prisma.equipo.update({ where: { id: origin.id }, data: { trailerId: null, trailerPlateNorm: null } }),
-            prisma.equipoHistory.create({ data: { equipoId: origin.id, action: 'detach', component: 'trailer', originEquipoId: equipoId, payload: { reason: 'swap' } as any } })
-          ]);
-        }
-      }
-      updates.trailerId = trailerId;
-      updates.trailerPlateNorm = data.trailerPlate ? normalizePlate(data.trailerPlate) : null;
+    if (trailerResult) {
+      updates.trailerId = trailerResult.id;
+      updates.trailerPlateNorm = trailerResult.normValue || null;
     }
 
     if (Object.keys(updates).length === 0) throw new Error('Sin cambios');
 
     let updated = await prisma.equipo.update({ where: { id: equipoId }, data: updates });
 
-    // Determinar componente modificado para el historial
-    const getHistoryComponent = (): string => {
+    // Registrar historial
+    await this.recordAttachHistory(equipoId, updates, driverResult, truckResult, trailerResult);
+    
+    // Reabrir equipo si tiene componentes completos
+    updated = await this.reopenEquipoIfComplete(equipoId, updated);
+    
+    // Re-chequeo de faltantes diferido
+    await this.enqueueComplianceCheck(tenantEmpresaId, equipoId);
+    
+    return updated;
+  }
+
+  private static async recordAttachHistory(
+    equipoId: number,
+    updates: any,
+    driverResult: ResolveResult | null,
+    truckResult: ResolveResult | null,
+    trailerResult: ResolveResult | null
+  ): Promise<void> {
+    const getComponent = (): string => {
       if (updates.driverId) return 'driver';
       if (updates.truckId) return 'truck';
       if (updates.trailerId !== undefined) return 'trailer';
-      if (updates.empresaTransportistaId !== undefined) return 'empresa';
       return 'unknown';
     };
 
     try {
       await prisma.equipoHistory.create({
-        data: { equipoId, action: 'attach', component: getHistoryComponent(), originEquipoId: null, payload: updates as any },
+        data: { equipoId, action: 'attach', component: getComponent(), originEquipoId: null, payload: updates as any },
       });
-    } catch { /* noop */ }
-    // Registrar swap en destino si hubo origen
-    try {
-      if (driverOriginId) await prisma.equipoHistory.create({ data: { equipoId, action: 'swap', component: 'driver', originEquipoId: driverOriginId, payload: { reason: 'attach' } as any } });
-      if (truckOriginId) await prisma.equipoHistory.create({ data: { equipoId, action: 'swap', component: 'truck', originEquipoId: truckOriginId, payload: { reason: 'attach' } as any } });
-      if (trailerOriginId) await prisma.equipoHistory.create({ data: { equipoId, action: 'swap', component: 'trailer', originEquipoId: trailerOriginId, payload: { reason: 'attach' } as any } });
-    } catch {}
 
-    // Si el equipo estaba finalizado y ahora tiene chofer y camión, reabrirlo (estado activa)
+      if (driverResult?.originEquipoId) {
+        await prisma.equipoHistory.create({ data: { equipoId, action: 'swap', component: 'driver', originEquipoId: driverResult.originEquipoId, payload: { reason: 'attach' } as any } });
+      }
+      if (truckResult?.originEquipoId) {
+        await prisma.equipoHistory.create({ data: { equipoId, action: 'swap', component: 'truck', originEquipoId: truckResult.originEquipoId, payload: { reason: 'attach' } as any } });
+      }
+      if (trailerResult?.originEquipoId) {
+        await prisma.equipoHistory.create({ data: { equipoId, action: 'swap', component: 'trailer', originEquipoId: trailerResult.originEquipoId, payload: { reason: 'attach' } as any } });
+      }
+    } catch { /* noop */ }
+  }
+
+  private static async reopenEquipoIfComplete(equipoId: number, equipo: any): Promise<any> {
     try {
-      if ((updated as any).estado !== 'activa' && (updated as any).driverId && (updated as any).truckId) {
-        updated = await prisma.equipo.update({ where: { id: equipoId }, data: { estado: 'activa' as any, validTo: null } });
+      if (equipo.estado !== 'activa' && equipo.driverId && equipo.truckId) {
+        equipo = await prisma.equipo.update({ where: { id: equipoId }, data: { estado: 'activa' as any, validTo: null } });
         await prisma.equipoHistory.create({ data: { equipoId, action: 'reopen', component: 'system', originEquipoId: null, payload: { reason: 'complete' } as any } });
       }
-      if ((updated as any).validTo !== null && (updated as any).driverId && (updated as any).truckId) {
-        updated = await prisma.equipo.update({ where: { id: equipoId }, data: { validTo: null } });
+      if (equipo.validTo !== null && equipo.driverId && equipo.truckId) {
+        equipo = await prisma.equipo.update({ where: { id: equipoId }, data: { validTo: null } });
       }
-    } catch {}
-    // Re-chequeo de faltantes diferido
+    } catch { /* noop */ }
+    return equipo;
+  }
+
+  private static async enqueueComplianceCheck(tenantEmpresaId: number, equipoId: number): Promise<void> {
     try {
       const { queueService } = await import('./queue.service');
       await queueService.addMissingCheckForEquipo(tenantEmpresaId, equipoId);
-    } catch {}
-    return updated;
+    } catch { /* noop */ }
   }
 
   static async detachComponents(
