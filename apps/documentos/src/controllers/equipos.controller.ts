@@ -237,14 +237,21 @@ export class EquiposController {
 
   static async updateEntidades(req: AuthRequest, res: Response) {
     const equipoId = Number(req.params.id);
+    // Helper para parsear IDs opcionales (null permitido para acopladoId)
+    const parseOptionalId = (val: any): number | undefined => (val !== undefined ? Number(val) : undefined);
+    const parseNullableId = (val: any): number | null | undefined => {
+      if (val === undefined) return undefined;
+      return val === null ? null : Number(val);
+    };
+
     const input = {
       equipoId,
       usuarioId: req.user?.userId ?? 0,
       tenantEmpresaId: req.tenantId!,
-      choferId: req.body.choferId !== undefined ? Number(req.body.choferId) : undefined,
-      camionId: req.body.camionId !== undefined ? Number(req.body.camionId) : undefined,
-      acopladoId: req.body.acopladoId !== undefined ? (req.body.acopladoId === null ? null : Number(req.body.acopladoId)) : undefined,
-      empresaTransportistaId: req.body.empresaTransportistaId !== undefined ? Number(req.body.empresaTransportistaId) : undefined,
+      choferId: parseOptionalId(req.body.choferId),
+      camionId: parseOptionalId(req.body.camionId),
+      acopladoId: parseNullableId(req.body.acopladoId),
+      empresaTransportistaId: parseOptionalId(req.body.empresaTransportistaId),
     };
 
     const data = await EquipoService.updateEquipo(input);

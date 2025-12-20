@@ -163,7 +163,15 @@ class QueueService {
           const { SystemConfigService } = await import('./system-config.service');
           const val = await SystemConfigService.getConfig(`tenant:${tenantId}:defaults.missingCheckDelayMinutes`);
           const globalVal = await SystemConfigService.getConfig('defaults.missingCheckDelayMinutes');
-          const minutes = val !== null ? Number(val) : (globalVal !== null ? Number(globalVal) : 15);
+
+          // Determinar minutos: primero tenant, luego global, luego default 15
+          let minutes = 15;
+          if (val !== null) {
+            minutes = Number(val);
+          } else if (globalVal !== null) {
+            minutes = Number(globalVal);
+          }
+
           effectiveDelayMs = Number.isFinite(minutes) && minutes >= 0 ? minutes * 60 * 1000 : 15 * 60 * 1000;
         } catch {
           effectiveDelayMs = 15 * 60 * 1000;

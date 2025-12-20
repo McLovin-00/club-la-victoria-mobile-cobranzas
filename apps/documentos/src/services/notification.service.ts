@@ -108,9 +108,18 @@ export class NotificationService {
     const windows = await this.getWindows(tenantId);
     const templates = await this.getTemplates(tenantId);
 
+    // Convertir unidad a días
+    const toDays = (unit: Unit, value: number): number => {
+      const multipliers: Record<Unit, number> = { days: 1, weeks: 7, months: 30 };
+      return value * (multipliers[unit] || 1);
+    };
+
     // horizonte máximo en días
-    const toDays = (u: Unit, v: number) => (u === 'days' ? v : u === 'weeks' ? v * 7 : v * 30);
-    const horizon = Math.max(toDays(windows.aviso.unit, windows.aviso.value), toDays(windows.alerta.unit, windows.alerta.value), toDays(windows.alarma.unit, windows.alarma.value));
+    const horizon = Math.max(
+      toDays(windows.aviso.unit, windows.aviso.value),
+      toDays(windows.alerta.unit, windows.alerta.value),
+      toDays(windows.alarma.unit, windows.alarma.value)
+    );
     const now = new Date();
     const horizonDate = new Date(); horizonDate.setDate(horizonDate.getDate() + horizon);
 

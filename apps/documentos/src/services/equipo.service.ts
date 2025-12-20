@@ -538,9 +538,21 @@ export class EquipoService {
     if (Object.keys(updates).length === 0) throw new Error('Sin cambios');
 
     let updated = await prisma.equipo.update({ where: { id: equipoId }, data: updates });
-    // Registrar attach
-    const component = updates.driverId ? 'driver' : (updates.truckId ? 'truck' : (updates.trailerId !== undefined ? 'trailer' : (updates.empresaTransportistaId !== undefined ? 'empresa' : 'unknown')));
-    try { await prisma.equipoHistory.create({ data: { equipoId, action: 'attach', component, originEquipoId: null, payload: updates as any } }); } catch {}
+
+    // Determinar componente modificado para el historial
+    const getHistoryComponent = (): string => {
+      if (updates.driverId) return 'driver';
+      if (updates.truckId) return 'truck';
+      if (updates.trailerId !== undefined) return 'trailer';
+      if (updates.empresaTransportistaId !== undefined) return 'empresa';
+      return 'unknown';
+    };
+
+    try {
+      await prisma.equipoHistory.create({
+        data: { equipoId, action: 'attach', component: getHistoryComponent(), originEquipoId: null, payload: updates as any },
+      });
+    } catch { /* noop */ }
     // Registrar swap en destino si hubo origen
     try {
       if (driverOriginId) await prisma.equipoHistory.create({ data: { equipoId, action: 'swap', component: 'driver', originEquipoId: driverOriginId, payload: { reason: 'attach' } as any } });
@@ -870,14 +882,26 @@ export class EquipoService {
         }
       }
     }
+    // Normalizar trailerPlateNorm
+    let trailerPlateNorm: string | null | undefined = undefined;
+    if (data.trailerPlate !== undefined) {
+      trailerPlateNorm = data.trailerPlate ? normalizePlate(data.trailerPlate) : null;
+    }
+
+    // Normalizar empresaTransportistaId (0 significa null)
+    let empresaTransportistaIdNorm: number | null | undefined = undefined;
+    if (data.empresaTransportistaId !== undefined) {
+      empresaTransportistaIdNorm = data.empresaTransportistaId === 0 ? null : data.empresaTransportistaId;
+    }
+
     return prisma.equipo.update({
       where: { id },
       data: {
         trailerId: data.trailerId,
-        trailerPlateNorm: data.trailerPlate === undefined ? undefined : (data.trailerPlate ? normalizePlate(data.trailerPlate) : null),
+        trailerPlateNorm,
         validTo: data.validTo ?? undefined,
         estado: data.estado as any,
-        empresaTransportistaId: data.empresaTransportistaId === undefined ? undefined : (data.empresaTransportistaId === 0 ? null : data.empresaTransportistaId),
+        empresaTransportistaId: empresaTransportistaIdNorm,
       },
     });
   }

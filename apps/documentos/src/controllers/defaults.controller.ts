@@ -5,11 +5,27 @@ import { SystemConfigService } from '../services/system-config.service';
 export class DefaultsController {
   static async get(req: AuthRequest, res: Response) {
     const tenantId = req.tenantId!;
-    const defaultClienteId = await SystemConfigService.getConfig(`tenant:${tenantId}:defaults.defaultClienteId`);
-    const defaultDadorId = await SystemConfigService.getConfig(`tenant:${tenantId}:defaults.defaultDadorId`);
-    const delay = await SystemConfigService.getConfig(`tenant:${tenantId}:defaults.missingCheckDelayMinutes`);
-    const noExpiryYears = await SystemConfigService.getConfig(`tenant:${tenantId}:defaults.noExpiryHorizonYears`);
-    res.json({ success: true, data: { defaultClienteId: defaultClienteId ? Number(defaultClienteId) : null, defaultDadorId: defaultDadorId ? Number(defaultDadorId) : null, missingCheckDelayMinutes: delay !== null ? Number(delay) : null, noExpiryHorizonYears: noExpiryYears !== null ? Number(noExpiryYears) : null } });
+    const prefix = `tenant:${tenantId}:defaults.`;
+
+    const [defaultClienteId, defaultDadorId, delay, noExpiryYears] = await Promise.all([
+      SystemConfigService.getConfig(`${prefix}defaultClienteId`),
+      SystemConfigService.getConfig(`${prefix}defaultDadorId`),
+      SystemConfigService.getConfig(`${prefix}missingCheckDelayMinutes`),
+      SystemConfigService.getConfig(`${prefix}noExpiryHorizonYears`),
+    ]);
+
+    // Helper para parsear número o null
+    const parseNumOrNull = (val: string | null): number | null => (val !== null ? Number(val) : null);
+
+    res.json({
+      success: true,
+      data: {
+        defaultClienteId: parseNumOrNull(defaultClienteId),
+        defaultDadorId: parseNumOrNull(defaultDadorId),
+        missingCheckDelayMinutes: parseNumOrNull(delay),
+        noExpiryHorizonYears: parseNumOrNull(noExpiryYears),
+      },
+    });
   }
 
   static async update(req: AuthRequest, res: Response) {

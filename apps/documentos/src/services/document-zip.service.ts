@@ -118,13 +118,23 @@ function parseFilePath(filePath: string, tenantEmpresaId: number): { bucketName:
   return { bucketName: `docs-t${tenantEmpresaId}`, objectPath: filePath };
 }
 
+function getEntityFolder(entityType: string): string {
+  const folders: Record<string, string> = { CHOFER: 'chofer', CAMION: 'camion', ACOPLADO: 'acoplado' };
+  return folders[entityType] || 'otro';
+}
+
+function getEntityIdLabel(entityType: string, equipo: EquipoData, fallbackId: number): string {
+  const labels: Record<string, string | null> = {
+    CHOFER: equipo.driverDniNorm,
+    CAMION: equipo.truckPlateNorm,
+    ACOPLADO: equipo.trailerPlateNorm,
+  };
+  return labels[entityType] || String(fallbackId);
+}
+
 function buildZipEntryName(doc: any, equipo: EquipoData): string {
-  const folder = doc.entityType === 'CHOFER' ? 'chofer' : doc.entityType === 'CAMION' ? 'camion' : 'acoplado';
-  const idLabel = doc.entityType === 'CHOFER'
-    ? (equipo.driverDniNorm || doc.entityId)
-    : doc.entityType === 'CAMION'
-      ? (equipo.truckPlateNorm || doc.entityId)
-      : (equipo.trailerPlateNorm || doc.entityId);
+  const folder = getEntityFolder(doc.entityType);
+  const idLabel = getEntityIdLabel(doc.entityType, equipo, doc.entityId);
   const templateName = (doc.template?.name || 'documento').replace(/[^a-z0-9_-]/gi, '_');
   return `equipo_${equipo.id}/${folder}/${idLabel}_${templateName}_${doc.id}.pdf`;
 }

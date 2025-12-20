@@ -7,11 +7,16 @@ export class EmpresasTransportistasController {
     try {
       const tenantEmpresaId = (req as any).tenantId as number;
       const { dadorCargaId, activo, q, page, limit } = req.query as any;
+      // Parsear parámetro activo de string a boolean
+      let activoBoolean: boolean | undefined;
+      if (activo === 'true') activoBoolean = true;
+      else if (activo === 'false') activoBoolean = false;
+
       const result = await EmpresaTransportistaService.list(
         tenantEmpresaId, 
         dadorCargaId ? Number(dadorCargaId) : undefined, 
         {
-          activo: activo === 'true' ? true : activo === 'false' ? false : undefined,
+          activo: activoBoolean,
           q,
           page: page ? parseInt(page, 10) : undefined,
           limit: limit ? parseInt(limit, 10) : undefined,

@@ -179,10 +179,13 @@ export class ValidationMiddleware {
       const validationErrors = ValidationErrorHandler.formatZodErrors(error);
       const clientIp = req.ip || req.connection.remoteAddress || 'unknown';
 
+      // Obtener datos del source para logging
+      const sourceData: Record<string, any> = { body: req.body, params: req.params, query: req.query };
+
       AppLogger.warn(`Validation failed in ${source} for ${req.method} ${req.originalUrl}`, {
         ip: clientIp,
         errors: validationErrors,
-        [source]: source === 'body' ? req.body : source === 'params' ? req.params : req.query,
+        [source]: sourceData[source],
       });
 
       res.status(400).json(ValidationErrorHandler.createErrorResponse(validationErrors));

@@ -123,7 +123,14 @@ export class DashboardController {
 
         const totalRed = rojo.reduce((s, v) => s + v, 0);
         const totalYellow = amarillo.reduce((s, v) => s + v, 0);
-        const overallStatus = totalRed > 0 ? 'rojo' : (totalYellow > 0 ? 'amarillo' : 'verde');
+
+        // Determinar estado global: rojo > amarillo > verde
+        let overallStatus: 'rojo' | 'amarillo' | 'verde' = 'verde';
+        if (totalRed > 0) {
+          overallStatus = 'rojo';
+        } else if (totalYellow > 0) {
+          overallStatus = 'amarillo';
+        }
 
         semaforosData.push({
           empresaId: eid,

@@ -63,10 +63,16 @@ export function getEnvironment(): Env {
     }
   }
 
+  // Normalizar claves JWT (reemplazar \n literal por saltos de línea reales)
+  const normalizeKey = (key: string | undefined): string | undefined => {
+    if (!key) return undefined;
+    return key.includes('-----BEGIN') ? key : key.replace(/\\n/g, '\n');
+  };
+
   cachedEnv = {
     ...env,
-    jwtPrivateKey: priv ? (priv.includes('-----BEGIN') ? priv : priv.replace(/\\n/g, '\n')) : undefined,
-    jwtPublicKey: pub ? (pub.includes('-----BEGIN') ? pub : pub.replace(/\\n/g, '\n')) : undefined,
+    jwtPrivateKey: normalizeKey(priv),
+    jwtPublicKey: normalizeKey(pub),
     enabledServices: {
       documentos: env.ENABLE_DOCUMENTOS === 'true',
     },

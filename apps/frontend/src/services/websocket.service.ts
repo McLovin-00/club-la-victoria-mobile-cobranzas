@@ -242,11 +242,16 @@ class WebSocketService {
    * Mostrar notificación de cambio de estado
    */
   private showStatusChangeNotification(data: any): void {
-    const isApproved = data.newStatus === 'APROBADO';
-    const isRejected = data.newStatus === 'RECHAZADO';
-
     const message = data?.message || `${data?.templateName} - ${data?.fileName}`;
-    const variant = isApproved ? 'success' : isRejected ? 'error' : 'default';
+
+    // Determinar variante según estado
+    let variant: 'success' | 'error' | 'default' = 'default';
+    if (data.newStatus === 'APROBADO') {
+      variant = 'success';
+    } else if (data.newStatus === 'RECHAZADO') {
+      variant = 'error';
+    }
+
     showToast(message, variant, 5000);
   }
 
