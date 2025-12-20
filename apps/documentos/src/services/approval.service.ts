@@ -1,7 +1,321 @@
 import { db } from '../config/database';
 import type { DocumentStatus, Prisma } from '.prisma/documentos';
 
+// ============================================================================
+// HELPERS DE NORMALIZACIÓN
+// ============================================================================
+const normalizeDigits = (s: string): string => String(s).replace(/\D+/g, '');
+const normalizePlate = (s: string): string => String(s).toUpperCase().replace(/[^A-Z0-9]/g, '');
+const normalizeText = (s: string): string => String(s)
+  .normalize('NFD')
+  .replace(/[\u0300-\u036f]/g, '')
+  .toUpperCase()
+  .replace(/[^A-Z0-9]+/g, '_')
+  .replace(/(^_+|_+$)/g, '');
+const isInt32 = (n: number): boolean => Number.isInteger(n) && n >= -2147483648 && n <= 2147483647;
+
+// ============================================================================
+// TIPOS AUXILIARES
+// ============================================================================
+interface ReviewData {
+  reviewedBy: number;
+  confirmedEntityType?: string;
+  confirmedEntityId?: number | string;
+  confirmedExpiration?: Date;
+  confirmedTemplateId?: number;
+  reviewNotes?: string;
+}
+
+interface EntityContext {
+  tenantId: number;
+  dadorCargaId: number;
+  entityType: string;
+}
+
+// ============================================================================
+// FUNCIONES DE CREACIÓN/BÚSQUEDA DE ENTIDADES
+// ============================================================================
+async function ensureEmpresaTransportista(tx: any, ctx: EntityContext, cuitRaw: string): Promise<number | null> {
+  const cuit = normalizeDigits(cuitRaw);
+  if (!cuit) return null;
+  
+  let emp = await tx.empresaTransportista.findFirst({
+    where: { tenantEmpresaId: ctx.tenantId, dadorCargaId: ctx.dadorCargaId, cuit }
+  });
+  
+  if (!emp) {
+    try {
+      emp = await tx.empresaTransportista.create({
+        data: { tenantEmpresaId: ctx.tenantId, dadorCargaId: ctx.dadorCargaId, cuit, razonSocial: `Empresa ${cuit}`, activo: true }
+      });
+    } catch { /* entidad ya existe */ }
+  }
+  return emp?.id ?? null;
+}
+
+async function ensureChofer(tx: any, ctx: EntityContext, dniRaw: string): Promise<number | null> {
+  const dni = normalizeDigits(dniRaw);
+  if (!dni) return null;
+  
+  // Si es número corto, podría ser ID interno
+  if (dni.length <= 9) {
+    const n = Number(dni);
+    if (isInt32(n)) {
+      const exists = await tx.chofer.findFirst({ where: { tenantEmpresaId: ctx.tenantId, id: n } });
+      if (exists) return n;
+    }
+  }
+  
+  let ch = await tx.chofer.findFirst({ where: { tenantEmpresaId: ctx.tenantId, dniNorm: dni } });
+  if (!ch) {
+    try {
+      ch = await tx.chofer.create({
+        data: { tenantEmpresaId: ctx.tenantId, dadorCargaId: ctx.dadorCargaId, dni, dniNorm: dni, activo: true, phones: [] }
+      });
+    } catch { /* entidad ya existe */ }
+  }
+  return ch?.id ?? null;
+}
+
+async function ensureCamion(tx: any, ctx: EntityContext, plateRaw: string): Promise<number | null> {
+  const patNorm = normalizePlate(plateRaw);
+  if (!patNorm) return null;
+  
+  let cm = await tx.camion.findFirst({ where: { tenantEmpresaId: ctx.tenantId, patenteNorm: patNorm } });
+  if (!cm) {
+    try {
+      cm = await tx.camion.create({
+        data: { tenantEmpresaId: ctx.tenantId, dadorCargaId: ctx.dadorCargaId, patente: plateRaw, patenteNorm: patNorm, activo: true }
+      });
+    } catch { /* entidad ya existe */ }
+  }
+  return cm?.id ?? null;
+}
+
+async function ensureAcoplado(tx: any, ctx: EntityContext, plateRaw: string): Promise<number | null> {
+  const patNorm = normalizePlate(plateRaw);
+  if (!patNorm) return null;
+  
+  let ac = await tx.acoplado.findFirst({ where: { tenantEmpresaId: ctx.tenantId, patenteNorm: patNorm } });
+  if (!ac) {
+    try {
+      ac = await tx.acoplado.create({
+        data: { tenantEmpresaId: ctx.tenantId, dadorCargaId: ctx.dadorCargaId, patente: plateRaw, patenteNorm: patNorm, activo: true }
+      });
+    } catch { /* entidad ya existe */ }
+  }
+  return ac?.id ?? null;
+}
+
+// ============================================================================
+// RESOLUCIÓN DE ENTITY ID
+// ============================================================================
+async function resolveEntityId(
+  tx: any,
+  ctx: EntityContext,
+  proposedVal: unknown
+): Promise<number | null> {
+  if (typeof proposedVal === 'number') {
+    return isInt32(proposedVal) ? Math.trunc(proposedVal) : null;
+  }
+  
+  if (typeof proposedVal !== 'string') return null;
+  
+  switch (ctx.entityType) {
+    case 'EMPRESA_TRANSPORTISTA':
+      return ensureEmpresaTransportista(tx, ctx, proposedVal);
+    case 'CHOFER':
+      return ensureChofer(tx, ctx, proposedVal);
+    case 'CAMION':
+      return ensureCamion(tx, ctx, proposedVal);
+    case 'ACOPLADO':
+      return ensureAcoplado(tx, ctx, proposedVal);
+    default:
+      return null;
+  }
+}
+
+// ============================================================================
+// RENOMBRADO DE ARCHIVO EN MINIO
+// ============================================================================
+async function renameDocumentInMinio(
+  tx: any,
+  documentId: number,
+  entityType: string,
+  templateName: string,
+  rawConfirmed: any,
+  rawDetected: string | undefined
+): Promise<void> {
+  const docBefore = await tx.document.findUnique({
+    where: { id: documentId },
+    select: { filePath: true, entityId: true }
+  });
+  
+  if (!docBefore?.filePath) return;
+  
+  const [bucketName, ...pathParts] = (docBefore.filePath as string).split('/');
+  const oldPath = pathParts.join('/');
+  
+  // Determinar ID para el nombre del archivo
+  let idForName: string | undefined;
+  const isPlateEntity = entityType === 'CAMION' || entityType === 'ACOPLADO';
+  
+  if (rawConfirmed !== undefined && rawConfirmed !== null && String(rawConfirmed).trim() !== '') {
+    idForName = isPlateEntity ? normalizePlate(String(rawConfirmed)) : normalizeDigits(String(rawConfirmed));
+  } else if (rawDetected) {
+    idForName = isPlateEntity ? normalizePlate(String(rawDetected)) : normalizeDigits(String(rawDetected));
+  }
+  
+  if (!idForName || idForName.length === 0) {
+    idForName = String(docBefore.entityId);
+  }
+  
+  const fileName = `${normalizeText(templateName || 'DOC')}_${normalizeText(entityType)}_${idForName}.pdf`;
+  const baseDir = oldPath.split('/').slice(0, -1).join('/');
+  const newPath = `${baseDir}/${fileName}`;
+  
+  // Mover en MinIO y actualizar DB
+  const { minioService } = await import('./minio.service');
+  await minioService.moveObject(bucketName, oldPath, newPath);
+  await tx.document.update({
+    where: { id: documentId },
+    data: { fileName, filePath: `${bucketName}/${newPath}` }
+  });
+}
+
+// ============================================================================
+// DEPRECACIÓN Y RETENCIÓN DE VERSIONES
+// ============================================================================
+async function handleDeprecationAndRetention(
+  tx: any,
+  updatedDoc: any
+): Promise<void> {
+  const { getEnvironment } = await import('../config/environment');
+  const { minioService } = await import('./minio.service');
+  const env = getEnvironment();
+  
+  const { templateId, expiresAt, tenantEmpresaId, entityType, entityId, id: docId } = updatedDoc;
+  if (!templateId || !expiresAt) return;
+  
+  // Marcar documentos anteriores como DEPRECADO
+  const stale = await tx.document.findMany({
+    where: {
+      tenantEmpresaId,
+      id: { not: docId },
+      entityType: entityType as any,
+      entityId,
+      templateId,
+      status: 'APROBADO' as any,
+      expiresAt,
+    },
+    select: { id: true, validationData: true },
+  });
+  
+  for (const s of stale) {
+    await tx.document.update({
+      where: { id: s.id },
+      data: {
+        status: 'DEPRECADO' as any,
+        validationData: { ...(s as any).validationData, replacedBy: docId, replacedAt: new Date().toISOString() },
+      },
+    });
+  }
+  
+  // Aplicar política de retención
+  const maxKeep = Math.max(0, Number(env.DOCS_MAX_DEPRECATED_VERSIONS || 2) || 2);
+  const deprecated = await tx.document.findMany({
+    where: {
+      tenantEmpresaId,
+      entityType: entityType as any,
+      entityId,
+      templateId,
+      status: 'DEPRECADO' as any,
+      expiresAt,
+    },
+    orderBy: { uploadedAt: 'desc' },
+    select: { id: true, filePath: true },
+  });
+  
+  if (deprecated.length <= maxKeep) return;
+  
+  const toDelete = deprecated.slice(maxKeep);
+  for (const d of toDelete) {
+    try {
+      if (d.filePath) {
+        const [bucketName, ...pathParts] = (d.filePath as string).split('/');
+        await minioService.deleteDocument(bucketName, pathParts.join('/'));
+      }
+    } catch { /* ignorar errores de eliminación */ }
+    try {
+      await tx.document.delete({ where: { id: d.id } });
+    } catch { /* ignorar errores de eliminación */ }
+  }
+}
+
+// ============================================================================
+// OBTENER IDENTIFICADOR NATURAL DE ENTIDAD
+// ============================================================================
+async function getEntityNaturalId(entityType: string, entityId: number): Promise<string | null> {
+  try {
+    switch (entityType) {
+      case 'EMPRESA_TRANSPORTISTA': {
+        const emp = await db.getClient().empresaTransportista.findUnique({ where: { id: entityId }, select: { cuit: true } });
+        return emp?.cuit || null;
+      }
+      case 'CHOFER': {
+        const ch = await db.getClient().chofer.findUnique({ where: { id: entityId }, select: { dni: true } });
+        return ch?.dni || null;
+      }
+      case 'CAMION': {
+        const cm = await db.getClient().camion.findUnique({ where: { id: entityId }, select: { patente: true } });
+        return cm?.patente || null;
+      }
+      case 'ACOPLADO': {
+        const ac = await db.getClient().acoplado.findUnique({ where: { id: entityId }, select: { patente: true } });
+        return ac?.patente || null;
+      }
+      default:
+        return null;
+    }
+  } catch {
+    return null;
+  }
+}
+
+// ============================================================================
+// CALCULAR ESTADO DE VALIDACIÓN IA
+// ============================================================================
+function calculateIAValidation(classification: any): any {
+  if (!classification) return null;
+  
+  const disparidades = classification.disparidades as any[] | null;
+  const hasDisparidades = Array.isArray(disparidades) && disparidades.length > 0;
+  const fueValidado = hasDisparidades || classification.validationStatus === 'validated';
+  
+  let disparitiesSeverity: string | null = null;
+  if (hasDisparidades) {
+    if (disparidades.some((d: any) => d.severidad === 'critica')) {
+      disparitiesSeverity = 'critica';
+    } else if (disparidades.some((d: any) => d.severidad === 'advertencia')) {
+      disparitiesSeverity = 'advertencia';
+    } else {
+      disparitiesSeverity = 'info';
+    }
+  }
+  
+  return {
+    validationStatus: fueValidado ? 'validated' : (classification.validationStatus || null),
+    hasDisparities: hasDisparidades,
+    disparitiesCount: hasDisparidades ? disparidades.length : 0,
+    disparitiesSeverity,
+  };
+}
+
+// ============================================================================
+// CLASE PRINCIPAL
+// ============================================================================
 export class ApprovalService {
+  
   static async getPendingDocuments(
     tenantEmpresaId: number,
     filters: { entityType?: string; minConfidence?: number; maxConfidence?: number; page?: number; limit?: number } = {}
@@ -31,68 +345,11 @@ export class ApprovalService {
       db.getClient().document.count({ where }),
     ]);
 
-    // Enriquecer documentos con entityNaturalId (CUIT/DNI/Patente)
+    // Enriquecer documentos
     const enrichedDocs = await Promise.all(
       documents.map(async (doc) => {
-        let entityNaturalId: string | null = null;
-        try {
-          switch (doc.entityType) {
-            case 'EMPRESA_TRANSPORTISTA': {
-              const empresa = await db.getClient().empresaTransportista.findUnique({
-                where: { id: doc.entityId },
-                select: { cuit: true },
-              });
-              entityNaturalId = empresa?.cuit || null;
-              break;
-            }
-            case 'CHOFER': {
-              const chofer = await db.getClient().chofer.findUnique({
-                where: { id: doc.entityId },
-                select: { dni: true },
-              });
-              entityNaturalId = chofer?.dni || null;
-              break;
-            }
-            case 'CAMION': {
-              const camion = await db.getClient().camion.findUnique({
-                where: { id: doc.entityId },
-                select: { patente: true },
-              });
-              entityNaturalId = camion?.patente || null;
-              break;
-            }
-            case 'ACOPLADO': {
-              const acoplado = await db.getClient().acoplado.findUnique({
-                where: { id: doc.entityId },
-                select: { patente: true },
-              });
-              entityNaturalId = acoplado?.patente || null;
-              break;
-            }
-          }
-        } catch {
-          // Si falla, entityNaturalId queda null
-        }
-        // Agregar estado de validación IA
-        const disparidades = (doc.classification as any)?.disparidades as any[] | null;
-        const hasDisparidades = Array.isArray(disparidades) && disparidades.length > 0;
-        
-        // Determinar si fue validado por IA (tiene disparidades O tiene validationStatus)
-        const fueValidado = hasDisparidades || (doc.classification as any)?.validationStatus === 'validated';
-        
-        const iaValidation = doc.classification ? {
-          validationStatus: fueValidado ? 'validated' : ((doc.classification as any)?.validationStatus || null),
-          hasDisparities: hasDisparidades,
-          disparitiesCount: hasDisparidades ? disparidades.length : 0,
-          disparitiesSeverity: hasDisparidades 
-            ? disparidades.some((d: any) => d.severidad === 'critica') 
-              ? 'critica' 
-              : disparidades.some((d: any) => d.severidad === 'advertencia')
-                ? 'advertencia'
-                : 'info'
-            : null,
-        } : null;
-        
+        const entityNaturalId = await getEntityNaturalId(doc.entityType as string, doc.entityId as number);
+        const iaValidation = calculateIAValidation(doc.classification);
         return { ...doc, entityNaturalId, iaValidation };
       })
     );
@@ -108,170 +365,64 @@ export class ApprovalService {
     
     if (!document) return null;
     
-    // Obtener el identificador natural de la entidad (CUIT, DNI o Patente)
-    let entityNaturalId: string | null = null;
-    
-    try {
-      switch (document.entityType) {
-        case 'EMPRESA_TRANSPORTISTA': {
-          const empresa = await db.getClient().empresaTransportista.findUnique({
-            where: { id: document.entityId },
-            select: { cuit: true },
-          });
-          entityNaturalId = empresa?.cuit || null;
-          break;
-        }
-        case 'CHOFER': {
-          const chofer = await db.getClient().chofer.findUnique({
-            where: { id: document.entityId },
-            select: { dni: true },
-          });
-          entityNaturalId = chofer?.dni || null;
-          break;
-        }
-        case 'CAMION': {
-          const camion = await db.getClient().camion.findUnique({
-            where: { id: document.entityId },
-            select: { patente: true },
-          });
-          entityNaturalId = camion?.patente || null;
-          break;
-        }
-        case 'ACOPLADO': {
-          const acoplado = await db.getClient().acoplado.findUnique({
-            where: { id: document.entityId },
-            select: { patente: true },
-          });
-          entityNaturalId = acoplado?.patente || null;
-          break;
-        }
-      }
-    } catch (e) {
-      // Si falla la búsqueda del identificador natural, no es crítico
-      console.warn('No se pudo obtener el identificador natural de la entidad:', e);
-    }
-    
-    return {
-      ...document,
-      entityNaturalId, // CUIT, DNI o Patente según el tipo de entidad
-    };
+    const entityNaturalId = await getEntityNaturalId(document.entityType as string, document.entityId as number);
+    return { ...document, entityNaturalId };
   }
 
   static async approveDocument(
     documentId: number,
     tenantEmpresaId: number,
-    reviewData: { reviewedBy: number; confirmedEntityType?: string; confirmedEntityId?: number | string; confirmedExpiration?: Date; confirmedTemplateId?: number; reviewNotes?: string }
+    reviewData: ReviewData
   ): Promise<any> {
     return db.getClient().$transaction(async (tx) => {
+      // 1. Obtener documento
       const document = await tx.document.findFirst({
         where: { id: documentId, tenantEmpresaId, status: 'PENDIENTE_APROBACION' as DocumentStatus },
         include: { classification: true, template: true },
       });
-      if (!document || !document.classification) throw new Error('Documento no encontrado o no está pendiente de aprobación');
-
-      const finalEntityType = (reviewData.confirmedEntityType || (document.classification as any).detectedEntityType || document.entityType) as any;
-
-      const normalizeDigits = (s: string): string => s.replace(/\D+/g, '');
-      const normalizePlate = (s: string): string => s.toUpperCase().replace(/[^A-Z0-9]/g, '');
-      const isInt32 = (n: number): boolean => Number.isInteger(n) && n >= -2147483648 && n <= 2147483647;
-
-      // Resolver ID interno según tipo de entidad y valor provisto/detectado
-      const proposedVal: unknown = (reviewData.confirmedEntityId !== undefined && reviewData.confirmedEntityId !== null)
-        ? reviewData.confirmedEntityId
-        : (document.classification as any).detectedEntityId;
-
-      let finalEntityId: number | null = null;
-      const tenantId = document.tenantEmpresaId as number;
-      const fallbackDadorId = (document as any).dadorCargaId as number;
-
-      const ensureEmpresaTransportista = async (cuitRaw: string): Promise<number | null> => {
-        const cuit = normalizeDigits(String(cuitRaw));
-        if (!cuit) return null;
-        let emp = await tx.empresaTransportista.findFirst({ where: { tenantEmpresaId: tenantId, dadorCargaId: fallbackDadorId, cuit } });
-        if (!emp) {
-          try {
-            emp = await tx.empresaTransportista.create({ data: { tenantEmpresaId: tenantId, dadorCargaId: fallbackDadorId, cuit, razonSocial: `Empresa ${cuit}`, activo: true } });
-          } catch { /* noop */ }
-        }
-        return emp ? (emp as any).id : null;
-      };
-
-      const ensureChofer = async (dniRaw: string): Promise<number | null> => {
-        const dni = normalizeDigits(String(dniRaw));
-        if (!dni) return null;
-        let ch = await tx.chofer.findFirst({ where: { tenantEmpresaId: tenantId, dniNorm: dni } });
-        if (!ch) {
-          try { ch = await tx.chofer.create({ data: { tenantEmpresaId: tenantId, dadorCargaId: fallbackDadorId, dni, dniNorm: dni, activo: true, phones: [] } }); } catch { /* noop */ }
-        }
-        return ch ? (ch as any).id : null;
-      };
-
-      const ensureCamion = async (plateRaw: string): Promise<number | null> => {
-        const patNorm = normalizePlate(String(plateRaw));
-        if (!patNorm) return null;
-        let cm = await tx.camion.findFirst({ where: { tenantEmpresaId: tenantId, patenteNorm: patNorm } });
-        if (!cm) {
-          try { cm = await tx.camion.create({ data: { tenantEmpresaId: tenantId, dadorCargaId: fallbackDadorId, patente: String(plateRaw), patenteNorm: patNorm, activo: true } }); } catch { /* noop */ }
-        }
-        return cm ? (cm as any).id : null;
-      };
-
-      const ensureAcoplado = async (plateRaw: string): Promise<number | null> => {
-        const patNorm = normalizePlate(String(plateRaw));
-        if (!patNorm) return null;
-        let ac = await tx.acoplado.findFirst({ where: { tenantEmpresaId: tenantId, patenteNorm: patNorm } });
-        if (!ac) {
-          try { ac = await tx.acoplado.create({ data: { tenantEmpresaId: tenantId, dadorCargaId: fallbackDadorId, patente: String(plateRaw), patenteNorm: patNorm, activo: true } }); } catch { /* noop */ }
-        }
-        return ac ? (ac as any).id : null;
-      };
-
-      if (typeof proposedVal === 'number') {
-        finalEntityId = isInt32(proposedVal) ? Math.trunc(proposedVal) : null;
-      } else if (typeof proposedVal === 'string') {
-        // Intentar resolver según tipo
-        if (finalEntityType === 'EMPRESA_TRANSPORTISTA') {
-          finalEntityId = await ensureEmpresaTransportista(proposedVal);
-        } else if (finalEntityType === 'CHOFER') {
-          // Si es puro número corto, podría ser ID interno; probar búsqueda directa si cabe en int32
-          const digits = normalizeDigits(proposedVal);
-          if (digits && digits.length <= 9) {
-            const n = Number(digits);
-            if (isInt32(n)) {
-              const exists = await tx.chofer.findFirst({ where: { tenantEmpresaId: tenantId, id: n } });
-              finalEntityId = exists ? n : null;
-            }
-          }
-          if (!finalEntityId) finalEntityId = await ensureChofer(proposedVal);
-        } else if (finalEntityType === 'CAMION') {
-          finalEntityId = await ensureCamion(proposedVal);
-        } else if (finalEntityType === 'ACOPLADO') {
-          finalEntityId = await ensureAcoplado(proposedVal);
-        }
+      
+      if (!document?.classification) {
+        throw new Error('Documento no encontrado o no está pendiente de aprobación');
       }
 
-      const finalExpiration = reviewData.confirmedExpiration || (document.classification as any).detectedExpiration || undefined;
+      // 2. Determinar tipo y ID de entidad
+      const classification = document.classification as any;
+      const finalEntityType = reviewData.confirmedEntityType || classification.detectedEntityType || document.entityType;
+      
+      const proposedVal = reviewData.confirmedEntityId ?? classification.detectedEntityId;
+      const ctx: EntityContext = {
+        tenantId: document.tenantEmpresaId as number,
+        dadorCargaId: (document as any).dadorCargaId as number,
+        entityType: finalEntityType,
+      };
+      
+      const finalEntityId = await resolveEntityId(tx, ctx, proposedVal);
+      
+      // 3. Validaciones
+      const finalExpiration = reviewData.confirmedExpiration || classification.detectedExpiration;
+      const tplIdCandidate = reviewData.confirmedTemplateId ?? document.templateId;
+      
       if (!finalEntityType) throw new Error('Debe seleccionar la entidad');
       if (!finalEntityId) throw new Error('Debe confirmarse la identidad de la entidad antes de aprobar');
-      const tplIdCandidate = reviewData.confirmedTemplateId ?? (document.templateId || undefined);
       if (!tplIdCandidate) throw new Error('Debe seleccionar el tipo de documento');
       if (!finalExpiration) throw new Error('Debe especificar la fecha de vencimiento');
 
+      // 4. Actualizar clasificación
       await tx.documentClassification.update({
         where: { documentId },
         data: { reviewedAt: new Date(), reviewedBy: reviewData.reviewedBy, reviewNotes: reviewData.reviewNotes },
       });
 
-      // Intentar mapear automáticamente la plantilla si no se confirmó una
-      let newTemplateId: number | undefined = tplIdCandidate;
-      if (!newTemplateId) {
-        const detectedName = (document.classification as any)?.detectedDocumentType as string | undefined;
-        if (detectedName) {
-          const tpl = await tx.documentTemplate.findFirst({ where: { name: detectedName, entityType: finalEntityType } as any });
-          if (tpl) newTemplateId = (tpl as any).id;
-        }
+      // 5. Mapear plantilla automáticamente si es necesario
+      let newTemplateId = tplIdCandidate;
+      if (!newTemplateId && classification.detectedDocumentType) {
+        const tpl = await tx.documentTemplate.findFirst({
+          where: { name: classification.detectedDocumentType, entityType: finalEntityType } as any
+        });
+        if (tpl) newTemplateId = (tpl as any).id;
       }
 
+      // 6. Actualizar documento
       const updated = await tx.document.update({
         where: { id: documentId },
         data: {
@@ -285,104 +436,22 @@ export class ApprovalService {
         include: { template: true },
       });
 
-      // Renombrar archivo en MinIO al aprobar: TIPO_ENTIDAD_IDDOCUMENTO.pdf (usar DNI/CUIT/patente detectada o confirmada)
+      // 7. Renombrar archivo en MinIO
       try {
-        const docBefore = await tx.document.findUnique({ where: { id: updated.id }, select: { filePath: true, dadorCargaId: true } });
-        if (docBefore?.filePath) {
-          const [bucketName, ...pathParts] = (docBefore.filePath as string).split('/');
-          const oldPath = pathParts.join('/');
-          const norm = (s: string) => String(s)
-            .normalize('NFD')
-            .replace(/[\u0300-\u036f]/g, '')
-            .toUpperCase()
-            .replace(/[^A-Z0-9]+/g, '_')
-            .replace(/(^_+|_+$)/g, '');
-          const digits = (s: string) => String(s).replace(/\D+/g, '');
-          const plate = (s: string) => String(s).toUpperCase().replace(/[^A-Z0-9]/g, '');
-          const rawDetected = (document.classification as any)?.detectedEntityId as string | undefined;
-          const rawConfirmed = (reviewData.confirmedEntityId as any);
-          let idForName: string | undefined;
-          const et = updated.entityType as any as string;
-          if (rawConfirmed !== undefined && rawConfirmed !== null && String(rawConfirmed).trim() !== '') {
-            idForName = (et === 'CAMION' || et === 'ACOPLADO') ? plate(String(rawConfirmed)) : digits(String(rawConfirmed));
-          } else if (rawDetected) {
-            idForName = (et === 'CAMION' || et === 'ACOPLADO') ? plate(String(rawDetected)) : digits(String(rawDetected));
-          }
-          if (!idForName || idForName.length === 0) idForName = String(updated.entityId);
-          const fileName = `${norm(updated.template?.name || 'DOC')}_${norm(updated.entityType as any)}_${idForName}.pdf`;
-          const baseDir = oldPath.split('/').slice(0, -1).join('/');
-          const newPath = `${baseDir}/${fileName}`;
-          // Mover en MinIO
-          const { minioService } = await import('./minio.service');
-          await minioService.moveObject(bucketName, oldPath, newPath);
-          // Actualizar DB
-          await tx.document.update({ where: { id: updated.id }, data: { fileName, filePath: `${bucketName}/${newPath}` } });
-        }
-      } catch { /* noop */ }
+        await renameDocumentInMinio(
+          tx,
+          updated.id,
+          updated.entityType as string,
+          updated.template?.name || 'DOC',
+          reviewData.confirmedEntityId,
+          classification.detectedEntityId
+        );
+      } catch { /* ignorar errores de renombrado */ }
 
-      // Deprecación y retención tras aprobar manualmente
+      // 8. Deprecar versiones anteriores y aplicar retención
       try {
-        const { getEnvironment } = await import('../config/environment');
-        const { minioService } = await import('./minio.service');
-        const env = getEnvironment();
-
-        const tplId = updated.templateId;
-        const exp = updated.expiresAt || null;
-        if (tplId && exp) {
-          // Marcar anteriores aprobados con misma combinación como DEPRECADO
-          const stale = await tx.document.findMany({
-            where: {
-              tenantEmpresaId: updated.tenantEmpresaId as number,
-              id: { not: updated.id },
-              entityType: updated.entityType as any,
-              entityId: updated.entityId,
-              templateId: tplId,
-              status: 'APROBADO' as any,
-              expiresAt: exp,
-            },
-            select: { id: true, validationData: true },
-          });
-          for (const s of stale) {
-            await tx.document.update({
-              where: { id: s.id },
-              data: {
-                status: 'DEPRECADO' as any,
-                validationData: { ...(s as any).validationData, replacedBy: updated.id, replacedAt: new Date().toISOString() },
-              },
-            });
-          }
-
-          // Retención: mantener N DEPRECADO más recientes
-          const maxKeep = Math.max(0, Number(env.DOCS_MAX_DEPRECATED_VERSIONS || 2) || 2);
-          if (maxKeep >= 0) {
-            const deprecated = await tx.document.findMany({
-              where: {
-                tenantEmpresaId: updated.tenantEmpresaId as number,
-                entityType: updated.entityType as any,
-                entityId: updated.entityId,
-                templateId: tplId,
-                status: 'DEPRECADO' as any,
-                expiresAt: exp,
-              },
-              orderBy: { uploadedAt: 'desc' },
-              select: { id: true, filePath: true },
-            });
-            if (deprecated.length > maxKeep) {
-              const toDelete = deprecated.slice(maxKeep);
-              for (const d of toDelete) {
-                try {
-                  if (d.filePath) {
-                    const [bucketName, ...pathParts] = (d.filePath as string).split('/');
-                    const objectPath = pathParts.join('/');
-                    await minioService.deleteDocument(bucketName, objectPath);
-                  }
-                } catch {}
-                try { await tx.document.delete({ where: { id: d.id } }); } catch {}
-              }
-            }
-          }
-        }
-      } catch {}
+        await handleDeprecationAndRetention(tx, updated);
+      } catch { /* ignorar errores de deprecación */ }
 
       return updated;
     });
@@ -402,12 +471,14 @@ export class ApprovalService {
         where: { id: documentId, tenantEmpresaId, status: 'PENDIENTE_APROBACION' as DocumentStatus },
         include: { classification: true },
       });
+      
       if (!document) throw new Error('Documento no encontrado o no está pendiente de aprobación');
 
       if (document.classification) {
+        const notes = `RECHAZADO: ${reviewData.reason}${reviewData.reviewNotes ? ` | ${reviewData.reviewNotes}` : ''}`;
         await tx.documentClassification.update({
           where: { documentId },
-          data: { reviewedAt: new Date(), reviewedBy: reviewData.reviewedBy, reviewNotes: `RECHAZADO: ${reviewData.reason}${reviewData.reviewNotes ? ` | ${reviewData.reviewNotes}` : ''}` },
+          data: { reviewedAt: new Date(), reviewedBy: reviewData.reviewedBy, reviewNotes: notes },
         });
       }
 
@@ -429,17 +500,23 @@ export class ApprovalService {
   }
 
   static async getApprovalStats(tenantEmpresaId: number) {
-    const stats = await db.getClient().document.groupBy({ by: ['status'], where: { tenantEmpresaId }, _count: { status: true } });
-    const result = { pendienteAprobacion: 0, aprobados: 0, rechazados: 0, total: 0 } as any;
-    stats.forEach((s) => {
-      const c = (s as any)._count.status;
-      result.total += c;
-      if (s.status === ('PENDIENTE_APROBACION' as any)) result.pendienteAprobacion = c;
-      else if (s.status === ('APROBADO' as any)) result.aprobados = c;
-      else if (s.status === ('RECHAZADO' as any)) result.rechazados = c;
+    const stats = await db.getClient().document.groupBy({
+      by: ['status'],
+      where: { tenantEmpresaId },
+      _count: { status: true }
     });
+    
+    const result = { pendienteAprobacion: 0, aprobados: 0, rechazados: 0, total: 0 };
+    
+    for (const s of stats) {
+      const count = (s as any)._count.status;
+      result.total += count;
+      
+      if (s.status === 'PENDIENTE_APROBACION') result.pendienteAprobacion = count;
+      else if (s.status === 'APROBADO') result.aprobados = count;
+      else if (s.status === 'RECHAZADO') result.rechazados = count;
+    }
+    
     return result;
   }
 }
-
-
