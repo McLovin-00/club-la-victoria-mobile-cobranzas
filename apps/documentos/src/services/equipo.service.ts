@@ -3,6 +3,7 @@ import { createError } from '../middlewares/error.middleware';
 import { AuditService } from './audit.service';
 import { DocumentArchiveService } from './document-archive.service';
 import { ComplianceService, EquipoInfo } from './compliance.service';
+import { AppLogger } from '../config/logger';
 
 function normalizeDni(dni: string): string {
   return (dni || '').replace(/\D+/g, '');
