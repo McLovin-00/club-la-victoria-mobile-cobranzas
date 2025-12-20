@@ -9,10 +9,9 @@ import { AppLogger } from '../config/logger';
 import { getEnvironment } from '../config/environment';
 import type { DocumentStatus } from '../../../node_modules/.prisma/documentos';
 
-/**
- * Document Validation Worker - Procesamiento Asíncrono Elegante
- */
-
+// ============================================================================
+// TIPOS
+// ============================================================================
 interface DocumentValidationJobData {
   documentId: number;
   filePath: string;
@@ -27,26 +26,235 @@ interface ValidationResult {
   errors?: string[];
 }
 
+interface ClassificationData {
+  entityType: string | null;
+  entityId: string | null;
+  documentType: string | null;
+  expirationDate: Date | null;
+  confidence: number;
+  raw: any;
+}
+
+// ============================================================================
+// HELPERS DE NORMALIZACIÓN
+// ============================================================================
+const normalizeDni = (dni: string): string => (dni || '').replace(/\D+/g, '');
+const normalizeCuit = (cuit: string): string => (cuit || '').replace(/\D+/g, '');
+const normalizePlate = (p: string): string => (p || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
+
+const VALID_ENTITY_TYPES = ['DADOR', 'EMPRESA_TRANSPORTISTA', 'CHOFER', 'CAMION', 'ACOPLADO'];
+
+function sanitizeEntityType(val: any): string | null {
+  const s = String(val ?? '').trim().toUpperCase();
+  return VALID_ENTITY_TYPES.includes(s) ? s : null;
+}
+
+function normalizeUnknown(val: any): string | null {
+  if (val === undefined || val === null) return null;
+  const s = String(val).trim();
+  if (!s) return null;
+  const u = s.toUpperCase();
+  return (u === 'DESCONOCIDO' || u === 'UNKNOWN' || u === 'N/A' || u === '-') ? null : s;
+}
+
+function parseExpirationDate(iso: string | undefined): Date | null {
+  if (!iso) return null;
+  const d = new Date(iso);
+  return isNaN(d.getTime()) ? null : d;
+}
+
+function cleanError(error: any): { message: string; stack: string; code?: string; name: string } {
+  return {
+    message: error?.message || 'Error desconocido',
+    stack: error?.stack || 'Sin stack trace',
+    code: error?.code,
+    name: error?.name || 'Error',
+  };
+}
+
+// ============================================================================
+// RESOLUCIÓN DE ENTIDADES
+// ============================================================================
+async function resolveEntity(
+  tenantId: number,
+  dadorId: number,
+  entityType: string,
+  entityIdRaw: string
+): Promise<{ type: string; id: number; dadorId: number } | null> {
+  
+  if (entityType === 'DADOR' || entityType === 'EMPRESA_TRANSPORTISTA') {
+    const cuit = normalizeCuit(entityIdRaw);
+    if (!cuit || !dadorId) return null;
+    
+    let empresa = await db.getClient().empresaTransportista.findFirst({
+      where: { tenantEmpresaId: tenantId, dadorCargaId: dadorId, cuit }
+    });
+    
+    if (!empresa) {
+      try {
+        const { EmpresaTransportistaService } = await import('../services/empresa-transportista.service');
+        empresa = await EmpresaTransportistaService.create({
+          tenantEmpresaId: tenantId, dadorCargaId: dadorId, cuit, razonSocial: `Empresa ${cuit}`, activo: true
+        });
+      } catch { return null; }
+    }
+    
+    return empresa ? { type: 'EMPRESA_TRANSPORTISTA', id: (empresa as any).id, dadorId } : null;
+  }
+  
+  if (entityType === 'CHOFER') {
+    const dni = normalizeDni(entityIdRaw);
+    let chofer = await db.getClient().chofer.findFirst({ where: { tenantEmpresaId: tenantId, dniNorm: dni } });
+    
+    if (!chofer) {
+      try {
+        const { MaestrosService } = await import('../services/maestros.service');
+        chofer = await MaestrosService.createChofer({ tenantEmpresaId: tenantId, dadorCargaId: dadorId, dni, activo: true, phones: [] });
+      } catch { return null; }
+    }
+    
+    return chofer ? { type: 'CHOFER', id: (chofer as any).id, dadorId: (chofer as any).dadorCargaId } : null;
+  }
+  
+  if (entityType === 'CAMION') {
+    const pat = normalizePlate(entityIdRaw);
+    let camion = await db.getClient().camion.findFirst({ where: { tenantEmpresaId: tenantId, patenteNorm: pat } });
+    
+    if (!camion) {
+      try {
+        const { MaestrosService } = await import('../services/maestros.service');
+        camion = await MaestrosService.createCamion({ tenantEmpresaId: tenantId, dadorCargaId: dadorId, patente: entityIdRaw, activo: true });
+      } catch { return null; }
+    }
+    
+    return camion ? { type: 'CAMION', id: (camion as any).id, dadorId: (camion as any).dadorCargaId } : null;
+  }
+  
+  if (entityType === 'ACOPLADO') {
+    const pat = normalizePlate(entityIdRaw);
+    let acoplado = await db.getClient().acoplado.findFirst({ where: { tenantEmpresaId: tenantId, patenteNorm: pat } });
+    
+    if (!acoplado) {
+      try {
+        const { MaestrosService } = await import('../services/maestros.service');
+        acoplado = await MaestrosService.createAcoplado({ tenantEmpresaId: tenantId, dadorCargaId: dadorId, patente: entityIdRaw, activo: true });
+      } catch { return null; }
+    }
+    
+    return acoplado ? { type: 'ACOPLADO', id: (acoplado as any).id, dadorId: (acoplado as any).dadorCargaId } : null;
+  }
+  
+  return null;
+}
+
+// ============================================================================
+// DEPRECACIÓN Y RETENCIÓN
+// ============================================================================
+async function deprecateDuplicates(updatedDoc: any): Promise<void> {
+  if (!updatedDoc.expiresAt) return;
+  
+  const stale = await db.getClient().document.findMany({
+    where: {
+      id: { not: updatedDoc.id },
+      tenantEmpresaId: updatedDoc.tenantEmpresaId,
+      entityType: updatedDoc.entityType as any,
+      entityId: updatedDoc.entityId,
+      templateId: updatedDoc.templateId,
+      status: 'APROBADO' as any,
+      expiresAt: updatedDoc.expiresAt,
+    },
+    select: { id: true, validationData: true },
+  });
+  
+  for (const s of stale) {
+    await db.getClient().document.update({
+      where: { id: s.id },
+      data: {
+        status: 'DEPRECADO' as any,
+        validationData: { ...(s as any).validationData, replacedBy: updatedDoc.id, replacedAt: new Date().toISOString() },
+      },
+    });
+  }
+  
+  if (stale.length > 0) {
+    AppLogger.info(`♻️ Deprecados ${stale.length} documentos previos`, { documentId: updatedDoc.id });
+  }
+}
+
+async function applyRetentionPolicy(updatedDoc: any): Promise<void> {
+  const env = getEnvironment();
+  const maxKeep = Math.max(0, Number(env.DOCS_MAX_DEPRECATED_VERSIONS || 2) || 2);
+  
+  const deprecated = await db.getClient().document.findMany({
+    where: {
+      tenantEmpresaId: updatedDoc.tenantEmpresaId,
+      entityType: updatedDoc.entityType as any,
+      entityId: updatedDoc.entityId,
+      templateId: updatedDoc.templateId,
+      status: 'DEPRECADO' as any,
+      expiresAt: updatedDoc.expiresAt,
+    },
+    orderBy: { uploadedAt: 'desc' },
+    select: { id: true, filePath: true },
+  });
+  
+  if (deprecated.length <= maxKeep) return;
+  
+  const toDelete = deprecated.slice(maxKeep);
+  for (const d of toDelete) {
+    try {
+      if (d.filePath) {
+        const [bucketName, ...pathParts] = (d.filePath as string).split('/');
+        await minioService.deleteDocument(bucketName, pathParts.join('/'));
+      }
+    } catch { AppLogger.warn('No se pudo eliminar objeto de MinIO', { id: d.id }); }
+    
+    try {
+      await db.getClient().document.delete({ where: { id: d.id } });
+    } catch { AppLogger.warn('No se pudo eliminar registro', { id: d.id }); }
+  }
+  
+  AppLogger.info(`🧹 Retención: eliminadas ${toDelete.length} versiones deprecadas`);
+}
+
+// ============================================================================
+// NOTIFICACIONES WEBSOCKET
+// ============================================================================
+function notifyStatusChange(doc: any, newStatus: string, errors?: string[]): void {
+  webSocketService.notifyDocumentStatusChange({
+    documentId: doc.id,
+    empresaId: doc.dadorCargaId ?? doc.empresaId,
+    entityType: doc.entityType,
+    entityId: doc.entityId,
+    oldStatus: doc.status,
+    newStatus,
+    templateName: doc.template?.name,
+    fileName: doc.fileName,
+    validationNotes: errors?.join(', '),
+  });
+  webSocketService.notifyDashboardUpdate(doc.dadorCargaId ?? doc.empresaId);
+}
+
+// ============================================================================
+// WORKER PRINCIPAL
+// ============================================================================
 class DocumentValidationWorker {
   private worker: Worker;
   private redis: Redis;
 
   constructor() {
     const env = getEnvironment();
-    
-    // Configurar Redis para BullMQ (usar REDIS_URL)
     const url = env.REDIS_URL || 'redis://localhost:6379';
     this.redis = new Redis(url, { maxRetriesPerRequest: null });
 
-    // Crear worker para validación de documentos
     this.worker = new Worker(
       'document-validation',
       this.processValidation.bind(this),
       {
         connection: this.redis,
-        concurrency: 2, // Reducir concurrencia para evitar sobrecarga
-        removeOnComplete: { count: 10 }, // Mantener solo 10 jobs completados
-        removeOnFail: { count: 50 }, // Mantener 50 jobs fallidos para debugging
+        concurrency: 2,
+        removeOnComplete: { count: 10 },
+        removeOnFail: { count: 50 },
       }
     );
 
@@ -54,339 +262,153 @@ class DocumentValidationWorker {
     AppLogger.info('🔄 Document Validation Worker iniciado');
   }
 
-  /**
-   * Procesar validación de documento
-   */
   private async processValidation(job: Job<DocumentValidationJobData>): Promise<ValidationResult> {
-    const { documentId, filePath, templateName, entityType } = job.data;
-    
-    AppLogger.info(`🔍 Procesando validación documento ${documentId}`, {
-      templateName,
-      entityType,
-    });
+    const { documentId, filePath, templateName } = job.data;
+    AppLogger.info(`🔍 Procesando validación documento ${documentId}`, { templateName });
 
     try {
-      // Verificar al inicio que el documento existe
-      const docCheck = await db.getClient().document.findUnique({
-        where: { id: documentId },
-        select: { id: true }
-      });
+      // Verificar documento existe
+      const exists = await this.documentExists(documentId);
+      if (!exists) return { isValid: false, errors: ['Documento eliminado'] };
 
-      if (!docCheck) {
-        AppLogger.warn(`⚠️ Documento ${documentId} ya fue eliminado, cancelando job`);
-        return { isValid: false, errors: ['Documento eliminado'] };
-      }
-
-      // Actualizar estado a CLASIFICANDO
+      // Actualizar estado
       await db.getClient().document.update({ where: { id: documentId }, data: { status: 'CLASIFICANDO' as DocumentStatus } });
 
-      // Obtener URL firmada para el archivo
-      const [bucketName, ...pathParts] = filePath.split('/');
-      const objectPath = pathParts.join('/');
-      const signedUrl = await minioService.getSignedUrl(bucketName, objectPath, 3600);
-
-      // Clasificar usando Flowise (no aprobar automáticamente)
-      const clf = await flowiseService.classifyDocument(signedUrl, templateName, { documentId });
-      const rawSnippet = (() => { try { return clf?.raw ? JSON.stringify(clf.raw) : undefined; } catch { return undefined; } })();
-      const logPayload = {
-        documentId,
-        entityTypeDetected: clf?.entityType,
-        entityIdDetected: clf?.entityId,
-        expirationDetected: clf?.expirationDate,
-        documentTypeDetected: clf?.documentType,
-        confidence: clf?.confidence,
-        rawSnippet,
-      };
-      AppLogger.info(`🤖 Resultado Flowise (classifyDocument): ${JSON.stringify(logPayload)}`);
-
-      // Persistiremos el ID detectado como string (para soportar CUIT completos y valores alfanuméricos)
-      const detectedIdStr = (() => {
-        const v = (clf as any).entityId ?? (clf as any).raw?.metadata?.aiParsed?.idEntidad;
-        if (v === undefined || v === null) return null;
-        return String(v).trim() || null;
-      })();
-
-      // Normalizar valores desconocidos para no violar enums/constraints
-      const normalizeUnknown = (val: any): string | null => {
-        if (val === undefined || val === null) return null;
-        const s = String(val).trim();
-        if (!s) return null;
-        const u = s.toUpperCase();
-        return (u === 'DESCONOCIDO' || u === 'UNKNOWN' || u === 'N/A' || u === '-') ? null : s;
-      };
-      const sanitizeEntityType = (val: any): any => {
-        const s = String(val ?? '').trim().toUpperCase();
-        return ['DADOR','EMPRESA_TRANSPORTISTA','CHOFER','CAMION','ACOPLADO'].includes(s) ? (s as any) : null;
-      };
-      const safeEntityType = sanitizeEntityType((clf as any)?.entityType);
-      const safeDetectedId = normalizeUnknown(detectedIdStr);
-      const safeDocType = normalizeUnknown((clf as any)?.documentType);
-      const safeExp = (() => { const iso = (clf as any)?.expirationDate; if (!iso) return null; const d = new Date(iso); return isNaN(d.getTime()) ? null : d; })();
-
-      // Verificar que el documento aún existe antes de persistir clasificación
-      const docExists = await db.getClient().document.findUnique({
-        where: { id: documentId },
-        select: { id: true }
-      });
-
-      if (!docExists) {
-        AppLogger.warn(`⚠️ Documento ${documentId} ya fue eliminado, cancelando job`);
-        return { isValid: false, errors: ['Documento inexistente'] };
-      }
-
+      // Clasificar con Flowise
+      const classification = await this.classifyDocument(documentId, filePath, templateName);
+      
       // Persistir clasificación
-      await db.getClient().documentClassification.upsert({
-        where: { documentId },
-        create: {
-          documentId,
-          detectedEntityType: safeEntityType,
-          detectedEntityId: safeDetectedId,
-          detectedExpiration: safeExp,
-          detectedDocumentType: safeDocType,
-          confidence: clf.confidence || 0,
-          aiResponse: clf.raw || null,
-        },
-        update: {
-          detectedEntityType: safeEntityType,
-          detectedEntityId: safeDetectedId,
-          detectedExpiration: safeExp,
-          detectedDocumentType: safeDocType,
-          confidence: clf.confidence || 0,
-          aiResponse: clf.raw || null,
-        },
-      });
-
-      // Si Flowise detectó tipo de documento y entidad, ajustar plantilla del documento
-      // IMPORTANTE: NO crear plantillas automáticamente - solo buscar existentes
-      try {
-        if (safeDocType && safeEntityType) {
-          const tpl = await db.getClient().documentTemplate.findFirst({
-            where: { name: safeDocType, entityType: safeEntityType as any } as any,
-          });
-          const templateIdToUse: number | null = (tpl as any)?.id ?? null;
-          
-          if (!templateIdToUse) {
-            // Plantilla no existe - NO crear automáticamente
-            // Loguear advertencia para que admin la cree manualmente si es necesaria
-            AppLogger.warn(`⚠️ Plantilla no encontrada: ${safeDocType} (${safeEntityType}) - Documento ID: ${documentId}`);
-          } else if (templateIdToUse) {
-            // Verificar nuevamente que el documento existe antes de actualizar
-            const stillExists = await db.getClient().document.findUnique({
-              where: { id: documentId },
-              select: { id: true }
-            });
-            if (stillExists) {
-              await db.getClient().document.update({ where: { id: documentId }, data: { templateId: templateIdToUse } });
-            }
-          }
-        }
-      } catch { /* noop */ }
-
-      // Marcar pendiente de aprobación humana (no rechazar automáticamente por "desconocido")
-      // Verificar nuevamente que el documento existe antes de actualizar status
-      const finalExists = await db.getClient().document.findUnique({
-        where: { id: documentId },
-        select: { id: true }
-      });
-      if (finalExists) {
+      await this.saveClassification(documentId, classification);
+      
+      // Asociar plantilla si corresponde
+      await this.associateTemplate(documentId, classification);
+      
+      // Marcar pendiente de aprobación
+      if (await this.documentExists(documentId)) {
         await db.getClient().document.update({ where: { id: documentId }, data: { status: 'PENDIENTE_APROBACION' as DocumentStatus } });
-        
-        // Encolar validación IA si está habilitada
-        try {
-          const { documentValidationService } = await import('../services/document-validation.service');
-          if (documentValidationService.isEnabled()) {
-            await queueService.addDocumentAIValidation({
-              documentId,
-              esRechequeo: false,
-            });
-            AppLogger.info(`🤖 Documento ${documentId} encolado para validación IA automática`);
-          }
-        } catch (aiError) {
-          // No fallar el job de clasificación si la validación IA falla al encolar
-          AppLogger.warn(`⚠️ Error encolando validación IA para documento ${documentId}:`, {
-            error: (aiError as Error)?.message || 'Unknown',
-          });
-        }
+        await this.enqueueAIValidation(documentId);
       }
 
-      return { isValid: true, extractedData: { classification: clf }, confidence: clf.confidence };
+      return { isValid: true, confidence: classification.confidence, extractedData: classification.raw };
     } catch (error) {
-      // Limpiar el error para evitar referencias circulares en logs
-      const cleanError = {
-        message: (error as any)?.message || 'Error desconocido',
-        stack: (error as any)?.stack || 'Sin stack trace',
-        code: (error as any)?.code || undefined,
-        name: (error as any)?.name || 'Error'
-      };
-      AppLogger.error(`💥 Error validando documento ${documentId}:`, cleanError);
-      await this.markDocumentAsRejected(documentId, ['Error interno de validación']);
-      throw error;
+      AppLogger.error(`💥 Error procesando documento ${documentId}:`, cleanError(error));
+      return { isValid: false, errors: [(error as Error).message] };
     }
   }
 
-  /**
-   * Validar documento usando Flowise con fallback
-   */
-  private async validateWithFlowise(
-    fileUrl: string,
-    templateName: string,
-    entityType: string
-  ): Promise<ValidationResult> {
-    try {
-      // Intentar validación con Flowise
-      const flowiseResult = await flowiseService.validateDocument(
-        fileUrl,
-        templateName,
-        entityType
-      );
+  private async documentExists(documentId: number): Promise<boolean> {
+    const doc = await db.getClient().document.findUnique({ where: { id: documentId }, select: { id: true } });
+    return !!doc;
+  }
 
-      AppLogger.info(`🤖 Validación Flowise completada`, {
-        isValid: flowiseResult.isValid,
-        confidence: flowiseResult.confidence,
+  private async classifyDocument(documentId: number, filePath: string, templateName: string): Promise<ClassificationData> {
+    const [bucketName, ...pathParts] = filePath.split('/');
+    const signedUrl = await minioService.getSignedUrl(bucketName, pathParts.join('/'), 3600);
+    
+    const clf = await flowiseService.classifyDocument(signedUrl, templateName, { documentId });
+    
+    const detectedId = clf.entityId ?? (clf.raw?.metadata?.aiParsed?.idEntidad);
+    const detectedIdStr = detectedId !== undefined && detectedId !== null ? String(detectedId).trim() || null : null;
+
+    AppLogger.info(`🤖 Resultado Flowise`, {
+      documentId,
+      entityType: clf.entityType,
+      entityId: detectedIdStr,
+      confidence: clf.confidence,
+    });
+
+    return {
+      entityType: sanitizeEntityType(clf.entityType),
+      entityId: normalizeUnknown(detectedIdStr),
+      documentType: normalizeUnknown(clf.documentType),
+      expirationDate: parseExpirationDate(clf.expirationDate),
+      confidence: clf.confidence || 0,
+      raw: clf.raw || null,
+    };
+  }
+
+  private async saveClassification(documentId: number, data: ClassificationData): Promise<void> {
+    if (!await this.documentExists(documentId)) return;
+
+    await db.getClient().documentClassification.upsert({
+      where: { documentId },
+      create: {
+        documentId,
+        detectedEntityType: data.entityType as any,
+        detectedEntityId: data.entityId,
+        detectedExpiration: data.expirationDate,
+        detectedDocumentType: data.documentType,
+        confidence: data.confidence,
+        aiResponse: data.raw,
+      },
+      update: {
+        detectedEntityType: data.entityType as any,
+        detectedEntityId: data.entityId,
+        detectedExpiration: data.expirationDate,
+        detectedDocumentType: data.documentType,
+        confidence: data.confidence,
+        aiResponse: data.raw,
+      },
+    });
+  }
+
+  private async associateTemplate(documentId: number, data: ClassificationData): Promise<void> {
+    if (!data.documentType || !data.entityType) return;
+
+    try {
+      const tpl = await db.getClient().documentTemplate.findFirst({
+        where: { name: data.documentType, entityType: data.entityType as any } as any,
       });
 
-      return {
-        isValid: flowiseResult.isValid,
-        extractedData: flowiseResult.extractedData,
-        confidence: flowiseResult.confidence,
-        errors: flowiseResult.errors,
-      };
-    } catch (error) {
-      // Limpiar el error para evitar referencias circulares en logs
-      const cleanError = {
-        message: (error as any)?.message || 'Error desconocido',
-        code: (error as any)?.code || undefined,
-        name: (error as any)?.name || 'Error'
-      };
-      AppLogger.warn('⚠️ Flowise no disponible, usando simulación:', cleanError);
-      return await this.simulateValidation(fileUrl, templateName);
-    }
+      if (!tpl) {
+        AppLogger.warn(`⚠️ Plantilla no encontrada: ${data.documentType} (${data.entityType})`);
+        return;
+      }
+
+      if (await this.documentExists(documentId)) {
+        await db.getClient().document.update({ where: { id: documentId }, data: { templateId: (tpl as any).id } });
+      }
+    } catch { /* noop */ }
   }
 
-  /**
-   * Simulación de validación (fallback)
-   */
-  private async simulateValidation(
-    fileUrl: string,
-    templateName: string
-  ): Promise<ValidationResult> {
-    // Simular delay de procesamiento
-    await new Promise(resolve => setTimeout(resolve, 1500));
-
-    // Simular diferentes resultados basados en el template
-    const isValid = Math.random() > 0.15; // 85% de documentos válidos
-    
-    if (isValid) {
-      return {
-        isValid: true,
-        extractedData: {
-          templateName,
-          extractedText: `Texto extraído simulado de ${templateName}`,
-          confidence: Math.random() * 0.2 + 0.8, // 80-100% confianza
-          processedAt: new Date().toISOString(),
-          source: 'simulation',
-        },
-        confidence: Math.random() * 0.2 + 0.8,
-      };
-    } else {
-      return {
-        isValid: false,
-        errors: [
-          'Documento ilegible',
-          'Información incompleta',
-          'Formato no válido',
-        ].slice(0, Math.floor(Math.random() * 2) + 1),
-      };
-    }
-  }
-
-  /**
-   * Marcar documento como aprobado
-   */
-  private async markDocumentAsApproved(documentId: number, extractedData: any): Promise<void> {
+  private async enqueueAIValidation(documentId: number): Promise<void> {
     try {
-      // Obtener información del documento antes de actualizar
+      const { documentValidationService } = await import('../services/document-validation.service');
+      if (documentValidationService.isEnabled()) {
+        await queueService.addDocumentAIValidation({ documentId, esRechequeo: false });
+        AppLogger.info(`🤖 Documento ${documentId} encolado para validación IA`);
+      }
+    } catch (err) {
+      AppLogger.warn(`⚠️ Error encolando validación IA:`, { error: (err as Error).message });
+    }
+  }
+
+  async markDocumentAsApproved(documentId: number, extractedData: any): Promise<void> {
+    try {
       const documentBefore = await db.getClient().document.findUnique({
         where: { id: documentId },
-        include: {
-          template: true,
-        },
+        include: { template: true },
       });
+      if (!documentBefore) return;
 
-      // Mapear campos de IA al documento
       const ai = extractedData?.metadata?.aiParsed || {};
+      const tenantId = (documentBefore as any).tenantEmpresaId;
+      const dadorId = (documentBefore as any).dadorCargaId;
 
-      // Intentar mapear Entidad/Id_Entidad → entidad real
-      let newEntityType = documentBefore?.entityType;
-      let newEntityId = documentBefore?.entityId;
-      let newDadorId = (documentBefore as any)?.dadorCargaId ?? undefined;
-
-      const normalizeDni = (dni: string) => (dni || '').replace(/\D+/g, '');
-      const normalizeCuit = (cuit: string) => (cuit || '').replace(/\D+/g, '');
-      const normalizePlate = (p: string) => (p || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
-
-      try {
-        if (ai?.entidad && ai?.idEntidad && ai.entidad.toUpperCase() !== 'DESCONOCIDO' && ai.idEntidad !== 'Desconocido') {
-          const entidad = ai.entidad.toUpperCase();
-          const tenantId = (documentBefore as any).tenantEmpresaId;
-          // Intentar resolver dador explícito si viene en AI; si no, usar el del documento
-          const fallbackDadorId = (documentBefore as any).dadorCargaId as number;
-          if (entidad === 'DADOR' || entidad === 'EMPRESA_TRANSPORTISTA') {
-            // Crear/usar Empresa Transportista bajo el dador actual (fallback) usando CUIT
-            const cuit = normalizeCuit(String(ai.idEntidad));
-            const dadorId = fallbackDadorId;
-            if (cuit && dadorId) {
-              let empresa = await db.getClient().empresaTransportista.findFirst({ where: { tenantEmpresaId: tenantId, dadorCargaId: dadorId, cuit } });
-              if (!empresa) {
-                try {
-                  const { EmpresaTransportistaService } = await import('../services/empresa-transportista.service');
-                  empresa = await EmpresaTransportistaService.create({ tenantEmpresaId: tenantId, dadorCargaId: dadorId, cuit, razonSocial: `Empresa ${cuit}`, activo: true });
-                } catch { /* noop */ }
-              }
-              if (empresa) { newEntityType = 'EMPRESA_TRANSPORTISTA' as any; newEntityId = (empresa as any).id; newDadorId = dadorId; }
-            }
-          } else if (entidad === 'CHOFER') {
-            const dni = normalizeDni(String(ai.idEntidad));
-            let chofer = await db.getClient().chofer.findFirst({ where: { tenantEmpresaId: tenantId, dniNorm: dni } });
-            if (!chofer) {
-              // Crear chofer si no existe
-              try {
-                const { MaestrosService } = await import('../services/maestros.service');
-                chofer = await MaestrosService.createChofer({ tenantEmpresaId: tenantId, dadorCargaId: fallbackDadorId, dni, activo: true, phones: [] });
-              } catch { /* noop */ }
-            }
-            if (chofer) { newEntityType = 'CHOFER' as any; newEntityId = (chofer as any).id; newDadorId = (chofer as any).dadorCargaId; }
-          } else if (entidad === 'CAMION') {
-            const pat = normalizePlate(String(ai.idEntidad));
-            let camion = await db.getClient().camion.findFirst({ where: { tenantEmpresaId: tenantId, patenteNorm: pat } });
-            if (!camion) {
-              try {
-                const { MaestrosService } = await import('../services/maestros.service');
-                camion = await MaestrosService.createCamion({ tenantEmpresaId: tenantId, dadorCargaId: fallbackDadorId, patente: String(ai.idEntidad), activo: true });
-              } catch { /* noop */ }
-            }
-            if (camion) { newEntityType = 'CAMION' as any; newEntityId = (camion as any).id; newDadorId = (camion as any).dadorCargaId; }
-          } else if (entidad === 'ACOPLADO') {
-            const pat = normalizePlate(String(ai.idEntidad));
-            let acoplado = await db.getClient().acoplado.findFirst({ where: { tenantEmpresaId: tenantId, patenteNorm: pat } });
-            if (!acoplado) {
-              try {
-                const { MaestrosService } = await import('../services/maestros.service');
-                acoplado = await MaestrosService.createAcoplado({ tenantEmpresaId: tenantId, dadorCargaId: fallbackDadorId, patente: String(ai.idEntidad), activo: true });
-              } catch { /* noop */ }
-            }
-            if (acoplado) { newEntityType = 'ACOPLADO' as any; newEntityId = (acoplado as any).id; newDadorId = (acoplado as any).dadorCargaId; }
-          }
+      // Resolver entidad
+      let entityUpdate: any = {};
+      if (ai?.entidad && ai?.idEntidad && ai.entidad.toUpperCase() !== 'DESCONOCIDO' && ai.idEntidad !== 'Desconocido') {
+        const resolved = await resolveEntity(tenantId, dadorId, ai.entidad.toUpperCase(), String(ai.idEntidad));
+        if (resolved) {
+          entityUpdate = { entityType: resolved.type, entityId: resolved.id, dadorCargaId: resolved.dadorId };
         }
-      } catch {}
+      }
 
-      // Fecha de vencimiento validada (rango)
-      const aiVencIso = ai?.vencimientoDate;
+      // Validar fecha de vencimiento
       let safeExpiresAt: Date | undefined;
-      if (aiVencIso) {
-        const d = new Date(aiVencIso);
-        const now = new Date();
-        const max = new Date(now.getFullYear() + 15, 0, 1);
+      if (ai?.vencimientoDate) {
+        const d = new Date(ai.vencimientoDate);
+        const max = new Date(new Date().getFullYear() + 15, 0, 1);
         if (!isNaN(d.getTime()) && d > new Date('1970-01-01') && d < max) {
           safeExpiresAt = d;
         }
@@ -396,229 +418,58 @@ class DocumentValidationWorker {
         where: { id: documentId },
         data: {
           status: 'APROBADO' as DocumentStatus,
-          validationData: {
-            ...extractedData,
-            ai: ai,
-          },
+          validationData: { ...extractedData, ai },
           validatedAt: new Date(),
-          // Si IA devolvió vencimiento válido, guardarlo
-          expiresAt: safeExpiresAt ?? undefined,
-          // Actualizar mapeo si se identificó
-          entityType: newEntityType,
-          entityId: newEntityId,
-          dadorCargaId: newDadorId,
+          expiresAt: safeExpiresAt,
+          ...entityUpdate,
         },
         include: { template: true },
       });
 
-      // Deprecación de duplicados: mismo entity, misma plantilla y mismo vencimiento → marcar DEPRECADO los anteriores APROBADO
+      // Deprecar duplicados y aplicar retención
       try {
-        const { getEnvironment } = await import('../config/environment');
-        const { minioService } = await import('../services/minio.service');
-        const env = getEnvironment();
-        if (updatedDoc.expiresAt) {
-          const stale = await db.getClient().document.findMany({
-            where: {
-              id: { not: updatedDoc.id },
-              tenantEmpresaId: (updatedDoc as any).tenantEmpresaId,
-              entityType: updatedDoc.entityType as any,
-              entityId: updatedDoc.entityId,
-              templateId: updatedDoc.templateId,
-              status: 'APROBADO' as any,
-              expiresAt: updatedDoc.expiresAt,
-            },
-            select: { id: true, validationData: true },
-          });
-          for (const s of stale) {
-            const prevVD = (s as any).validationData || {};
-            await db.getClient().document.update({
-              where: { id: s.id },
-              data: {
-                status: 'DEPRECADO' as any,
-                validationData: {
-                  ...prevVD,
-                  replacedBy: updatedDoc.id,
-                  replacedAt: new Date().toISOString(),
-                },
-              },
-            });
-          }
-          if (stale.length > 0) {
-            AppLogger.info(`♻️ Deprecados ${stale.length} documentos previos por duplicado de vencimiento`, { documentId: updatedDoc.id });
-          }
+        await deprecateDuplicates(updatedDoc);
+        await applyRetentionPolicy(updatedDoc);
+      } catch { AppLogger.warn('No se pudo aplicar deprecación'); }
 
-          // Retención: mantener como máximo N versiones DEPRECADO por combinación (entity, template, expiresAt)
-          const maxKeep = Math.max(0, Number(env.DOCS_MAX_DEPRECATED_VERSIONS || 2) || 2);
-          if (maxKeep >= 0) {
-            const deprecated = await db.getClient().document.findMany({
-              where: {
-                tenantEmpresaId: (updatedDoc as any).tenantEmpresaId,
-                entityType: updatedDoc.entityType as any,
-                entityId: updatedDoc.entityId,
-                templateId: updatedDoc.templateId,
-                status: 'DEPRECADO' as any,
-                expiresAt: updatedDoc.expiresAt,
-              },
-              orderBy: { uploadedAt: 'desc' },
-              select: { id: true, filePath: true, uploadedAt: true },
-            });
-            if (deprecated.length > maxKeep) {
-              const toDelete = deprecated.slice(maxKeep); // más viejos
-              for (const d of toDelete) {
-                try {
-                  // eliminar objeto de MinIO
-                  if (d.filePath) {
-                    const [bucketName, ...pathParts] = (d.filePath as string).split('/');
-                    const objectPath = pathParts.join('/');
-                    await minioService.deleteDocument(bucketName, objectPath);
-                  }
-                } catch (_e) {
-                  AppLogger.warn('No se pudo eliminar objeto de MinIO para documento deprecado', { id: d.id });
-                }
-                // eliminar registro
-                try {
-                  await db.getClient().document.delete({ where: { id: d.id } });
-                } catch (_e) {
-                  AppLogger.warn('No se pudo eliminar registro de documento deprecado', { id: d.id });
-                }
-              }
-              AppLogger.info(`🧹 Retención aplicada: eliminadas ${toDelete.length} versiones deprecadas antiguas`);
-            }
-          }
-        }
-      } catch (_e) {
-        AppLogger.warn('No se pudo aplicar deprecación automática de duplicados');
-      }
-
-      // Notificar cambio de estado via WebSocket
-      if (documentBefore) {
-        webSocketService.notifyDocumentStatusChange({
-          documentId,
-          empresaId: (documentBefore as any).dadorCargaId ?? (documentBefore as any).empresaId,
-          entityType: documentBefore.entityType,
-          entityId: documentBefore.entityId,
-          oldStatus: documentBefore.status,
-          newStatus: 'APROBADO',
-          templateName: documentBefore.template.name,
-          fileName: documentBefore.fileName,
-        });
-
-        // Notificar actualización de dashboard
-        webSocketService.notifyDashboardUpdate((documentBefore as any).dadorCargaId ?? (documentBefore as any).empresaId);
-      }
-
+      notifyStatusChange(documentBefore, 'APROBADO');
       AppLogger.info(`✅ Documento ${documentId} aprobado automáticamente`);
     } catch (error) {
-      // Limpiar el error para evitar referencias circulares en logs
-      const cleanError = {
-        message: (error as any)?.message || 'Error desconocido',
-        stack: (error as any)?.stack || 'Sin stack trace',
-        code: (error as any)?.code || undefined,
-        name: (error as any)?.name || 'Error'
-      };
-      AppLogger.error('Error marcando documento como aprobado:', cleanError);
+      AppLogger.error('Error marcando documento como aprobado:', cleanError(error));
     }
   }
 
-  /**
-   * Marcar documento como rechazado
-   */
-  private async markDocumentAsRejected(documentId: number, errors?: string[]): Promise<void> {
+  async markDocumentAsRejected(documentId: number, errors?: string[]): Promise<void> {
     try {
-      // Obtener información del documento antes de actualizar
       const documentBefore = await db.getClient().document.findUnique({
         where: { id: documentId },
-        include: {
-          template: true,
-        },
+        include: { template: true },
       });
-
-      if (!documentBefore) {
-        AppLogger.warn(`⚠️ Documento ${documentId} ya fue eliminado, no se puede marcar como rechazado`);
-        return;
-      }
+      if (!documentBefore) return;
 
       await db.getClient().document.update({
         where: { id: documentId },
         data: {
           status: 'RECHAZADO' as DocumentStatus,
-          validationData: {
-            errors: errors || ['Error de validación'],
-            rejectedAt: new Date().toISOString(),
-          },
+          validationData: { errors: errors || ['Error de validación'], rejectedAt: new Date().toISOString() },
           validatedAt: new Date(),
         },
       });
 
-      // Notificar cambio de estado via WebSocket
-      if (documentBefore) {
-        webSocketService.notifyDocumentStatusChange({
-          documentId,
-          empresaId: (documentBefore as any).dadorCargaId ?? (documentBefore as any).empresaId,
-          entityType: documentBefore.entityType,
-          entityId: documentBefore.entityId,
-          oldStatus: documentBefore.status,
-          newStatus: 'RECHAZADO',
-          templateName: documentBefore.template.name,
-          fileName: documentBefore.fileName,
-          validationNotes: errors?.join(', '),
-        });
-
-        // Notificar actualización de dashboard
-        webSocketService.notifyDashboardUpdate((documentBefore as any).dadorCargaId ?? (documentBefore as any).empresaId);
-      }
-
-      AppLogger.warn(`❌ Documento ${documentId} rechazado automáticamente`, { errors });
+      notifyStatusChange(documentBefore, 'RECHAZADO', errors);
+      AppLogger.warn(`❌ Documento ${documentId} rechazado`, { errors });
     } catch (error) {
-      // Limpiar el error para evitar referencias circulares en logs
-      const cleanError = {
-        message: (error as any)?.message || 'Error desconocido',
-        stack: (error as any)?.stack || 'Sin stack trace',
-        code: (error as any)?.code || undefined,
-        name: (error as any)?.name || 'Error'
-      };
-      AppLogger.error('Error marcando documento como rechazado:', cleanError);
+      AppLogger.error('Error marcando documento como rechazado:', cleanError(error));
     }
   }
 
-  /**
-   * Configurar event handlers
-   */
   private setupEventHandlers(): void {
-    this.worker.on('completed', (job) => {
-      AppLogger.info(`🎉 Job ${job.id} completado exitosamente`);
-    });
-
-    this.worker.on('failed', (job, err) => {
-      // Limpiar el error para evitar referencias circulares en logs
-      const cleanError = {
-        message: (err as any)?.message || 'Error desconocido',
-        stack: (err as any)?.stack || 'Sin stack trace',
-        code: (err as any)?.code || undefined,
-        name: (err as any)?.name || 'Error'
-      };
-      AppLogger.error(`💥 Job ${job?.id} falló:`, cleanError);
-    });
-
-    this.worker.on('error', (err) => {
-      // Limpiar el error para evitar referencias circulares en logs
-      const cleanError = {
-        message: (err as any)?.message || 'Error desconocido',
-        stack: (err as any)?.stack || 'Sin stack trace',
-        code: (err as any)?.code || undefined,
-        name: (err as any)?.name || 'Error'
-      };
-      AppLogger.error('💥 Error en worker:', cleanError);
-    });
-
-    this.worker.on('ready', () => {
-      AppLogger.info('🚀 Document Validation Worker listo');
-    });
+    this.worker.on('completed', (job) => AppLogger.info(`🎉 Job ${job.id} completado`));
+    this.worker.on('failed', (job, err) => AppLogger.error(`💥 Job ${job?.id} falló:`, cleanError(err)));
+    this.worker.on('error', (err) => AppLogger.error('💥 Error en worker:', cleanError(err)));
+    this.worker.on('ready', () => AppLogger.info('🚀 Document Validation Worker listo'));
   }
 
-  /**
-   * Cerrar worker
-   */
   public async close(): Promise<void> {
     await this.worker.close();
     await this.redis.quit();
