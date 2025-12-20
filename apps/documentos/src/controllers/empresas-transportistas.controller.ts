@@ -2,6 +2,23 @@ import { Request, Response } from 'express';
 import { EmpresaTransportistaService } from '../services/empresa-transportista.service';
 import { AppLogger } from '../config/logger';
 
+// Helper para manejo de errores consistente
+function handleError(res: Response, error: any, context: string): void {
+  AppLogger.error(`${context} error:`, error);
+  const msg = error?.message || '';
+
+  if (msg.includes('no encontrada')) {
+    res.status(404).json({ success: false, message: msg, code: 'NOT_FOUND' });
+    return;
+  }
+  if (msg.includes('activos asociados')) {
+    res.status(400).json({ success: false, message: msg, code: 'HAS_DEPENDENCIES' });
+    return;
+  }
+
+  res.status(500).json({ success: false, message: msg || 'Error interno del servidor', code: 'INTERNAL_ERROR' });
+}
+
 export class EmpresasTransportistasController {
   static async list(req: Request, res: Response): Promise<void> {
     try {
@@ -25,8 +42,7 @@ export class EmpresasTransportistasController {
       // Agregar 'list' para compatibilidad con frontend
       res.json({ success: true, ...result, list: result.data });
     } catch (error) {
-      AppLogger.error('EmpresasTransportistasController.list error:', error);
-      res.status(500).json({ success: false, message: 'Error interno del servidor', code: 'INTERNAL_ERROR' });
+      handleError(res, error, 'EmpresasTransportistasController.list');
     }
   }
 
@@ -41,8 +57,7 @@ export class EmpresasTransportistasController {
       }
       res.json({ success: true, data: empresa });
     } catch (error) {
-      AppLogger.error('EmpresasTransportistasController.getById error:', error);
-      res.status(500).json({ success: false, message: 'Error interno del servidor', code: 'INTERNAL_ERROR' });
+      handleError(res, error, 'EmpresasTransportistasController.getById');
     }
   }
 
@@ -60,8 +75,7 @@ export class EmpresasTransportistasController {
       });
       res.status(201).json({ success: true, data: empresa, message: 'Empresa transportista creada' });
     } catch (error) {
-      AppLogger.error('EmpresasTransportistasController.create error:', error);
-      res.status(500).json({ success: false, message: (error as any)?.message || 'Error interno del servidor', code: 'INTERNAL_ERROR' });
+      handleError(res, error, 'EmpresasTransportistasController.create');
     }
   }
 
@@ -73,13 +87,7 @@ export class EmpresasTransportistasController {
       const empresa = await EmpresaTransportistaService.update(id, tenantEmpresaId, { razonSocial, cuit, activo, notas });
       res.json({ success: true, data: empresa, message: 'Empresa transportista actualizada' });
     } catch (error) {
-      AppLogger.error('EmpresasTransportistasController.update error:', error);
-      const msg = (error as any)?.message || '';
-      if (msg.includes('no encontrada')) {
-        res.status(404).json({ success: false, message: msg, code: 'NOT_FOUND' });
-        return;
-      }
-      res.status(500).json({ success: false, message: 'Error interno del servidor', code: 'INTERNAL_ERROR' });
+      handleError(res, error, 'EmpresasTransportistasController.update');
     }
   }
 
@@ -90,17 +98,7 @@ export class EmpresasTransportistasController {
       await EmpresaTransportistaService.delete(id, tenantEmpresaId);
       res.json({ success: true, message: 'Empresa transportista eliminada' });
     } catch (error) {
-      AppLogger.error('EmpresasTransportistasController.delete error:', error);
-      const msg = (error as any)?.message || '';
-      if (msg.includes('no encontrada')) {
-        res.status(404).json({ success: false, message: msg, code: 'NOT_FOUND' });
-        return;
-      }
-      if (msg.includes('activos asociados')) {
-        res.status(400).json({ success: false, message: msg, code: 'HAS_DEPENDENCIES' });
-        return;
-      }
-      res.status(500).json({ success: false, message: 'Error interno del servidor', code: 'INTERNAL_ERROR' });
+      handleError(res, error, 'EmpresasTransportistasController.delete');
     }
   }
 
@@ -111,8 +109,7 @@ export class EmpresasTransportistasController {
       const choferes = await EmpresaTransportistaService.getChoferes(id, tenantEmpresaId);
       res.json({ success: true, data: choferes });
     } catch (error) {
-      AppLogger.error('EmpresasTransportistasController.getChoferes error:', error);
-      res.status(500).json({ success: false, message: 'Error interno del servidor', code: 'INTERNAL_ERROR' });
+      handleError(res, error, 'EmpresasTransportistasController.getChoferes');
     }
   }
 
@@ -123,8 +120,7 @@ export class EmpresasTransportistasController {
       const equipos = await EmpresaTransportistaService.getEquipos(id, tenantEmpresaId);
       res.json({ success: true, data: equipos });
     } catch (error) {
-      AppLogger.error('EmpresasTransportistasController.getEquipos error:', error);
-      res.status(500).json({ success: false, message: 'Error interno del servidor', code: 'INTERNAL_ERROR' });
+      handleError(res, error, 'EmpresasTransportistasController.getEquipos');
     }
   }
 }

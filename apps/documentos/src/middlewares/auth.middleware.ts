@@ -8,6 +8,36 @@ export interface AuthRequest extends Request {
   tenantId?: number;
 }
 
+// URLs que aceptan token en body (descargas via formulario)
+const FORM_DOWNLOAD_URLS = [
+  '/api/docs/equipos/download/vigentes-form',
+  '/api/docs/portal-cliente/equipos/bulk-download-form',
+];
+
+/**
+ * Extraer token de Authorization header o body (para descargas)
+ */
+function extractToken(req: Request): string | null {
+  const authHeader = req.headers.authorization;
+  
+  // Token en header estándar
+  if (authHeader?.startsWith('Bearer ')) {
+    return authHeader.substring(7);
+  }
+
+  // Token en body para descargas via formulario
+  if (req.method === 'POST') {
+    const tokenFromBody = (req as any).body?.token;
+    const url = String((req as any).originalUrl || req.url || '');
+    const isFormDownload = FORM_DOWNLOAD_URLS.some(u => url.includes(u));
+    if (tokenFromBody && isFormDownload) {
+      return String(tokenFromBody);
+    }
+  }
+
+  return null;
+}
+
 /**
  * Middleware de autenticación - Simplicidad y Seguridad
  */
@@ -27,19 +57,8 @@ export const authenticate = async (
       return;
     }
 
-    // Obtener token del header Authorization (o desde body para descargas via formulario)
-    let authHeader = req.headers.authorization;
-    if ((!authHeader || !authHeader.startsWith('Bearer ')) && req.method === 'POST') {
-      const tokenFromBody = (req as any).body?.token;
-      const url = String((req as any).originalUrl || req.url || '');
-      const isFormDownload =
-        url.includes('/api/docs/equipos/download/vigentes-form') ||
-        url.includes('/api/docs/portal-cliente/equipos/bulk-download-form');
-      if (tokenFromBody && isFormDownload) {
-        authHeader = `Bearer ${String(tokenFromBody)}`;
-      }
-    }
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    const token = extractToken(req);
+    if (!token) {
       res.status(401).json({
         success: false,
         message: 'Token de autenticación requerido',
@@ -48,7 +67,6 @@ export const authenticate = async (
       return;
     }
 
-    const token = authHeader.substring(7);
     const payload = await DocumentosAuthService.verifyToken(token);
 
     if (!payload) {
