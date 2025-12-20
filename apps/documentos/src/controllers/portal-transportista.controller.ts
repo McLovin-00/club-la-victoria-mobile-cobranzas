@@ -3,11 +3,52 @@ import { AuthRequest } from '../middlewares/auth.middleware';
 import { prisma } from '../config/database';
 import { AppLogger } from '../config/logger';
 
+// Respuesta vacía reutilizable
+const EMPTY_ENTIDADES_RESPONSE = {
+  success: true,
+  data: {
+    empresas: [],
+    choferes: [],
+    camiones: [],
+    acoplados: [],
+    contadores: { pendientes: 0, rechazados: 0, porVencer: 0 },
+  },
+};
+
+// Roles que ven todo el tenant
+const ADMIN_ROLES = ['ADMIN', 'SUPERADMIN', 'ADMIN_INTERNO'];
+
 /**
  * Portal Transportista Controller
  * Endpoints para empresas transportistas
  */
 export class PortalTransportistaController {
+  /**
+   * Construir filtro de empresas según rol del usuario
+   */
+  private static buildEmpresasFilter(tenantId: number, user: any): { where: any; isEmpty: boolean } {
+    const where: any = { tenantEmpresaId: tenantId };
+
+    // Admins ven todo
+    if (ADMIN_ROLES.includes(user.role)) {
+      return { where, isEmpty: false };
+    }
+
+    // Transportista/EmpresaTransportista: solo su empresa
+    if (user.role === 'TRANSPORTISTA' || user.role === 'EMPRESA_TRANSPORTISTA' || user.role === 'CHOFER') {
+      if (!user.empresaTransportistaId) return { where, isEmpty: true };
+      where.id = user.empresaTransportistaId;
+      return { where, isEmpty: false };
+    }
+
+    // Dador de carga: empresas de su dador
+    if (user.role === 'DADOR_DE_CARGA' && user.dadorCargaId) {
+      where.dadorCargaId = user.dadorCargaId;
+    }
+
+    return { where, isEmpty: false };
+  }
+
   /**
    * GET /api/portal-transportista/mis-entidades
    * Obtiene las entidades (choferes, camiones, acoplados) del transportista
@@ -17,49 +58,11 @@ export class PortalTransportistaController {
     const user = req.user!;
     
     try {
-      // Filtrar según el rol del usuario
-      const whereEmpresas: any = { tenantEmpresaId: tenantId };
-      
-      if (user.role === 'TRANSPORTISTA' || user.role === 'EMPRESA_TRANSPORTISTA') {
-        // Solo ver su propia empresa transportista
-        if (user.empresaTransportistaId) {
-          whereEmpresas.id = user.empresaTransportistaId;
-        } else {
-          // Si no tiene empresa asignada, no mostrar nada
-          return res.json({
-            success: true,
-            data: {
-              empresas: [],
-              choferes: [],
-              camiones: [],
-              acoplados: [],
-              contadores: { pendientes: 0, rechazados: 0, porVencer: 0 },
-            },
-          });
-        }
-      } else if (user.role === 'DADOR_DE_CARGA') {
-        // Solo ver empresas de su dador de carga
-        if (user.dadorCargaId) {
-          whereEmpresas.dadorCargaId = user.dadorCargaId;
-        }
-      } else if (user.role === 'CHOFER') {
-        // Un chofer ve su empresa transportista
-        if (user.empresaTransportistaId) {
-          whereEmpresas.id = user.empresaTransportistaId;
-        } else {
-          return res.json({
-            success: true,
-            data: {
-              empresas: [],
-              choferes: [],
-              camiones: [],
-              acoplados: [],
-              contadores: { pendientes: 0, rechazados: 0, porVencer: 0 },
-            },
-          });
-        }
+      const { where: whereEmpresas, isEmpty } = PortalTransportistaController.buildEmpresasFilter(tenantId, user);
+
+      if (isEmpty) {
+        return res.json(EMPTY_ENTIDADES_RESPONSE);
       }
-      // ADMIN, SUPERADMIN, ADMIN_INTERNO ven todo del tenant
       
       const empresas = await prisma.empresaTransportista.findMany({
         where: whereEmpresas,
@@ -72,16 +75,7 @@ export class PortalTransportistaController {
       });
       
       if (empresas.length === 0) {
-        return res.json({
-          success: true,
-          data: {
-            empresas: [],
-            choferes: [],
-            camiones: [],
-            acoplados: [],
-            contadores: { pendientes: 0, rechazados: 0, porVencer: 0 },
-          },
-        });
+        return res.json(EMPTY_ENTIDADES_RESPONSE);
       }
       
       const dadorIds = [...new Set(empresas.map(e => e.dadorCargaId))];

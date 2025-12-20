@@ -12,6 +12,28 @@ import { UserRole } from '../types/roles';
 export class DashboardController {
 
   /**
+   * Obtener IDs de empresas según rol del usuario
+   */
+  private static async getEmpresaIdsForUser(user: any, empresaIdParam: any, tenantId: number): Promise<number[]> {
+    if (user.role !== UserRole.SUPERADMIN) {
+      return [user.empresaId!];
+    }
+
+    if (empresaIdParam) {
+      return [parseInt(String(empresaIdParam))];
+    }
+
+    // Superadmin sin filtro: todas las empresas con documentos
+    const prisma = (await import('../config/database')).db.getClient();
+    const empresasWithDocs = await prisma.document.findMany({
+      where: { tenantEmpresaId: tenantId },
+      select: { dadorCargaId: true },
+      distinct: ['dadorCargaId'],
+    });
+    return empresasWithDocs.map((e: any) => e.dadorCargaId);
+  }
+
+  /**
    * GET /api/docs/dashboard/semaforos - Vista de semáforos por dador
    */
   static async getSemaforosView(req: AuthRequest, res: Response): Promise<void> {
@@ -19,22 +41,8 @@ export class DashboardController {
       const { empresaId } = req.query as any;
       const user = req.user!;
 
-      let empresaIds: number[] = [];
-
-      if (user.role === UserRole.SUPERADMIN) {
-        if (empresaId) {
-          empresaIds = [parseInt(String(empresaId))];
-        } else {
-          const empresasWithDocs = await (await import('../config/database')).db.getClient().document.findMany({
-            where: { tenantEmpresaId: req.tenantId! },
-            select: { dadorCargaId: true },
-            distinct: ['dadorCargaId'],
-          });
-          empresaIds = empresasWithDocs.map((e: any) => e.dadorCargaId);
-        }
-      } else {
-        empresaIds = [user.empresaId!];
-      }
+      // Determinar empresas a consultar según rol
+      const empresaIds = await DashboardController.getEmpresaIdsForUser(user, empresaId, req.tenantId!);
 
       // Transformar a formato frontend-friendly
       const now = new Date();
