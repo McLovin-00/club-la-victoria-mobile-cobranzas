@@ -1,5 +1,6 @@
 import { prisma } from '../config/database';
 import type { DocumentStatus, EntityType } from '.prisma/documentos';
+import { AppLogger } from '../config/logger';
 
 // ============================================================================
 // TIPOS
