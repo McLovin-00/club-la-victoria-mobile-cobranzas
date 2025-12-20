@@ -12,6 +12,22 @@ import { MediaService, type MediaInput } from '../services/media.service';
 import { AuditService } from '../services/audit.service';
 
 // ============================================================================
+// MULTER MIDDLEWARE PARA UPLOAD
+// ============================================================================
+export const uploadMiddleware = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 50 * 1024 * 1024 }, // 50MB
+  fileFilter: (_req, file, cb) => {
+    const allowed = ['application/pdf', 'image/jpeg', 'image/png', 'image/gif', 'image/webp'];
+    if (allowed.includes(file.mimetype)) {
+      cb(null, true);
+    } else {
+      cb(new Error(`Tipo de archivo no permitido: ${file.mimetype}`));
+    }
+  },
+});
+
+// ============================================================================
 // TIPOS Y CONSTANTES
 // ============================================================================
 interface UploadContext {
