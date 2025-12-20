@@ -110,7 +110,7 @@ export class FileNamingService {
       .replace(/[\u0300-\u036f]/g, '') // Quitar tildes
       .replace(/[^a-z0-9]/g, '_')       // Solo alfanuméricos
       .replace(/_+/g, '_')              // Colapsar guiones múltiples
-      .replace(/(^_|_$)/g, '');         // Trim guiones inicio/fin
+      .replace(/^_|_$/g, '');             // Trim guiones inicio/fin
   }
 
   /**
