@@ -63,6 +63,15 @@ function parseExpirationDate(iso: string | undefined): Date | null {
   return isNaN(d.getTime()) ? null : d;
 }
 
+function parseSafeExpirationDate(dateStr: string | undefined): Date | undefined {
+  if (!dateStr) return undefined;
+  const d = new Date(dateStr);
+  const max = new Date(new Date().getFullYear() + 15, 0, 1);
+  const min = new Date('1970-01-01');
+  if (isNaN(d.getTime()) || d <= min || d >= max) return undefined;
+  return d;
+}
+
 function cleanError(error: any): { message: string; stack: string; code?: string; name: string } {
   return {
     message: error?.message || 'Error desconocido',
@@ -392,27 +401,8 @@ class DocumentValidationWorker {
       if (!documentBefore) return;
 
       const ai = extractedData?.metadata?.aiParsed || {};
-      const tenantId = (documentBefore as any).tenantEmpresaId;
-      const dadorId = (documentBefore as any).dadorCargaId;
-
-      // Resolver entidad
-      let entityUpdate: any = {};
-      if (ai?.entidad && ai?.idEntidad && ai.entidad.toUpperCase() !== 'DESCONOCIDO' && ai.idEntidad !== 'Desconocido') {
-        const resolved = await resolveEntity(tenantId, dadorId, ai.entidad.toUpperCase(), String(ai.idEntidad));
-        if (resolved) {
-          entityUpdate = { entityType: resolved.type, entityId: resolved.id, dadorCargaId: resolved.dadorId };
-        }
-      }
-
-      // Validar fecha de vencimiento
-      let safeExpiresAt: Date | undefined;
-      if (ai?.vencimientoDate) {
-        const d = new Date(ai.vencimientoDate);
-        const max = new Date(new Date().getFullYear() + 15, 0, 1);
-        if (!isNaN(d.getTime()) && d > new Date('1970-01-01') && d < max) {
-          safeExpiresAt = d;
-        }
-      }
+      const entityUpdate = await this.resolveEntityUpdate(documentBefore, ai);
+      const safeExpiresAt = parseSafeExpirationDate(ai?.vencimientoDate);
 
       const updatedDoc = await db.getClient().document.update({
         where: { id: documentId },
@@ -426,16 +416,36 @@ class DocumentValidationWorker {
         include: { template: true },
       });
 
-      // Deprecar duplicados y aplicar retención
-      try {
-        await deprecateDuplicates(updatedDoc);
-        await applyRetentionPolicy(updatedDoc);
-      } catch { AppLogger.warn('No se pudo aplicar deprecación'); }
-
+      await this.applyPostApprovalActions(updatedDoc);
       notifyStatusChange(documentBefore, 'APROBADO');
       AppLogger.info(`✅ Documento ${documentId} aprobado automáticamente`);
     } catch (error) {
       AppLogger.error('Error marcando documento como aprobado:', cleanError(error));
+    }
+  }
+
+  private async resolveEntityUpdate(doc: any, ai: any): Promise<Record<string, any>> {
+    const tenantId = doc.tenantEmpresaId;
+    const dadorId = doc.dadorCargaId;
+    
+    const hasValidEntity = ai?.entidad && ai?.idEntidad 
+      && ai.entidad.toUpperCase() !== 'DESCONOCIDO' 
+      && ai.idEntidad !== 'Desconocido';
+    
+    if (!hasValidEntity) return {};
+    
+    const resolved = await resolveEntity(tenantId, dadorId, ai.entidad.toUpperCase(), String(ai.idEntidad));
+    if (!resolved) return {};
+    
+    return { entityType: resolved.type, entityId: resolved.id, dadorCargaId: resolved.dadorId };
+  }
+
+  private async applyPostApprovalActions(updatedDoc: any): Promise<void> {
+    try {
+      await deprecateDuplicates(updatedDoc);
+      await applyRetentionPolicy(updatedDoc);
+    } catch { 
+      AppLogger.warn('No se pudo aplicar deprecación'); 
     }
   }
 

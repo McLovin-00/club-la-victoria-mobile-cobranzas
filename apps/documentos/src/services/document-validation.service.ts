@@ -398,55 +398,70 @@ ${JSON.stringify(request.datosEntidad, null, 2)}
    * Extrae campos consolidados según tipo de entidad
    */
   private extractConsolidatedFields(entityType: EntityType, data: Record<string, unknown>): Record<string, unknown> {
+    const extractors: Record<string, (d: Record<string, unknown>) => Record<string, unknown>> = {
+      CHOFER: this.extractChoferFields,
+      CAMION: this.extractVehiculoFields,
+      ACOPLADO: this.extractVehiculoFields,
+      EMPRESA_TRANSPORTISTA: this.extractEmpresaFields,
+    };
+    const extractor = extractors[entityType];
+    return extractor ? extractor(data) : {};
+  }
+
+  private extractChoferFields(data: Record<string, unknown>): Record<string, unknown> {
     const fields: Record<string, unknown> = {};
-
-    switch (entityType) {
-      case 'CHOFER':
-        if (data.cuil) fields.cuil = String(data.cuil);
-        if (data.fechaNacimiento) {
-          const d = new Date(String(data.fechaNacimiento));
-          if (!isNaN(d.getTime())) fields.fechaNacimiento = d;
-        }
-        if (data.nacionalidad) fields.nacionalidad = String(data.nacionalidad);
-        if (data.numeroLicencia) fields.numeroLicencia = String(data.numeroLicencia);
-        if (Array.isArray(data.clases)) fields.clasesLicencia = data.clases.map(String);
-        if (data.vencimiento) {
-          const d = new Date(String(data.vencimiento));
-          if (!isNaN(d.getTime())) fields.vencimientoLicencia = d;
-        }
-        break;
-
-      case 'CAMION':
-      case 'ACOPLADO':
-        if (data.anio) fields.anioFabricacion = Number(data.anio);
-        if (data.numeroMotor) fields.numeroMotor = String(data.numeroMotor);
-        if (data.numeroChasis) fields.numeroChasis = String(data.numeroChasis);
-        if (data.titular) {
-          const titular = data.titular;
-          if (typeof titular === 'string') {
-            fields.titular = titular;
-          } else if (typeof titular === 'object' && titular !== null) {
-            const t = titular as Record<string, unknown>;
-            fields.titular = String(t.nombre || '');
-            if (t.dni) fields.titularDni = String(t.dni);
-          }
-        }
-        break;
-
-      case 'EMPRESA_TRANSPORTISTA':
-        if (data.condicionIva) fields.condicionIva = String(data.condicionIva);
-        if (data.domicilioFiscal) fields.domicilioFiscal = data.domicilioFiscal;
-        if (data.actividadPrincipal) fields.actividadPrincipal = data.actividadPrincipal;
-        if (data.cantidadEmpleados) fields.cantidadEmpleados = Number(data.cantidadEmpleados);
-        if (typeof data.art === 'object' && data.art !== null) {
-          const art = data.art as Record<string, unknown>;
-          if (art.nombre) fields.artNombre = String(art.nombre);
-          if (art.poliza) fields.artPoliza = String(art.poliza);
-        }
-        break;
-    }
-
+    if (data.cuil) fields.cuil = String(data.cuil);
+    if (data.nacionalidad) fields.nacionalidad = String(data.nacionalidad);
+    if (data.numeroLicencia) fields.numeroLicencia = String(data.numeroLicencia);
+    if (Array.isArray(data.clases)) fields.clasesLicencia = data.clases.map(String);
+    
+    const fechaNac = this.parseDate(data.fechaNacimiento);
+    if (fechaNac) fields.fechaNacimiento = fechaNac;
+    
+    const vencLic = this.parseDate(data.vencimiento);
+    if (vencLic) fields.vencimientoLicencia = vencLic;
+    
     return fields;
+  }
+
+  private extractVehiculoFields(data: Record<string, unknown>): Record<string, unknown> {
+    const fields: Record<string, unknown> = {};
+    if (data.anio) fields.anioFabricacion = Number(data.anio);
+    if (data.numeroMotor) fields.numeroMotor = String(data.numeroMotor);
+    if (data.numeroChasis) fields.numeroChasis = String(data.numeroChasis);
+    
+    if (data.titular) {
+      const titular = data.titular;
+      if (typeof titular === 'string') {
+        fields.titular = titular;
+      } else if (typeof titular === 'object' && titular !== null) {
+        const t = titular as Record<string, unknown>;
+        fields.titular = String(t.nombre || '');
+        if (t.dni) fields.titularDni = String(t.dni);
+      }
+    }
+    return fields;
+  }
+
+  private extractEmpresaFields(data: Record<string, unknown>): Record<string, unknown> {
+    const fields: Record<string, unknown> = {};
+    if (data.condicionIva) fields.condicionIva = String(data.condicionIva);
+    if (data.domicilioFiscal) fields.domicilioFiscal = data.domicilioFiscal;
+    if (data.actividadPrincipal) fields.actividadPrincipal = data.actividadPrincipal;
+    if (data.cantidadEmpleados) fields.cantidadEmpleados = Number(data.cantidadEmpleados);
+    
+    if (typeof data.art === 'object' && data.art !== null) {
+      const art = data.art as Record<string, unknown>;
+      if (art.nombre) fields.artNombre = String(art.nombre);
+      if (art.poliza) fields.artPoliza = String(art.poliza);
+    }
+    return fields;
+  }
+
+  private parseDate(value: unknown): Date | null {
+    if (!value) return null;
+    const d = new Date(String(value));
+    return isNaN(d.getTime()) ? null : d;
   }
 
   /**
