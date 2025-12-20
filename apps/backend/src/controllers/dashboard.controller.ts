@@ -154,8 +154,15 @@ export const getDashboardSuperAdmin = async (req: Request, res: Response) => {
       },
     });
 
-    // Estadísticas simples
-    const empresasStats: any[] = [];
+    // Estadísticas de empresas por mes (últimos 6 meses)
+    const sixMonthsAgo = new Date();
+    sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
+    const empresasStats = await prisma.empresa.groupBy({
+      by: ['createdAt'],
+      _count: { id: true },
+      where: { createdAt: { gte: sixMonthsAgo } },
+      orderBy: { createdAt: 'asc' },
+    });
 
     // Obtener últimos usuarios - SIMPLIFICADO
     const recentUsers = await prisma.user.findMany({

@@ -296,7 +296,7 @@ export class ApprovalService {
             .replace(/[\u0300-\u036f]/g, '')
             .toUpperCase()
             .replace(/[^A-Z0-9]+/g, '_')
-            .replace(/^_+|_+$/g, '');
+            .replace(/(^_+|_+$)/g, '');
           const digits = (s: string) => String(s).replace(/\D+/g, '');
           const plate = (s: string) => String(s).toUpperCase().replace(/[^A-Z0-9]/g, '');
           const rawDetected = (document.classification as any)?.detectedEntityId as string | undefined;

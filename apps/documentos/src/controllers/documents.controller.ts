@@ -156,7 +156,7 @@ export class DocumentsController {
             .replace(/[\u0300-\u036f]/g, '')
             .toUpperCase()
             .replace(/[^A-Z0-9]+/g, '_')
-            .replace(/^_+|_+$/g, '');
+            .replace(/(^_+|_+$)/g, '');
           return `${norm(tpl)}_${norm(entType)}_${entId}.pdf`;
         };
         finalFileName = buildFileName(template.name, entityType, parseInt(entityId));
@@ -173,7 +173,7 @@ export class DocumentsController {
             .replace(/[\u0300-\u036f]/g, '')
             .toUpperCase()
             .replace(/[^A-Z0-9]+/g, '_')
-            .replace(/^_+|_+$/g, '');
+            .replace(/(^_+|_+$)/g, '');
           return `${norm(tpl)}_${norm(entType)}_${entId}.pdf`;
         };
         finalFileName = buildFileName(template.name, entityType, parseInt(entityId));
