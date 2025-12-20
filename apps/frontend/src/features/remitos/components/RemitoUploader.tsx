@@ -55,11 +55,11 @@ export function RemitoUploader({ onSuccess, dadorCargaId }: RemitoUploaderProps)
   // Roles que necesitan seleccionar chofer manualmente
   const needsChoferSelector = ['SUPERADMIN', 'ADMIN_INTERNO', 'DADOR_DE_CARGA', 'TRANSPORTISTA'].includes(userRole);
   
-  // Buscar choferes
+  // Buscar choferes - cargar siempre si necesita selector
   const empresaId = user?.empresaId || 1;
   const { data: choferesData } = useGetChoferesQuery(
-    { empresaId, q: choferSearch, activo: true, limit: 10 },
-    { skip: !needsChoferSelector || choferSearch.length < 2 }
+    { empresaId, q: choferSearch || '', activo: true, limit: 20 },
+    { skip: !needsChoferSelector }
   );
   
   const choferes = useMemo(() => choferesData?.data || [], [choferesData]);
@@ -222,30 +222,37 @@ export function RemitoUploader({ onSuccess, dadorCargaId }: RemitoUploaderProps)
                     if (selectedChofer) setSelectedChofer(null);
                   }}
                   onFocus={() => setShowChoferDropdown(true)}
-                  onBlur={() => setTimeout(() => setShowChoferDropdown(false), 200)}
+                  onBlur={() => setTimeout(() => setShowChoferDropdown(false), 250)}
                   placeholder="Buscar por nombre o DNI..."
-                  className="w-full pl-9 pr-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-slate-900 dark:text-white placeholder-slate-400 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  className="w-full pl-9 pr-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-slate-900 dark:text-white placeholder-slate-400 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 cursor-pointer"
+                  readOnly={!!selectedChofer}
                 />
                 
                 {/* Dropdown de resultados */}
-                {showChoferDropdown && choferes.length > 0 && !selectedChofer && (
-                  <div className="absolute z-50 w-full mt-1 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-600 rounded-lg shadow-lg max-h-48 overflow-y-auto">
-                    {choferes.map((chofer) => (
-                      <button
-                        key={chofer.id}
-                        type="button"
-                        onClick={() => handleSelectChofer(chofer)}
-                        className="w-full px-3 py-2 text-left hover:bg-slate-100 dark:hover:bg-slate-700 flex items-center gap-2"
-                      >
-                        <UserIcon className="h-4 w-4 text-slate-400" />
-                        <span className="font-medium text-slate-900 dark:text-white">
-                          {chofer.nombre || ''} {chofer.apellido || ''}
-                        </span>
-                        <span className="text-slate-500 text-sm">
-                          DNI: {chofer.dni}
-                        </span>
-                      </button>
-                    ))}
+                {showChoferDropdown && !selectedChofer && (
+                  <div className="absolute z-50 w-full mt-1 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-600 rounded-lg shadow-lg max-h-60 overflow-y-auto">
+                    {choferes.length > 0 ? (
+                      choferes.map((chofer) => (
+                        <button
+                          key={chofer.id}
+                          type="button"
+                          onClick={() => handleSelectChofer(chofer)}
+                          className="w-full px-3 py-2 text-left hover:bg-slate-100 dark:hover:bg-slate-700 flex items-center gap-2 border-b border-slate-100 dark:border-slate-700 last:border-0"
+                        >
+                          <UserIcon className="h-4 w-4 text-slate-400" />
+                          <span className="font-medium text-slate-900 dark:text-white">
+                            {chofer.nombre || ''} {chofer.apellido || ''}
+                          </span>
+                          <span className="text-slate-500 text-sm">
+                            DNI: {chofer.dni}
+                          </span>
+                        </button>
+                      ))
+                    ) : (
+                      <div className="px-3 py-2 text-sm text-slate-500 dark:text-slate-400">
+                        No se encontraron choferes
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
