@@ -1,7 +1,11 @@
 import { prisma } from '../config/database';
 import type { DocumentStatus, EntityType } from '.prisma/documentos';
 
+// ============================================================================
+// TIPOS
+// ============================================================================
 export type ComplianceState = 'OK' | 'PROXIMO' | 'FALTANTE';
+export type ComplianceStateDetailed = 'VIGENTE' | 'PROXIMO' | 'VENCIDO' | 'PENDIENTE' | 'RECHAZADO' | 'FALTANTE';
 
 export interface RequirementResult {
   templateId: number;
@@ -12,9 +16,6 @@ export interface RequirementResult {
   documentId?: number;
   expiresAt?: Date | null;
 }
-
-// Estados detallados para sprint 3
-export type ComplianceStateDetailed = 'VIGENTE' | 'PROXIMO' | 'VENCIDO' | 'PENDIENTE' | 'RECHAZADO' | 'FALTANTE';
 
 export interface RequirementResultDetailed {
   templateId: number;
@@ -27,7 +28,6 @@ export interface RequirementResultDetailed {
   expiresAt?: Date | null;
 }
 
-// Resultado de compliance por equipo (para batch)
 export interface EquipoComplianceResult {
   equipoId: number;
   tieneVencidos: boolean;
@@ -36,7 +36,6 @@ export interface EquipoComplianceResult {
   requirements: RequirementResultDetailed[];
 }
 
-// Información de equipo para batch processing
 export interface EquipoInfo {
   id: number;
   tenantEmpresaId: number;
@@ -47,61 +46,268 @@ export interface EquipoInfo {
   empresaTransportistaId: number | null;
 }
 
-export class ComplianceService {
-  // Método legado (usado por rutas existentes)
-  static async evaluateEquipoCliente(equipoId: number, clienteId: number) {
-    const detailed = await this.evaluateEquipoClienteDetailed(equipoId, clienteId);
-    // Mapear a estados simples
-    const simple: RequirementResult[] = detailed.map((r) => {
-      let state: ComplianceState = 'OK';
-      if (r.state === 'FALTANTE') state = 'FALTANTE';
-      else if (r.state === 'PROXIMO') state = 'PROXIMO';
-      else if (r.state === 'VENCIDO' || r.state === 'PENDIENTE' || r.state === 'RECHAZADO') state = 'FALTANTE';
-      else state = 'OK';
-      return {
-        templateId: r.templateId,
-        entityType: r.entityType,
-        obligatorio: r.obligatorio,
-        diasAnticipacion: r.diasAnticipacion,
-        state,
-        documentId: r.documentId,
-        expiresAt: r.expiresAt ?? null,
-      };
-    });
-    return simple;
+interface Requisito {
+  clienteId: number;
+  templateId: number;
+  entityType: string;
+  obligatorio: boolean;
+  diasAnticipacion: number;
+}
+
+interface DocumentInfo {
+  id: number;
+  templateId: number;
+  entityType: string;
+  entityId: number;
+  tenantEmpresaId: number;
+  dadorCargaId: number | null;
+  status: string;
+  expiresAt: Date | null;
+}
+
+// ============================================================================
+// HELPERS DE COMPLIANCE
+// ============================================================================
+const PENDING_STATUSES = ['PENDIENTE', 'VALIDANDO', 'CLASIFICANDO', 'PENDIENTE_APROBACION'];
+
+function getEntityIdFromEquipo(equipo: EquipoInfo, entityType: string): number | null {
+  switch (entityType) {
+    case 'EMPRESA_TRANSPORTISTA': return equipo.empresaTransportistaId;
+    case 'CHOFER': return equipo.driverId;
+    case 'CAMION': return equipo.truckId;
+    case 'ACOPLADO': return equipo.trailerId;
+    default: return null;
+  }
+}
+
+function computeDocumentState(
+  doc: DocumentInfo | null,
+  requisito: Requisito,
+  now: number
+): { state: ComplianceStateDetailed; flags: { vencido: boolean; faltante: boolean; proximo: boolean } } {
+  if (!doc) {
+    return { state: 'FALTANTE', flags: { vencido: false, faltante: true, proximo: false } };
   }
 
-  // Nuevo método detallado
-  static async evaluateEquipoClienteDetailed(equipoId: number, clienteId: number): Promise<RequirementResultDetailed[]> {
-    // Cargar equipo
-    const equipo = await prisma.equipo.findUnique({ where: { id: equipoId } });
-    if (!equipo) return [] as RequirementResultDetailed[];
+  const expiresAt = doc.expiresAt ? new Date(doc.expiresAt).getTime() : null;
 
-    // Cargar requisitos del cliente por entidad
+  if (doc.status === 'RECHAZADO') {
+    return { state: 'RECHAZADO', flags: { vencido: false, faltante: true, proximo: false } };
+  }
+
+  if (PENDING_STATUSES.includes(doc.status)) {
+    return { state: 'PENDIENTE', flags: { vencido: false, faltante: false, proximo: false } };
+  }
+
+  if (doc.status === 'VENCIDO') {
+    return { state: 'VENCIDO', flags: { vencido: true, faltante: false, proximo: false } };
+  }
+
+  if (doc.status === 'APROBADO') {
+    if (expiresAt && expiresAt < now) {
+      return { state: 'VENCIDO', flags: { vencido: true, faltante: false, proximo: false } };
+    }
+    if (expiresAt) {
+      const daysLeft = Math.floor((expiresAt - now) / (1000 * 60 * 60 * 24));
+      if (daysLeft <= requisito.diasAnticipacion) {
+        return { state: 'PROXIMO', flags: { vencido: false, faltante: false, proximo: true } };
+      }
+    }
+    return { state: 'VIGENTE', flags: { vencido: false, faltante: false, proximo: false } };
+  }
+
+  return { state: 'PENDIENTE', flags: { vencido: false, faltante: false, proximo: false } };
+}
+
+function buildDocKey(entityType: string, entityId: number, templateId: number, tenantId: number, dadorId: number | null): string {
+  return `${entityType}:${entityId}:${templateId}:${tenantId}:${dadorId}`;
+}
+
+function mapDetailedToSimple(r: RequirementResultDetailed): RequirementResult {
+  let state: ComplianceState = 'OK';
+  if (r.state === 'FALTANTE' || r.state === 'VENCIDO' || r.state === 'PENDIENTE' || r.state === 'RECHAZADO') {
+    state = 'FALTANTE';
+  } else if (r.state === 'PROXIMO') {
+    state = 'PROXIMO';
+  }
+  return {
+    templateId: r.templateId,
+    entityType: r.entityType,
+    obligatorio: r.obligatorio,
+    diasAnticipacion: r.diasAnticipacion,
+    state,
+    documentId: r.documentId,
+    expiresAt: r.expiresAt ?? null,
+  };
+}
+
+// ============================================================================
+// FUNCIONES DE CARGA DE DATOS
+// ============================================================================
+async function loadEquipoClienteAssignments(equipoIds: number[]): Promise<Map<number, number[]>> {
+  const asignaciones = await prisma.equipoCliente.findMany({
+    where: { equipoId: { in: equipoIds }, asignadoHasta: null },
+    select: { equipoId: true, clienteId: true },
+  });
+
+  const map = new Map<number, number[]>();
+  for (const a of asignaciones) {
+    if (!map.has(a.equipoId)) map.set(a.equipoId, []);
+    map.get(a.equipoId)!.push(a.clienteId);
+  }
+  return map;
+}
+
+async function loadRequirements(clienteIds: number[]): Promise<Map<number, Requisito[]>> {
+  const requisitos = await prisma.clienteDocumentRequirement.findMany({
+    where: { clienteId: { in: clienteIds } },
+    select: { clienteId: true, templateId: true, entityType: true, obligatorio: true, diasAnticipacion: true },
+  });
+
+  const map = new Map<number, Requisito[]>();
+  for (const r of requisitos) {
+    if (!map.has(r.clienteId)) map.set(r.clienteId, []);
+    map.get(r.clienteId)!.push(r as Requisito);
+  }
+  return map;
+}
+
+async function loadDocuments(
+  templateIds: number[],
+  entitySets: { choferIds: Set<number>; camionIds: Set<number>; acopladoIds: Set<number>; empresaIds: Set<number> }
+): Promise<Map<string, DocumentInfo>> {
+  const docs = await prisma.document.findMany({
+    where: {
+      templateId: { in: templateIds },
+      OR: [
+        { entityType: 'CHOFER', entityId: { in: [...entitySets.choferIds] } },
+        { entityType: 'CAMION', entityId: { in: [...entitySets.camionIds] } },
+        { entityType: 'ACOPLADO', entityId: { in: [...entitySets.acopladoIds] } },
+        { entityType: 'EMPRESA_TRANSPORTISTA', entityId: { in: [...entitySets.empresaIds] } },
+      ],
+    },
+    select: { id: true, templateId: true, entityType: true, entityId: true, tenantEmpresaId: true, dadorCargaId: true, status: true, expiresAt: true },
+    orderBy: { uploadedAt: 'desc' },
+  });
+
+  const index = new Map<string, DocumentInfo>();
+  for (const doc of docs) {
+    const key = buildDocKey(doc.entityType, doc.entityId, doc.templateId, doc.tenantEmpresaId, doc.dadorCargaId);
+    if (!index.has(key)) {
+      index.set(key, doc as DocumentInfo);
+    }
+  }
+  return index;
+}
+
+// ============================================================================
+// FUNCIONES DE EVALUACIÓN
+// ============================================================================
+function consolidateRequirements(clienteIds: number[], requisitosPorCliente: Map<number, Requisito[]>): Map<string, Requisito> {
+  const consolidated = new Map<string, Requisito>();
+
+  for (const cId of clienteIds) {
+    const reqs = requisitosPorCliente.get(cId) || [];
+    for (const r of reqs) {
+      const key = `${r.templateId}:${r.entityType}`;
+      const existing = consolidated.get(key);
+
+      if (!existing) {
+        consolidated.set(key, r);
+      } else if (r.obligatorio && !existing.obligatorio) {
+        consolidated.set(key, r);
+      } else if (r.diasAnticipacion > existing.diasAnticipacion) {
+        consolidated.set(key, { ...existing, diasAnticipacion: r.diasAnticipacion });
+      }
+    }
+  }
+
+  return consolidated;
+}
+
+function evaluateSingleEquipo(
+  equipo: EquipoInfo,
+  requisitos: Map<string, Requisito>,
+  docIndex: Map<string, DocumentInfo>,
+  now: number
+): EquipoComplianceResult {
+  const requirements: RequirementResultDetailed[] = [];
+  let tieneVencidos = false;
+  let tieneFaltantes = false;
+  let tieneProximos = false;
+
+  for (const [, r] of requisitos) {
+    const entityId = getEntityIdFromEquipo(equipo, r.entityType);
+
+    if (!entityId) {
+      requirements.push({
+        templateId: r.templateId,
+        entityType: r.entityType as EntityType,
+        obligatorio: r.obligatorio,
+        diasAnticipacion: r.diasAnticipacion,
+        state: 'FALTANTE',
+      });
+      tieneFaltantes = true;
+      continue;
+    }
+
+    const docKey = buildDocKey(r.entityType, entityId, r.templateId, equipo.tenantEmpresaId, equipo.dadorCargaId);
+    const doc = docIndex.get(docKey) || null;
+    const { state, flags } = computeDocumentState(doc, r, now);
+
+    if (flags.vencido) tieneVencidos = true;
+    if (flags.faltante) tieneFaltantes = true;
+    if (flags.proximo) tieneProximos = true;
+
+    requirements.push({
+      templateId: r.templateId,
+      entityType: r.entityType as EntityType,
+      obligatorio: r.obligatorio,
+      diasAnticipacion: r.diasAnticipacion,
+      state,
+      documentId: doc?.id,
+      documentStatus: doc?.status as DocumentStatus,
+      expiresAt: doc?.expiresAt ?? null,
+    });
+  }
+
+  return { equipoId: equipo.id, tieneVencidos, tieneFaltantes, tieneProximos, requirements };
+}
+
+// ============================================================================
+// SERVICIO PRINCIPAL
+// ============================================================================
+export class ComplianceService {
+  /**
+   * Método legado (usado por rutas existentes)
+   */
+  static async evaluateEquipoCliente(equipoId: number, clienteId: number): Promise<RequirementResult[]> {
+    const detailed = await this.evaluateEquipoClienteDetailed(equipoId, clienteId);
+    return detailed.map(mapDetailedToSimple);
+  }
+
+  /**
+   * Evaluación detallada de un equipo para un cliente
+   */
+  static async evaluateEquipoClienteDetailed(equipoId: number, clienteId: number): Promise<RequirementResultDetailed[]> {
+    const equipo = await prisma.equipo.findUnique({ where: { id: equipoId } });
+    if (!equipo) return [];
+
     const requisitos = await prisma.clienteDocumentRequirement.findMany({
       where: { clienteId },
-      select: {
-        id: true,
-        templateId: true,
-        entityType: true,
-        obligatorio: true,
-        diasAnticipacion: true,
-      },
+      select: { templateId: true, entityType: true, obligatorio: true, diasAnticipacion: true },
     });
 
     const results: RequirementResultDetailed[] = [];
-    for (const r of requisitos) {
-      const entityId =
-        r.entityType === 'EMPRESA_TRANSPORTISTA' ? (equipo as any).empresaTransportistaId :
-        r.entityType === 'CHOFER' ? (equipo as any).driverId :
-        r.entityType === 'CAMION' ? (equipo as any).truckId :
-        r.entityType === 'ACOPLADO' ? (equipo as any).trailerId : null;
+    const now = Date.now();
 
-      // Si el entityId es null/undefined/0, marcar como FALTANTE y continuar
+    for (const r of requisitos) {
+      const entityId = getEntityIdFromEquipo(equipo as any, r.entityType);
+
       if (!entityId) {
         results.push({
           templateId: r.templateId,
-          entityType: r.entityType as any,
+          entityType: r.entityType as EntityType,
           obligatorio: r.obligatorio,
           diasAnticipacion: r.diasAnticipacion,
           state: 'FALTANTE',
@@ -109,7 +315,6 @@ export class ComplianceService {
         continue;
       }
 
-      // Buscar último documento (cualquier estado)
       const doc = await prisma.document.findFirst({
         where: {
           templateId: r.templateId,
@@ -121,332 +326,87 @@ export class ComplianceService {
         orderBy: { uploadedAt: 'desc' },
       });
 
-      if (!doc) {
-        results.push({
-          templateId: r.templateId,
-          entityType: r.entityType as any,
-          obligatorio: r.obligatorio,
-          diasAnticipacion: r.diasAnticipacion,
-          state: 'FALTANTE',
-        });
-        continue;
-      }
-
-      // Determinar estado detallado
-      const expiresAt = doc.expiresAt ? new Date(doc.expiresAt) : null;
-      const now = Date.now();
-      let state: ComplianceStateDetailed = 'VIGENTE';
-      if (doc.status === 'RECHAZADO') state = 'RECHAZADO';
-      else if (doc.status === 'PENDIENTE' || doc.status === 'VALIDANDO' || doc.status === 'CLASIFICANDO' || doc.status === 'PENDIENTE_APROBACION') state = 'PENDIENTE';
-      else if (doc.status === 'APROBADO') {
-        if (expiresAt && expiresAt.getTime() < now) state = 'VENCIDO';
-        else if (expiresAt) {
-          const daysLeft = Math.floor((expiresAt.getTime() - now) / (1000 * 60 * 60 * 24));
-          state = daysLeft <= r.diasAnticipacion ? 'PROXIMO' : 'VIGENTE';
-        } else {
-          state = 'VIGENTE';
-        }
-      } else if (doc.status === 'VENCIDO') {
-        state = 'VENCIDO';
-      } else {
-        // Cualquier otro caso desconocido: considerar pendiente
-        state = 'PENDIENTE';
-      }
+      const { state } = computeDocumentState(doc as any, r as Requisito, now);
 
       results.push({
         templateId: r.templateId,
-        entityType: r.entityType as any,
+        entityType: r.entityType as EntityType,
         obligatorio: r.obligatorio,
         diasAnticipacion: r.diasAnticipacion,
         state,
-        documentId: (doc as any).id,
-        documentStatus: (doc as any).status,
-        expiresAt: (doc as any).expiresAt ?? null,
+        documentId: doc?.id,
+        documentStatus: doc?.status as DocumentStatus,
+        expiresAt: doc?.expiresAt ?? null,
       });
     }
+
     return results;
   }
 
   /**
-   * BATCH COMPLIANCE: Evalúa múltiples equipos para un cliente en una sola operación.
+   * BATCH COMPLIANCE: Evalúa múltiples equipos en una sola operación.
    * Optimizado para reducir queries de N*M a ~5 queries totales.
-   * 
-   * @param equipos - Array de información de equipos
-   * @param clienteId - ID del cliente para evaluar requisitos (si undefined, evalúa contra todos los clientes asignados)
-   * @returns Map de equipoId -> resultado de compliance
    */
   static async evaluateBatchEquiposCliente(
     equipos: EquipoInfo[],
     clienteId?: number
   ): Promise<Map<number, EquipoComplianceResult>> {
-    const batchStartTime = Date.now();
-    const batchTimings: Record<string, number> = {};
-    
     const results = new Map<number, EquipoComplianceResult>();
-    
-    if (equipos.length === 0) {
-      return results;
-    }
+    if (equipos.length === 0) return results;
 
-    // Mapa de equipoId -> clienteIds asignados (para cuando no hay clienteId específico)
-    const equipoClientesMap = new Map<number, number[]>();
-    let allClienteIds: number[] = [];
+    const batchStartTime = Date.now();
+
+    // 1. Cargar asignaciones de equipos a clientes
+    let equipoClientesMap: Map<number, number[]>;
+    let allClienteIds: number[];
 
     if (clienteId) {
-      // Cliente específico: usar ese para todos los equipos
+      equipoClientesMap = new Map(equipos.map(eq => [eq.id, [clienteId]]));
       allClienteIds = [clienteId];
-      for (const eq of equipos) {
-        equipoClientesMap.set(eq.id, [clienteId]);
-      }
     } else {
-      // Sin cliente específico: obtener clientes asignados a cada equipo
-      const asignStart = Date.now();
-      const equipoIds = equipos.map(e => e.id);
-      const asignaciones = await prisma.equipoCliente.findMany({
-        where: { 
-          equipoId: { in: equipoIds },
-          asignadoHasta: null, // Solo asignaciones activas
-        },
-        select: { equipoId: true, clienteId: true },
-      });
-      batchTimings.asignacionesQuery = Date.now() - asignStart;
-
-      // Construir mapa y recolectar todos los clienteIds únicos
-      const clienteSet = new Set<number>();
-      for (const a of asignaciones) {
-        if (!equipoClientesMap.has(a.equipoId)) {
-          equipoClientesMap.set(a.equipoId, []);
-        }
-        equipoClientesMap.get(a.equipoId)!.push(a.clienteId);
-        clienteSet.add(a.clienteId);
-      }
-      allClienteIds = [...clienteSet];
-
-      // Equipos sin clientes asignados: marcar como sin requisitos
+      equipoClientesMap = await loadEquipoClienteAssignments(equipos.map(e => e.id));
+      allClienteIds = [...new Set([...equipoClientesMap.values()].flat())];
+      // Equipos sin clientes asignados
       for (const eq of equipos) {
-        if (!equipoClientesMap.has(eq.id)) {
-          equipoClientesMap.set(eq.id, []);
-        }
+        if (!equipoClientesMap.has(eq.id)) equipoClientesMap.set(eq.id, []);
       }
     }
 
-    // 1. Cargar requisitos de TODOS los clientes relevantes (1 query)
-    const reqStart = Date.now();
-    const requisitos = await prisma.clienteDocumentRequirement.findMany({
-      where: { clienteId: { in: allClienteIds } },
-      select: {
-        clienteId: true,
-        templateId: true,
-        entityType: true,
-        obligatorio: true,
-        diasAnticipacion: true,
-      },
-    });
-    batchTimings.requisitosQuery = Date.now() - reqStart;
+    // 2. Cargar requisitos de clientes
+    const requisitosPorCliente = await loadRequirements(allClienteIds);
 
-    // Indexar requisitos por clienteId
-    const requisitosPorCliente = new Map<number, typeof requisitos>();
-    for (const r of requisitos) {
-      if (!requisitosPorCliente.has(r.clienteId)) {
-        requisitosPorCliente.set(r.clienteId, []);
-      }
-      requisitosPorCliente.get(r.clienteId)!.push(r);
-    }
-
-    if (requisitos.length === 0) {
-      console.log(`[Compliance.evaluateBatch] No requisitos for clientes=[${allClienteIds.join(',')}]`);
-      // Sin requisitos, todos los equipos están "vigentes" sin datos
+    // Si no hay requisitos, todos los equipos están "vigentes"
+    if ([...requisitosPorCliente.values()].flat().length === 0) {
       for (const eq of equipos) {
-        results.set(eq.id, {
-          equipoId: eq.id,
-          tieneVencidos: false,
-          tieneFaltantes: false,
-          tieneProximos: false,
-          requirements: [],
-        });
+        results.set(eq.id, { equipoId: eq.id, tieneVencidos: false, tieneFaltantes: false, tieneProximos: false, requirements: [] });
       }
       return results;
     }
 
-    // 2. Recolectar todas las entidades únicas de todos los equipos
-    const choferIds = new Set<number>();
-    const camionIds = new Set<number>();
-    const acopladoIds = new Set<number>();
-    const empresaIds = new Set<number>();
-
+    // 3. Recolectar entidades únicas
+    const entitySets = { choferIds: new Set<number>(), camionIds: new Set<number>(), acopladoIds: new Set<number>(), empresaIds: new Set<number>() };
     for (const eq of equipos) {
-      if (eq.driverId) choferIds.add(eq.driverId);
-      if (eq.truckId) camionIds.add(eq.truckId);
-      if (eq.trailerId) acopladoIds.add(eq.trailerId);
-      if (eq.empresaTransportistaId) empresaIds.add(eq.empresaTransportistaId);
+      if (eq.driverId) entitySets.choferIds.add(eq.driverId);
+      if (eq.truckId) entitySets.camionIds.add(eq.truckId);
+      if (eq.trailerId) entitySets.acopladoIds.add(eq.trailerId);
+      if (eq.empresaTransportistaId) entitySets.empresaIds.add(eq.empresaTransportistaId);
     }
 
-    // 3. Obtener templates relevantes
-    const templateIds = [...new Set(requisitos.map(r => r.templateId))];
+    // 4. Cargar documentos
+    const allReqs = [...requisitosPorCliente.values()].flat();
+    const templateIds = [...new Set(allReqs.map(r => r.templateId))];
+    const docIndex = await loadDocuments(templateIds, entitySets);
 
-    // 4. Cargar TODOS los documentos relevantes en UNA query
-    // Usamos el índice idx_documents_compliance_lookup
-    const docsStart = Date.now();
-    const allDocs = await prisma.document.findMany({
-      where: {
-        templateId: { in: templateIds },
-        OR: [
-          { entityType: 'CHOFER', entityId: { in: [...choferIds] } },
-          { entityType: 'CAMION', entityId: { in: [...camionIds] } },
-          { entityType: 'ACOPLADO', entityId: { in: [...acopladoIds] } },
-          { entityType: 'EMPRESA_TRANSPORTISTA', entityId: { in: [...empresaIds] } },
-        ],
-      },
-      select: {
-        id: true,
-        templateId: true,
-        entityType: true,
-        entityId: true,
-        tenantEmpresaId: true,
-        dadorCargaId: true,
-        status: true,
-        expiresAt: true,
-        uploadedAt: true,
-      },
-      orderBy: { uploadedAt: 'desc' },
-    });
-    batchTimings.docsQuery = Date.now() - docsStart;
-    batchTimings.docsCount = allDocs.length;
-
-    // 5. Indexar documentos: key = "entityType:entityId:templateId:tenant:dador" -> doc más reciente
-    const docIndex = new Map<string, typeof allDocs[0]>();
-    for (const doc of allDocs) {
-      const key = `${doc.entityType}:${doc.entityId}:${doc.templateId}:${doc.tenantEmpresaId}:${doc.dadorCargaId}`;
-      // Como están ordenados por uploadedAt DESC, el primero es el más reciente
-      if (!docIndex.has(key)) {
-        docIndex.set(key, doc);
-      }
-    }
-
-    // 6. Evaluar compliance para cada equipo (todo en memoria)
+    // 5. Evaluar cada equipo
     const now = Date.now();
-
     for (const eq of equipos) {
-      const equipoRequirements: RequirementResultDetailed[] = [];
-      let tieneVencidos = false;
-      let tieneFaltantes = false;
-      let tieneProximos = false;
-
-      // Obtener clientes asignados a este equipo
       const clientesDelEquipo = equipoClientesMap.get(eq.id) || [];
-      
-      // Consolidar requisitos de todos los clientes del equipo (unión)
-      // Usamos Map para evitar duplicados por templateId+entityType
-      const requisitosConsolidados = new Map<string, typeof requisitos[0]>();
-      for (const cId of clientesDelEquipo) {
-        const reqsCliente = requisitosPorCliente.get(cId) || [];
-        for (const r of reqsCliente) {
-          const key = `${r.templateId}:${r.entityType}`;
-          if (!requisitosConsolidados.has(key)) {
-            requisitosConsolidados.set(key, r);
-          } else {
-            // Si ya existe, tomar el más estricto (obligatorio=true y menor diasAnticipacion)
-            const existing = requisitosConsolidados.get(key)!;
-            if (r.obligatorio && !existing.obligatorio) {
-              requisitosConsolidados.set(key, r);
-            } else if (r.diasAnticipacion > existing.diasAnticipacion) {
-              // Mayor anticipación = más estricto
-              requisitosConsolidados.set(key, { ...existing, diasAnticipacion: r.diasAnticipacion });
-            }
-          }
-        }
-      }
-
-      // Evaluar cada requisito consolidado
-      for (const [, r] of requisitosConsolidados) {
-        // Determinar entityId según el tipo
-        const entityId =
-          r.entityType === 'EMPRESA_TRANSPORTISTA' ? eq.empresaTransportistaId :
-          r.entityType === 'CHOFER' ? eq.driverId :
-          r.entityType === 'CAMION' ? eq.truckId :
-          r.entityType === 'ACOPLADO' ? eq.trailerId : null;
-
-        // Si no hay entityId, es FALTANTE
-        if (!entityId) {
-          equipoRequirements.push({
-            templateId: r.templateId,
-            entityType: r.entityType as EntityType,
-            obligatorio: r.obligatorio,
-            diasAnticipacion: r.diasAnticipacion,
-            state: 'FALTANTE',
-          });
-          tieneFaltantes = true;
-          continue;
-        }
-
-        // Buscar documento en el índice
-        const docKey = `${r.entityType}:${entityId}:${r.templateId}:${eq.tenantEmpresaId}:${eq.dadorCargaId}`;
-        const doc = docIndex.get(docKey);
-
-        if (!doc) {
-          equipoRequirements.push({
-            templateId: r.templateId,
-            entityType: r.entityType as EntityType,
-            obligatorio: r.obligatorio,
-            diasAnticipacion: r.diasAnticipacion,
-            state: 'FALTANTE',
-          });
-          tieneFaltantes = true;
-          continue;
-        }
-
-        // Calcular estado del documento
-        const expiresAt = doc.expiresAt ? new Date(doc.expiresAt) : null;
-        let state: ComplianceStateDetailed = 'VIGENTE';
-
-        if (doc.status === 'RECHAZADO') {
-          state = 'RECHAZADO';
-          tieneFaltantes = true; // Rechazado cuenta como faltante
-        } else if (doc.status === 'PENDIENTE' || doc.status === 'VALIDANDO' || 
-                   doc.status === 'CLASIFICANDO' || doc.status === 'PENDIENTE_APROBACION') {
-          state = 'PENDIENTE';
-        } else if (doc.status === 'APROBADO') {
-          if (expiresAt && expiresAt.getTime() < now) {
-            state = 'VENCIDO';
-            tieneVencidos = true;
-          } else if (expiresAt) {
-            const daysLeft = Math.floor((expiresAt.getTime() - now) / (1000 * 60 * 60 * 24));
-            if (daysLeft <= r.diasAnticipacion) {
-              state = 'PROXIMO';
-              tieneProximos = true;
-            }
-          }
-        } else if (doc.status === 'VENCIDO') {
-          state = 'VENCIDO';
-          tieneVencidos = true;
-        } else {
-          state = 'PENDIENTE';
-        }
-
-        equipoRequirements.push({
-          templateId: r.templateId,
-          entityType: r.entityType as EntityType,
-          obligatorio: r.obligatorio,
-          diasAnticipacion: r.diasAnticipacion,
-          state,
-          documentId: doc.id,
-          documentStatus: doc.status as DocumentStatus,
-          expiresAt: expiresAt,
-        });
-      }
-
-      results.set(eq.id, {
-        equipoId: eq.id,
-        tieneVencidos,
-        tieneFaltantes,
-        tieneProximos,
-        requirements: equipoRequirements,
-      });
+      const requisitos = consolidateRequirements(clientesDelEquipo, requisitosPorCliente);
+      const result = evaluateSingleEquipo(eq, requisitos, docIndex, now);
+      results.set(eq.id, result);
     }
 
-    batchTimings.total = Date.now() - batchStartTime;
-    console.log(`[Compliance.evaluateBatch] clienteId=${clienteId ?? 'ALL'} equipos=${equipos.length} timings=${JSON.stringify(batchTimings)}`);
-
+    console.log(`[Compliance.evaluateBatch] clienteId=${clienteId ?? 'ALL'} equipos=${equipos.length} time=${Date.now() - batchStartTime}ms`);
     return results;
   }
 }
