@@ -11,7 +11,7 @@ const normalizeText = (s: string): string => String(s)
   .replace(/[\u0300-\u036f]/g, '')
   .toUpperCase()
   .replace(/[^A-Z0-9]+/g, '_')
-  .replace(/^(?:_)+|(?:_)+$/g, '');
+  .replace(/(?:^_+)|(?:_+$)/g, '');
 const isInt32 = (n: number): boolean => Number.isInteger(n) && n >= -2147483648 && n <= 2147483647;
 
 // ============================================================================

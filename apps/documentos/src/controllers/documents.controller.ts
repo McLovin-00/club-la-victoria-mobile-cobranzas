@@ -66,7 +66,7 @@ function normalizeFileName(s: string): string {
     .replace(/[\u0300-\u036f]/g, '')
     .toUpperCase()
     .replace(/[^A-Z0-9]+/g, '_')
-    .replace(/^(?:_)+|(?:_)+$/g, '');
+    .replace(/(?:^_+)|(?:_+$)/g, '');
 }
 
 function buildDocumentFileName(templateName: string, entityType: string, entityId: number): string {
