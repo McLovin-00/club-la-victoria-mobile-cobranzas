@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { 
   CheckCircleIcon, 
   XCircleIcon,
@@ -9,9 +9,18 @@ import {
   MapPinIcon,
   ArrowLeftIcon,
   ArrowPathIcon,
+  PencilIcon,
+  CheckIcon,
+  XMarkIcon,
 } from '@heroicons/react/24/outline';
 import { Remito, ESTADO_LABELS, ESTADO_COLORS } from '../types';
-import { useApproveRemitoMutation, useRejectRemitoMutation, useGetRemitoQuery, useReprocessRemitoMutation } from '../api/remitosApiSlice';
+import { 
+  useApproveRemitoMutation, 
+  useRejectRemitoMutation, 
+  useGetRemitoQuery, 
+  useReprocessRemitoMutation,
+  useUpdateRemitoMutation,
+} from '../api/remitosApiSlice';
 
 interface RemitoDetailProps {
   remito: Remito;
@@ -19,9 +28,49 @@ interface RemitoDetailProps {
   canApprove?: boolean;
 }
 
+interface EditableData {
+  numeroRemito: string;
+  fechaOperacion: string;
+  emisorNombre: string;
+  emisorDetalle: string;
+  clienteNombre: string;
+  producto: string;
+  transportistaNombre: string;
+  choferNombre: string;
+  choferDni: string;
+  patenteChasis: string;
+  patenteAcoplado: string;
+  pesoOrigenBruto: string;
+  pesoOrigenTara: string;
+  pesoOrigenNeto: string;
+  pesoDestinoBruto: string;
+  pesoDestinoTara: string;
+  pesoDestinoNeto: string;
+}
+
 export function RemitoDetail({ remito: initialRemito, onBack, canApprove = false }: RemitoDetailProps) {
   const [showRejectModal, setShowRejectModal] = useState(false);
   const [rejectMotivo, setRejectMotivo] = useState('');
+  const [isEditing, setIsEditing] = useState(false);
+  const [editData, setEditData] = useState<EditableData>({
+    numeroRemito: '',
+    fechaOperacion: '',
+    emisorNombre: '',
+    emisorDetalle: '',
+    clienteNombre: '',
+    producto: '',
+    transportistaNombre: '',
+    choferNombre: '',
+    choferDni: '',
+    patenteChasis: '',
+    patenteAcoplado: '',
+    pesoOrigenBruto: '',
+    pesoOrigenTara: '',
+    pesoOrigenNeto: '',
+    pesoDestinoBruto: '',
+    pesoDestinoTara: '',
+    pesoDestinoNeto: '',
+  });
   
   // Obtener el remito completo con URLs de imágenes
   const { data: remitoData, isLoading: loadingRemito } = useGetRemitoQuery(initialRemito.id);
@@ -30,6 +79,32 @@ export function RemitoDetail({ remito: initialRemito, onBack, canApprove = false
   const [approve, { isLoading: approving }] = useApproveRemitoMutation();
   const [reject, { isLoading: rejecting }] = useRejectRemitoMutation();
   const [reprocess, { isLoading: reprocessing }] = useReprocessRemitoMutation();
+  const [updateRemito, { isLoading: updating }] = useUpdateRemitoMutation();
+  
+  // Inicializar datos editables cuando el remito cambia
+  useEffect(() => {
+    if (remito) {
+      setEditData({
+        numeroRemito: remito.numeroRemito || '',
+        fechaOperacion: remito.fechaOperacion ? new Date(remito.fechaOperacion).toISOString().split('T')[0] : '',
+        emisorNombre: remito.emisorNombre || '',
+        emisorDetalle: remito.emisorDetalle || '',
+        clienteNombre: remito.clienteNombre || '',
+        producto: remito.producto || '',
+        transportistaNombre: remito.transportistaNombre || '',
+        choferNombre: remito.choferNombre || '',
+        choferDni: remito.choferDni || '',
+        patenteChasis: remito.patenteChasis || '',
+        patenteAcoplado: remito.patenteAcoplado || '',
+        pesoOrigenBruto: remito.pesoOrigenBruto?.toString() || '',
+        pesoOrigenTara: remito.pesoOrigenTara?.toString() || '',
+        pesoOrigenNeto: remito.pesoOrigenNeto?.toString() || '',
+        pesoDestinoBruto: remito.pesoDestinoBruto?.toString() || '',
+        pesoDestinoTara: remito.pesoDestinoTara?.toString() || '',
+        pesoDestinoNeto: remito.pesoDestinoNeto?.toString() || '',
+      });
+    }
+  }, [remito]);
   
   const estadoLabel = ESTADO_LABELS[remito.estado];
   const estadoColor = ESTADO_COLORS[remito.estado];
@@ -79,7 +154,67 @@ export function RemitoDetail({ remito: initialRemito, onBack, canApprove = false
     }
   };
   
+  const handleSaveEdit = async () => {
+    try {
+      await updateRemito({
+        id: remito.id,
+        data: {
+          numeroRemito: editData.numeroRemito || null,
+          fechaOperacion: editData.fechaOperacion || null,
+          emisorNombre: editData.emisorNombre || null,
+          emisorDetalle: editData.emisorDetalle || null,
+          clienteNombre: editData.clienteNombre || null,
+          producto: editData.producto || null,
+          transportistaNombre: editData.transportistaNombre || null,
+          choferNombre: editData.choferNombre || null,
+          choferDni: editData.choferDni || null,
+          patenteChasis: editData.patenteChasis || null,
+          patenteAcoplado: editData.patenteAcoplado || null,
+          pesoOrigenBruto: editData.pesoOrigenBruto ? Number(editData.pesoOrigenBruto) : null,
+          pesoOrigenTara: editData.pesoOrigenTara ? Number(editData.pesoOrigenTara) : null,
+          pesoOrigenNeto: editData.pesoOrigenNeto ? Number(editData.pesoOrigenNeto) : null,
+          pesoDestinoBruto: editData.pesoDestinoBruto ? Number(editData.pesoDestinoBruto) : null,
+          pesoDestinoTara: editData.pesoDestinoTara ? Number(editData.pesoDestinoTara) : null,
+          pesoDestinoNeto: editData.pesoDestinoNeto ? Number(editData.pesoDestinoNeto) : null,
+        },
+      }).unwrap();
+      setIsEditing(false);
+    } catch (err) {
+      console.error('Error guardando edición:', err);
+      alert('Error al guardar los cambios');
+    }
+  };
+  
+  const handleCancelEdit = () => {
+    // Restaurar datos originales
+    setEditData({
+      numeroRemito: remito.numeroRemito || '',
+      fechaOperacion: remito.fechaOperacion ? new Date(remito.fechaOperacion).toISOString().split('T')[0] : '',
+      emisorNombre: remito.emisorNombre || '',
+      emisorDetalle: remito.emisorDetalle || '',
+      clienteNombre: remito.clienteNombre || '',
+      producto: remito.producto || '',
+      transportistaNombre: remito.transportistaNombre || '',
+      choferNombre: remito.choferNombre || '',
+      choferDni: remito.choferDni || '',
+      patenteChasis: remito.patenteChasis || '',
+      patenteAcoplado: remito.patenteAcoplado || '',
+      pesoOrigenBruto: remito.pesoOrigenBruto?.toString() || '',
+      pesoOrigenTara: remito.pesoOrigenTara?.toString() || '',
+      pesoOrigenNeto: remito.pesoOrigenNeto?.toString() || '',
+      pesoDestinoBruto: remito.pesoDestinoBruto?.toString() || '',
+      pesoDestinoTara: remito.pesoDestinoTara?.toString() || '',
+      pesoDestinoNeto: remito.pesoDestinoNeto?.toString() || '',
+    });
+    setIsEditing(false);
+  };
+  
+  const handleFieldChange = (field: keyof EditableData, value: string) => {
+    setEditData(prev => ({ ...prev, [field]: value }));
+  };
+  
   const isPendingApproval = remito.estado === 'PENDIENTE_APROBACION';
+  const canEdit = canApprove && remito.estado !== 'APROBADO';
   const canReprocess = canApprove && remito.estado !== 'APROBADO';
   
   // Loading state
@@ -108,7 +243,39 @@ export function RemitoDetail({ remito: initialRemito, onBack, canApprove = false
             {estadoLabel}
           </span>
           
-          {canReprocess && (
+          {canEdit && !isEditing && (
+            <button
+              onClick={() => setIsEditing(true)}
+              className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/30 rounded-full hover:bg-amber-100 dark:hover:bg-amber-900/50 transition-colors"
+              title="Editar datos"
+            >
+              <PencilIcon className="h-4 w-4" />
+              Editar
+            </button>
+          )}
+          
+          {isEditing && (
+            <>
+              <button
+                onClick={handleSaveEdit}
+                disabled={updating}
+                className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-green-600 dark:text-green-400 bg-green-50 dark:bg-green-900/30 rounded-full hover:bg-green-100 dark:hover:bg-green-900/50 transition-colors disabled:opacity-50"
+              >
+                <CheckIcon className="h-4 w-4" />
+                {updating ? 'Guardando...' : 'Guardar'}
+              </button>
+              <button
+                onClick={handleCancelEdit}
+                disabled={updating}
+                className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-slate-600 dark:text-slate-400 bg-slate-50 dark:bg-slate-900/30 rounded-full hover:bg-slate-100 dark:hover:bg-slate-900/50 transition-colors"
+              >
+                <XMarkIcon className="h-4 w-4" />
+                Cancelar
+              </button>
+            </>
+          )}
+          
+          {canReprocess && !isEditing && (
             <button
               onClick={handleReprocess}
               disabled={reprocessing}
@@ -191,15 +358,63 @@ export function RemitoDetail({ remito: initialRemito, onBack, canApprove = false
           {/* Info principal */}
           <div className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-4">
             <h3 className="text-lg font-semibold text-slate-900 dark:text-white mb-4">
-              📋 Datos del Remito
+              📋 Datos del Remito {isEditing && <span className="text-amber-500 text-sm">(Editando)</span>}
             </h3>
             
             <dl className="space-y-3">
-              <InfoRow icon={DocumentTextIcon} label="Número" value={remito.numeroRemito} />
-              <InfoRow icon={CalendarIcon} label="Fecha" value={formatDate(remito.fechaOperacion)} />
-              <InfoRow icon={MapPinIcon} label="Emisor" value={remito.emisorNombre} subvalue={remito.emisorDetalle} />
-              <InfoRow icon={MapPinIcon} label="Cliente" value={remito.clienteNombre} />
-              <InfoRow icon={DocumentTextIcon} label="Producto" value={remito.producto} />
+              <EditableRow 
+                icon={DocumentTextIcon} 
+                label="Número" 
+                value={editData.numeroRemito}
+                displayValue={remito.numeroRemito}
+                isEditing={isEditing}
+                onChange={(v) => handleFieldChange('numeroRemito', v)}
+                placeholder="Número de remito"
+              />
+              <EditableRow 
+                icon={CalendarIcon} 
+                label="Fecha" 
+                value={editData.fechaOperacion}
+                displayValue={formatDate(remito.fechaOperacion)}
+                isEditing={isEditing}
+                onChange={(v) => handleFieldChange('fechaOperacion', v)}
+                type="date"
+              />
+              <EditableRow 
+                icon={MapPinIcon} 
+                label="Emisor" 
+                value={editData.emisorNombre}
+                displayValue={remito.emisorNombre}
+                isEditing={isEditing}
+                onChange={(v) => handleFieldChange('emisorNombre', v)}
+                placeholder="Nombre del emisor"
+              />
+              <EditableRow 
+                label="Detalle Emisor" 
+                value={editData.emisorDetalle}
+                displayValue={remito.emisorDetalle}
+                isEditing={isEditing}
+                onChange={(v) => handleFieldChange('emisorDetalle', v)}
+                placeholder="Detalle del emisor"
+              />
+              <EditableRow 
+                icon={MapPinIcon} 
+                label="Cliente" 
+                value={editData.clienteNombre}
+                displayValue={remito.clienteNombre}
+                isEditing={isEditing}
+                onChange={(v) => handleFieldChange('clienteNombre', v)}
+                placeholder="Nombre del cliente"
+              />
+              <EditableRow 
+                icon={DocumentTextIcon} 
+                label="Producto" 
+                value={editData.producto}
+                displayValue={remito.producto}
+                isEditing={isEditing}
+                onChange={(v) => handleFieldChange('producto', v)}
+                placeholder="Descripción del producto"
+              />
             </dl>
           </div>
           
@@ -235,48 +450,150 @@ export function RemitoDetail({ remito: initialRemito, onBack, canApprove = false
             </h3>
             
             <dl className="space-y-3">
-              <InfoRow icon={TruckIcon} label="Transportista" value={remito.transportistaNombre} />
-              <InfoRow icon={UserIcon} label="Chofer (remito)" value={remito.choferNombre} subvalue={remito.choferDni ? `DNI: ${remito.choferDni}` : undefined} />
-              <div className="flex gap-4">
-                <InfoRow label="Chasis" value={remito.patenteChasis} />
-                <InfoRow label="Acoplado" value={remito.patenteAcoplado} />
+              <EditableRow 
+                icon={TruckIcon} 
+                label="Transportista" 
+                value={editData.transportistaNombre}
+                displayValue={remito.transportistaNombre}
+                isEditing={isEditing}
+                onChange={(v) => handleFieldChange('transportistaNombre', v)}
+                placeholder="Nombre del transportista"
+              />
+              <EditableRow 
+                icon={UserIcon} 
+                label="Chofer (remito)" 
+                value={editData.choferNombre}
+                displayValue={remito.choferNombre}
+                isEditing={isEditing}
+                onChange={(v) => handleFieldChange('choferNombre', v)}
+                placeholder="Nombre del chofer"
+              />
+              <EditableRow 
+                label="DNI Chofer" 
+                value={editData.choferDni}
+                displayValue={remito.choferDni}
+                isEditing={isEditing}
+                onChange={(v) => handleFieldChange('choferDni', v)}
+                placeholder="DNI del chofer"
+              />
+              <div className="grid grid-cols-2 gap-4">
+                <EditableRow 
+                  label="Patente Chasis" 
+                  value={editData.patenteChasis}
+                  displayValue={remito.patenteChasis}
+                  isEditing={isEditing}
+                  onChange={(v) => handleFieldChange('patenteChasis', v.toUpperCase())}
+                  placeholder="Ej: AB123CD"
+                  className="uppercase"
+                />
+                <EditableRow 
+                  label="Patente Acoplado" 
+                  value={editData.patenteAcoplado}
+                  displayValue={remito.patenteAcoplado}
+                  isEditing={isEditing}
+                  onChange={(v) => handleFieldChange('patenteAcoplado', v.toUpperCase())}
+                  placeholder="Ej: AB123CD"
+                  className="uppercase"
+                />
               </div>
             </dl>
           </div>
           
-          {/* Pesos */}
+          {/* Pesos - siempre visibles */}
           <div className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-4">
             <h3 className="text-lg font-semibold text-slate-900 dark:text-white mb-4">
               ⚖️ Pesos
             </h3>
             
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-2 gap-6">
+              {/* Pesos Origen */}
               <div>
-                <h4 className="text-sm font-medium text-slate-500 dark:text-slate-400 mb-2">Origen</h4>
+                <h4 className="text-sm font-medium text-slate-500 dark:text-slate-400 mb-3">Origen</h4>
                 <dl className="space-y-2">
-                  <InfoRow label="Bruto" value={formatWeight(remito.pesoOrigenBruto)} small />
-                  <InfoRow label="Tara" value={formatWeight(remito.pesoOrigenTara)} small />
-                  <InfoRow label="Neto" value={formatWeight(remito.pesoOrigenNeto)} small highlight />
+                  <EditableRow 
+                    label="Bruto" 
+                    value={editData.pesoOrigenBruto}
+                    displayValue={formatWeight(remito.pesoOrigenBruto)}
+                    isEditing={isEditing}
+                    onChange={(v) => handleFieldChange('pesoOrigenBruto', v)}
+                    type="number"
+                    placeholder="0"
+                    suffix="kg"
+                    small
+                  />
+                  <EditableRow 
+                    label="Tara" 
+                    value={editData.pesoOrigenTara}
+                    displayValue={formatWeight(remito.pesoOrigenTara)}
+                    isEditing={isEditing}
+                    onChange={(v) => handleFieldChange('pesoOrigenTara', v)}
+                    type="number"
+                    placeholder="0"
+                    suffix="kg"
+                    small
+                  />
+                  <EditableRow 
+                    label="Neto" 
+                    value={editData.pesoOrigenNeto}
+                    displayValue={formatWeight(remito.pesoOrigenNeto)}
+                    isEditing={isEditing}
+                    onChange={(v) => handleFieldChange('pesoOrigenNeto', v)}
+                    type="number"
+                    placeholder="0"
+                    suffix="kg"
+                    small
+                    highlight
+                  />
                 </dl>
               </div>
               
-              {remito.tieneTicketDestino && (
-                <div>
-                  <h4 className="text-sm font-medium text-slate-500 dark:text-slate-400 mb-2">Destino</h4>
-                  <dl className="space-y-2">
-                    <InfoRow label="Bruto" value={formatWeight(remito.pesoDestinoBruto)} small />
-                    <InfoRow label="Tara" value={formatWeight(remito.pesoDestinoTara)} small />
-                    <InfoRow label="Neto" value={formatWeight(remito.pesoDestinoNeto)} small highlight />
-                  </dl>
-                </div>
-              )}
+              {/* Pesos Destino - siempre visible */}
+              <div>
+                <h4 className="text-sm font-medium text-slate-500 dark:text-slate-400 mb-3">Destino</h4>
+                <dl className="space-y-2">
+                  <EditableRow 
+                    label="Bruto" 
+                    value={editData.pesoDestinoBruto}
+                    displayValue={formatWeight(remito.pesoDestinoBruto)}
+                    isEditing={isEditing}
+                    onChange={(v) => handleFieldChange('pesoDestinoBruto', v)}
+                    type="number"
+                    placeholder="0"
+                    suffix="kg"
+                    small
+                  />
+                  <EditableRow 
+                    label="Tara" 
+                    value={editData.pesoDestinoTara}
+                    displayValue={formatWeight(remito.pesoDestinoTara)}
+                    isEditing={isEditing}
+                    onChange={(v) => handleFieldChange('pesoDestinoTara', v)}
+                    type="number"
+                    placeholder="0"
+                    suffix="kg"
+                    small
+                  />
+                  <EditableRow 
+                    label="Neto" 
+                    value={editData.pesoDestinoNeto}
+                    displayValue={formatWeight(remito.pesoDestinoNeto)}
+                    isEditing={isEditing}
+                    onChange={(v) => handleFieldChange('pesoDestinoNeto', v)}
+                    type="number"
+                    placeholder="0"
+                    suffix="kg"
+                    small
+                    highlight
+                  />
+                </dl>
+              </div>
             </div>
           </div>
         </div>
       </div>
       
       {/* Botones de acción */}
-      {canApprove && isPendingApproval && (
+      {canApprove && isPendingApproval && !isEditing && (
         <div className="flex gap-4 justify-end p-4 bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700">
           <button
             onClick={() => setShowRejectModal(true)}
@@ -333,7 +650,7 @@ export function RemitoDetail({ remito: initialRemito, onBack, canApprove = false
   );
 }
 
-// Componente auxiliar para filas de información
+// Componente auxiliar para filas de información (solo lectura)
 interface InfoRowProps {
   icon?: React.ComponentType<React.SVGProps<SVGSVGElement>>;
   label: string;
@@ -368,3 +685,83 @@ function InfoRow({ icon: Icon, label, value, subvalue, small, highlight }: InfoR
   );
 }
 
+// Componente auxiliar para filas editables
+interface EditableRowProps {
+  icon?: React.ComponentType<React.SVGProps<SVGSVGElement>>;
+  label: string;
+  value: string;
+  displayValue: string | null | undefined;
+  isEditing: boolean;
+  onChange: (value: string) => void;
+  type?: 'text' | 'number' | 'date';
+  placeholder?: string;
+  suffix?: string;
+  small?: boolean;
+  highlight?: boolean;
+  className?: string;
+}
+
+function EditableRow({ 
+  icon: Icon, 
+  label, 
+  value, 
+  displayValue, 
+  isEditing, 
+  onChange, 
+  type = 'text',
+  placeholder,
+  suffix,
+  small,
+  highlight,
+  className,
+}: EditableRowProps) {
+  if (!isEditing) {
+    return (
+      <div className={`flex ${small ? '' : 'items-start'}`}>
+        {Icon && <Icon className="h-5 w-5 text-slate-400 mr-2 flex-shrink-0 mt-0.5" />}
+        <div className="flex-1 min-w-0">
+          <dt className={`text-slate-500 dark:text-slate-400 ${small ? 'text-xs' : 'text-sm'}`}>
+            {label}
+          </dt>
+          <dd className={`
+            ${small ? 'text-sm' : 'text-base'}
+            ${highlight ? 'font-semibold text-slate-900 dark:text-white' : 'text-slate-700 dark:text-slate-200'}
+            truncate
+          `}>
+            {displayValue || '-'}
+          </dd>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className={`flex ${small ? '' : 'items-start'}`}>
+      {Icon && <Icon className="h-5 w-5 text-amber-500 mr-2 flex-shrink-0 mt-0.5" />}
+      <div className="flex-1 min-w-0">
+        <label className={`block text-amber-600 dark:text-amber-400 ${small ? 'text-xs' : 'text-sm'} font-medium`}>
+          {label}
+        </label>
+        <div className="flex items-center gap-2 mt-1">
+          <input
+            type={type}
+            value={value}
+            onChange={(e) => onChange(e.target.value)}
+            placeholder={placeholder}
+            className={`
+              flex-1 px-2 py-1 border border-amber-300 dark:border-amber-600 rounded
+              bg-white dark:bg-slate-700 text-slate-900 dark:text-white
+              focus:ring-2 focus:ring-amber-500 focus:border-amber-500
+              ${small ? 'text-sm' : 'text-base'}
+              ${highlight ? 'font-semibold' : ''}
+              ${className || ''}
+            `}
+          />
+          {suffix && (
+            <span className="text-sm text-slate-500 dark:text-slate-400">{suffix}</span>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}

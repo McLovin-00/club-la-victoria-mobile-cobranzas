@@ -317,6 +317,78 @@ export class RemitoService {
   }
 
   /**
+   * Editar datos del remito manualmente (antes de aprobar)
+   */
+  static async updateManual(
+    id: number,
+    userId: number,
+    data: {
+      numeroRemito?: string | null;
+      fechaOperacion?: string | null;
+      emisorNombre?: string | null;
+      emisorDetalle?: string | null;
+      clienteNombre?: string | null;
+      producto?: string | null;
+      transportistaNombre?: string | null;
+      choferNombre?: string | null;
+      choferDni?: string | null;
+      patenteChasis?: string | null;
+      patenteAcoplado?: string | null;
+      pesoOrigenBruto?: number | null;
+      pesoOrigenTara?: number | null;
+      pesoOrigenNeto?: number | null;
+      pesoDestinoBruto?: number | null;
+      pesoDestinoTara?: number | null;
+      pesoDestinoNeto?: number | null;
+    }
+  ): Promise<Remito> {
+    const prisma = db.getClient();
+
+    const remito = await prisma.remito.findUnique({ where: { id } });
+    if (!remito) throw new Error('Remito no encontrado');
+    if (remito.estado === 'APROBADO') throw new Error('No se puede editar un remito aprobado');
+
+    const updateData: any = {};
+
+    // Solo incluir campos que fueron enviados (incluyendo null para borrar)
+    if (data.numeroRemito !== undefined) updateData.numeroRemito = data.numeroRemito;
+    if (data.fechaOperacion !== undefined) updateData.fechaOperacion = data.fechaOperacion ? parseDate(data.fechaOperacion) : null;
+    if (data.emisorNombre !== undefined) updateData.emisorNombre = data.emisorNombre;
+    if (data.emisorDetalle !== undefined) updateData.emisorDetalle = data.emisorDetalle;
+    if (data.clienteNombre !== undefined) updateData.clienteNombre = data.clienteNombre;
+    if (data.producto !== undefined) updateData.producto = data.producto;
+    if (data.transportistaNombre !== undefined) updateData.transportistaNombre = data.transportistaNombre;
+    if (data.choferNombre !== undefined) updateData.choferNombre = data.choferNombre;
+    if (data.choferDni !== undefined) updateData.choferDni = data.choferDni;
+    if (data.patenteChasis !== undefined) updateData.patenteChasis = data.patenteChasis;
+    if (data.patenteAcoplado !== undefined) updateData.patenteAcoplado = data.patenteAcoplado;
+    if (data.pesoOrigenBruto !== undefined) updateData.pesoOrigenBruto = data.pesoOrigenBruto;
+    if (data.pesoOrigenTara !== undefined) updateData.pesoOrigenTara = data.pesoOrigenTara;
+    if (data.pesoOrigenNeto !== undefined) updateData.pesoOrigenNeto = data.pesoOrigenNeto;
+    if (data.pesoDestinoBruto !== undefined) updateData.pesoDestinoBruto = data.pesoDestinoBruto;
+    if (data.pesoDestinoTara !== undefined) updateData.pesoDestinoTara = data.pesoDestinoTara;
+    if (data.pesoDestinoNeto !== undefined) updateData.pesoDestinoNeto = data.pesoDestinoNeto;
+
+    // Actualizar tieneTicketDestino si hay pesos de destino
+    if (data.pesoDestinoBruto !== undefined || data.pesoDestinoTara !== undefined || data.pesoDestinoNeto !== undefined) {
+      const hasDestinoData = (data.pesoDestinoBruto ?? remito.pesoDestinoBruto) !== null ||
+                             (data.pesoDestinoTara ?? remito.pesoDestinoTara) !== null ||
+                             (data.pesoDestinoNeto ?? remito.pesoDestinoNeto) !== null;
+      updateData.tieneTicketDestino = hasDestinoData;
+    }
+
+    const updated = await prisma.remito.update({
+      where: { id },
+      data: updateData,
+    });
+
+    await logRemitoHistory(id, 'DATOS_EDITADOS', userId, 'ADMIN_INTERNO', { camposEditados: Object.keys(updateData) });
+    AppLogger.info('✏️ Remito editado manualmente', { id, userId, campos: Object.keys(updateData) });
+
+    return updated;
+  }
+
+  /**
    * Aprobar remito
    */
   static async approve(id: number, userId: number): Promise<Remito> {

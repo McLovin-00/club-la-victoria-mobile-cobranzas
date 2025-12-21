@@ -46,6 +46,14 @@ router.post(
 // GET /remitos/:id - Obtener remito por ID
 router.get('/:id', authenticate, RemitosController.getById);
 
+// PATCH /remitos/:id - Editar datos del remito (solo ADMIN_INTERNO, antes de aprobar)
+router.patch(
+  '/:id',
+  authenticate,
+  authorize(ROLES_APPROVE),
+  RemitosController.update
+);
+
 // GET /remitos/:id/image/:imagenId - Obtener URL de imagen
 router.get('/:id/image/:imagenId', authenticate, RemitosController.getImage);
 

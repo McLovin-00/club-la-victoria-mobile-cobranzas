@@ -133,6 +133,43 @@ export const remitosApiSlice = createApi({
       ],
     }),
     
+    // Editar datos del remito (antes de aprobar)
+    updateRemito: builder.mutation<
+      { success: boolean; message: string; data: Remito },
+      {
+        id: number;
+        data: {
+          numeroRemito?: string | null;
+          fechaOperacion?: string | null;
+          emisorNombre?: string | null;
+          emisorDetalle?: string | null;
+          clienteNombre?: string | null;
+          producto?: string | null;
+          transportistaNombre?: string | null;
+          choferNombre?: string | null;
+          choferDni?: string | null;
+          patenteChasis?: string | null;
+          patenteAcoplado?: string | null;
+          pesoOrigenBruto?: number | null;
+          pesoOrigenTara?: number | null;
+          pesoOrigenNeto?: number | null;
+          pesoDestinoBruto?: number | null;
+          pesoDestinoTara?: number | null;
+          pesoDestinoNeto?: number | null;
+        };
+      }
+    >({
+      query: ({ id, data }) => ({
+        url: `/${id}`,
+        method: 'PATCH',
+        body: data,
+      }),
+      invalidatesTags: (_result, _error, { id }) => [
+        { type: 'Remito', id },
+        'Remito',
+      ],
+    }),
+    
   }),
 });
 
@@ -143,6 +180,7 @@ export const {
   useApproveRemitoMutation,
   useRejectRemitoMutation,
   useReprocessRemitoMutation,
+  useUpdateRemitoMutation,
   useGetStatsQuery,
   useGetImageUrlQuery,
 } = remitosApiSlice;

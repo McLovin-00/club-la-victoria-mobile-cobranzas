@@ -231,6 +231,58 @@ export class RemitosController {
   }
 
   /**
+   * PATCH /remitos/:id - Editar datos del remito
+   */
+  static async update(req: AuthRequest, res: Response): Promise<void> {
+    try {
+      const id = parseInt(req.params.id);
+      const {
+        numeroRemito,
+        fechaOperacion,
+        emisorNombre,
+        emisorDetalle,
+        clienteNombre,
+        producto,
+        transportistaNombre,
+        choferNombre,
+        choferDni,
+        patenteChasis,
+        patenteAcoplado,
+        pesoOrigenBruto,
+        pesoOrigenTara,
+        pesoOrigenNeto,
+        pesoDestinoBruto,
+        pesoDestinoTara,
+        pesoDestinoNeto,
+      } = req.body;
+
+      const remito = await RemitoService.updateManual(id, req.user!.userId, {
+        numeroRemito,
+        fechaOperacion,
+        emisorNombre,
+        emisorDetalle,
+        clienteNombre,
+        producto,
+        transportistaNombre,
+        choferNombre,
+        choferDni,
+        patenteChasis,
+        patenteAcoplado,
+        pesoOrigenBruto: pesoOrigenBruto !== undefined ? (pesoOrigenBruto === null || pesoOrigenBruto === '' ? null : Number(pesoOrigenBruto)) : undefined,
+        pesoOrigenTara: pesoOrigenTara !== undefined ? (pesoOrigenTara === null || pesoOrigenTara === '' ? null : Number(pesoOrigenTara)) : undefined,
+        pesoOrigenNeto: pesoOrigenNeto !== undefined ? (pesoOrigenNeto === null || pesoOrigenNeto === '' ? null : Number(pesoOrigenNeto)) : undefined,
+        pesoDestinoBruto: pesoDestinoBruto !== undefined ? (pesoDestinoBruto === null || pesoDestinoBruto === '' ? null : Number(pesoDestinoBruto)) : undefined,
+        pesoDestinoTara: pesoDestinoTara !== undefined ? (pesoDestinoTara === null || pesoDestinoTara === '' ? null : Number(pesoDestinoTara)) : undefined,
+        pesoDestinoNeto: pesoDestinoNeto !== undefined ? (pesoDestinoNeto === null || pesoDestinoNeto === '' ? null : Number(pesoDestinoNeto)) : undefined,
+      });
+
+      res.json({ success: true, message: 'Remito actualizado', data: remito });
+    } catch (error: any) {
+      sendError(res, error);
+    }
+  }
+
+  /**
    * POST /remitos/:id/approve - Aprobar remito
    */
   static async approve(req: AuthRequest, res: Response): Promise<void> {
