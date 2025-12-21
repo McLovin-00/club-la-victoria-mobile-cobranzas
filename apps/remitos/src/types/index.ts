@@ -10,6 +10,10 @@ export interface AuthUser {
   tenantId?: number;
   choferId?: number;
   empresaTransportistaId?: number;
+  // Datos del chofer (si el usuario es un chofer)
+  choferDni?: string;
+  choferNombre?: string;
+  choferApellido?: string;
 }
 
 export interface AuthRequest extends Request {
