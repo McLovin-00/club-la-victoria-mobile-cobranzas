@@ -15,6 +15,10 @@ export interface CreateRemitoInput {
   cargadoPorUserId: number;
   cargadoPorRol: string;
   choferId?: number;
+  // Datos del chofer que carga o fue seleccionado
+  choferCargadorDni?: string;
+  choferCargadorNombre?: string;
+  choferCargadorApellido?: string;
 }
 
 export interface RemitoFileInput {
@@ -161,6 +165,10 @@ export class RemitoService {
         cargadoPorUserId: input.cargadoPorUserId,
         cargadoPorRol: input.cargadoPorRol,
         choferId: input.choferId,
+        // Datos del chofer que cargó/seleccionó (no el extraído por IA)
+        choferCargadorDni: input.choferCargadorDni || null,
+        choferCargadorNombre: input.choferCargadorNombre || null,
+        choferCargadorApellido: input.choferCargadorApellido || null,
         estado: 'PENDIENTE_ANALISIS',
       },
     });

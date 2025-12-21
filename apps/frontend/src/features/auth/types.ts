@@ -35,6 +35,10 @@ export interface UserResponse {
   empresaTransportistaId?: number | null;
   choferId?: number | null;
   clienteId?: number | null;
+  // Datos del chofer (si el usuario es un chofer)
+  choferDni?: string | null;
+  choferNombre?: string | null;
+  choferApellido?: string | null;
   created_at?: string;
   updated_at?: string;
 }

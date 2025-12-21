@@ -109,6 +109,16 @@ model Remito {
   tenantEmpresaId       Int              @map("tenant_empresa_id")
   
   // ═══════════════════════════════════════════════════════════════
+  // DATOS DEL CHOFER QUE CARGÓ/SELECCIONÓ (no el extraído por IA)
+  // Si carga un chofer: sus propios datos
+  // Si carga admin/transportista/dador: datos del chofer seleccionado
+  // ═══════════════════════════════════════════════════════════════
+  
+  choferCargadorDni     String?          @map("chofer_cargador_dni") @db.VarChar(20)
+  choferCargadorNombre  String?          @map("chofer_cargador_nombre") @db.VarChar(100)
+  choferCargadorApellido String?         @map("chofer_cargador_apellido") @db.VarChar(100)
+  
+  // ═══════════════════════════════════════════════════════════════
   // FLUJO Y ESTADO
   // ═══════════════════════════════════════════════════════════════
   

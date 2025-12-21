@@ -95,6 +95,30 @@ function getChoferId(req: AuthRequest): number | undefined {
   return undefined;
 }
 
+interface ChoferCargadorData {
+  choferCargadorDni?: string;
+  choferCargadorNombre?: string;
+  choferCargadorApellido?: string;
+}
+
+function getChoferCargadorData(req: AuthRequest): ChoferCargadorData {
+  // Si es un chofer, usar sus propios datos del token
+  if (req.user?.role === 'CHOFER') {
+    return {
+      choferCargadorDni: req.user.choferDni || undefined,
+      choferCargadorNombre: req.user.choferNombre || undefined,
+      choferCargadorApellido: req.user.choferApellido || undefined,
+    };
+  }
+  
+  // Si es admin/transportista/dador, usar los datos del chofer seleccionado
+  return {
+    choferCargadorDni: req.body.choferDni || undefined,
+    choferCargadorNombre: req.body.choferNombre || undefined,
+    choferCargadorApellido: req.body.choferApellido || undefined,
+  };
+}
+
 function sendError(res: Response, error: any): void {
   AppLogger.error('Error en RemitosController:', error);
   const status = error.statusCode || 500;
@@ -124,6 +148,7 @@ export class RemitosController {
       const tenantEmpresaId = req.user?.tenantId || 1;
       const dadorCargaId = req.body.dadorCargaId || req.user?.dadorId || 1;
       const choferId = getChoferId(req);
+      const choferCargadorData = getChoferCargadorData(req);
 
       const finalPdfBuffer = await preparePdfBuffer(inputs);
 
@@ -134,6 +159,8 @@ export class RemitosController {
           cargadoPorUserId: req.user!.userId,
           cargadoPorRol: req.user!.role,
           choferId,
+          // Datos del chofer que carga o fue seleccionado
+          ...choferCargadorData,
         },
         {
           pdfBuffer: finalPdfBuffer,

@@ -156,16 +156,34 @@ export function RemitoUploader({ onSuccess, dadorCargaId }: RemitoUploaderProps)
     }
     
     try {
-      // Determinar choferId
-      const choferId = isChofer 
-        ? userChoferId  // Usuario chofer: usar su propio ID
-        : selectedChofer?.id;  // Otros roles: usar el seleccionado
+      // Determinar choferId y datos del chofer
+      let choferId: number | undefined;
+      let choferDni: string | undefined;
+      let choferNombre: string | undefined;
+      let choferApellido: string | undefined;
+      
+      if (isChofer) {
+        // Usuario chofer: usar sus propios datos
+        choferId = userChoferId;
+        choferDni = user?.choferDni;
+        choferNombre = user?.choferNombre;
+        choferApellido = user?.choferApellido;
+      } else if (selectedChofer) {
+        // Otros roles: usar el chofer seleccionado
+        choferId = selectedChofer.id;
+        choferDni = selectedChofer.dni;
+        choferNombre = selectedChofer.nombre;
+        choferApellido = selectedChofer.apellido;
+      }
       
       // Usar el mutation (que internamente usa fetch con FormData)
       const result = await uploadRemito({ 
         files: files.map(f => f.file), 
         dadorCargaId,
         choferId,
+        choferDni,
+        choferNombre,
+        choferApellido,
       }).unwrap();
       
       if (result.success) {

@@ -203,15 +203,40 @@ export function RemitoDetail({ remito: initialRemito, onBack, canApprove = false
             </dl>
           </div>
           
-          {/* Transporte */}
+          {/* Chofer que cargó el remito (datos de la carga, no extraídos por IA) */}
+          {(remito.choferCargadorDni || remito.choferCargadorNombre || remito.choferCargadorApellido) && (
+            <div className="bg-blue-50 dark:bg-blue-900/20 rounded-xl border border-blue-200 dark:border-blue-800 p-4">
+              <h3 className="text-lg font-semibold text-blue-900 dark:text-blue-100 mb-4">
+                👤 Chofer Asignado (Carga)
+              </h3>
+              
+              <dl className="space-y-3">
+                <InfoRow 
+                  icon={UserIcon} 
+                  label="Nombre" 
+                  value={`${remito.choferCargadorNombre || ''} ${remito.choferCargadorApellido || ''}`.trim() || '-'} 
+                />
+                <InfoRow 
+                  label="DNI" 
+                  value={remito.choferCargadorDni || '-'} 
+                />
+              </dl>
+              
+              <p className="mt-3 text-xs text-blue-600 dark:text-blue-400 italic">
+                Datos del chofer seleccionado/registrado al cargar el remito
+              </p>
+            </div>
+          )}
+          
+          {/* Transporte (datos extraídos por IA) */}
           <div className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-4">
             <h3 className="text-lg font-semibold text-slate-900 dark:text-white mb-4">
-              🚛 Transporte
+              🚛 Transporte (extraído del remito)
             </h3>
             
             <dl className="space-y-3">
               <InfoRow icon={TruckIcon} label="Transportista" value={remito.transportistaNombre} />
-              <InfoRow icon={UserIcon} label="Chofer" value={remito.choferNombre} subvalue={remito.choferDni ? `DNI: ${remito.choferDni}` : undefined} />
+              <InfoRow icon={UserIcon} label="Chofer (remito)" value={remito.choferNombre} subvalue={remito.choferDni ? `DNI: ${remito.choferDni}` : undefined} />
               <div className="flex gap-4">
                 <InfoRow label="Chasis" value={remito.patenteChasis} />
                 <InfoRow label="Acoplado" value={remito.patenteAcoplado} />

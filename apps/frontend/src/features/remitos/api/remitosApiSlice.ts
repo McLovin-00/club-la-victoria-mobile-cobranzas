@@ -42,9 +42,17 @@ export const remitosApiSlice = createApi({
     // Subir nuevo remito (múltiples imágenes o PDF)
     uploadRemito: builder.mutation<
       { success: boolean; data: { id: number; estado: string; imagenesCount: number } },
-      { files: File[]; dadorCargaId?: number; choferId?: number }
+      { 
+        files: File[]; 
+        dadorCargaId?: number; 
+        choferId?: number;
+        // Datos del chofer que carga o fue seleccionado
+        choferDni?: string;
+        choferNombre?: string;
+        choferApellido?: string;
+      }
     >({
-      query: ({ files, dadorCargaId, choferId }) => {
+      query: ({ files, dadorCargaId, choferId, choferDni, choferNombre, choferApellido }) => {
         const formData = new FormData();
         // Agregar todos los archivos con el mismo nombre de campo
         for (const file of files) {
@@ -52,6 +60,10 @@ export const remitosApiSlice = createApi({
         }
         if (dadorCargaId) formData.append('dadorCargaId', String(dadorCargaId));
         if (choferId) formData.append('choferId', String(choferId));
+        // Datos del chofer que cargó/seleccionó
+        if (choferDni) formData.append('choferDni', choferDni);
+        if (choferNombre) formData.append('choferNombre', choferNombre);
+        if (choferApellido) formData.append('choferApellido', choferApellido);
         return {
           url: '',
           method: 'POST',

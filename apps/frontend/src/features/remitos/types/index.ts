@@ -35,6 +35,11 @@ export interface Remito {
   dadorCargaId: number;
   tenantEmpresaId: number;
   
+  // Datos del chofer que cargó/seleccionó (no el extraído por IA)
+  choferCargadorDni: string | null;
+  choferCargadorNombre: string | null;
+  choferCargadorApellido: string | null;
+  
   // Estado
   estado: RemitoEstado;
   cargadoPorUserId: number;
