@@ -70,6 +70,16 @@ function extractString(val: any): string | null {
   return String(val);
 }
 
+/** Asigna campos de source a target solo si no son undefined */
+function assignDefined<T extends Record<string, any>>(target: T, source: Record<string, any>): T {
+  for (const [key, value] of Object.entries(source)) {
+    if (value !== undefined) {
+      (target as any)[key] = value;
+    }
+  }
+  return target;
+}
+
 function buildBaseWhere(filters: RemitoFilters): any {
   const where: any = {};
 
@@ -348,26 +358,29 @@ export class RemitoService {
     if (!remito) throw new Error('Remito no encontrado');
     if (remito.estado === 'APROBADO') throw new Error('No se puede editar un remito aprobado');
 
-    const updateData: any = {};
-
     // Solo incluir campos que fueron enviados (incluyendo null para borrar)
-    if (data.numeroRemito !== undefined) updateData.numeroRemito = data.numeroRemito;
-    if (data.fechaOperacion !== undefined) updateData.fechaOperacion = data.fechaOperacion ? parseDate(data.fechaOperacion) : null;
-    if (data.emisorNombre !== undefined) updateData.emisorNombre = data.emisorNombre;
-    if (data.emisorDetalle !== undefined) updateData.emisorDetalle = data.emisorDetalle;
-    if (data.clienteNombre !== undefined) updateData.clienteNombre = data.clienteNombre;
-    if (data.producto !== undefined) updateData.producto = data.producto;
-    if (data.transportistaNombre !== undefined) updateData.transportistaNombre = data.transportistaNombre;
-    if (data.choferNombre !== undefined) updateData.choferNombre = data.choferNombre;
-    if (data.choferDni !== undefined) updateData.choferDni = data.choferDni;
-    if (data.patenteChasis !== undefined) updateData.patenteChasis = data.patenteChasis;
-    if (data.patenteAcoplado !== undefined) updateData.patenteAcoplado = data.patenteAcoplado;
-    if (data.pesoOrigenBruto !== undefined) updateData.pesoOrigenBruto = data.pesoOrigenBruto;
-    if (data.pesoOrigenTara !== undefined) updateData.pesoOrigenTara = data.pesoOrigenTara;
-    if (data.pesoOrigenNeto !== undefined) updateData.pesoOrigenNeto = data.pesoOrigenNeto;
-    if (data.pesoDestinoBruto !== undefined) updateData.pesoDestinoBruto = data.pesoDestinoBruto;
-    if (data.pesoDestinoTara !== undefined) updateData.pesoDestinoTara = data.pesoDestinoTara;
-    if (data.pesoDestinoNeto !== undefined) updateData.pesoDestinoNeto = data.pesoDestinoNeto;
+    const updateData: any = {};
+    assignDefined(updateData, {
+      numeroRemito: data.numeroRemito,
+      fechaOperacion: data.fechaOperacion !== undefined 
+        ? (data.fechaOperacion ? parseDate(data.fechaOperacion) : null) 
+        : undefined,
+      emisorNombre: data.emisorNombre,
+      emisorDetalle: data.emisorDetalle,
+      clienteNombre: data.clienteNombre,
+      producto: data.producto,
+      transportistaNombre: data.transportistaNombre,
+      choferNombre: data.choferNombre,
+      choferDni: data.choferDni,
+      patenteChasis: data.patenteChasis,
+      patenteAcoplado: data.patenteAcoplado,
+      pesoOrigenBruto: data.pesoOrigenBruto,
+      pesoOrigenTara: data.pesoOrigenTara,
+      pesoOrigenNeto: data.pesoOrigenNeto,
+      pesoDestinoBruto: data.pesoDestinoBruto,
+      pesoDestinoTara: data.pesoDestinoTara,
+      pesoDestinoNeto: data.pesoDestinoNeto,
+    });
 
     // Actualizar tieneTicketDestino si hay pesos de destino
     if (data.pesoDestinoBruto !== undefined || data.pesoDestinoTara !== undefined || data.pesoDestinoNeto !== undefined) {

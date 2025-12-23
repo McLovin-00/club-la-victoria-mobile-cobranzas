@@ -276,6 +276,57 @@ export const documentosApiSlice = createApi({
       invalidatesTags: ['ClientRequirements'],
     }),
 
+    // Templates consolidados por múltiples clientes
+    getConsolidatedTemplates: builder.query<
+      {
+        templates: Array<{
+          templateId: number;
+          templateName: string;
+          entityType: string;
+          obligatorio: boolean;
+          diasAnticipacion: number;
+          clienteIds: number[];
+          clienteNames: string[];
+        }>;
+        byEntityType: Record<string, Array<{
+          templateId: number;
+          templateName: string;
+          entityType: string;
+          obligatorio: boolean;
+          diasAnticipacion: number;
+          clienteIds: number[];
+          clienteNames: string[];
+        }>>;
+      },
+      { clienteIds: number[] }
+    >({
+      query: ({ clienteIds }) => ({
+        url: `/clients/templates/consolidated?clienteIds=${clienteIds.join(',')}`,
+      }),
+      transformResponse: (response: any) => response?.data ?? { templates: [], byEntityType: {} },
+      providesTags: ['ClientRequirements'],
+    }),
+
+    // Verificar documentos faltantes al agregar cliente a equipo
+    checkMissingDocsForClient: builder.query<
+      {
+        missingTemplates: Array<{
+          templateId: number;
+          templateName: string;
+          entityType: string;
+          obligatorio: boolean;
+          isNewRequirement: boolean;
+        }>;
+        newClientName: string;
+      },
+      { equipoId: number; clienteId: number; existingClienteIds: number[] }
+    >({
+      query: ({ equipoId, clienteId, existingClienteIds }) => ({
+        url: `/clients/equipos/${equipoId}/check-client/${clienteId}?existingClienteIds=${existingClienteIds.join(',')}`,
+      }),
+      transformResponse: (response: any) => response?.data ?? { missingTemplates: [], newClientName: '' },
+    }),
+
     // Defaults
     getDefaults: builder.query<{ defaultClienteId: number | null; defaultDadorId: number | null; missingCheckDelayMinutes: number | null }, void>({
       query: () => ({ url: '/defaults' }),
@@ -1166,6 +1217,10 @@ export const {
   useGetClientRequirementsQuery,
   useAddClientRequirementMutation,
   useRemoveClientRequirementMutation,
+  useGetConsolidatedTemplatesQuery,
+  useLazyGetConsolidatedTemplatesQuery,
+  useCheckMissingDocsForClientQuery,
+  useLazyCheckMissingDocsForClientQuery,
   // Portal Cliente
   useGetClienteEquiposQuery,
   useGetDocumentosPorEquipoQuery,

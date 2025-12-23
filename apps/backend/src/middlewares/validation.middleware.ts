@@ -12,6 +12,26 @@ interface ValidationError {
   received?: any;
 }
 
+/** Helper para validar un schema y recolectar errores */
+function validatePart<T>(schema: ZodSchema<T> | undefined, value: any, prefix: string): { validated: T | null; errors: ValidationError[] } {
+  if (!schema) return { validated: null, errors: [] };
+  try {
+    const validated = schema.parse(value);
+    return { validated, errors: [] };
+  } catch (error) {
+    if (error instanceof ZodError) {
+      const formatted = error.errors.map(err => ({
+        field: `${prefix}.${err.path.join('.')}`,
+        message: err.message,
+        code: err.code,
+        received: 'received' in err ? (err as any).received : undefined,
+      }));
+      return { validated: null, errors: formatted };
+    }
+    return { validated: null, errors: [] };
+  }
+}
+
 /**
  * Clase para manejo profesional de errores de validación
  */
@@ -102,63 +122,30 @@ export class ValidationMiddleware {
     query?: ZodSchema<TQuery>;
   }) {
     return (req: Request, res: Response, next: NextFunction): void => {
-      const errors: ValidationError[] = [];
-
       try {
-        // Validar body si se proporciona schema
-        if (options.body) {
-          try {
-            req.body = options.body.parse(req.body);
-          } catch (error) {
-            if (error instanceof ZodError) {
-              const bodyErrors = ValidationErrorHandler.formatZodErrors(error);
-              errors.push(...bodyErrors.map(err => ({ ...err, field: `body.${err.field}` })));
-            }
-          }
-        }
+        const errors: ValidationError[] = [];
 
-        // Validar params si se proporciona schema
-        if (options.params) {
-          try {
-            const validatedParams = options.params.parse(req.params);
-            Object.assign(req.params, validatedParams);
-          } catch (error) {
-            if (error instanceof ZodError) {
-              const paramsErrors = ValidationErrorHandler.formatZodErrors(error);
-              errors.push(...paramsErrors.map(err => ({ ...err, field: `params.${err.field}` })));
-            }
-          }
-        }
+        // Validar body, params, query
+        const bodyResult = validatePart(options.body, req.body, 'body');
+        if (bodyResult.validated !== null) req.body = bodyResult.validated;
+        errors.push(...bodyResult.errors);
 
-        // Validar query si se proporciona schema
-        if (options.query) {
-          try {
-            const validatedQuery = options.query.parse(req.query);
-            Object.assign(req.query, validatedQuery);
-          } catch (error) {
-            if (error instanceof ZodError) {
-              const queryErrors = ValidationErrorHandler.formatZodErrors(error);
-              errors.push(...queryErrors.map(err => ({ ...err, field: `query.${err.field}` })));
-            }
-          }
-        }
+        const paramsResult = validatePart(options.params, req.params, 'params');
+        if (paramsResult.validated !== null) Object.assign(req.params, paramsResult.validated);
+        errors.push(...paramsResult.errors);
 
-        // Si hay errores, responder con error 400
+        const queryResult = validatePart(options.query, req.query, 'query');
+        if (queryResult.validated !== null) Object.assign(req.query, queryResult.validated);
+        errors.push(...queryResult.errors);
+
         if (errors.length > 0) {
-          const clientIp = req.ip || req.connection.remoteAddress || 'unknown';
-
           AppLogger.warn(`Validation failed for ${req.method} ${req.originalUrl}`, {
-            ip: clientIp,
-            errors: errors,
-            body: req.body,
-            params: req.params,
-            query: req.query,
+            ip: req.ip || req.connection.remoteAddress || 'unknown',
+            errors, body: req.body, params: req.params, query: req.query,
           });
-
           res.status(400).json(ValidationErrorHandler.createErrorResponse(errors));
           return;
         }
-
         next();
       } catch (error) {
         ValidationMiddleware.handleUnexpectedError(error, req, res);

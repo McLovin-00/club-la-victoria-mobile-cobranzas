@@ -19,6 +19,47 @@ const EMPTY_ENTIDADES_RESPONSE = {
 const ADMIN_ROLES = ['ADMIN', 'SUPERADMIN', 'ADMIN_INTERNO'];
 
 /**
+ * Obtiene el nombre descriptivo de una entidad
+ */
+async function getEntityNameForPortal(entityType: string, entityId: number): Promise<string> {
+  switch (entityType) {
+    case 'CHOFER': {
+      const chofer = await prisma.chofer.findUnique({ where: { id: entityId } });
+      return chofer ? `${chofer.nombre || ''} ${chofer.apellido || ''} (${chofer.dni})`.trim() : `Chofer ${entityId}`;
+    }
+    case 'CAMION': {
+      const camion = await prisma.camion.findUnique({ where: { id: entityId } });
+      return camion?.patente || `Camión ${entityId}`;
+    }
+    case 'ACOPLADO': {
+      const acoplado = await prisma.acoplado.findUnique({ where: { id: entityId } });
+      return acoplado?.patente || `Acoplado ${entityId}`;
+    }
+    case 'EMPRESA_TRANSPORTISTA': {
+      const empresa = await prisma.empresaTransportista.findUnique({ where: { id: entityId } });
+      return empresa?.razonSocial || `Empresa ${entityId}`;
+    }
+    default:
+      return `${entityType} ${entityId}`;
+  }
+}
+
+/**
+ * Obtiene el dadorCargaId según el rol del usuario
+ */
+async function getDadorCargaIdForUser(user: any): Promise<number | null> {
+  if (user.dadorCargaId) return user.dadorCargaId;
+  if (user.empresaTransportistaId) {
+    const empresa = await prisma.empresaTransportista.findUnique({
+      where: { id: user.empresaTransportistaId },
+      select: { dadorCargaId: true },
+    });
+    return empresa?.dadorCargaId || null;
+  }
+  return null;
+}
+
+/**
  * Portal Transportista Controller
  * Endpoints para empresas transportistas
  */
@@ -287,92 +328,41 @@ export class PortalTransportistaController {
     const user = req.user!;
     
     try {
-      // Filtrar según el rol del usuario - Document usa dadorCargaId, no empresaTransportistaId
-      const whereDocumentos: any = {
-        tenantEmpresaId: tenantId,
-        status: 'RECHAZADO',
-        archived: false,
-      };
+      const whereDocumentos: any = { tenantEmpresaId: tenantId, status: 'RECHAZADO', archived: false };
       
-      if (user.role === 'TRANSPORTISTA' || user.role === 'EMPRESA_TRANSPORTISTA' || user.role === 'CHOFER') {
-        // Usar dadorCargaId del usuario o buscar desde empresa transportista
-        if (user.dadorCargaId) {
-          whereDocumentos.dadorCargaId = user.dadorCargaId;
-        } else if (user.empresaTransportistaId) {
-          // Obtener dadorCargaId de la empresa transportista
-          const empresa = await prisma.empresaTransportista.findUnique({
-            where: { id: user.empresaTransportistaId },
-            select: { dadorCargaId: true },
-          });
-          if (empresa) {
-            whereDocumentos.dadorCargaId = empresa.dadorCargaId;
-          } else {
-            return res.json({ success: true, data: [] });
-          }
-        } else {
+      // Filtrar según rol
+      const isTransportistaRole = ['TRANSPORTISTA', 'EMPRESA_TRANSPORTISTA', 'CHOFER'].includes(user.role);
+      if (isTransportistaRole || user.role === 'DADOR_DE_CARGA') {
+        const dadorCargaId = await getDadorCargaIdForUser(user);
+        if (!dadorCargaId && isTransportistaRole) {
           return res.json({ success: true, data: [] });
         }
-      } else if (user.role === 'DADOR_DE_CARGA') {
-        if (user.dadorCargaId) {
-          whereDocumentos.dadorCargaId = user.dadorCargaId;
-        }
+        if (dadorCargaId) whereDocumentos.dadorCargaId = dadorCargaId;
       }
       // Admin/Superadmin ven todo
       
       const documentos = await prisma.document.findMany({
         where: whereDocumentos,
-        include: {
-          template: true,
-        },
+        include: { template: true },
         orderBy: { reviewedAt: 'desc' },
       });
       
       // Enriquecer con nombre de entidad
       const documentosEnriquecidos = await Promise.all(
-        documentos.map(async (doc) => {
-          let entityName = '';
-          
-          switch (doc.entityType) {
-            case 'CHOFER': {
-              const chofer = await prisma.chofer.findUnique({ where: { id: doc.entityId } });
-              entityName = chofer ? `${chofer.nombre || ''} ${chofer.apellido || ''} (${chofer.dni})`.trim() : `Chofer ${doc.entityId}`;
-              break;
-            }
-            case 'CAMION': {
-              const camion = await prisma.camion.findUnique({ where: { id: doc.entityId } });
-              entityName = camion?.patente || `Camión ${doc.entityId}`;
-              break;
-            }
-            case 'ACOPLADO': {
-              const acoplado = await prisma.acoplado.findUnique({ where: { id: doc.entityId } });
-              entityName = acoplado?.patente || `Acoplado ${doc.entityId}`;
-              break;
-            }
-            case 'EMPRESA_TRANSPORTISTA': {
-              const empresa = await prisma.empresaTransportista.findUnique({ where: { id: doc.entityId } });
-              entityName = empresa?.razonSocial || `Empresa ${doc.entityId}`;
-              break;
-            }
-          }
-          
-          return {
-            id: doc.id,
-            templateId: doc.templateId,
-            templateName: doc.template.name,
-            entityType: doc.entityType,
-            entityId: doc.entityId,
-            entityName,
-            rechazadoAt: doc.reviewedAt?.toISOString(),
-            motivoRechazo: doc.rejectionReason || 'Sin motivo especificado',
-            reviewNotes: doc.reviewNotes,
-          };
-        })
+        documentos.map(async (doc) => ({
+          id: doc.id,
+          templateId: doc.templateId,
+          templateName: doc.template.name,
+          entityType: doc.entityType,
+          entityId: doc.entityId,
+          entityName: await getEntityNameForPortal(doc.entityType, doc.entityId),
+          rechazadoAt: doc.reviewedAt?.toISOString(),
+          motivoRechazo: doc.rejectionReason || 'Sin motivo especificado',
+          reviewNotes: doc.reviewNotes,
+        }))
       );
       
-      res.json({
-        success: true,
-        data: documentosEnriquecidos,
-      });
+      res.json({ success: true, data: documentosEnriquecidos });
     } catch (error) {
       AppLogger.error('Error obteniendo documentos rechazados:', error);
       res.status(500).json({ success: false, message: 'Error interno' });

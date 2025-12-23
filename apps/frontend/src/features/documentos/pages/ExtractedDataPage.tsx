@@ -188,7 +188,7 @@ export default function ExtractedDataPage() {
                     const Icon = getEntityIcon(item.entityType);
                     
                     // Datos destacados según tipo
-                    let destacados: string[] = [];
+                    const destacados: string[] = [];
                     if (item.entityType === 'CHOFER') {
                       if (item.cuil) destacados.push(`CUIL: ${item.cuil}`);
                       if (item.clasesLicencia) destacados.push(`Clases: ${item.clasesLicencia}`);

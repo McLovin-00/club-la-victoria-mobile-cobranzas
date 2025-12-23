@@ -84,76 +84,69 @@ function cleanError(error: any): { message: string; stack: string; code?: string
 // ============================================================================
 // RESOLUCIÓN DE ENTIDADES
 // ============================================================================
-async function resolveEntity(
-  tenantId: number,
-  dadorId: number,
-  entityType: string,
-  entityIdRaw: string
-): Promise<{ type: string; id: number; dadorId: number } | null> {
-  
-  if (entityType === 'DADOR' || entityType === 'EMPRESA_TRANSPORTISTA') {
-    const cuit = normalizeCuit(entityIdRaw);
-    if (!cuit || !dadorId) return null;
-    
-    let empresa = await db.getClient().empresaTransportista.findFirst({
-      where: { tenantEmpresaId: tenantId, dadorCargaId: dadorId, cuit }
-    });
-    
-    if (!empresa) {
-      try {
-        const { EmpresaTransportistaService } = await import('../services/empresa-transportista.service');
-        empresa = await EmpresaTransportistaService.create({
-          tenantEmpresaId: tenantId, dadorCargaId: dadorId, cuit, razonSocial: `Empresa ${cuit}`, activo: true
-        });
-      } catch { return null; }
-    }
-    
-    return empresa ? { type: 'EMPRESA_TRANSPORTISTA', id: (empresa as any).id, dadorId } : null;
+interface ResolvedEntity { type: string; id: number; dadorId: number }
+
+async function resolveEmpresaTransportista(tenantId: number, dadorId: number, cuit: string): Promise<ResolvedEntity | null> {
+  if (!cuit || !dadorId) return null;
+  let empresa = await db.getClient().empresaTransportista.findFirst({ where: { tenantEmpresaId: tenantId, dadorCargaId: dadorId, cuit } });
+  if (!empresa) {
+    try {
+      const { EmpresaTransportistaService } = await import('../services/empresa-transportista.service');
+      empresa = await EmpresaTransportistaService.create({ tenantEmpresaId: tenantId, dadorCargaId: dadorId, cuit, razonSocial: `Empresa ${cuit}`, activo: true });
+    } catch { return null; }
   }
-  
-  if (entityType === 'CHOFER') {
-    const dni = normalizeDni(entityIdRaw);
-    let chofer = await db.getClient().chofer.findFirst({ where: { tenantEmpresaId: tenantId, dniNorm: dni } });
-    
-    if (!chofer) {
-      try {
-        const { MaestrosService } = await import('../services/maestros.service');
-        chofer = await MaestrosService.createChofer({ tenantEmpresaId: tenantId, dadorCargaId: dadorId, dni, activo: true, phones: [] });
-      } catch { return null; }
-    }
-    
-    return chofer ? { type: 'CHOFER', id: (chofer as any).id, dadorId: (chofer as any).dadorCargaId } : null;
+  return empresa ? { type: 'EMPRESA_TRANSPORTISTA', id: (empresa as any).id, dadorId } : null;
+}
+
+async function resolveChofer(tenantId: number, dadorId: number, dni: string): Promise<ResolvedEntity | null> {
+  let chofer = await db.getClient().chofer.findFirst({ where: { tenantEmpresaId: tenantId, dniNorm: dni } });
+  if (!chofer) {
+    try {
+      const { MaestrosService } = await import('../services/maestros.service');
+      chofer = await MaestrosService.createChofer({ tenantEmpresaId: tenantId, dadorCargaId: dadorId, dni, activo: true, phones: [] });
+    } catch { return null; }
   }
-  
-  if (entityType === 'CAMION') {
-    const pat = normalizePlate(entityIdRaw);
-    let camion = await db.getClient().camion.findFirst({ where: { tenantEmpresaId: tenantId, patenteNorm: pat } });
-    
-    if (!camion) {
-      try {
-        const { MaestrosService } = await import('../services/maestros.service');
-        camion = await MaestrosService.createCamion({ tenantEmpresaId: tenantId, dadorCargaId: dadorId, patente: entityIdRaw, activo: true });
-      } catch { return null; }
-    }
-    
-    return camion ? { type: 'CAMION', id: (camion as any).id, dadorId: (camion as any).dadorCargaId } : null;
+  return chofer ? { type: 'CHOFER', id: (chofer as any).id, dadorId: (chofer as any).dadorCargaId } : null;
+}
+
+async function resolveCamion(tenantId: number, dadorId: number, patente: string): Promise<ResolvedEntity | null> {
+  const pat = normalizePlate(patente);
+  let camion = await db.getClient().camion.findFirst({ where: { tenantEmpresaId: tenantId, patenteNorm: pat } });
+  if (!camion) {
+    try {
+      const { MaestrosService } = await import('../services/maestros.service');
+      camion = await MaestrosService.createCamion({ tenantEmpresaId: tenantId, dadorCargaId: dadorId, patente, activo: true });
+    } catch { return null; }
   }
-  
-  if (entityType === 'ACOPLADO') {
-    const pat = normalizePlate(entityIdRaw);
-    let acoplado = await db.getClient().acoplado.findFirst({ where: { tenantEmpresaId: tenantId, patenteNorm: pat } });
-    
-    if (!acoplado) {
-      try {
-        const { MaestrosService } = await import('../services/maestros.service');
-        acoplado = await MaestrosService.createAcoplado({ tenantEmpresaId: tenantId, dadorCargaId: dadorId, patente: entityIdRaw, activo: true });
-      } catch { return null; }
-    }
-    
-    return acoplado ? { type: 'ACOPLADO', id: (acoplado as any).id, dadorId: (acoplado as any).dadorCargaId } : null;
+  return camion ? { type: 'CAMION', id: (camion as any).id, dadorId: (camion as any).dadorCargaId } : null;
+}
+
+async function resolveAcoplado(tenantId: number, dadorId: number, patente: string): Promise<ResolvedEntity | null> {
+  const pat = normalizePlate(patente);
+  let acoplado = await db.getClient().acoplado.findFirst({ where: { tenantEmpresaId: tenantId, patenteNorm: pat } });
+  if (!acoplado) {
+    try {
+      const { MaestrosService } = await import('../services/maestros.service');
+      acoplado = await MaestrosService.createAcoplado({ tenantEmpresaId: tenantId, dadorCargaId: dadorId, patente, activo: true });
+    } catch { return null; }
   }
-  
-  return null;
+  return acoplado ? { type: 'ACOPLADO', id: (acoplado as any).id, dadorId: (acoplado as any).dadorCargaId } : null;
+}
+
+async function resolveEntity(tenantId: number, dadorId: number, entityType: string, entityIdRaw: string): Promise<ResolvedEntity | null> {
+  switch (entityType) {
+    case 'DADOR':
+    case 'EMPRESA_TRANSPORTISTA':
+      return resolveEmpresaTransportista(tenantId, dadorId, normalizeCuit(entityIdRaw));
+    case 'CHOFER':
+      return resolveChofer(tenantId, dadorId, normalizeDni(entityIdRaw));
+    case 'CAMION':
+      return resolveCamion(tenantId, dadorId, entityIdRaw);
+    case 'ACOPLADO':
+      return resolveAcoplado(tenantId, dadorId, entityIdRaw);
+    default:
+      return null;
+  }
 }
 
 // ============================================================================

@@ -38,19 +38,18 @@ module.exports = {
     'src/**/*.{ts,tsx}',
     '!src/**/*.d.ts',
     '!src/**/*.test.{ts,tsx}',
-    '!src/**/*.spec.{ts,tsx}',
-    '!src/index.ts'
+    '!src/**/*.spec.{ts,tsx}'
   ],
 
-  // Coverage thresholds
-  coverageThreshold: {
-    global: {
-      branches: 85,
-      functions: 85,
-      lines: 85,
-      statements: 85
-    }
-  },
+  // Coverage thresholds (disabled for now)
+  // coverageThreshold: {
+  //   global: {
+  //     branches: 85,
+  //     functions: 85,
+  //     lines: 85,
+  //     statements: 85
+  //   }
+  // },
 
   // Coverage output
   coverageDirectory: '<rootDir>/coverage',

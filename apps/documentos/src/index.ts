@@ -23,6 +23,62 @@ let server: any;
 // Resolver versión de la app sin depender de package.json en runtime
 const appVersion = process.env.APP_VERSION || '1.0.0';
 
+/** Encuentra el primer path existente en la lista de candidatos */
+function findExistingPath(candidates: string[]): string | null {
+  const fs = require('fs');
+  for (const p of candidates) {
+    if (fs.existsSync(p)) return p;
+  }
+  return null;
+}
+
+/** Retorna candidatos de path para openapi.yaml */
+function getOpenApiCandidates(): string[] {
+  return [
+    path.resolve(__dirname, '../openapi.yaml'),
+    path.resolve(process.cwd(), 'apps/documentos/openapi.yaml'),
+  ];
+}
+
+/** Configura endpoints de OpenAPI */
+function setupOpenApiEndpoints(app: express.Application): void {
+  const fs = require('fs');
+  const candidates = getOpenApiCandidates();
+
+  // Endpoint YAML
+  app.get('/openapi.yaml', (_req, res) => {
+    const yamlPath = findExistingPath(candidates);
+    if (yamlPath) return res.sendFile(yamlPath);
+    res.status(404).send('openapi.yaml not found');
+  });
+
+  // Endpoint JSON
+  app.get('/openapi.json', (_req, res) => {
+    try {
+      const yaml = require('yaml');
+      const yamlPath = findExistingPath(candidates);
+      if (!yamlPath) return res.status(404).json({ error: 'openapi.json not available' });
+      const content = fs.readFileSync(yamlPath, 'utf8');
+      res.json(yaml.parse(content));
+    } catch {
+      res.status(404).json({ error: 'openapi.json not available' });
+    }
+  });
+
+  // Swagger UI
+  try {
+    const swaggerUi = require('swagger-ui-express');
+    const yamlPath = findExistingPath(candidates);
+    if (yamlPath) {
+      app.use('/docs', swaggerUi.serve, swaggerUi.setup(null, { swaggerOptions: { url: '/openapi.yaml' } }));
+    } else {
+      AppLogger.warn('⚠️ Swagger UI no disponible');
+    }
+  } catch {
+    AppLogger.warn('⚠️ Swagger UI no disponible');
+  }
+}
+
 const main = async (): Promise<void> => {
   try {
     // Verificar si el servicio está habilitado
@@ -90,62 +146,8 @@ const main = async (): Promise<void> => {
     app.use(express.json({ limit: '10mb' }));
     app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
-    // Exponer OpenAPI spec
-    app.get('/openapi.yaml', (_req, res) => {
-      const fs = require('fs');
-      const candidates = [
-        path.resolve(__dirname, '../openapi.yaml'),
-        path.resolve(process.cwd(), 'apps/documentos/openapi.yaml'),
-      ];
-      for (const p of candidates) {
-        if (fs.existsSync(p)) {
-          return res.sendFile(p);
-        }
-      }
-      res.status(404).send('openapi.yaml not found');
-    });
-    app.get('/openapi.json', (_req, res) => {
-      try {
-        const fs = require('fs');
-        const yaml = require('yaml');
-        const candidates = [
-          path.resolve(__dirname, '../openapi.yaml'),
-          path.resolve(process.cwd(), 'apps/documentos/openapi.yaml'),
-        ];
-        let yamlPath: string | null = null;
-        for (const p of candidates) {
-          if (fs.existsSync(p)) { yamlPath = p; break; }
-        }
-        if (!yamlPath) return res.status(404).json({ error: 'openapi.json not available' });
-        const content = fs.readFileSync(yamlPath, 'utf8');
-        const json = yaml.parse(content);
-        res.json(json);
-      } catch {
-        res.status(404).json({ error: 'openapi.json not available' });
-      }
-    });
-
-    // Swagger UI (documentación interactiva)
-    try {
-      const fs = require('fs');
-      const swaggerUi = require('swagger-ui-express');
-      const candidates = [
-        path.resolve(__dirname, '../openapi.yaml'),
-        path.resolve(process.cwd(), 'apps/documentos/openapi.yaml'),
-      ];
-      let yamlPath: string | null = null;
-      for (const p of candidates) {
-        if (fs.existsSync(p)) { yamlPath = p; break; }
-      }
-      if (!yamlPath) {
-        AppLogger.warn('⚠️ Swagger UI no disponible');
-      } else {
-        // Montar UI apuntando al YAML para evitar parseo en servidor
-        app.use('/docs', swaggerUi.serve, swaggerUi.setup(null, { swaggerOptions: { url: '/openapi.yaml' } }));
-      }
-    } catch (_unused) {
-      AppLogger.warn('⚠️ Swagger UI no disponible');
-    }
+    // Exponer OpenAPI spec y Swagger UI
+    setupOpenApiEndpoints(app);
 
     // Rutas principales
     app.use('/', routes);

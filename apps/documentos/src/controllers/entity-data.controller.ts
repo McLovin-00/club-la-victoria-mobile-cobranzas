@@ -22,6 +22,26 @@ interface ExtractedDataResult {
   lastValidation: Date | null;
 }
 
+/** Extrae disparidades de una clasificación */
+function extractDisparidades(classification: any, docId: number, templateName: string | null): any[] {
+  if (!Array.isArray(classification?.disparidades)) return [];
+  return classification.disparidades.map((d: any) => ({ ...d, documentId: docId, templateName }));
+}
+
+/** Extrae datos de la respuesta AI */
+function extractAiData(classification: any): Record<string, any> {
+  const aiResp = classification?.aiResponse;
+  if (!aiResp || typeof aiResp !== 'object') return {};
+  return { ...aiResp.datosExtraidos, ...aiResp.datosNuevos };
+}
+
+/** Actualiza la fecha de última validación si corresponde */
+function updateLastValidation(classification: any, current: Date | null): Date | null {
+  if (classification?.validationStatus !== 'validated' || !classification.updatedAt) return current;
+  const updatedAt = new Date(classification.updatedAt);
+  return (!current || updatedAt > current) ? updatedAt : current;
+}
+
 function processClassifications(documents: any[]): ExtractedDataResult {
   const extractedData: Record<string, any> = {};
   const extractedDataByDocument: ExtractedDataResult['extractedDataByDocument'] = [];
@@ -29,47 +49,26 @@ function processClassifications(documents: any[]): ExtractedDataResult {
   let lastValidation: Date | null = null;
 
   for (const doc of documents) {
-    const classification = doc.classification as any;
+    const classification = doc.classification;
     if (!classification) continue;
 
     // Disparidades
-    if (Array.isArray(classification.disparidades)) {
-      for (const d of classification.disparidades) {
-        disparidades.push({ ...d, documentId: doc.id, templateName: doc.template?.name });
-      }
-    }
+    disparidades.push(...extractDisparidades(classification, doc.id, doc.template?.name));
 
     // Datos extraídos
-    if (classification.aiResponse && typeof classification.aiResponse === 'object') {
-      const aiResp = classification.aiResponse as any;
-      const docData: Record<string, any> = {};
-
-      if (aiResp.datosExtraidos) {
-        Object.assign(extractedData, aiResp.datosExtraidos);
-        Object.assign(docData, aiResp.datosExtraidos);
-      }
-      if (aiResp.datosNuevos) {
-        Object.assign(extractedData, aiResp.datosNuevos);
-        Object.assign(docData, aiResp.datosNuevos);
-      }
-
-      if (Object.keys(docData).length > 0) {
-        extractedDataByDocument.push({
-          documentId: doc.id,
-          templateName: doc.template?.name || null,
-          uploadedAt: doc.uploadedAt,
-          data: docData,
-        });
-      }
+    const docData = extractAiData(classification);
+    Object.assign(extractedData, docData);
+    if (Object.keys(docData).length > 0) {
+      extractedDataByDocument.push({
+        documentId: doc.id,
+        templateName: doc.template?.name || null,
+        uploadedAt: doc.uploadedAt,
+        data: docData,
+      });
     }
 
     // Última validación
-    if (classification.validationStatus === 'validated' && classification.updatedAt) {
-      const updatedAt = new Date(classification.updatedAt);
-      if (!lastValidation || updatedAt > lastValidation) {
-        lastValidation = updatedAt;
-      }
-    }
+    lastValidation = updateLastValidation(classification, lastValidation);
   }
 
   return { extractedData, extractedDataByDocument, disparidades, lastValidation };

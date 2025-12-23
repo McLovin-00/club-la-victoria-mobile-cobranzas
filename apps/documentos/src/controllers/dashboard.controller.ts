@@ -6,6 +6,62 @@ import { queueService } from '../services/queue.service';
 import { AppLogger } from '../config/logger';
 import { UserRole } from '../types/roles';
 
+// ============================================================================
+// HELPERS para stats por rol
+// ============================================================================
+
+async function getAdminStats(prisma: any, tenantEmpresaId: number, now: Date) {
+  const [totalEquipos, totalDocumentos, pendientesAprobacion, vencidosHoy, rechazados] = await Promise.all([
+    prisma.equipo.count({ where: { tenantEmpresaId } }),
+    prisma.document.count({ where: { tenantEmpresaId, archived: false } }),
+    prisma.document.count({ where: { tenantEmpresaId, status: 'PENDIENTE_APROBACION' as any } }),
+    prisma.document.count({ where: { tenantEmpresaId, status: 'APROBADO' as any, expiresAt: { lte: now } } }),
+    prisma.document.count({ where: { tenantEmpresaId, status: 'RECHAZADO' as any, archived: false } }),
+  ]);
+  return { totalEquipos, totalDocumentos, pendientesAprobacion, vencidosHoy, rechazados };
+}
+
+async function getDadorStats(prisma: any, tenantEmpresaId: number, now: Date, in30Days: Date) {
+  const [misEquipos, pendientesAprobacion, proximosVencer, transportistasActivos] = await Promise.all([
+    prisma.equipo.count({ where: { tenantEmpresaId } }),
+    prisma.document.count({ where: { tenantEmpresaId, status: 'PENDIENTE_APROBACION' as any } }),
+    prisma.document.count({ where: { tenantEmpresaId, status: 'APROBADO' as any, expiresAt: { gte: now, lte: in30Days } } }),
+    prisma.empresaTransportista.count({ where: { tenantEmpresaId } }),
+  ]);
+  return { misEquipos, pendientesAprobacion, proximosVencer, transportistasActivos };
+}
+
+async function getTransportistaStats(prisma: any, tenantEmpresaId: number, now: Date, in30Days: Date) {
+  const [misEquipos, documentosRechazados, proximosVencer] = await Promise.all([
+    prisma.equipo.count({ where: { tenantEmpresaId, empresaTransportistaId: { not: null } } }),
+    prisma.document.count({ where: { tenantEmpresaId, status: 'RECHAZADO' as any, archived: false } }),
+    prisma.document.count({ where: { tenantEmpresaId, status: 'APROBADO' as any, expiresAt: { gte: now, lte: in30Days } } }),
+  ]);
+  return { misEquipos, documentosRechazados, documentosFaltantes: 0, proximosVencer };
+}
+
+async function getClienteStats(prisma: any, clienteId: number | undefined) {
+  if (!clienteId) return { equiposAsignados: 0, vigentes: 0, proximosVencer: 0, vencidos: 0 };
+  
+  const [equiposAsignados, equipos] = await Promise.all([
+    prisma.equipoCliente.count({ where: { clienteId, asignadoHasta: null } }),
+    prisma.equipoCliente.findMany({ where: { clienteId, asignadoHasta: null }, include: { equipo: true } }),
+  ]);
+  
+  let vigentes = 0, proximosVencer = 0, vencidos = 0;
+  for (const ec of equipos) {
+    const estado = (ec as any).equipo?.estado?.toUpperCase();
+    if (estado === 'VIGENTE' || estado === 'OK') vigentes++;
+    else if (estado === 'PROXIMO_VENCER' || estado === 'WARNING') proximosVencer++;
+    else if (estado === 'VENCIDO' || estado === 'EXPIRED') vencidos++;
+  }
+  return { equiposAsignados, vigentes, proximosVencer, vencidos };
+}
+
+// ============================================================================
+// CONTROLLER
+// ============================================================================
+
 /**
  * Dashboard Controller - Vistas Elegantes para Frontend
  */
@@ -440,113 +496,21 @@ export class DashboardController {
       
       const now = new Date();
       const in30Days = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
+      const baseStats = { role: user.role, asOf: now.toISOString() };
       
-      // Stats base (comunes a todos)
-      const baseStats = {
-        role: user.role,
-        asOf: now.toISOString(),
-      };
-      
-      // Stats específicos por rol
       let roleStats: any = {};
       
       if (user.role === 'SUPERADMIN' || user.role === 'ADMIN_INTERNO') {
-        // Admin: ve todo
-        const [totalEquipos, totalDocumentos, pendientesAprobacion, vencidosHoy, rechazados] = await Promise.all([
-          prisma.equipo.count({ where: { tenantEmpresaId } }),
-          prisma.document.count({ where: { tenantEmpresaId, archived: false } }),
-          prisma.document.count({ where: { tenantEmpresaId, status: 'PENDIENTE_APROBACION' as any } }),
-          prisma.document.count({ where: { tenantEmpresaId, status: 'APROBADO' as any, expiresAt: { lte: now } } }),
-          prisma.document.count({ where: { tenantEmpresaId, status: 'RECHAZADO' as any, archived: false } }),
-        ]);
-        
-        roleStats = {
-          totalEquipos,
-          totalDocumentos,
-          pendientesAprobacion,
-          vencidosHoy,
-          rechazados,
-        };
+        roleStats = await getAdminStats(prisma, tenantEmpresaId, now);
       } else if (user.role === 'DADOR_DE_CARGA') {
-        // Dador: ve sus equipos y docs
-        const [misEquipos, pendientesAprobacion, proximosVencer, transportistasActivos] = await Promise.all([
-          prisma.equipo.count({ where: { tenantEmpresaId } }),
-          prisma.document.count({ where: { tenantEmpresaId, status: 'PENDIENTE_APROBACION' as any } }),
-          prisma.document.count({ 
-            where: { 
-              tenantEmpresaId, 
-              status: 'APROBADO' as any, 
-              expiresAt: { gte: now, lte: in30Days } 
-            } 
-          }),
-          prisma.empresaTransportista.count({ where: { tenantEmpresaId } }),
-        ]);
-        
-        roleStats = {
-          misEquipos,
-          pendientesAprobacion,
-          proximosVencer,
-          transportistasActivos,
-        };
+        roleStats = await getDadorStats(prisma, tenantEmpresaId, now, in30Days);
       } else if (user.role === 'TRANSPORTISTA' || user.role === 'EMPRESA_TRANSPORTISTA') {
-        // Transportista: ve sus docs
-        const [misEquipos, documentosRechazados, documentosFaltantes, proximosVencer] = await Promise.all([
-          prisma.equipo.count({ where: { tenantEmpresaId, empresaTransportistaId: { not: null } } }),
-          prisma.document.count({ where: { tenantEmpresaId, status: 'RECHAZADO' as any, archived: false } }),
-          0, // TODO: calcular faltantes
-          prisma.document.count({ 
-            where: { 
-              tenantEmpresaId, 
-              status: 'APROBADO' as any, 
-              expiresAt: { gte: now, lte: in30Days } 
-            } 
-          }),
-        ]);
-        
-        roleStats = {
-          misEquipos,
-          documentosRechazados,
-          documentosFaltantes,
-          proximosVencer,
-        };
+        roleStats = await getTransportistaStats(prisma, tenantEmpresaId, now, in30Days);
       } else if (user.role === 'CLIENTE') {
-        // Cliente: ve solo equipos asignados
-        const clienteId = user.empresaId ?? undefined;
-        if (!clienteId) {
-          roleStats = { equiposAsignados: 0, vigentes: 0, proximosVencer: 0, vencidos: 0 };
-        } else {
-          const [equiposAsignados] = await Promise.all([
-            prisma.equipoCliente.count({ where: { clienteId, asignadoHasta: null } }),
-          ]);
-          
-          // Calcular estados de equipos
-          const equipos = await prisma.equipoCliente.findMany({
-            where: { clienteId, asignadoHasta: null },
-            include: { equipo: true },
-          });
-          
-          let vigentes = 0, proximosVencer = 0, vencidos = 0;
-          for (const ec of equipos) {
-            const equipoData = (ec as { equipo?: { estado?: string } }).equipo;
-            const estado = equipoData?.estado?.toUpperCase();
-            if (estado === 'VIGENTE' || estado === 'OK') vigentes++;
-            else if (estado === 'PROXIMO_VENCER' || estado === 'WARNING') proximosVencer++;
-            else if (estado === 'VENCIDO' || estado === 'EXPIRED') vencidos++;
-          }
-          
-          roleStats = {
-            equiposAsignados,
-            vigentes,
-            proximosVencer,
-            vencidos,
-          };
-        }
+        roleStats = await getClienteStats(prisma, user.empresaId ?? undefined);
       }
       
-      res.json({
-        success: true,
-        data: { ...baseStats, ...roleStats },
-      });
+      res.json({ success: true, data: { ...baseStats, ...roleStats } });
     } catch (error) {
       AppLogger.error('💥 Error obteniendo stats por rol:', error);
       res.status(500).json({ success: false, message: 'Error obteniendo estadísticas', code: 'STATS_ERROR' });

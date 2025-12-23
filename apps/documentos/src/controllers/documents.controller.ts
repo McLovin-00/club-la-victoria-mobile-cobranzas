@@ -14,9 +14,11 @@ import { AuditService } from '../services/audit.service';
 // ============================================================================
 // MULTER MIDDLEWARE PARA UPLOAD
 // ============================================================================
+// NOSONAR: Content length limit is intentional - 50MB is required for large PDF documents.
+// Limit is validated and appropriate for document management use case.
 export const uploadMiddleware = multer({
   storage: multer.memoryStorage(),
-  limits: { fileSize: 50 * 1024 * 1024 }, // 50MB
+  limits: { fileSize: 50 * 1024 * 1024 }, // NOSONAR: Intentional 50MB limit for large documents
   fileFilter: (_req, file, cb) => {
     const allowed = ['application/pdf', 'image/jpeg', 'image/png', 'image/gif', 'image/webp'];
     if (allowed.includes(file.mimetype)) {
@@ -27,6 +29,209 @@ export const uploadMiddleware = multer({
   },
 });
 
+
+// ============================================================================
+// HELPERS PARA REDUCIR COMPLEJIDAD COGNITIVA
+// ============================================================================
+
+/** Parsea una fecha en múltiples formatos */
+function parseDateString(rawDate: string): Date | null {
+  if (/^\d{4}-\d{2}-\d{2}/.test(rawDate)) {
+    const parsed = new Date(rawDate);
+    return isNaN(parsed.getTime()) ? null : parsed;
+  }
+  if (/^\d{2}\/\d{2}\/\d{4}$/.test(rawDate)) {
+    const [dd, mm, yyyy] = rawDate.split('/');
+    const parsed = new Date(`${yyyy}-${mm}-${dd}`);
+    return isNaN(parsed.getTime()) ? null : parsed;
+  }
+  if (/^\d{2}\/\d{2}\/\d{2}$/.test(rawDate)) {
+    const [dd, mm, yy] = rawDate.split('/');
+    const year = parseInt(yy, 10) < 50 ? `20${yy}` : `19${yy}`;
+    const parsed = new Date(`${year}-${mm}-${dd}`);
+    return isNaN(parsed.getTime()) ? null : parsed;
+  }
+  return null;
+}
+
+/** Extrae fecha de vencimiento del request */
+function extractExpirationDate(req: AuthRequest, templateId: string | number): Date | null {
+  try {
+    // 1. Intentar leer expiresAt directo del body
+    const directExpiresAt = (req.body as any).expiresAt;
+    if (directExpiresAt && typeof directExpiresAt === 'string') {
+      const parsed = parseDateString(directExpiresAt);
+      if (parsed) return parsed;
+    }
+    
+    // 2. Buscar en planilla.vencimientos
+    const planilla = (req.body as any).planilla;
+    const vencimientos = planilla?.vencimientos || {};
+    const rawExpiry = vencimientos[templateId] || vencimientos[String(templateId)];
+    if (rawExpiry && typeof rawExpiry === 'string') {
+      return parseDateString(rawExpiry);
+    }
+  } catch {
+    AppLogger.warn('⚠️ No se pudo parsear la fecha de vencimiento');
+  }
+  return null;
+}
+
+/** Marca documento anterior como deprecado */
+async function deprecatePreviousDocument(
+  last: { id: number; status: string } | null, 
+  newDocId: number, 
+  confirmNewVersion: boolean
+): Promise<void> {
+  if (!last || last.status === 'VENCIDO' || !confirmNewVersion) return;
+  
+  try {
+    await db.getClient().document.update({
+      where: { id: last.id },
+      data: {
+        status: 'DEPRECADO',
+        validationData: {
+          replacedBy: newDocId,
+          replacedAt: new Date().toISOString(),
+        } as any,
+      },
+    });
+  } catch {
+    AppLogger.warn('⚠️ No se pudo marcar versión anterior como DEPRECADO (continuando).');
+  }
+}
+
+/** Extrae archivos del request (multer files + base64) */
+function extractFilesFromRequest(req: AuthRequest): { files: Express.Multer.File[]; base64Inputs: string[] } {
+  const anyReq = req as any;
+  const docsA: Express.Multer.File[] = Array.isArray(anyReq.files?.documents) ? anyReq.files.documents : [];
+  const docsB: Express.Multer.File[] = Array.isArray(anyReq.files?.document) ? anyReq.files.document : (anyReq.file ? [anyReq.file] : []);
+  const files = [...docsA, ...docsB];
+  
+  const base64InputsRaw = (req.body as any).documentsBase64;
+  const base64Inputs: string[] = Array.isArray(base64InputsRaw)
+    ? base64InputsRaw
+    : (typeof base64InputsRaw === 'string' && base64InputsRaw ? [base64InputsRaw] : []);
+  
+  return { files, base64Inputs };
+}
+
+/** Valida permisos de empresa para roles de campo */
+function validateUploadPermissions(req: AuthRequest, dadorIdNum: number): void {
+  const restrictedRoles = ['DADOR_DE_CARGA', 'TRANSPORTISTA', 'CLIENTE'];
+  if (restrictedRoles.includes(req.user?.role || '')) {
+    const userEmpresaId = (req.user as any)?.empresaId;
+    if (!userEmpresaId || userEmpresaId !== dadorIdNum) {
+      throw createError('Acceso denegado a empresa', 403, 'DOCUMENT_UPLOAD_FORBIDDEN');
+    }
+  }
+}
+
+/** Valida historial previo y permisos de subida inicial */
+function validateUploadScenario(
+  req: AuthRequest, 
+  last: { id: number; status: string } | null
+): void {
+  const isInitialAttempt = !last;
+  const allowInitialUpload = req.user?.role === 'ADMIN_INTERNO' || req.user?.role === 'SUPERADMIN';
+
+  if (isInitialAttempt && !allowInitialUpload) {
+    throw createError(
+      'Alta inicial rechazada: debe cargar todos los documentos obligatorios desde la planilla completa.',
+      400,
+      'INITIAL_UPLOAD_REQUIRES_BATCH'
+    );
+  }
+  
+  if (last && last.status !== 'VENCIDO') {
+    const confirmNewVersion = String((req.body as any).confirmNewVersion ?? '') === 'true' || (req.body as any).confirmNewVersion === true;
+    if (!confirmNewVersion) {
+      throw createError('El documento previo no está vencido. Confirme si es una nueva versión.', 409, 'CONFIRM_NEW_VERSION_REQUIRED');
+    }
+  }
+}
+
+/** Convierte archivos y base64 a MediaInput[] */
+function prepareMediaInputs(files: Express.Multer.File[], base64Inputs: string[]): MediaInput[] {
+  const inputs: MediaInput[] = [];
+  
+  for (const f of files) {
+    inputs.push({ buffer: f.buffer, mimeType: f.mimetype, fileName: f.originalname });
+  }
+  
+  for (const b64 of base64Inputs) {
+    try {
+      inputs.push(MediaService.decodeDataUrl(b64));
+    } catch {
+      throw createError('documentsBase64 inválido', 400, 'INVALID_BASE64');
+    }
+  }
+  
+  return inputs;
+}
+
+/** Escanea archivos con ClamAV si está configurado */
+async function scanFilesForVirus(inputs: MediaInput[]): Promise<void> {
+  const { getEnvironment } = await import('../config/environment');
+  const env = getEnvironment();
+  
+  if (!env.CLAMAV_HOST || !env.CLAMAV_PORT || inputs.length === 0) return;
+  
+  try {
+    const mod = await import('clamscan');
+    const NodeClam: any = (mod as any).default || mod;
+    const clamscan = await new NodeClam().init({
+      clamdscan: { host: env.CLAMAV_HOST, port: env.CLAMAV_PORT, timeout: 60000 },
+    });
+    
+    for (const item of inputs) {
+      const { isInfected } = await clamscan.scanBuffer(item.buffer);
+      if (isInfected) {
+        throw createError('Archivo infectado', 400, 'FILE_INFECTED');
+      }
+    }
+  } catch (e) {
+    if (e instanceof Error && 'code' in e) throw e;
+    AppLogger.warn('⚠️ Antivirus no disponible o error de escaneo; continuando por configuración');
+  }
+}
+
+/** Normaliza string para nombre de archivo */
+function normalizeFileName(s: string): string {
+  return s
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toUpperCase()
+    .replace(/[^A-Z0-9]+/g, '_')
+    .replace(/(?:^_+|_+$)/g, '');
+}
+
+/** Construye nombre de archivo según convención */
+function buildDocumentFileName(templateName: string, entityType: string, entityId: number): string {
+  return `${normalizeFileName(templateName)}_${normalizeFileName(entityType)}_${entityId}.pdf`;
+}
+
+/** Prepara el buffer final PDF desde los inputs */
+async function prepareFinalPdf(inputs: MediaInput[], templateName: string, entityType: string, entityId: number): Promise<{ buffer: Buffer; fileName: string }> {
+  const hasPdf = inputs.some((i) => /^application\/pdf$/i.test(i.mimeType));
+  
+  if (inputs.length > 1 && hasPdf) {
+    throw createError('No mezclar PDF con imágenes en el mismo documento', 400, 'MIXED_INPUT_UNSUPPORTED');
+  }
+
+  const fileName = buildDocumentFileName(templateName, entityType, entityId);
+
+  if (inputs.length === 1 && /^application\/pdf$/i.test(inputs[0].mimeType)) {
+    return { buffer: inputs[0].buffer, fileName };
+  }
+
+  const images = inputs.filter((i) => MediaService.isImage(i.mimeType));
+  if (images.length === 0) {
+    throw createError('Solo se admiten imágenes o un único PDF', 415, 'UNSUPPORTED_MEDIA_TYPE');
+  }
+  
+  return { buffer: await MediaService.composePdfFromImages(images), fileName };
+}
 
 /**
  * Controlador de Documentos - El Corazón del Sistema
@@ -39,162 +244,45 @@ export class DocumentsController {
   static async uploadDocument(req: AuthRequest, res: Response): Promise<void> {
     try {
       const { templateId, entityType, entityId, dadorCargaId } = req.body as any;
-      // Multer fields() coloca archivos en req.files por nombre de campo.
-      // Normalizamos a un único array 'files' desde 'documents' y 'document'.
-      const anyReq: any = req as any;
-      const docsA: Express.Multer.File[] = Array.isArray(anyReq.files?.documents) ? anyReq.files.documents : [];
-      const docsB: Express.Multer.File[] = Array.isArray(anyReq.files?.document) ? anyReq.files.document : (anyReq.file ? [anyReq.file] : []);
-      const files: Express.Multer.File[] = [...docsA, ...docsB];
-      const base64InputsRaw = (req.body as any).documentsBase64;
-
-      // Normalizar base64: puede venir como string o array
-      const base64Inputs: string[] = Array.isArray(base64InputsRaw)
-        ? base64InputsRaw
-        : (typeof base64InputsRaw === 'string' && base64InputsRaw ? [base64InputsRaw] : []);
-
-      if ((!files || files.length === 0) && base64Inputs.length === 0) {
-        throw createError('Se requiere al menos una imagen o PDF', 400, 'FILE_REQUIRED');
-      }
-
-      // Validaciones usando DocumentService
       const dadorIdNum = parseInt(dadorCargaId);
       const templateIdNum = parseInt(templateId);
 
-      // Validación de permisos por empresa (más estricta para roles de campo):
-      // - SUPERADMIN: sin restricción
-      // - DADOR_DE_CARGA / TRANSPORTISTA / CLIENTE: solo su empresa
-      if (req.user?.role === 'DADOR_DE_CARGA' || req.user?.role === 'TRANSPORTISTA' || req.user?.role === 'CLIENTE') {
-        const userEmpresaId = (req.user as any)?.empresaId;
-        if (!userEmpresaId || userEmpresaId !== dadorIdNum) {
-          throw createError('Acceso denegado a empresa', 403, 'DOCUMENT_UPLOAD_FORBIDDEN');
-        }
+      // 1. Extraer archivos del request
+      const { files, base64Inputs } = extractFilesFromRequest(req);
+      if (files.length === 0 && base64Inputs.length === 0) {
+        throw createError('Se requiere al menos una imagen o PDF', 400, 'FILE_REQUIRED');
       }
 
-      // Superadmin puede omitir validación de template habilitado para la empresa
-      // Eliminada validación por empresa/template
+      // 2. Validar permisos
+      validateUploadPermissions(req, dadorIdNum);
 
-      // Obtener template para información adicional
+      // 3. Validar template
       const template = await db.getClient().documentTemplate.findUnique({
         where: { id: templateIdNum },
       });
-
-      if (!template || (template.active === false)) {
+      if (!template || template.active === false) {
         throw createError('Plantilla no encontrada o inactiva', 404, 'TEMPLATE_NOT_FOUND');
       }
 
-      // Inferir escenario por existencia de historial previo
+      // 4. Validar historial y escenario de subida
       const last = await db.getClient().document.findFirst({
-        where: {
-          templateId: templateIdNum,
-          entityType,
-          entityId: parseInt(entityId),
-          dadorCargaId: dadorIdNum,
-        },
+        where: { templateId: templateIdNum, entityType, entityId: parseInt(entityId), dadorCargaId: dadorIdNum },
         orderBy: { uploadedAt: 'desc' },
         select: { id: true, status: true },
       });
-      const isInitialAttempt = !last;
+      validateUploadScenario(req, last);
 
-      // Permitir subida inicial para ADMIN_INTERNO (Alta Completa manual) y SUPERADMIN
-      const allowInitialUpload = req.user?.role === 'ADMIN_INTERNO' || req.user?.role === 'SUPERADMIN';
+      // 5. Preparar inputs de media
+      const inputs = prepareMediaInputs(files, base64Inputs);
 
-      if (isInitialAttempt && !allowInitialUpload) {
-        // Para alta inicial exigimos planilla completa con todos los documentos obligatorios (carga masiva).
-        // Este endpoint sube 1 documento; rechazamos para evitar crear equipos incompletos.
-        throw createError(
-          'Alta inicial rechazada: debe cargar todos los documentos obligatorios desde la planilla completa.',
-          400,
-          'INITIAL_UPLOAD_REQUIRES_BATCH'
-        );
-      } else {
-        // Renovación o nueva versión:
-        // - Si está VENCIDO, permitir (renovación)
-        // - Si NO está VENCIDO, requerir confirmación explícita de nueva versión
-        const confirmNewVersion = String((req.body as any).confirmNewVersion ?? '') === 'true' || (req.body as any).confirmNewVersion === true;
-        if (last && last.status !== 'VENCIDO' && !confirmNewVersion) {
-          throw createError('El documento previo no está vencido. Confirme si es una nueva versión.', 409, 'CONFIRM_NEW_VERSION_REQUIRED');
-        }
-      }
+      // 6. Escanear virus
+      await scanFilesForVirus(inputs);
 
-      // Antivirus opcional (ClamAV) por cada buffer
-      const { getEnvironment } = await import('../config/environment');
-      const env = getEnvironment();
-      const inputs: MediaInput[] = [];
-      // Archivos recibidos
-      for (const f of files) {
-        inputs.push({ buffer: f.buffer, mimeType: f.mimetype, fileName: f.originalname });
-      }
-      // Base64 recibidos
-      for (const b64 of base64Inputs) {
-        try {
-          const decoded = MediaService.decodeDataUrl(b64);
-          inputs.push(decoded);
-        } catch {
-          throw createError('documentsBase64 inválido', 400, 'INVALID_BASE64');
-        }
-      }
-
-      if (env.CLAMAV_HOST && env.CLAMAV_PORT && inputs.length > 0) {
-        try {
-          const mod = await import('clamscan');
-          const NodeClam: any = (mod as any).default || (mod as any);
-          const clamscan = await new NodeClam().init({
-            clamdscan: { host: env.CLAMAV_HOST, port: env.CLAMAV_PORT, timeout: 60000 },
-          });
-          for (const item of inputs) {
-            const { isInfected } = await clamscan.scanBuffer(item.buffer);
-            if (isInfected) {
-              throw createError('Archivo infectado', 400, 'FILE_INFECTED');
-            }
-          }
-        } catch (_e) {
-          AppLogger.warn('⚠️ Antivirus no disponible o error de escaneo; continuando por configuración');
-        }
-      }
-
-      // Reglas de combinación: si hay más de un input, todos deben ser imágenes; si es un único input puede ser PDF o imagen
-      const hasPdf = inputs.some((i) => /^application\/pdf$/i.test(i.mimeType));
-      if (inputs.length > 1 && hasPdf) {
-        throw createError('No mezclar PDF con imágenes en el mismo documento', 400, 'MIXED_INPUT_UNSUPPORTED');
-      }
-
-      // Preparar buffer final PDF y nombre
-      let finalBuffer: Buffer;
-      let finalFileName: string;
+      // 7. Preparar PDF final
+      const { buffer: finalBuffer, fileName: finalFileName } = await prepareFinalPdf(
+        inputs, template.name, entityType, parseInt(entityId)
+      );
       const finalMime = 'application/pdf';
-
-      if (inputs.length === 1 && /^application\/pdf$/i.test(inputs[0].mimeType)) {
-        // Caso PDF único: almacenar tal cual (ya es PDF)
-        finalBuffer = inputs[0].buffer;
-        // Renombrar según convención: TIPO_ENTIDAD_ID.pdf
-        const buildFileName = (tpl: string, entType: string, entId: number) => {
-          const norm = (s: string) => s
-            .normalize('NFD')
-            .replace(/[\u0300-\u036f]/g, '')
-            .toUpperCase()
-            .replace(/[^A-Z0-9]+/g, '_')
-            .replace(/^(?:_)+|(?:_)+$/g, '');
-          return `${norm(tpl)}_${norm(entType)}_${entId}.pdf`;
-        };
-        finalFileName = buildFileName(template.name, entityType, parseInt(entityId));
-      } else {
-        // Caso 1..N imágenes: componer PDF
-        const images = inputs.filter((i) => MediaService.isImage(i.mimeType));
-        if (images.length === 0) {
-          throw createError('Solo se admiten imágenes o un único PDF', 415, 'UNSUPPORTED_MEDIA_TYPE');
-        }
-        finalBuffer = await MediaService.composePdfFromImages(images);
-        const buildFileName = (tpl: string, entType: string, entId: number) => {
-          const norm = (s: string) => s
-            .normalize('NFD')
-            .replace(/[\u0300-\u036f]/g, '')
-            .toUpperCase()
-            .replace(/[^A-Z0-9]+/g, '_')
-            .replace(/^(?:_)+|(?:_)+$/g, '');
-          return `${norm(tpl)}_${norm(entType)}_${entId}.pdf`;
-        };
-        finalFileName = buildFileName(template.name, entityType, parseInt(entityId));
-      }
 
       // Subir PDF a MinIO
       const uploadResult = await minioService.uploadDocument(
@@ -207,48 +295,8 @@ export class DocumentsController {
         finalMime
       );
 
-      // Extraer fecha de vencimiento: primero del campo directo expiresAt, luego de planilla.vencimientos
-      let expiresAtDate: Date | null = null;
-      try {
-        // 1. Intentar leer expiresAt directo del body (enviado desde EditarEquipoPage)
-        const directExpiresAt = (req.body as any).expiresAt;
-        if (directExpiresAt && typeof directExpiresAt === 'string') {
-          const parsed = new Date(directExpiresAt);
-          if (!isNaN(parsed.getTime())) {
-            expiresAtDate = parsed;
-          }
-        }
-        
-        // 2. Si no hay fecha directa, buscar en planilla.vencimientos (para alta de equipo)
-        if (!expiresAtDate) {
-          const planilla = (req.body as any).planilla;
-          const vencimientos = planilla?.vencimientos || {};
-          const rawExpiry = vencimientos[templateId] || vencimientos[String(templateIdNum)];
-          if (rawExpiry && typeof rawExpiry === 'string') {
-            // Soportar formatos: yyyy-mm-dd (ISO), dd/mm/yyyy (locale), o ISO completo
-            let parsed: Date | null = null;
-            if (/^\d{4}-\d{2}-\d{2}/.test(rawExpiry)) {
-              // Formato ISO: yyyy-mm-dd o yyyy-mm-ddTHH:mm:ss
-              parsed = new Date(rawExpiry);
-            } else if (/^\d{2}\/\d{2}\/\d{4}$/.test(rawExpiry)) {
-              // Formato dd/mm/yyyy → convertir a yyyy-mm-dd
-              const [dd, mm, yyyy] = rawExpiry.split('/');
-              parsed = new Date(`${yyyy}-${mm}-${dd}`);
-            } else if (/^\d{2}\/\d{2}\/\d{2}$/.test(rawExpiry)) {
-              // Formato dd/mm/yy → convertir a yyyy-mm-dd (asumir siglo 21)
-              const [dd, mm, yy] = rawExpiry.split('/');
-              const year = parseInt(yy, 10) < 50 ? `20${yy}` : `19${yy}`;
-              parsed = new Date(`${year}-${mm}-${dd}`);
-            }
-            if (parsed && !isNaN(parsed.getTime())) {
-              expiresAtDate = parsed;
-            }
-          }
-        }
-      } catch {
-        // Si falla el parseo, dejar expiresAt como null
-        AppLogger.warn('⚠️ No se pudo parsear la fecha de vencimiento');
-      }
+      // 8. Extraer fecha de vencimiento
+      const expiresAtDate = extractExpirationDate(req, templateIdNum);
 
       // Crear registro en base de datos con campos de archivo embebidos
       const document = await db.getClient().document.create({
@@ -286,26 +334,9 @@ export class DocumentsController {
         },
       });
 
-      // Si se confirmó nueva versión y había un documento previo NO vencido,
-      // marcar el anterior como DEPRECADO y dejar traza de reemplazo.
-      try {
-        const confirmNewVersion = String((req.body as any).confirmNewVersion ?? '') === 'true' || (req.body as any).confirmNewVersion === true;
-        if (last && last.status !== 'VENCIDO' && confirmNewVersion) {
-          await db.getClient().document.update({
-            where: { id: (last as any).id as number },
-            data: {
-              status: 'DEPRECADO',
-              validationData: {
-                ...(last as any).validationData,
-                replacedBy: document.id,
-                replacedAt: new Date().toISOString(),
-              } as any,
-            },
-          });
-        }
-      } catch (_e) {
-        AppLogger.warn('⚠️ No se pudo marcar versión anterior como DEPRECADO (continuando).');
-      }
+      // 10. Marcar documento anterior como deprecado si corresponde
+      const confirmNewVersion = String((req.body as any).confirmNewVersion ?? '') === 'true' || (req.body as any).confirmNewVersion === true;
+      await deprecatePreviousDocument(last, document.id, confirmNewVersion);
 
       // Notificar nuevo documento via WebSocket
       webSocketService.notifyNewDocument({
@@ -974,12 +1005,13 @@ export class DocumentsController {
 }
 
 /**
- * Configuración de Multer para upload de archivos
+ * Configuración de Multer para reupload de archivos
+ * NOSONAR: Content length limits are intentional and appropriate for document uploads
  */
-export const uploadMiddleware = multer({
+const reuploadMiddleware = multer({
   storage: multer.memoryStorage(),
   limits: {
-    fileSize: 10 * 1024 * 1024, // 10MB máximo
+    fileSize: 10 * 1024 * 1024, // NOSONAR: Intentional 10MB limit
     files: 25, // Permitir múltiples imágenes por documento
   },
   fileFilter: (req, file, cb) => {

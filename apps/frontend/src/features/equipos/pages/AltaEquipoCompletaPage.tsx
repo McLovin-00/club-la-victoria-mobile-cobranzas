@@ -8,6 +8,7 @@ import {
   useRollbackEquipoCompletoMutation,
   useGetDadoresQuery,
   useGetClientsQuery,
+  useLazyGetConsolidatedTemplatesQuery,
 } from '../../documentos/api/documentosApiSlice';
 import { SeccionDocumentos, Template } from '../components/SeccionDocumentos';
 import { useRoleBasedNavigation } from '../../../hooks/useRoleBasedNavigation';
@@ -38,6 +39,7 @@ const AltaEquipoCompletaPage: React.FC = () => {
   const [uploadDocument, { isLoading: uploading }] = useUploadDocumentMutation();
   const [createEquipoCompleto, { isLoading: creatingEquipo }] = useCreateEquipoCompletoMutation();
   const [rollbackEquipoCompleto] = useRollbackEquipoCompletoMutation();
+  const [getConsolidatedTemplates, { data: consolidatedData, isFetching: loadingConsolidated }] = useLazyGetConsolidatedTemplatesQuery();
 
   // Estados del formulario
   const [dadorCargaId, setDadorCargaId] = useState<number | null>(null);
@@ -82,8 +84,48 @@ const AltaEquipoCompletaPage: React.FC = () => {
     }
   }, [isAdminInterno, empresaId, dadorCargaId]);
 
+  // Cargar templates consolidados cuando cambian los clientes seleccionados
+  useEffect(() => {
+    if (clienteIds.length > 0) {
+      getConsolidatedTemplates({ clienteIds });
+    }
+  }, [clienteIds, getConsolidatedTemplates]);
+
   // Agrupar templates por entityType
+  // Si hay clientes seleccionados, usar templates consolidados; si no, usar todos los templates
   const templatesPorTipo = useMemo(() => {
+    // Si hay clientes seleccionados y tenemos datos consolidados, usar esos
+    if (clienteIds.length > 0 && consolidatedData?.byEntityType) {
+      const byType = consolidatedData.byEntityType;
+      return {
+        EMPRESA_TRANSPORTISTA: (byType.EMPRESA_TRANSPORTISTA || []).map((t) => ({
+          id: t.templateId,
+          name: t.templateName,
+          entityType: t.entityType,
+          clienteNames: t.clienteNames, // Info adicional para mostrar qué cliente requiere cada doc
+        })),
+        CHOFER: (byType.CHOFER || []).map((t) => ({
+          id: t.templateId,
+          name: t.templateName,
+          entityType: t.entityType,
+          clienteNames: t.clienteNames,
+        })),
+        CAMION: (byType.CAMION || []).map((t) => ({
+          id: t.templateId,
+          name: t.templateName,
+          entityType: t.entityType,
+          clienteNames: t.clienteNames,
+        })),
+        ACOPLADO: (byType.ACOPLADO || []).map((t) => ({
+          id: t.templateId,
+          name: t.templateName,
+          entityType: t.entityType,
+          clienteNames: t.clienteNames,
+        })),
+      };
+    }
+
+    // Sin clientes seleccionados: usar todos los templates globales
     const rawTemplates = (templatesResp as any)?.data || (templatesResp as any) || [];
     
     // Mapear 'nombre' del backend a 'name' esperado por el componente
@@ -99,7 +141,7 @@ const AltaEquipoCompletaPage: React.FC = () => {
       CAMION: allTemplates.filter((t: Template) => t.entityType === 'CAMION'),
       ACOPLADO: allTemplates.filter((t: Template) => t.entityType === 'ACOPLADO'),
     };
-  }, [templatesResp]);
+  }, [templatesResp, clienteIds, consolidatedData]);
 
   // Calcular IDs de entidades temporales (antes de crear el equipo)
   // Usamos valores temporales para permitir uploads; el backend creará las entidades
@@ -403,10 +445,12 @@ const AltaEquipoCompletaPage: React.FC = () => {
     }
   };
 
-  if (loadingTemplates) {
+  if (loadingTemplates || (clienteIds.length > 0 && loadingConsolidated)) {
     return (
       <div className='container mx-auto px-4 py-6'>
-        <div className='text-center'>Cargando templates...</div>
+        <div className='text-center'>
+          {loadingConsolidated ? 'Cargando documentos requeridos por clientes...' : 'Cargando templates...'}
+        </div>
       </div>
     );
   }
@@ -533,8 +577,22 @@ const AltaEquipoCompletaPage: React.FC = () => {
               )}
             </div>
             {clienteIds.length > 0 && (
-              <p className='text-xs text-blue-600 mt-2'>
-                ✓ {clienteIds.length} cliente{clienteIds.length > 1 ? 's' : ''} seleccionado{clienteIds.length > 1 ? 's' : ''}
+              <div className='mt-2'>
+                <p className='text-xs text-blue-600'>
+                  ✓ {clienteIds.length} cliente{clienteIds.length > 1 ? 's' : ''} seleccionado{clienteIds.length > 1 ? 's' : ''}
+                </p>
+                {loadingConsolidated ? (
+                  <p className='text-xs text-gray-500 mt-1'>⏳ Cargando documentos requeridos...</p>
+                ) : consolidatedData?.templates && consolidatedData.templates.length > 0 ? (
+                  <p className='text-xs text-green-600 mt-1'>
+                    📋 {consolidatedData.templates.length} documentos requeridos por {clienteIds.length > 1 ? 'estos clientes' : 'este cliente'}
+                  </p>
+                ) : null}
+              </div>
+            )}
+            {clienteIds.length === 0 && (
+              <p className='text-xs text-amber-600 mt-2'>
+                ⚠️ Sin clientes seleccionados se mostrarán todos los documentos disponibles
               </p>
             )}
           </div>

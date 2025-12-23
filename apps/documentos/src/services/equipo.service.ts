@@ -13,10 +13,217 @@ function normalizePlate(plate: string): string {
   return (plate || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
 }
 
+interface EquipoEntityIds {
+  driverId: number;
+  truckId: number;
+  trailerId: number | null;
+  empresaTransportistaId: number | null;
+}
+
+/**
+ * Obtiene el entityId según el entityType
+ */
+function getEntityIdForType(entityType: string, equipo: EquipoEntityIds): number | null {
+  switch (entityType) {
+    case 'CHOFER': return equipo.driverId;
+    case 'CAMION': return equipo.truckId;
+    case 'ACOPLADO': return equipo.trailerId;
+    case 'EMPRESA_TRANSPORTISTA': return equipo.empresaTransportistaId;
+    default: return null;
+  }
+}
+
+type DocEstadoRequisito = 'VIGENTE' | 'PROXIMO_VENCER' | 'VENCIDO' | 'PENDIENTE' | 'RECHAZADO';
+
+/**
+ * Determina el estado de un documento para requisitos
+ */
+function determinarEstadoDocumento(
+  doc: { status: string; expiresAt: Date | null }, 
+  diasAnticipacion: number
+): DocEstadoRequisito {
+  const now = new Date();
+  const expires = doc.expiresAt ? new Date(doc.expiresAt) : null;
+  const estaVencidoPorFecha = expires && expires < now;
+
+  if (doc.status === 'VENCIDO' || estaVencidoPorFecha) return 'VENCIDO';
+  if (doc.status === 'RECHAZADO') return 'RECHAZADO';
+  if (doc.status !== 'APROBADO') return 'PENDIENTE';
+  
+  if (expires) {
+    const diasRestantes = Math.ceil((expires.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+    if (diasRestantes <= diasAnticipacion) return 'PROXIMO_VENCER';
+  }
+  
+  return 'VIGENTE';
+}
+
+// ============================================================================
+// HELPERS PARA FILTROS DE EQUIPO
+// ============================================================================
+
+interface EquipoFilterParams {
+  tenantEmpresaId: number;
+  dadorCargaId?: number;
+  empresaTransportistaId?: number;
+  choferId?: number;
+  activo?: boolean | 'all';
+  search?: string;
+  dni?: string;
+  truckPlate?: string;
+  trailerPlate?: string;
+}
+
+/** Construye el where clause para búsqueda de equipos */
+function buildEquipoWhereClause(filters: EquipoFilterParams): any {
+  const where: any = { tenantEmpresaId: filters.tenantEmpresaId };
+  
+  if (filters.dadorCargaId) where.dadorCargaId = filters.dadorCargaId;
+  if (filters.empresaTransportistaId) where.empresaTransportistaId = filters.empresaTransportistaId;
+  if (filters.choferId) where.driverId = filters.choferId;
+  if (filters.activo !== 'all' && filters.activo !== undefined) where.activo = filters.activo;
+  
+  const orConditions: any[] = [];
+  
+  if (filters.search) {
+    const searchValues = filters.search.split('|').map(s => s.trim().toUpperCase()).filter(Boolean);
+    if (searchValues.length > 0) {
+      orConditions.push(
+        { driverDniNorm: { in: searchValues } },
+        { truckPlateNorm: { in: searchValues } },
+        { trailerPlateNorm: { in: searchValues } }
+      );
+    }
+  }
+  
+  if (filters.dni) {
+    orConditions.push({ driverDniNorm: { contains: normalizeDni(filters.dni) } });
+  }
+  if (filters.truckPlate) {
+    orConditions.push({ truckPlateNorm: { contains: normalizePlate(filters.truckPlate) } });
+  }
+  if (filters.trailerPlate) {
+    orConditions.push({ trailerPlateNorm: { contains: normalizePlate(filters.trailerPlate) } });
+  }
+  
+  if (orConditions.length > 0) where.OR = orConditions;
+  
+  return where;
+}
+
+// ============================================================================
+// HELPERS PARA ALTA COMPLETA
+// ============================================================================
+
+interface AltaCompletaContext {
+  tenantEmpresaId: number;
+  dadorCargaId: number;
+}
+
+/** Valida CUIT y obtiene o crea empresa transportista */
+async function getOrCreateEmpresaTransportista(
+  tx: any, ctx: AltaCompletaContext, cuitRaw: string, nombre: string
+): Promise<any> {
+  const cuit = cuitRaw.replace(/\D+/g, '');
+  if (!cuit || cuit.length !== 11) {
+    throw createError('CUIT inválido (debe tener 11 dígitos)', 400, 'CUIT_INVALIDO');
+  }
+
+  let empresa = await tx.empresaTransportista.findFirst({
+    where: { tenantEmpresaId: ctx.tenantEmpresaId, dadorCargaId: ctx.dadorCargaId, cuit },
+  });
+
+  if (!empresa) {
+    empresa = await tx.empresaTransportista.create({
+      data: {
+        tenantEmpresaId: ctx.tenantEmpresaId, dadorCargaId: ctx.dadorCargaId, cuit,
+        razonSocial: nombre.trim() || `Empresa ${cuit}`, activo: true,
+      } as any,
+    });
+  }
+  return empresa;
+}
+
+/** Valida DNI y crea chofer (error si existe) */
+async function createChoferNoDuplicado(
+  tx: any, ctx: AltaCompletaContext, dniRaw: string, nombre?: string, apellido?: string, phones?: string[]
+): Promise<any> {
+  const dni = normalizeDni(dniRaw);
+  if (!dni || dni.length < 6) {
+    throw createError('DNI inválido (mínimo 6 dígitos)', 400, 'DNI_INVALIDO');
+  }
+
+  const existe = await tx.chofer.findFirst({
+    where: { tenantEmpresaId: ctx.tenantEmpresaId, dadorCargaId: ctx.dadorCargaId, dniNorm: dni },
+  });
+  if (existe) {
+    throw createError(`El chofer con DNI ${dniRaw} ya existe en el sistema. No se puede duplicar.`, 409, 'CHOFER_DUPLICADO');
+  }
+
+  return tx.chofer.create({
+    data: {
+      tenantEmpresaId: ctx.tenantEmpresaId, dadorCargaId: ctx.dadorCargaId,
+      dni, dniNorm: dni, nombre: nombre?.trim() || undefined, apellido: apellido?.trim() || undefined,
+      phones: phones ?? [], activo: true,
+    },
+  });
+}
+
+/** Valida patente y crea camión (error si existe) */
+async function createCamionNoDuplicado(
+  tx: any, ctx: AltaCompletaContext, patenteRaw: string, marca?: string, modelo?: string
+): Promise<any> {
+  const patente = normalizePlate(patenteRaw);
+  if (!patente || patente.length < 5) {
+    throw createError('Patente de camión inválida (mínimo 5 caracteres)', 400, 'PATENTE_CAMION_INVALIDA');
+  }
+
+  const existe = await tx.camion.findFirst({
+    where: { tenantEmpresaId: ctx.tenantEmpresaId, dadorCargaId: ctx.dadorCargaId, patenteNorm: patente },
+  });
+  if (existe) {
+    throw createError(`El camión con patente ${patenteRaw} ya existe en el sistema. No se puede duplicar.`, 409, 'CAMION_DUPLICADO');
+  }
+
+  return tx.camion.create({
+    data: {
+      tenantEmpresaId: ctx.tenantEmpresaId, dadorCargaId: ctx.dadorCargaId,
+      patente, patenteNorm: patente, marca: marca?.trim() || undefined, modelo: modelo?.trim() || undefined, activo: true,
+    },
+  });
+}
+
+/** Valida patente y crea acoplado (error si existe). Retorna null si no hay patente */
+async function createAcopladoNoDuplicado(
+  tx: any, ctx: AltaCompletaContext, patenteRaw: string | null | undefined, tipo?: string
+): Promise<any | null> {
+  if (!patenteRaw?.trim()) return null;
+
+  const patente = normalizePlate(patenteRaw);
+  if (patente.length < 5) {
+    throw createError('Patente de acoplado inválida (mínimo 5 caracteres)', 400, 'PATENTE_ACOPLADO_INVALIDA');
+  }
+
+  const existe = await tx.acoplado.findFirst({
+    where: { tenantEmpresaId: ctx.tenantEmpresaId, dadorCargaId: ctx.dadorCargaId, patenteNorm: patente },
+  });
+  if (existe) {
+    throw createError(`El acoplado con patente ${patenteRaw} ya existe en el sistema. No se puede duplicar.`, 409, 'ACOPLADO_DUPLICADO');
+  }
+
+  return tx.acoplado.create({
+    data: {
+      tenantEmpresaId: ctx.tenantEmpresaId, dadorCargaId: ctx.dadorCargaId,
+      patente, patenteNorm: patente, tipo: tipo?.trim() || undefined, activo: true,
+    },
+  });
+}
+
 // ============================================================================
 // HELPERS PARA ATTACH COMPONENTS
 // ============================================================================
-type ComponentType = 'driver' | 'truck' | 'trailer';
+// Tipo reservado para futuras extensiones de componentes
+type _ComponentType = 'driver' | 'truck' | 'trailer';
 
 interface ResolveResult {
   id: number;
@@ -132,6 +339,55 @@ async function detachTrailerFromOrigin(
   
   return origin.id;
 }
+
+// ============================================================================
+// HELPERS PARA UPDATE EQUIPO
+// ============================================================================
+
+interface EntityUpdate { field: string; id: number | null; norm?: string }
+
+async function validateChoferChange(newChoferId: number, equipo: any): Promise<EntityUpdate | null> {
+  if (newChoferId === equipo.driverId) return null;
+  const chofer = await prisma.chofer.findUnique({ where: { id: newChoferId } });
+  if (!chofer || chofer.dadorCargaId !== equipo.dadorCargaId) {
+    throw createError('Chofer no válido para este dador de carga', 400, 'CHOFER_INVALIDO');
+  }
+  return { field: 'chofer', id: newChoferId, norm: chofer.dniNorm };
+}
+
+async function validateCamionChange(newCamionId: number, equipo: any): Promise<EntityUpdate | null> {
+  if (newCamionId === equipo.truckId) return null;
+  const camion = await prisma.camion.findUnique({ where: { id: newCamionId } });
+  if (!camion || camion.dadorCargaId !== equipo.dadorCargaId) {
+    throw createError('Camión no válido para este dador de carga', 400, 'CAMION_INVALIDO');
+  }
+  return { field: 'camion', id: newCamionId, norm: camion.patenteNorm };
+}
+
+async function validateAcopladoChange(newAcopladoId: number | null, equipo: any): Promise<EntityUpdate | null> {
+  if (newAcopladoId === equipo.trailerId) return null;
+  if (newAcopladoId === null) {
+    return { field: 'acoplado', id: null, norm: undefined };
+  }
+  const acoplado = await prisma.acoplado.findUnique({ where: { id: newAcopladoId } });
+  if (!acoplado || acoplado.dadorCargaId !== equipo.dadorCargaId) {
+    throw createError('Acoplado no válido para este dador de carga', 400, 'ACOPLADO_INVALIDO');
+  }
+  return { field: 'acoplado', id: newAcopladoId, norm: acoplado.patenteNorm };
+}
+
+async function validateEmpresaChange(newEmpresaId: number, equipo: any): Promise<EntityUpdate | null> {
+  if (newEmpresaId === equipo.empresaTransportistaId) return null;
+  const empresa = await prisma.empresaTransportista.findUnique({ where: { id: newEmpresaId } });
+  if (!empresa || empresa.dadorCargaId !== equipo.dadorCargaId) {
+    throw createError('Empresa transportista no válida para este dador de carga', 400, 'EMPRESA_INVALIDA');
+  }
+  return { field: 'empresaTransportista', id: newEmpresaId };
+}
+
+// ============================================================================
+// SERVICE CLASS
+// ============================================================================
 
 export class EquipoService {
   static async list(
@@ -314,53 +570,8 @@ export class EquipoService {
     const startTime = Date.now();
     const timings: Record<string, number> = {};
     
-    // Construir where igual que searchPaginated
-    const where: any = { tenantEmpresaId };
-    
-    if (filters.dadorCargaId) {
-      where.dadorCargaId = filters.dadorCargaId;
-    }
-    if (filters.empresaTransportistaId) {
-      where.empresaTransportistaId = filters.empresaTransportistaId;
-    }
-    if (filters.choferId) {
-      where.driverId = filters.choferId;
-    }
-    if (filters.activo !== 'all' && filters.activo !== undefined) {
-      where.activo = filters.activo;
-    }
-    
-    const orConditions: any[] = [];
-    
-    if (filters.search) {
-      const searchValues = filters.search.split('|').map(s => s.trim().toUpperCase()).filter(Boolean);
-      if (searchValues.length > 0) {
-        orConditions.push(
-          { driverDniNorm: { in: searchValues } },
-          { truckPlateNorm: { in: searchValues } },
-          { trailerPlateNorm: { in: searchValues } }
-        );
-      }
-    }
-    
-    if (filters.dni) {
-      const dniNorm = normalizeDni(filters.dni);
-      orConditions.push({ driverDniNorm: { contains: dniNorm } });
-    }
-    
-    if (filters.truckPlate) {
-      const plateNorm = normalizePlate(filters.truckPlate);
-      orConditions.push({ truckPlateNorm: { contains: plateNorm } });
-    }
-    
-    if (filters.trailerPlate) {
-      const plateNorm = normalizePlate(filters.trailerPlate);
-      orConditions.push({ trailerPlateNorm: { contains: plateNorm } });
-    }
-    
-    if (orConditions.length > 0) {
-      where.OR = orConditions;
-    }
+    // Construir where usando helper
+    const where = buildEquipoWhereClause({ tenantEmpresaId, ...filters });
     
     // Filtro por cliente
     let clienteIdForCompliance: number | undefined;
@@ -1102,151 +1313,30 @@ export class EquipoService {
     clienteIds?: number[];
   }) {
     return await prisma.$transaction(async (tx) => {
-      // ═══════════════════════════════════════════════════════════════════
+      const ctx: AltaCompletaContext = { tenantEmpresaId: input.tenantEmpresaId, dadorCargaId: input.dadorCargaId };
+
       // 1. EMPRESA TRANSPORTISTA: Si existe (por CUIT), usar. Si no, crear.
-      // ═══════════════════════════════════════════════════════════════════
-      const cuitNorm = (input.empresaTransportistaCuit || '').replace(/\D+/g, '');
-      if (!cuitNorm || cuitNorm.length !== 11) {
-        throw createError('CUIT inválido (debe tener 11 dígitos)', 400, 'CUIT_INVALIDO');
-      }
+      const empresaTransportista = await getOrCreateEmpresaTransportista(
+        tx, ctx, input.empresaTransportistaCuit, input.empresaTransportistaNombre
+      );
 
-      let empresaTransportista = await tx.empresaTransportista.findFirst({
-        where: {
-          tenantEmpresaId: input.tenantEmpresaId,
-          dadorCargaId: input.dadorCargaId,
-          cuit: cuitNorm,
-        },
-      });
-
-      if (!empresaTransportista) {
-        empresaTransportista = await tx.empresaTransportista.create({
-          data: {
-            tenantEmpresaId: input.tenantEmpresaId,
-            dadorCargaId: input.dadorCargaId,
-            cuit: cuitNorm,
-            razonSocial: (input.empresaTransportistaNombre || '').trim() || `Empresa ${cuitNorm}`,
-            activo: true,
-          } as any,
-        });
-      }
-
-      // ═══════════════════════════════════════════════════════════════════
       // 2. CHOFER: Si existe (por DNI), ERROR. Si no, crear.
-      // ═══════════════════════════════════════════════════════════════════
-      const dniNorm = normalizeDni(input.choferDni);
-      if (!dniNorm || dniNorm.length < 6) {
-        throw createError('DNI inválido (mínimo 6 dígitos)', 400, 'DNI_INVALIDO');
-      }
+      const chofer = await createChoferNoDuplicado(
+        tx, ctx, input.choferDni, input.choferNombre, input.choferApellido, input.choferPhones
+      );
 
-      const choferExistente = await tx.chofer.findFirst({
-        where: {
-          tenantEmpresaId: input.tenantEmpresaId,
-          dadorCargaId: input.dadorCargaId,
-          dniNorm,
-        },
-      });
-
-      if (choferExistente) {
-        throw createError(
-          `El chofer con DNI ${input.choferDni} ya existe en el sistema. No se puede duplicar.`,
-          409,
-          'CHOFER_DUPLICADO'
-        );
-      }
-
-      const chofer = await tx.chofer.create({
-        data: {
-          tenantEmpresaId: input.tenantEmpresaId,
-          dadorCargaId: input.dadorCargaId,
-          dni: dniNorm,
-          dniNorm,
-          nombre: (input.choferNombre || '').trim() || undefined,
-          apellido: (input.choferApellido || '').trim() || undefined,
-          phones: input.choferPhones ?? [],
-          activo: true,
-        },
-      });
-
-      // ═══════════════════════════════════════════════════════════════════
       // 3. CAMIÓN: Si existe (por Patente), ERROR. Si no, crear.
-      // ═══════════════════════════════════════════════════════════════════
-      const patenteNorm = normalizePlate(input.camionPatente);
-      if (!patenteNorm || patenteNorm.length < 5) {
-        throw createError('Patente de camión inválida (mínimo 5 caracteres)', 400, 'PATENTE_CAMION_INVALIDA');
-      }
+      const camion = await createCamionNoDuplicado(
+        tx, ctx, input.camionPatente, input.camionMarca, input.camionModelo
+      );
 
-      const camionExistente = await tx.camion.findFirst({
-        where: {
-          tenantEmpresaId: input.tenantEmpresaId,
-          dadorCargaId: input.dadorCargaId,
-          patenteNorm,
-        },
-      });
-
-      if (camionExistente) {
-        throw createError(
-          `El camión con patente ${input.camionPatente} ya existe en el sistema. No se puede duplicar.`,
-          409,
-          'CAMION_DUPLICADO'
-        );
-      }
-
-      const camion = await tx.camion.create({
-        data: {
-          tenantEmpresaId: input.tenantEmpresaId,
-          dadorCargaId: input.dadorCargaId,
-          patente: patenteNorm,
-          patenteNorm,
-          marca: (input.camionMarca || '').trim() || undefined,
-          modelo: (input.camionModelo || '').trim() || undefined,
-          activo: true,
-        },
-      });
-
-      // ═══════════════════════════════════════════════════════════════════
       // 4. ACOPLADO (Opcional): Si existe (por Patente), ERROR. Si no, crear.
-      // ═══════════════════════════════════════════════════════════════════
-      let acoplado: any = null;
-      let acopladoId: number | null = null;
+      const acoplado = await createAcopladoNoDuplicado(tx, ctx, input.acopladoPatente, input.acopladoTipo);
+      const acopladoId = acoplado?.id || null;
 
-      if (input.acopladoPatente && input.acopladoPatente.trim()) {
-        const acopladoPatenteNorm = normalizePlate(input.acopladoPatente);
-        if (acopladoPatenteNorm.length < 5) {
-          throw createError('Patente de acoplado inválida (mínimo 5 caracteres)', 400, 'PATENTE_ACOPLADO_INVALIDA');
-        }
-
-        const acopladoExistente = await tx.acoplado.findFirst({
-          where: {
-            tenantEmpresaId: input.tenantEmpresaId,
-            dadorCargaId: input.dadorCargaId,
-            patenteNorm: acopladoPatenteNorm,
-          },
-        });
-
-        if (acopladoExistente) {
-          throw createError(
-            `El acoplado con patente ${input.acopladoPatente} ya existe en el sistema. No se puede duplicar.`,
-            409,
-            'ACOPLADO_DUPLICADO'
-          );
-        }
-
-        acoplado = await tx.acoplado.create({
-          data: {
-            tenantEmpresaId: input.tenantEmpresaId,
-            dadorCargaId: input.dadorCargaId,
-            patente: acopladoPatenteNorm,
-            patenteNorm: acopladoPatenteNorm,
-            tipo: (input.acopladoTipo || '').trim() || undefined,
-            activo: true,
-          },
-        });
-        acopladoId = acoplado.id;
-      }
-
-      // ═══════════════════════════════════════════════════════════════════
       // 5. CREAR EQUIPO con las 4 entidades
-      // ═══════════════════════════════════════════════════════════════════
+      const dniNorm = normalizeDni(input.choferDni);
+      const patenteNorm = normalizePlate(input.camionPatente);
       const equipo = await tx.equipo.create({
         data: {
           tenantEmpresaId: input.tenantEmpresaId,
@@ -1448,52 +1538,22 @@ export class EquipoService {
     const updates: any = {};
     const cambios: Array<{ campo: string; anterior: any; nuevo: any }> = [];
 
-    // Cambio de chofer
-    if (input.choferId !== undefined && input.choferId !== equipo.driverId) {
-      const nuevoChofer = await prisma.chofer.findUnique({ where: { id: input.choferId } });
-      if (!nuevoChofer || nuevoChofer.dadorCargaId !== equipo.dadorCargaId) {
-        throw createError('Chofer no válido para este dador de carga', 400, 'CHOFER_INVALIDO');
-      }
-      updates.driverId = input.choferId;
-      updates.driverDniNorm = nuevoChofer.dniNorm;
-      cambios.push({ campo: 'chofer', anterior: equipo.driverId, nuevo: input.choferId });
+    // Validar y acumular cambios de entidades
+    if (input.choferId !== undefined) {
+      const r = await validateChoferChange(input.choferId, equipo);
+      if (r) { updates.driverId = r.id; updates.driverDniNorm = r.norm; cambios.push({ campo: r.field, anterior: equipo.driverId, nuevo: r.id }); }
     }
-
-    // Cambio de camión
-    if (input.camionId !== undefined && input.camionId !== equipo.truckId) {
-      const nuevoCamion = await prisma.camion.findUnique({ where: { id: input.camionId } });
-      if (!nuevoCamion || nuevoCamion.dadorCargaId !== equipo.dadorCargaId) {
-        throw createError('Camión no válido para este dador de carga', 400, 'CAMION_INVALIDO');
-      }
-      updates.truckId = input.camionId;
-      updates.truckPlateNorm = nuevoCamion.patenteNorm;
-      cambios.push({ campo: 'camion', anterior: equipo.truckId, nuevo: input.camionId });
+    if (input.camionId !== undefined) {
+      const r = await validateCamionChange(input.camionId, equipo);
+      if (r) { updates.truckId = r.id; updates.truckPlateNorm = r.norm; cambios.push({ campo: r.field, anterior: equipo.truckId, nuevo: r.id }); }
     }
-
-    // Cambio de acoplado
-    if (input.acopladoId !== undefined && input.acopladoId !== equipo.trailerId) {
-      if (input.acopladoId !== null) {
-        const nuevoAcoplado = await prisma.acoplado.findUnique({ where: { id: input.acopladoId } });
-        if (!nuevoAcoplado || nuevoAcoplado.dadorCargaId !== equipo.dadorCargaId) {
-          throw createError('Acoplado no válido para este dador de carga', 400, 'ACOPLADO_INVALIDO');
-        }
-        updates.trailerId = input.acopladoId;
-        updates.trailerPlateNorm = nuevoAcoplado.patenteNorm;
-      } else {
-        updates.trailerId = null;
-        updates.trailerPlateNorm = null;
-      }
-      cambios.push({ campo: 'acoplado', anterior: equipo.trailerId, nuevo: input.acopladoId });
+    if (input.acopladoId !== undefined) {
+      const r = await validateAcopladoChange(input.acopladoId, equipo);
+      if (r) { updates.trailerId = r.id; updates.trailerPlateNorm = r.norm ?? null; cambios.push({ campo: r.field, anterior: equipo.trailerId, nuevo: r.id }); }
     }
-
-    // Cambio de empresa transportista
-    if (input.empresaTransportistaId !== undefined && input.empresaTransportistaId !== equipo.empresaTransportistaId) {
-      const nuevaEmpresa = await prisma.empresaTransportista.findUnique({ where: { id: input.empresaTransportistaId } });
-      if (!nuevaEmpresa || nuevaEmpresa.dadorCargaId !== equipo.dadorCargaId) {
-        throw createError('Empresa transportista no válida para este dador de carga', 400, 'EMPRESA_INVALIDA');
-      }
-      updates.empresaTransportistaId = input.empresaTransportistaId;
-      cambios.push({ campo: 'empresaTransportista', anterior: equipo.empresaTransportistaId, nuevo: input.empresaTransportistaId });
+    if (input.empresaTransportistaId !== undefined) {
+      const r = await validateEmpresaChange(input.empresaTransportistaId, equipo);
+      if (r) { updates.empresaTransportistaId = r.id; cambios.push({ campo: r.field, anterior: equipo.empresaTransportistaId, nuevo: r.id }); }
     }
 
     if (Object.keys(updates).length === 0) {
@@ -1800,66 +1860,22 @@ export class EquipoService {
     // Buscar documentos actuales para cada requisito
     const resultado = [];
     for (const [, req] of consolidado) {
-      let entityId: number | null = null;
-      switch (req.entityType) {
-        case 'CHOFER': entityId = equipo.driverId; break;
-        case 'CAMION': entityId = equipo.truckId; break;
-        case 'ACOPLADO': entityId = equipo.trailerId; break;
-        case 'EMPRESA_TRANSPORTISTA': entityId = equipo.empresaTransportistaId; break;
-      }
-
+      const entityId = getEntityIdForType(req.entityType, equipo);
       let documentoActual = null;
+
       if (entityId) {
         const doc = await prisma.document.findFirst({
-          where: {
-            entityType: req.entityType as any,
-            entityId,
-            templateId: req.templateId,
-            archived: false,
-          },
+          where: { entityType: req.entityType as any, entityId, templateId: req.templateId, archived: false },
           orderBy: { uploadedAt: 'desc' },
         });
 
         if (doc) {
-          const now = new Date();
-          let estado: 'VIGENTE' | 'PROXIMO_VENCER' | 'VENCIDO' | 'PENDIENTE' | 'RECHAZADO' = 'VIGENTE';
-          
-          // Primero verificar fecha de vencimiento (aplica a cualquier status)
-          const expires = doc.expiresAt ? new Date(doc.expiresAt) : null;
-          const estaVencidoPorFecha = expires && expires < now;
-          
-          // Determinar estado basado en status y fecha
-          if (doc.status === 'VENCIDO' || estaVencidoPorFecha) {
-            estado = 'VENCIDO';
-          } else if (doc.status === 'RECHAZADO') {
-            estado = 'RECHAZADO';
-          } else if (doc.status !== 'APROBADO') {
-            // PENDIENTE, PENDIENTE_APROBACION, VALIDANDO, CLASIFICANDO, etc.
-            estado = 'PENDIENTE';
-          } else if (expires) {
-            // APROBADO con fecha de vencimiento: usar diasAnticipacion del template
-            const diasRestantes = Math.ceil((expires.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
-            const diasAnticipacion = req.diasAnticipacion ?? 30;
-            if (diasRestantes <= diasAnticipacion) {
-              estado = 'PROXIMO_VENCER';
-            }
-          }
-
-          documentoActual = {
-            id: doc.id,
-            status: doc.status,
-            expiresAt: doc.expiresAt,
-            estado,
-          };
+          const estado = determinarEstadoDocumento(doc, req.diasAnticipacion);
+          documentoActual = { id: doc.id, status: doc.status, expiresAt: doc.expiresAt, estado };
         }
       }
 
-      resultado.push({
-        ...req,
-        entityId,
-        documentoActual,
-        estado: documentoActual?.estado ?? 'FALTANTE',
-      });
+      resultado.push({ ...req, entityId, documentoActual, estado: documentoActual?.estado ?? 'FALTANTE' });
     }
 
     return resultado;

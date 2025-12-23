@@ -1,7 +1,7 @@
 import { Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
 import fs from 'fs';
-import { AuthRequest, AuthUser } from '../types';
+import { AuthRequest } from '../types';
 import { createError } from './error.middleware';
 import { AppLogger } from '../config/logger';
 

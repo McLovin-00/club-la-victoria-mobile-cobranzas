@@ -7,10 +7,14 @@ import { EquipoService } from '../services/equipo.service';
 import { JobsService } from '../services/jobs.service';
 
 const router = Router();
+// NOSONAR: Content length 50MB is intentional for batch CSV imports with large datasets
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 50 * 1024 * 1024 } });
 
-// Utilidad simple para parsear CSV sin dependencias (soporta encabezado con nombres de columnas)
-function parseCsv(content: string): Array<{
+// ============================================================================
+// CSV PARSING HELPERS
+// ============================================================================
+
+interface CsvRowEquipo {
   external_id?: string | null;
   dni_chofer: string;
   patente_tractor: string;
@@ -18,42 +22,53 @@ function parseCsv(content: string): Array<{
   chofer_phones?: string[];
   empresa_transportista_cuit?: string | null;
   empresa_transportista_nombre?: string | null;
-}> {
+}
+
+/** Crea getter de campos CSV por nombre de columna o índice default */
+function createFieldGetter(headers: string[] | null, parts: string[]): (names: string[], idxDefault: number) => string {
+  return (names: string[], idxDefault: number): string => {
+    if (headers) {
+      for (const name of names) {
+        const idx = headers.indexOf(name);
+        if (idx >= 0 && parts[idx]) return parts[idx];
+      }
+    }
+    return parts[idxDefault] || '';
+  };
+}
+
+/** Parsea una línea CSV a un objeto de equipo */
+function parseEquipoLine(line: string, headers: string[] | null): CsvRowEquipo | null {
+  const parts = line.split(',').map(v => (v ?? '').trim());
+  const get = createFieldGetter(headers, parts);
+
+  const dni = get(['dni_chofer', 'dni'], 0);
+  const tractor = get(['patente_tractor', 'camion_patente', 'tractor'], 1);
+  if (!dni || !tractor) return null;
+
+  const phonesRaw = get(['chofer_phones'], 3);
+  return {
+    external_id: get(['external_id'], -1) || null,
+    dni_chofer: dni,
+    patente_tractor: tractor,
+    patente_acoplado: get(['patente_acoplado', 'acoplado_patente'], 2) || null,
+    chofer_phones: phonesRaw ? phonesRaw.split(';').map(p => p.trim()).filter(Boolean).slice(0, 3) : [],
+    empresa_transportista_cuit: get(['empresa_transportista_cuit', 'cuit'], 4) || null,
+    empresa_transportista_nombre: get(['empresa_transportista_nombre', 'empresa'], 5) || null,
+  };
+}
+
+/** Parsea contenido CSV a lista de equipos */
+function parseCsv(content: string): CsvRowEquipo[] {
   const lines = content.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
   if (lines.length === 0) return [];
+
   const first = lines[0];
   const hasHeader = /dni|chofer|external_id|patente/i.test(first);
-  let headers: string[] | null = null;
-  const dataLines = hasHeader ? (headers = first.split(',').map(h => h.trim().toLowerCase()), lines.slice(1)) : lines;
-  return dataLines.map((line) => {
-    const parts = line.split(',').map((v) => (v ?? '').trim());
-    const get = (name: string, idxDefault: number): string => {
-      if (headers) {
-        const idx = headers.indexOf(name);
-        if (idx >= 0) return parts[idx] || '';
-      }
-      return parts[idxDefault] || '';
-    };
-    const externalId = get('external_id', -1) || null;
-    const dni = get('dni_chofer', 0) || get('dni', 0);
-    const tractor = get('patente_tractor', 1) || get('camion_patente', 1) || get('tractor', 1);
-    const acoplado = get('patente_acoplado', 2) || get('acoplado_patente', 2) || '';
-    const phonesRaw = get('chofer_phones', 3);
-    const empCuit = get('empresa_transportista_cuit', 4) || get('cuit', 4) || '';
-    const empNombre = get('empresa_transportista_nombre', 5) || get('empresa', 5) || '';
-    const phones = phonesRaw
-      ? phonesRaw.split(';').map(p => p.trim()).filter(Boolean).slice(0,3)
-      : [];
-    return {
-      external_id: externalId,
-      dni_chofer: dni,
-      patente_tractor: tractor,
-      patente_acoplado: acoplado || null,
-      chofer_phones: phones,
-      empresa_transportista_cuit: empCuit || null,
-      empresa_transportista_nombre: empNombre || null,
-    };
-  }).filter(r => r.dni_chofer && r.patente_tractor);
+  const headers = hasHeader ? first.split(',').map(h => h.trim().toLowerCase()) : null;
+  const dataLines = hasHeader ? lines.slice(1) : lines;
+
+  return dataLines.map(line => parseEquipoLine(line, headers)).filter((r): r is CsvRowEquipo => r !== null);
 }
 
 // ==============================

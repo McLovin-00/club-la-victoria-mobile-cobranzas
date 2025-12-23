@@ -3,6 +3,76 @@ import { AppLogger } from '../config/logger';
 import { ConfigService } from './config.service';
 import { FlowiseRemitoResponse } from '../types';
 
+// ============================================================================
+// HELPERS
+// ============================================================================
+
+/** Extrae el primer objeto JSON de un string */
+function extractJsonFromString(text: string): any | null {
+  // NOSONAR: JSON extraction regex - input is bounded Flowise API response
+  const jsonMatch = text.match(/\{[\s\S]*\}/);
+  if (!jsonMatch) return null;
+  try {
+    return JSON.parse(jsonMatch[0]);
+  } catch {
+    return null;
+  }
+}
+
+/** Extrae JSON de la respuesta de Flowise en cualquier formato */
+function extractParsedData(data: any): any {
+  if (typeof data === 'string') {
+    return extractJsonFromString(data) || {};
+  }
+  if (typeof data !== 'object') return {};
+
+  // Buscar texto en propiedades comunes
+  const text = data.text || data.output || data.response || '';
+  if (typeof text === 'string') {
+    return extractJsonFromString(text) || {};
+  }
+  if (typeof text === 'object') {
+    return text;
+  }
+  return {};
+}
+
+/** Construye la respuesta estructurada a partir de datos parseados */
+function buildFlowiseResponse(parsed: any): FlowiseRemitoResponse {
+  return {
+    numeroRemito: parsed.numeroRemito || null,
+    fechaOperacion: parsed.fechaOperacion || null,
+    emisor: {
+      nombre: parsed.emisor?.nombre || null,
+      detalle: parsed.emisor?.detalle || null,
+    },
+    cliente: parsed.cliente || null,
+    producto: parsed.producto || null,
+    transportista: parsed.transportista || null,
+    chofer: {
+      nombre: parsed.chofer?.nombre || null,
+      dni: parsed.chofer?.dni || null,
+    },
+    patentes: {
+      chasis: parsed.patentes?.chasis || null,
+      acoplado: parsed.patentes?.acoplado || null,
+    },
+    pesosOrigen: {
+      bruto: parsed.pesosOrigen?.bruto || null,
+      tara: parsed.pesosOrigen?.tara || null,
+      neto: parsed.pesosOrigen?.neto || null,
+    },
+    pesosDestino: parsed.pesosDestino || null,
+    confianza: parsed.confianza || 0,
+    camposDetectados: parsed.camposDetectados || [],
+    errores: parsed.errores || [],
+  };
+}
+
+// ============================================================================
+// SERVICE
+// ============================================================================
+
 export class FlowiseService {
   
   /**
@@ -74,60 +144,11 @@ export class FlowiseService {
    * Parsear respuesta de Flowise
    */
   private static parseResponse(data: any): FlowiseRemitoResponse {
-    // Intentar extraer JSON de la respuesta
-    let parsed: any = {};
-    
-    try {
-      if (typeof data === 'string') {
-        // Buscar JSON en el string
-        const jsonMatch = data.match(/\{[\s\S]*\}/);
-        if (jsonMatch) {
-          parsed = JSON.parse(jsonMatch[0]);
-        }
-      } else if (typeof data === 'object') {
-        // Si ya es objeto, buscar el texto o json dentro
-        const text = data.text || data.output || data.response || '';
-        if (typeof text === 'string') {
-          const jsonMatch = text.match(/\{[\s\S]*\}/);
-          if (jsonMatch) {
-            parsed = JSON.parse(jsonMatch[0]);
-          }
-        } else if (typeof text === 'object') {
-          parsed = text;
-        }
-      }
-    } catch {
+    const parsed = extractParsedData(data);
+    if (Object.keys(parsed).length === 0) {
       AppLogger.warn('⚠️ No se pudo parsear respuesta JSON de Flowise');
     }
-    
-    return {
-      numeroRemito: parsed.numeroRemito || null,
-      fechaOperacion: parsed.fechaOperacion || null,
-      emisor: {
-        nombre: parsed.emisor?.nombre || null,
-        detalle: parsed.emisor?.detalle || null,
-      },
-      cliente: parsed.cliente || null,
-      producto: parsed.producto || null,
-      transportista: parsed.transportista || null,
-      chofer: {
-        nombre: parsed.chofer?.nombre || null,
-        dni: parsed.chofer?.dni || null,
-      },
-      patentes: {
-        chasis: parsed.patentes?.chasis || null,
-        acoplado: parsed.patentes?.acoplado || null,
-      },
-      pesosOrigen: {
-        bruto: parsed.pesosOrigen?.bruto || null,
-        tara: parsed.pesosOrigen?.tara || null,
-        neto: parsed.pesosOrigen?.neto || null,
-      },
-      pesosDestino: parsed.pesosDestino || null,
-      confianza: parsed.confianza || 0,
-      camposDetectados: parsed.camposDetectados || [],
-      errores: parsed.errores || [],
-    };
+    return buildFlowiseResponse(parsed);
   }
   
   /**

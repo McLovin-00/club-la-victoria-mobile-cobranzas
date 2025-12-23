@@ -2,8 +2,8 @@
 module.exports = {
   preset: 'ts-jest',
   testEnvironment: 'node',
-  roots: ['<rootDir>/__tests__'],
-  testMatch: ['<rootDir>/__tests__/**/*.test.ts'],
+  roots: ['<rootDir>/__tests__', '<rootDir>/src'],
+  testMatch: ['<rootDir>/__tests__/**/*.test.ts', '<rootDir>/src/**/*.test.ts'],
   testPathIgnorePatterns: ['/node_modules/', '/dist/'],
   moduleFileExtensions: ['ts', 'js', 'json'],
   moduleNameMapper: {
@@ -12,6 +12,19 @@ module.exports = {
   transform: {
     '^.+\\.ts$': ['ts-jest', { isolatedModules: true }],
   },
+  setupFilesAfterEnv: ['<rootDir>/__tests__/setup.ts'],
   clearMocks: true,
   verbose: false,
+  testTimeout: 10000,
+  // Coverage configuration
+  collectCoverage: false, // Enable via CLI with --coverage
+  collectCoverageFrom: [
+    'src/**/*.ts',
+    '!src/**/__tests__/**',
+    '!src/**/*.test.ts',
+    '!src/**/*.spec.ts',
+    '!src/prisma/**',
+  ],
+  coverageDirectory: '<rootDir>/coverage',
+  coverageReporters: ['lcov', 'text', 'text-summary'],
 };

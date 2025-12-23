@@ -1,4 +1,5 @@
 import { AppLogger } from '../config/logger';
+import { randomBytes } from 'crypto';
 
 // ============================================================================
 // TIPOS
@@ -143,7 +144,7 @@ export class JobsService {
   private static recentUploads: Array<{ tenantEmpresaId: number; dadorId: number; fileName: string; uploadedAt: number }> = [];
 
   static createDocumentsBatch(payload: DocumentsBatchPayload): string {
-    const id = `job_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+    const id = `job_${Date.now()}_${randomBytes(4).toString('hex')}`;
     this.jobs.set(id, {
       id,
       createdAt: Date.now(),

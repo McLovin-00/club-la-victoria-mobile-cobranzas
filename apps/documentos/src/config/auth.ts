@@ -16,6 +16,21 @@ export interface AuthPayload {
   clienteId?: number | null;
 }
 
+/** Extrae y valida un AuthPayload de un token decodificado */
+function extractAuthPayload(decoded: any): AuthPayload | null {
+  if (!decoded.userId || !decoded.email || !decoded.role) return null;
+  return {
+    userId: decoded.userId,
+    email: decoded.email,
+    role: decoded.role,
+    empresaId: decoded.empresaId || null,
+    dadorCargaId: decoded.dadorCargaId || null,
+    empresaTransportistaId: decoded.empresaTransportistaId || null,
+    choferId: decoded.choferId || null,
+    clienteId: decoded.clienteId || null,
+  };
+}
+
 // Servicio de autenticación minimalista
 export class DocumentosAuthService {
   private static publicKey: string;
@@ -52,54 +67,28 @@ export class DocumentosAuthService {
   public static async verifyToken(token: string): Promise<AuthPayload | null> {
     try {
       const decoded = jwt.verify(token, this.getJwtPublicKey(), { algorithms: ['RS256'] }) as any;
-      
-      // Validar estructura del payload
-      if (!decoded.userId || !decoded.email || !decoded.role) {
+      const payload = extractAuthPayload(decoded);
+      if (!payload) {
         AppLogger.warn('⚠️ Token JWT con estructura inválida');
         return null;
       }
-
-      const payload: AuthPayload = {
-        userId: decoded.userId,
-        email: decoded.email,
-        role: decoded.role,
-        empresaId: decoded.empresaId || null,
-        dadorCargaId: decoded.dadorCargaId || null,
-        empresaTransportistaId: decoded.empresaTransportistaId || null,
-        choferId: decoded.choferId || null,
-        clienteId: decoded.clienteId || null,
-      };
-
-      AppLogger.debug('✅ Token JWT verificado exitosamente', {
-        userId: payload.userId,
-        email: payload.email,
-        role: payload.role,
-      });
-
+      AppLogger.debug('✅ Token JWT verificado exitosamente', { userId: payload.userId, email: payload.email, role: payload.role });
       return payload;
-    } catch (error) {
+    } catch {
       // Fallback transitorio: aceptar tokens HS256 si está configurado JWT_LEGACY_SECRET
       const secret = this.getLegacySecret();
       if (secret) {
         try {
           const decoded: any = jwt.verify(token, secret, { algorithms: ['HS256'] });
-          if (!decoded.userId || !decoded.email || !decoded.role) {
+          const payload = extractAuthPayload(decoded);
+          if (!payload) {
             AppLogger.warn('⚠️ Token JWT (legacy) con estructura inválida');
             return null;
           }
-          const payload: AuthPayload = {
-            userId: decoded.userId,
-            email: decoded.email,
-            role: decoded.role,
-            empresaId: decoded.empresaId || null,
-            dadorCargaId: decoded.dadorCargaId || null,
-            empresaTransportistaId: decoded.empresaTransportistaId || null,
-            choferId: decoded.choferId || null,
-            clienteId: decoded.clienteId || null,
-          };
           AppLogger.warn('⚠️ Token HS256 aceptado por compatibilidad temporal');
           return payload;
-        } catch (e2) { AppLogger.warn('⚠️ Token JWT inválido:', e2);
+        } catch (e2) {
+          AppLogger.warn('⚠️ Token JWT inválido:', e2);
           return null;
         }
       }

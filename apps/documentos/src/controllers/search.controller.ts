@@ -12,22 +12,22 @@ function normalizePlate(plate: string): string {
   return (plate || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
 }
 
+/** Parsea un valor de query param a número o undefined */
+function parseQueryNum(value: unknown): number | undefined {
+  if (value === undefined || value === null) return undefined;
+  const str = String(value).trim();
+  if (str === '') return undefined;
+  const num = Number(str);
+  return Number.isFinite(num) ? num : undefined;
+}
+
 export class SearchController {
   static async search(req: AuthRequest, res: Response) {
     AppLogger.debug('🔍 SearchController: query params recibidos', { query: req.query });
     
-    const empresaIdRaw = req.query.dadorCargaId;
-    const empresaId = empresaIdRaw !== undefined && empresaIdRaw !== null && String(empresaIdRaw).trim() !== ''
-      ? Number(empresaIdRaw)
-      : undefined;
-    const clienteIdRaw = req.query.clienteId;
-    const clienteId = clienteIdRaw !== undefined && clienteIdRaw !== null && String(clienteIdRaw).trim() !== ''
-      ? Number(clienteIdRaw)
-      : undefined;
-    const empresaTransportistaIdRaw = req.query.empresaTransportistaId;
-    const empresaTransportistaId = empresaTransportistaIdRaw !== undefined && empresaTransportistaIdRaw !== null && String(empresaTransportistaIdRaw).trim() !== ''
-      ? Number(empresaTransportistaIdRaw)
-      : undefined;
+    const empresaId = parseQueryNum(req.query.dadorCargaId);
+    const clienteId = parseQueryNum(req.query.clienteId);
+    const empresaTransportistaId = parseQueryNum(req.query.empresaTransportistaId);
     
     AppLogger.debug('🔍 SearchController: filtros parseados', { empresaId, clienteId, empresaTransportistaId });
     const dni = req.query.dni ? normalizeDni(String(req.query.dni)) : undefined;
@@ -38,24 +38,21 @@ export class SearchController {
     // Base where clause
     const where: any = {
       tenantEmpresaId: req.tenantId!,
-      ...(Number.isFinite(empresaId as any) ? { dadorCargaId: empresaId as number } : {}),
-      ...(Number.isFinite(empresaTransportistaId as any) ? { empresaTransportistaId: empresaTransportistaId as number } : {}),
+      ...(empresaId ? { dadorCargaId: empresaId } : {}),
+      ...(empresaTransportistaId ? { empresaTransportistaId } : {}),
       ...(dni ? { driverDniNorm: dni } : {}),
       ...(truckPlate ? { truckPlateNorm: truckPlate } : {}),
       ...(trailerPlate ? { trailerPlateNorm: trailerPlate } : {}),
-      OR: [
-        { validTo: null },
-        { validTo: { gte: new Date() } },
-      ],
+      OR: [{ validTo: null }, { validTo: { gte: new Date() } }],
     };
     
     AppLogger.debug('🔍 SearchController: where clause', { where });
 
     // Si filtramos por cliente, necesitamos una subconsulta
     let equipos: any[];
-    if (Number.isFinite(clienteId as any)) {
+    if (clienteId) {
       const equipoIds = await prisma.equipoCliente.findMany({
-        where: { clienteId: clienteId as number },
+        where: { clienteId },
         select: { equipoId: true },
         distinct: ['equipoId'],
       });

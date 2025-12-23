@@ -1,4 +1,5 @@
 import { Request, Response, NextFunction } from 'express';
+import crypto from 'crypto';
 import { AppLogger } from '../config/logger';
 import { ZodError } from 'zod';
 
@@ -261,10 +262,10 @@ export class ErrorMiddleware {
   }
 
   /**
-   * Genera un ID único para la request
+   * Genera un ID único para la request usando CSPRNG
    */
   private static generateRequestId(): string {
-    return `req_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    return `req_${Date.now()}_${crypto.randomBytes(5).toString('hex')}`;
   }
 }
 

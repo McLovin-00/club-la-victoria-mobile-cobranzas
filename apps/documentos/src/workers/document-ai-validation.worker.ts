@@ -25,6 +25,49 @@ interface ValidationWorkerResult {
   error?: string;
 }
 
+// ============================================================================
+// HELPERS
+// ============================================================================
+
+/** Obtiene archivo desde MinIO dado un filePath */
+async function getFileFromMinio(filePath: string): Promise<{ buffer: Buffer } | { error: string }> {
+  try {
+    const [bucketName, ...pathParts] = filePath.split('/');
+    const objectPath = pathParts.join('/');
+    const buffer = await minioService.getObject(bucketName, objectPath);
+    return { buffer };
+  } catch {
+    return { error: 'MINIO_ERROR' };
+  }
+}
+
+/** Convierte PDF a imagen base64 o devuelve buffer original si no es PDF */
+async function getImageBase64(
+  fileBuffer: Buffer, 
+  mimeType: string, 
+  fileName: string
+): Promise<{ base64: string; mimeType: string } | { error: string }> {
+  const isPdf = mimeType === 'application/pdf' || fileName.toLowerCase().endsWith('.pdf');
+  
+  if (!isPdf) {
+    return { base64: fileBuffer.toString('base64'), mimeType };
+  }
+
+  try {
+    const imageBuffers = await PdfRasterizeService.pdfToImages(fileBuffer);
+    if (imageBuffers.length === 0) {
+      return { error: 'PDF_RASTERIZE_ERROR' };
+    }
+    return { base64: imageBuffers[0].toString('base64'), mimeType: 'image/jpeg' };
+  } catch {
+    return { error: 'PDF_RASTERIZE_ERROR' };
+  }
+}
+
+// ============================================================================
+// WORKER
+// ============================================================================
+
 class DocumentAIValidationWorker {
   private worker: Worker;
   private redis: Redis;
@@ -86,51 +129,20 @@ class DocumentAIValidationWorker {
       }
 
       // Obtener archivo del documento desde MinIO
-      const [bucketName, ...pathParts] = document.filePath.split('/');
-      const objectPath = pathParts.join('/');
-      
-      let fileBuffer: Buffer;
-      try {
-        fileBuffer = await minioService.getObject(bucketName, objectPath);
-      } catch (minioError) {
-        AppLogger.error(`💥 Error obteniendo archivo de MinIO`, {
-          documentId,
-          filePath: document.filePath,
-          error: minioError instanceof Error ? minioError.message : 'Unknown',
-        });
-        return { success: false, documentId, error: 'MINIO_ERROR' };
+      const fileResult = await getFileFromMinio(document.filePath);
+      if ('error' in fileResult) {
+        AppLogger.error(`💥 Error obteniendo archivo de MinIO`, { documentId, filePath: document.filePath });
+        return { success: false, documentId, error: fileResult.error };
       }
 
-      // Si es PDF, rasterizar a imagen antes de enviar a Flowise
-      let imageBase64: string;
-      let mimeType = document.mimeType;
-      
-      const isPdf = document.mimeType === 'application/pdf' || 
-                    document.fileName.toLowerCase().endsWith('.pdf');
-      
-      if (isPdf) {
-        AppLogger.info(`📄 Documento ${documentId} es PDF, rasterizando...`);
-        try {
-          const imageBuffers = await PdfRasterizeService.pdfToImages(fileBuffer);
-          if (imageBuffers.length === 0) {
-            throw new Error('No se pudieron extraer imágenes del PDF');
-          }
-          // Usar la primera página para validación (o combinar si hay varias)
-          // Por ahora usamos solo la primera página
-          imageBase64 = imageBuffers[0].toString('base64');
-          mimeType = 'image/jpeg';
-          AppLogger.info(`📸 PDF rasterizado: ${imageBuffers.length} páginas, usando primera`);
-        } catch (pdfError) {
-          AppLogger.error(`💥 Error rasterizando PDF`, {
-            documentId,
-            error: pdfError instanceof Error ? pdfError.message : 'Unknown',
-          });
-          return { success: false, documentId, error: 'PDF_RASTERIZE_ERROR' };
-        }
-      } else {
-        // Es imagen, usar directamente
-        imageBase64 = fileBuffer.toString('base64');
+      // Convertir a imagen base64 (rasteriza si es PDF)
+      const imageResult = await getImageBase64(fileResult.buffer, document.mimeType, document.fileName);
+      if ('error' in imageResult) {
+        AppLogger.error(`💥 Error procesando archivo`, { documentId });
+        return { success: false, documentId, error: imageResult.error };
       }
+      
+      const { base64: imageBase64, mimeType } = imageResult;
 
       // Obtener datos de la entidad
       const datosEntidad = await documentValidationService.getEntityData(

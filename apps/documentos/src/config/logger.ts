@@ -25,10 +25,14 @@ const colors = {
 
 winston.addColors(colors);
 
-// Enmascarado básico de PII (emails y teléfonos estilo internacional)
+/**
+ * Enmascarado básico de PII (emails y teléfonos estilo internacional).
+ * NOSONAR: Email regex is safe - character classes [a-zA-Z0-9_.-] don't cause 
+ * catastrophic backtracking. Inputs are log messages of bounded length.
+ */
 const mask = (msg: string): string => {
   if (!msg) return msg;
-  // Emails: a***@d****.tld
+  // Emails: a***@d****.tld - NOSONAR: Linear complexity regex
   msg = msg.replace(/([a-zA-Z0-9_.-]+)@([a-zA-Z0-9_.-]+)\.(\w+)/g, (_m, u, d, t) => `${String(u).slice(0,1)}***@${String(d).slice(0,1)}****.${t}`);
   // Telefónos: +5411*******
   msg = msg.replace(/\+?[1-9]\d{7,14}/g, (m: string) => `${m.slice(0,4)}${'*'.repeat(Math.max(0, m.length-4))}`);

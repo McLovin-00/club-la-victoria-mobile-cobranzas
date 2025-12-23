@@ -145,6 +145,57 @@ function mapDetailedToSimple(r: RequirementResultDetailed): RequirementResult {
 // ============================================================================
 // FUNCIONES DE CARGA DE DATOS
 // ============================================================================
+
+interface ClienteAssignmentsResult {
+  equipoClientesMap: Map<number, number[]>;
+  allClienteIds: number[];
+}
+
+/** Carga las asignaciones de clientes para un batch de equipos */
+async function loadClienteAssignmentsForBatch(equipos: EquipoInfo[], clienteId?: number): Promise<ClienteAssignmentsResult> {
+  if (clienteId) {
+    return {
+      equipoClientesMap: new Map(equipos.map(eq => [eq.id, [clienteId]])),
+      allClienteIds: [clienteId],
+    };
+  }
+
+  const equipoClientesMap = await loadEquipoClienteAssignments(equipos.map(e => e.id));
+  // Asegurar que todos los equipos estén en el mapa
+  for (const eq of equipos) {
+    if (!equipoClientesMap.has(eq.id)) equipoClientesMap.set(eq.id, []);
+  }
+
+  const allClienteIds = [...new Set([...equipoClientesMap.values()].flat())];
+  return { equipoClientesMap, allClienteIds };
+}
+
+interface EntitySets {
+  choferIds: Set<number>;
+  camionIds: Set<number>;
+  acopladoIds: Set<number>;
+  empresaIds: Set<number>;
+}
+
+/** Recolecta los IDs únicos de entidades de un grupo de equipos */
+function collectEntitySets(equipos: EquipoInfo[]): EntitySets {
+  const sets: EntitySets = {
+    choferIds: new Set<number>(),
+    camionIds: new Set<number>(),
+    acopladoIds: new Set<number>(),
+    empresaIds: new Set<number>(),
+  };
+
+  for (const eq of equipos) {
+    if (eq.driverId) sets.choferIds.add(eq.driverId);
+    if (eq.truckId) sets.camionIds.add(eq.truckId);
+    if (eq.trailerId) sets.acopladoIds.add(eq.trailerId);
+    if (eq.empresaTransportistaId) sets.empresaIds.add(eq.empresaTransportistaId);
+  }
+
+  return sets;
+}
+
 async function loadEquipoClienteAssignments(equipoIds: number[]): Promise<Map<number, number[]>> {
   const asignaciones = await prisma.equipoCliente.findMany({
     where: { equipoId: { in: equipoIds }, asignadoHasta: null },
@@ -358,20 +409,7 @@ export class ComplianceService {
     const batchStartTime = Date.now();
 
     // 1. Cargar asignaciones de equipos a clientes
-    let equipoClientesMap: Map<number, number[]>;
-    let allClienteIds: number[];
-
-    if (clienteId) {
-      equipoClientesMap = new Map(equipos.map(eq => [eq.id, [clienteId]]));
-      allClienteIds = [clienteId];
-    } else {
-      equipoClientesMap = await loadEquipoClienteAssignments(equipos.map(e => e.id));
-      allClienteIds = [...new Set([...equipoClientesMap.values()].flat())];
-      // Equipos sin clientes asignados
-      for (const eq of equipos) {
-        if (!equipoClientesMap.has(eq.id)) equipoClientesMap.set(eq.id, []);
-      }
-    }
+    const { equipoClientesMap, allClienteIds } = await loadClienteAssignmentsForBatch(equipos, clienteId);
 
     // 2. Cargar requisitos de clientes
     const requisitosPorCliente = await loadRequirements(allClienteIds);
@@ -384,21 +422,13 @@ export class ComplianceService {
       return results;
     }
 
-    // 3. Recolectar entidades únicas
-    const entitySets = { choferIds: new Set<number>(), camionIds: new Set<number>(), acopladoIds: new Set<number>(), empresaIds: new Set<number>() };
-    for (const eq of equipos) {
-      if (eq.driverId) entitySets.choferIds.add(eq.driverId);
-      if (eq.truckId) entitySets.camionIds.add(eq.truckId);
-      if (eq.trailerId) entitySets.acopladoIds.add(eq.trailerId);
-      if (eq.empresaTransportistaId) entitySets.empresaIds.add(eq.empresaTransportistaId);
-    }
-
-    // 4. Cargar documentos
+    // 3. Cargar documentos
+    const entitySets = collectEntitySets(equipos);
     const allReqs = [...requisitosPorCliente.values()].flat();
     const templateIds = [...new Set(allReqs.map(r => r.templateId))];
     const docIndex = await loadDocuments(templateIds, entitySets);
 
-    // 5. Evaluar cada equipo
+    // 4. Evaluar cada equipo
     const now = Date.now();
     for (const eq of equipos) {
       const clientesDelEquipo = equipoClientesMap.get(eq.id) || [];

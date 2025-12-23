@@ -5,8 +5,8 @@ module.exports = {
   roots: ['<rootDir>/src'],
   moduleFileExtensions: ['ts', 'tsx', 'js', 'json'],
   testMatch: [
-    '<rootDir>/src/config/__tests__/**/*.test.ts',
-    '<rootDir>/src/services/__tests__/**/*.test.ts'
+    '<rootDir>/src/**/__tests__/**/*.test.ts',
+    '<rootDir>/src/**/*.test.ts',
   ],
   transform: {
     '^.+\\.(ts|tsx)$': ['ts-jest', { tsconfig: '<rootDir>/tsconfig.json', isolatedModules: true }],
@@ -15,12 +15,17 @@ module.exports = {
   testPathIgnorePatterns: [
     '<rootDir>/src/services/strategies/',
   ],
+  // Coverage configuration
+  collectCoverage: false, // Enable via CLI with --coverage
   collectCoverageFrom: [
     'src/**/*.ts',
     '!src/**/__tests__/**',
+    '!src/**/*.test.ts',
+    '!src/**/*.spec.ts',
     '!src/prisma/**',
-    '!src/**/index.ts'
   ],
+  coverageDirectory: '<rootDir>/coverage',
+  coverageReporters: ['lcov', 'text', 'text-summary'],
   verbose: false,
 };
 

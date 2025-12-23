@@ -4,7 +4,6 @@ import { authenticateUser, authorizeRoles, tenantResolver } from '../middlewares
 import { validationResult } from 'express-validator';
 import { AuthPayload } from '../services/auth.service';
 import { AppLogger } from '../config/logger';
-// import { InstanceService } from '../services/instance.service';
 import { prisma } from '../config/prisma';
 import { UserRole } from '@prisma/client';
 

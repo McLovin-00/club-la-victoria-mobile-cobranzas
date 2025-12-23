@@ -16,7 +16,52 @@ interface FlowiseConfig {
   timeout: number;
 }
 
-// Configuración ahora se maneja en base de datos
+// ============================================================================
+// HELPERS
+// ============================================================================
+
+/** Verifica que el usuario sea SUPERADMIN */
+function requireSuperadmin(req: AuthRequest): void {
+  if (req.user?.role !== 'SUPERADMIN') {
+    throw createError('Acceso denegado', 403, 'ACCESS_DENIED');
+  }
+}
+
+/** Valida configuración de Flowise */
+function validateFlowiseInput(data: any, requireAll = false): void {
+  if (data.enabled && !data.baseUrl) {
+    throw createError('URL base requerida cuando Flowise está habilitado', 400, 'VALIDATION_ERROR');
+  }
+  if (data.enabled && !data.flowId) {
+    throw createError('Flow ID requerido cuando Flowise está habilitado', 400, 'VALIDATION_ERROR');
+  }
+  if (data.timeout && (data.timeout < 5000 || data.timeout > 120000)) {
+    throw createError('Timeout debe estar entre 5 y 120 segundos', 400, 'VALIDATION_ERROR');
+  }
+  if (requireAll) {
+    if (!data.baseUrl) throw createError('URL base requerida para test', 400, 'VALIDATION_ERROR');
+    if (!data.flowId) throw createError('Flow ID requerido para test', 400, 'VALIDATION_ERROR');
+  }
+}
+
+/** Construye datos de actualización para Flowise */
+function buildFlowiseUpdateData(input: any, currentApiKey?: string): Partial<FlowiseConfig> {
+  const data: Partial<FlowiseConfig> = {};
+  if (input.enabled !== undefined) data.enabled = Boolean(input.enabled);
+  if (input.baseUrl !== undefined) data.baseUrl = input.baseUrl?.trim() || '';
+  if (input.flowId !== undefined) data.flowId = input.flowId?.trim() || '';
+  if (input.timeout !== undefined) data.timeout = parseInt(input.timeout) || 30000;
+  if (input.apiKey !== undefined) {
+    // Si es el placeholder, mantener la clave actual
+    const isPlaceholder = input.apiKey === '***' + (currentApiKey?.slice(-4) || '');
+    data.apiKey = isPlaceholder ? currentApiKey : (input.apiKey?.trim() || '');
+  }
+  return data;
+}
+
+// ============================================================================
+// CONTROLLER
+// ============================================================================
 
 export class FlowiseConfigController {
   
@@ -50,66 +95,24 @@ export class FlowiseConfigController {
    */
   static async updateConfig(req: AuthRequest, res: Response): Promise<void> {
     try {
-      // Solo SUPERADMIN puede modificar configuración
-      if (req.user?.role !== 'SUPERADMIN') {
-        throw createError('Acceso denegado', 403, 'ACCESS_DENIED');
-      }
+      requireSuperadmin(req);
+      validateFlowiseInput(req.body);
 
-      const { enabled, baseUrl, apiKey, flowId, timeout } = req.body as any;
-
-      // Validaciones básicas
-      if (enabled && !baseUrl) {
-        throw createError('URL base requerida cuando Flowise está habilitado', 400, 'VALIDATION_ERROR');
-      }
-
-      if (enabled && !flowId) {
-        throw createError('Flow ID requerido cuando Flowise está habilitado', 400, 'VALIDATION_ERROR');
-      }
-
-      if (timeout && (timeout < 5000 || timeout > 120000)) {
-        throw createError('Timeout debe estar entre 5 y 120 segundos', 400, 'VALIDATION_ERROR');
-      }
-
-      // Obtener configuración actual para manejar API key
       const currentConfig = await SystemConfigService.getFlowiseConfig();
-      
-      // Preparar datos para actualizar
-      const updateData: Partial<FlowiseConfig> = {};
-      
-      if (enabled !== undefined) updateData.enabled = Boolean(enabled);
-      if (baseUrl !== undefined) updateData.baseUrl = baseUrl?.trim() || '';
-      if (flowId !== undefined) updateData.flowId = flowId?.trim() || '';
-      if (timeout !== undefined) updateData.timeout = parseInt(timeout) || 30000;
-      
-      // Manejar API key especialmente
-      if (apiKey !== undefined) {
-        // Si es el placeholder, mantener la clave actual
-        updateData.apiKey = apiKey === '***' + (currentConfig.apiKey?.slice(-4) || '') 
-          ? currentConfig.apiKey 
-          : (apiKey?.trim() || '');
-      }
+      const updateData = buildFlowiseUpdateData(req.body, currentConfig.apiKey);
 
-      // Actualizar en base de datos
       await SystemConfigService.updateFlowiseConfig(updateData);
 
       AppLogger.info('🔧 Configuración Flowise actualizada en BD', {
-        enabled: updateData.enabled,
-        baseUrl: updateData.baseUrl,
-        hasApiKey: Boolean(updateData.apiKey),
-        flowId: updateData.flowId,
-        timeout: updateData.timeout,
-        updatedBy: req.user?.userId,
+        enabled: updateData.enabled, baseUrl: updateData.baseUrl,
+        hasApiKey: Boolean(updateData.apiKey), flowId: updateData.flowId,
+        timeout: updateData.timeout, updatedBy: req.user?.userId,
       });
 
-      res.json({
-        success: true,
-        message: 'Configuración actualizada exitosamente',
-      });
+      res.json({ success: true, message: 'Configuración actualizada exitosamente' });
     } catch (error) {
       AppLogger.error('💥 Error al actualizar configuración Flowise:', error);
-      if (error instanceof Error && 'code' in error) {
-        throw error;
-      }
+      if (error instanceof Error && 'code' in error) throw error;
       throw createError('Error al actualizar configuración', 500, 'UPDATE_CONFIG_ERROR');
     }
   }
@@ -119,20 +122,10 @@ export class FlowiseConfigController {
    */
   static async testConnection(req: AuthRequest, res: Response): Promise<void> {
     try {
-      // Solo SUPERADMIN puede probar conexión
-      if (req.user?.role !== 'SUPERADMIN') {
-        throw createError('Acceso denegado', 403, 'ACCESS_DENIED');
-      }
+      requireSuperadmin(req);
+      validateFlowiseInput(req.body, true);
 
       const { baseUrl, apiKey, flowId, timeout } = req.body;
-
-      if (!baseUrl) {
-        throw createError('URL base requerida para test', 400, 'VALIDATION_ERROR');
-      }
-
-      if (!flowId) {
-        throw createError('Flow ID requerido para test', 400, 'VALIDATION_ERROR');
-      }
 
       const startTime = Date.now();
 

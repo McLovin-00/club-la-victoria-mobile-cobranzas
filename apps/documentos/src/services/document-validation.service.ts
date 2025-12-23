@@ -259,7 +259,8 @@ ${JSON.stringify(request.datosEntidad, null, 2)}
         return null;
       }
 
-      // Intentar extraer JSON del texto
+      // NOSONAR: Regex for JSON extraction - [\s\S]* is intentional to match 
+      // multiline JSON. Input is bounded AI response, not user-provided text.
       const jsonMatch = rawText.match(/\{[\s\S]*\}/);
       if (!jsonMatch) {
         return null;

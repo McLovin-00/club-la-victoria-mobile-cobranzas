@@ -7,15 +7,76 @@ export interface EquipoEstadoResult {
   equipoId: number;
   clienteId?: number;
   estado: EquipoSemaforo;
-  breakdown: {
-    faltantes: number;
-    proximos: number;
-    vigentes: number;
-    pendientes: number;
-    rechazados: number;
-    vencidos: number;
-    sinRequisitos: boolean;
-  };
+  breakdown: EquipoBreakdown;
+}
+
+interface EquipoBreakdown {
+  faltantes: number;
+  proximos: number;
+  vigentes: number;
+  pendientes: number;
+  rechazados: number;
+  vencidos: number;
+  sinRequisitos: boolean;
+}
+
+const PENDING_STATUSES = ['PENDIENTE', 'PENDIENTE_APROBACION', 'VALIDANDO', 'CLASIFICANDO'];
+
+/** Calcula compliance por cliente */
+async function calculateClienteCompliance(equipoId: number, clienteId: number): Promise<{ faltantes: number; proximos: number; vigentes: number; sinRequisitos: boolean }> {
+  const reqs = await ComplianceService.evaluateEquipoClienteDetailed(equipoId, clienteId);
+  if (reqs.length === 0) {
+    return { faltantes: 0, proximos: 0, vigentes: 0, sinRequisitos: true };
+  }
+  
+  let faltantes = 0, proximos = 0, vigentes = 0;
+  for (const r of reqs) {
+    if (r.state === 'FALTANTE') faltantes++;
+    else if (r.state === 'PROXIMO') proximos++;
+    else if (r.state === 'VIGENTE') vigentes++;
+  }
+  return { faltantes, proximos, vigentes, sinRequisitos: false };
+}
+
+/** Cuenta estados de documentos de las entidades del equipo */
+async function countDocumentStatuses(
+  equipo: { tenantEmpresaId: number; dadorCargaId: number; driverId: number | null; truckId: number | null; trailerId: number | null }
+): Promise<{ pendientes: number; rechazados: number; vencidos: number }> {
+  const clauses: any[] = [];
+  if (equipo.driverId) clauses.push({ entityType: 'CHOFER', entityId: equipo.driverId });
+  if (equipo.truckId) clauses.push({ entityType: 'CAMION', entityId: equipo.truckId });
+  if (equipo.trailerId) clauses.push({ entityType: 'ACOPLADO', entityId: equipo.trailerId });
+
+  if (clauses.length === 0) {
+    return { pendientes: 0, rechazados: 0, vencidos: 0 };
+  }
+
+  const docs = await prisma.document.findMany({
+    where: { tenantEmpresaId: equipo.tenantEmpresaId, dadorCargaId: equipo.dadorCargaId, OR: clauses },
+    select: { status: true, expiresAt: true },
+  });
+
+  let pendientes = 0, rechazados = 0, vencidos = 0;
+  const now = Date.now();
+  for (const d of docs) {
+    if (d.status === 'RECHAZADO') rechazados++;
+    else if (PENDING_STATUSES.includes(d.status)) pendientes++;
+    if (d.expiresAt && new Date(d.expiresAt).getTime() < now) vencidos++;
+  }
+  return { pendientes, rechazados, vencidos };
+}
+
+/** Determina el color del semáforo según prioridad */
+function determineSemaforo(breakdown: EquipoBreakdown): EquipoSemaforo {
+  const { faltantes, vencidos, rechazados, proximos, vigentes, pendientes } = breakdown;
+  
+  if (faltantes > 0 || vencidos > 0 || rechazados > 0) {
+    return pendientes > 0 ? 'rojo_azul' : 'rojo';
+  }
+  if (proximos > 0) return 'amarillo';
+  if (vigentes > 0) return 'verde';
+  if (pendientes > 0) return 'azul';
+  return 'gris';
 }
 
 export class EquipoEstadoService {
@@ -24,82 +85,29 @@ export class EquipoEstadoService {
       where: { id: equipoId },
       select: { id: true, tenantEmpresaId: true, dadorCargaId: true, driverId: true, truckId: true, trailerId: true },
     });
+
+    const emptyBreakdown: EquipoBreakdown = { faltantes: 0, proximos: 0, vigentes: 0, pendientes: 0, rechazados: 0, vencidos: 0, sinRequisitos: true };
+    
     if (!equipo) {
-      return {
-        equipoId,
-        clienteId,
-        estado: 'gris',
-        breakdown: { faltantes: 0, proximos: 0, vigentes: 0, pendientes: 0, rechazados: 0, vencidos: 0, sinRequisitos: true },
-      };
+      return { equipoId, clienteId, estado: 'gris', breakdown: emptyBreakdown };
     }
 
-    // 1) Compliance por cliente si se pasó clienteId (usando estados detallados)
-    let faltantes = 0;
-    let proximos = 0;
-    let vigentes = 0;
-    let sinRequisitos = false;
-    if (clienteId) {
-      const reqs = await ComplianceService.evaluateEquipoClienteDetailed(equipoId, clienteId);
-      if (reqs.length === 0) {
-        sinRequisitos = true;
-      } else {
-        for (const r of reqs) {
-          if (r.state === 'FALTANTE') faltantes++;
-          else if (r.state === 'PROXIMO') proximos++;
-          else if (r.state === 'VIGENTE') vigentes++;
-          else if (r.state === 'VENCIDO') { /* se contabiliza en vencidos más abajo desde docs globales */ }
-          else if (r.state === 'RECHAZADO') { /* se contabiliza en rechazados más abajo desde docs globales */ }
-          else if (r.state === 'PENDIENTE') { /* se contabiliza en pendientes más abajo desde docs globales */ }
-        }
-      }
-    }
+    // 1) Compliance por cliente
+    const compliance = clienteId 
+      ? await calculateClienteCompliance(equipoId, clienteId)
+      : { faltantes: 0, proximos: 0, vigentes: 0, sinRequisitos: false };
 
-    // 2) Pendientes/rechazados/vencidos por documentos de las entidades del equipo (últimos)
-    const clauses: any[] = [];
-    if (equipo.driverId) clauses.push({ entityType: 'CHOFER' as any, entityId: equipo.driverId });
-    if (equipo.truckId) clauses.push({ entityType: 'CAMION' as any, entityId: equipo.truckId });
-    if (equipo.trailerId) clauses.push({ entityType: 'ACOPLADO' as any, entityId: equipo.trailerId });
+    // 2) Estados de documentos
+    const docStats = await countDocumentStatuses(equipo);
 
-    let pendientes = 0;
-    let rechazados = 0;
-    let vencidos = 0;
-    if (clauses.length) {
-      const docs = await prisma.document.findMany({
-        where: {
-          tenantEmpresaId: equipo.tenantEmpresaId,
-          dadorCargaId: equipo.dadorCargaId,
-          OR: clauses,
-        },
-        select: { status: true, expiresAt: true },
-      });
-      const now = Date.now();
-      for (const d of docs) {
-        if (d.status === 'RECHAZADO') rechazados++;
-        else if (d.status === 'PENDIENTE' || d.status === 'PENDIENTE_APROBACION' || d.status === 'VALIDANDO' || d.status === 'CLASIFICANDO') pendientes++;
-        if (d.expiresAt && new Date(d.expiresAt).getTime() < now) vencidos++;
-      }
-    }
-
-    // 3) Agregación a color según prioridad: rojo > rojo+azul > amarillo > verde > azul > gris
-    let estado: EquipoSemaforo = 'gris';
-    if (faltantes > 0 || vencidos > 0 || rechazados > 0) {
-      estado = pendientes > 0 ? 'rojo_azul' : 'rojo';
-    } else if (proximos > 0) {
-      estado = 'amarillo';
-    } else if (vigentes > 0) {
-      estado = 'verde';
-    } else if (pendientes > 0) {
-      estado = 'azul';
-    } else {
-      estado = 'gris'; // sin requisitos y sin documentos
-    }
-
-    return {
-      equipoId,
-      clienteId,
-      estado,
-      breakdown: { faltantes, proximos, vigentes, pendientes, rechazados, vencidos, sinRequisitos },
+    // 3) Construir breakdown y determinar semáforo
+    const breakdown: EquipoBreakdown = {
+      ...compliance,
+      ...docStats,
     };
+    const estado = determineSemaforo(breakdown);
+
+    return { equipoId, clienteId, estado, breakdown };
   }
 }
 

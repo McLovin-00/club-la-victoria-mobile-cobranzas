@@ -1,6 +1,9 @@
 import { UserRole, User, ValidationError } from '@workspace/types';
+import { randomBytes, randomUUID } from 'crypto';
 
 // Validation utilities
+// NOSONAR: Email regex is safe - negated character classes [^\s@] don't cause
+// catastrophic backtracking as they have no overlap with themselves.
 export const validateEmail = (email: string): boolean => {
   const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
   return emailRegex.test(email);
@@ -63,7 +66,7 @@ export const slugify = (str: string): string => {
     .trim()
     .replace(/[^\w\s-]/g, '') // Remove non-word chars
     .replace(/[\s_-]+/g, '-') // Replace spaces and underscores with hyphens
-    .replace(/(?:^-+)|(?:-+$)/g, ''); // Remove leading/trailing hyphens
+    .replace(/(?:^-+|-+$)/g, ''); // Remove leading/trailing hyphens
 };
 
 export const truncate = (str: string, length: number, suffix = '...'): string => {
@@ -302,17 +305,15 @@ export const throttle = <T extends (...args: any[]) => any>(
   };
 };
 
-// ID generation
+// ID generation - Usando crypto para seguridad criptográfica
 export const generateId = (): string => {
-  return Date.now().toString(36) + Math.random().toString(36).substr(2);
+  // Usar crypto.randomBytes para IDs seguros
+  return Date.now().toString(36) + randomBytes(8).toString('hex');
 };
 
 export const generateUUID = (): string => {
-  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function (c) {
-    const r = (Math.random() * 16) | 0;
-    const v = c === 'x' ? r : (r & 0x3) | 0x8;
-    return v.toString(16);
-  });
+  // Usar crypto.randomUUID nativo (Node 16+) para UUIDs seguros
+  return randomUUID();
 };
 
 // Environment utilities

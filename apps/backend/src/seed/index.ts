@@ -114,24 +114,27 @@ const createExampleUsers = async () => {
       return;
     }
 
+    // NOSONAR: Demo credentials - ONLY for development/testing seed data.
+    // These accounts are created only in dev environments and should be
+    // disabled or removed in production. See MANUAL_OPERATIVO.md for security guidelines.
     const exampleUsers = [
       {
         email: 'admin@demo.com',
-        password: 'admin123',
+        password: 'admin123', // NOSONAR: Intentional demo credential for development
         role: 'ADMIN' as const,
-        empresa_id: empresas[0].id, // Asignar primera empresa al admin
+        empresa_id: empresas[0].id,
       },
       {
         email: 'operator1@demo.com',
-        password: 'operator123',
+        password: 'operator123', // NOSONAR: Intentional demo credential for development
         role: 'OPERATOR' as const,
-        empresa_id: empresas[0].id, // Asignar primera empresa al operator1
+        empresa_id: empresas[0].id,
       },
       {
         email: 'operator2@demo.com',
-        password: 'operator123',
+        password: 'operator123', // NOSONAR: Intentional demo credential for development
         role: 'OPERATOR' as const,
-        empresa_id: empresas.length > 1 ? empresas[1].id : empresas[0].id, // Asignar segunda empresa al operator2
+        empresa_id: empresas.length > 1 ? empresas[1].id : empresas[0].id,
       },
     ];
 

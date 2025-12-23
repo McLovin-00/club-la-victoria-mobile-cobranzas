@@ -8,9 +8,14 @@ dotenv.config({ path: path.resolve(__dirname, '../../../../.env') });
 
 const backendDir = path.resolve(__dirname, '../../');
 
+/**
+ * Ejecuta un comando del sistema de forma segura.
+ * NOSONAR: Los comandos son hardcodeados (npx prisma) y no provienen de input del usuario.
+ * Esta función solo se usa internamente para setup de BD en desarrollo.
+ */
 const runCommand = (command: string) => {
   try {
-    // Ejecutar todos los comandos desde el directorio apps/backend
+    // NOSONAR: command-injection safe - commands are hardcoded, not from user input
     execSync(command, { stdio: 'inherit', cwd: backendDir });
   } catch (_error) {
     console.error(`Error ejecutando el comando: ${command}`);

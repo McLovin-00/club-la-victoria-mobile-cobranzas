@@ -1,5 +1,4 @@
 import { z } from 'zod';
-// import type { EntityType, DocumentStatus } from '../../../node_modules/.prisma/documentos';
 
 // =================================
 // SCHEMAS DE VALIDACIÓN ESENCIALES

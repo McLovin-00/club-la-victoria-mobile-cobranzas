@@ -137,15 +137,12 @@ const setupRoutes = async (): Promise<void> => {
   if (serviceConfig.documentos.enabled) {
     AppLogger.info('📄 Loading Documentos service routes (ENABLE_DOCUMENTOS=true)');
     try {
-      // const transportistasRoutes = (await import(('./routes/' + 'transportistas') as any)).default as any;
       const notificationsRoutes = (await import(('./routes/' + 'notifications.routes') as any)).default as any;
       const evolutionRoutes = (await import(('./routes/' + 'evolution.routes') as any)).default as any;
       const docsRoutes = (await import(('./routes/' + 'docs.routes') as any)).default as any;
-      // app.use('/api/docs/transportistas', transportistasRoutes);
       app.use('/api/docs/notifications', notificationsRoutes);
       app.use('/api/docs/evolution', evolutionRoutes);
       app.use('/api/docs', docsRoutes);
-      // AppLogger.debug('-> Transportistas routes registered at /api/docs/transportistas');
       AppLogger.debug('-> Notifications routes registered at /api/docs/notifications');
       AppLogger.debug('-> Evolution routes registered at /api/docs/evolution');
       AppLogger.debug('-> Docs core routes registered at /api/docs');

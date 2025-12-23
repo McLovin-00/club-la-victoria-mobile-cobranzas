@@ -3,7 +3,6 @@ import { authenticate, authorize, validate } from '../middlewares/auth.middlewar
 import { UserRole } from '../types/roles';
 import { ClientsController } from '../controllers/clients.controller';
 import { addRequirementSchema, clienteListQuerySchema, createClienteSchema, removeRequirementSchema, updateClienteSchema } from '../schemas/validation.schemas';
-// import { EquiposController } from '../controllers/equipos.controller';
 import { z } from 'zod';
 import { prisma } from '../config/database';
 import { AuditService } from '../services/audit.service';
@@ -26,6 +25,58 @@ async function getExcelJS() {
   return _exceljs;
 }
 
+// ============================================================================
+// HELPERS para ZIP de equipo
+// ============================================================================
+
+/** Obtiene datos de entidades relacionadas al equipo */
+async function getEquipoEntities(equipo: any) {
+  const [empresaTransp, chofer, camion, acoplado] = await Promise.all([
+    equipo.empresaTransportistaId ? prisma.empresaTransportista.findUnique({ where: { id: equipo.empresaTransportistaId }, select: { cuit: true } }) : null,
+    equipo.driverId ? prisma.chofer.findUnique({ where: { id: equipo.driverId }, select: { dni: true } }) : null,
+    equipo.truckId ? prisma.camion.findUnique({ where: { id: equipo.truckId }, select: { patente: true } }) : null,
+    equipo.trailerId ? prisma.acoplado.findUnique({ where: { id: equipo.trailerId }, select: { patente: true } }) : null,
+  ]);
+  return { empresaTransp, chofer, camion, acoplado };
+}
+
+/** Construye nombres de carpetas para el ZIP basándose en entidades */
+function buildFolderNames(equipo: any, entities: { empresaTransp: any; chofer: any; camion: any; acoplado: any }) {
+  const empresaCuit = entities.empresaTransp?.cuit?.replace(/\D/g, '') || 'SIN_CUIT';
+  const choferDni = entities.chofer?.dni || equipo.driverDniNorm || 'SIN_DNI';
+  const camionPatente = (entities.camion?.patente || equipo.truckPlateNorm || 'SIN_PATENTE').replace(/\s+/g, '');
+  const acopladoPatente = (entities.acoplado?.patente || equipo.trailerPlateNorm || 'SIN_PATENTE').replace(/\s+/g, '');
+  return {
+    folders: {
+      EMPRESA_TRANSPORTISTA: `1_Empresa_Transportista_${empresaCuit}`,
+      CHOFER: `2_Chofer_${choferDni}`,
+      CAMION: `3_Tractor_${camionPatente}`,
+      ACOPLADO: `4_Semi_Acoplado_${acopladoPatente}`,
+    } as Record<string, string>,
+    choferDni,
+    camionPatente,
+  };
+}
+
+/** Construye cláusulas OR para filtrar documentos por entidades del equipo */
+function buildEntityClauses(equipo: any): any[] {
+  const clauses: any[] = [];
+  if (equipo.empresaTransportistaId) clauses.push({ entityType: 'EMPRESA_TRANSPORTISTA' as any, entityId: equipo.empresaTransportistaId });
+  if (equipo.driverId) clauses.push({ entityType: 'CHOFER' as any, entityId: equipo.driverId });
+  if (equipo.truckId) clauses.push({ entityType: 'CAMION' as any, entityId: equipo.truckId });
+  if (equipo.trailerId) clauses.push({ entityType: 'ACOPLADO' as any, entityId: equipo.trailerId });
+  return clauses;
+}
+
+/** Parsea filePath para extraer bucket y objectPath */
+function parseFilePath(filePath: string, tenantId: number): { bucketName: string; objectPath: string } {
+  if (typeof filePath === 'string' && filePath.includes('/')) {
+    const idx = filePath.indexOf('/');
+    return { bucketName: filePath.slice(0, idx), objectPath: filePath.slice(idx + 1) };
+  }
+  return { bucketName: `docs-t${tenantId}`, objectPath: filePath };
+}
+
 const router = Router();
 
 router.use(authenticate);
@@ -33,6 +84,38 @@ router.get('/', authorize([UserRole.ADMIN, UserRole.SUPERADMIN, UserRole.ADMIN_I
 router.post('/', authorize([UserRole.ADMIN, UserRole.SUPERADMIN, UserRole.ADMIN_INTERNO, UserRole.DADOR_DE_CARGA]), validate(createClienteSchema), ClientsController.create);
 router.put('/:id', authorize([UserRole.ADMIN, UserRole.SUPERADMIN, UserRole.ADMIN_INTERNO, UserRole.DADOR_DE_CARGA]), validate(updateClienteSchema), ClientsController.update);
 router.delete('/:id', authorize([UserRole.ADMIN, UserRole.SUPERADMIN, UserRole.ADMIN_INTERNO]), ClientsController.remove);
+
+// Endpoint para obtener templates consolidados por múltiples clientes
+const consolidatedTemplatesSchema = z.object({
+  query: z.object({
+    clienteIds: z.string().transform((v) => v.split(',').map(Number).filter(n => !isNaN(n) && n > 0)),
+  }),
+});
+router.get('/templates/consolidated', authorize([UserRole.ADMIN, UserRole.SUPERADMIN, UserRole.ADMIN_INTERNO, UserRole.DADOR_DE_CARGA, UserRole.TRANSPORTISTA]), validate(consolidatedTemplatesSchema), async (req: any, res) => {
+  const clienteIds = (req.query as any).clienteIds as number[];
+  const { ClientsService } = await import('../services/clients.service');
+  const data = await ClientsService.getConsolidatedTemplates(req.tenantId!, clienteIds);
+  res.json({ success: true, data });
+});
+
+// Endpoint para verificar documentos faltantes al agregar cliente a equipo
+const missingDocsSchema = z.object({
+  params: z.object({
+    equipoId: z.string().transform((v) => Number(v)),
+    clienteId: z.string().transform((v) => Number(v)),
+  }),
+  query: z.object({
+    existingClienteIds: z.string().optional().transform((v) => v ? v.split(',').map(Number).filter(n => !isNaN(n) && n > 0) : []),
+  }),
+});
+router.get('/equipos/:equipoId/check-client/:clienteId', authorize([UserRole.ADMIN, UserRole.SUPERADMIN, UserRole.ADMIN_INTERNO, UserRole.DADOR_DE_CARGA, UserRole.TRANSPORTISTA]), validate(missingDocsSchema), async (req: any, res) => {
+  const equipoId = Number(req.params.equipoId);
+  const newClienteId = Number(req.params.clienteId);
+  const existingClienteIds = (req.query as any).existingClienteIds as number[];
+  const { ClientsService } = await import('../services/clients.service');
+  const data = await ClientsService.getMissingDocumentsForNewClient(req.tenantId!, equipoId, newClienteId, existingClienteIds);
+  res.json({ success: true, data });
+});
 
 router.get('/:clienteId/requirements', authorize([UserRole.ADMIN, UserRole.SUPERADMIN, UserRole.ADMIN_INTERNO, UserRole.DADOR_DE_CARGA]), ClientsController.listRequirements);
 router.post('/:clienteId/requirements', authorize([UserRole.ADMIN, UserRole.SUPERADMIN, UserRole.ADMIN_INTERNO, UserRole.DADOR_DE_CARGA]), validate(addRequirementSchema), ClientsController.addRequirement);
@@ -179,33 +262,11 @@ router.get('/equipos/:equipoId/zip', validate(listDocsEquipoSchema), async (req,
   });
   if (!equipo) return res.status(404).json({ success: false, message: 'Equipo no encontrado' });
 
-  // Obtener datos de entidades para nombres de carpetas
-  const [empresaTransp, chofer, camion, acoplado] = await Promise.all([
-    equipo.empresaTransportistaId ? prisma.empresaTransportista.findUnique({ where: { id: equipo.empresaTransportistaId }, select: { cuit: true } }) : null,
-    equipo.driverId ? prisma.chofer.findUnique({ where: { id: equipo.driverId }, select: { dni: true } }) : null,
-    equipo.truckId ? prisma.camion.findUnique({ where: { id: equipo.truckId }, select: { patente: true } }) : null,
-    equipo.trailerId ? prisma.acoplado.findUnique({ where: { id: equipo.trailerId }, select: { patente: true } }) : null,
-  ]);
-
-  // Construir nombres de carpetas ordenados
-  const empresaCuit = empresaTransp?.cuit?.replace(/\D/g, '') || 'SIN_CUIT';
-  const choferDni = chofer?.dni || equipo.driverDniNorm || 'SIN_DNI';
-  const camionPatente = (camion?.patente || equipo.truckPlateNorm || 'SIN_PATENTE').replace(/\s+/g, '');
-  const acopladoPatente = (acoplado?.patente || equipo.trailerPlateNorm || 'SIN_PATENTE').replace(/\s+/g, '');
-
-  const folderNames: Record<string, string> = {
-    EMPRESA_TRANSPORTISTA: `1_Empresa_Transportista_${empresaCuit}`,
-    CHOFER: `2_Chofer_${choferDni}`,
-    CAMION: `3_Tractor_${camionPatente}`,
-    ACOPLADO: `4_Semi_Acoplado_${acopladoPatente}`,
-  };
+  const entities = await getEquipoEntities(equipo);
+  const { folders: folderNames, choferDni, camionPatente } = buildFolderNames(equipo, entities);
+  const clauses = buildEntityClauses(equipo);
 
   const now = new Date();
-  const clauses: any[] = [];
-  if (equipo.empresaTransportistaId) clauses.push({ entityType: 'EMPRESA_TRANSPORTISTA' as any, entityId: equipo.empresaTransportistaId });
-  if (equipo.driverId) clauses.push({ entityType: 'CHOFER' as any, entityId: equipo.driverId });
-  if (equipo.truckId) clauses.push({ entityType: 'CAMION' as any, entityId: equipo.truckId });
-  if (equipo.trailerId) clauses.push({ entityType: 'ACOPLADO' as any, entityId: equipo.trailerId });
   const docs = await prisma.document.findMany({
     where: {
       tenantEmpresaId: equipo.tenantEmpresaId,
@@ -220,32 +281,22 @@ router.get('/equipos/:equipoId/zip', validate(listDocsEquipoSchema), async (req,
     orderBy: { uploadedAt: 'desc' },
   });
 
-  // Ordenar documentos por tipo de entidad (1:EMPRESA, 2:CHOFER, 3:CAMION, 4:ACOPLADO)
-  const entityOrder: Record<string, number> = { 'EMPRESA_TRANSPORTISTA': 1, 'CHOFER': 2, 'CAMION': 3, 'ACOPLADO': 4 };
+  // Ordenar documentos por tipo de entidad
+  const entityOrder: Record<string, number> = { EMPRESA_TRANSPORTISTA: 1, CHOFER: 2, CAMION: 3, ACOPLADO: 4 };
   const sortedDocs = [...docs].sort((a, b) => (entityOrder[a.entityType] || 99) - (entityOrder[b.entityType] || 99));
 
-  // Nombre del ZIP con DNI y patente del tractor
-  const zipFileName = `equipo_${equipo.id}_DNI_${choferDni}_${camionPatente}.zip`;
+  // Configurar respuesta ZIP
   res.setHeader('Content-Type', 'application/zip');
-  res.setHeader('Content-Disposition', `attachment; filename=${zipFileName}`);
+  res.setHeader('Content-Disposition', `attachment; filename=equipo_${equipo.id}_DNI_${choferDni}_${camionPatente}.zip`);
   const archiver = await getArchiver();
   const archive = archiver('zip', { zlib: { level: 9 } });
   archive.on('error', (err: any) => res.status(500).end(String(err)));
   archive.pipe(res);
 
-  // Stream desde MinIO con estructura de carpetas ordenada
+  // Stream desde MinIO
   const { minioService } = await import('../services/minio.service');
   for (const d of sortedDocs) {
-    let bucketName: string;
-    let objectPath: string;
-    if (typeof d.filePath === 'string' && d.filePath.includes('/')) {
-      const idx = d.filePath.indexOf('/');
-      bucketName = d.filePath.slice(0, idx);
-      objectPath = d.filePath.slice(idx + 1);
-    } else {
-      bucketName = `docs-t${equipo.tenantEmpresaId}`;
-      objectPath = d.filePath as any;
-    }
+    const { bucketName, objectPath } = parseFilePath(d.filePath, equipo.tenantEmpresaId);
     const stream = await minioService.getObject(bucketName, objectPath);
     
     // Usar carpeta según tipo de entidad

@@ -2,6 +2,7 @@ import { AppLogger } from '../config/logger';
 import { prisma } from '../config/database';
 import type { Worker as WorkerType } from 'worker_threads';
 import ExcelJS from 'exceljs';
+import { randomBytes } from 'crypto';
 
 // ============================================================================
 // TIPOS
@@ -248,7 +249,7 @@ export class DocumentZipService {
   }
 
   static enqueueZipJob(tenantEmpresaId: number, equipoIds: number[]): string {
-    const id = `zip_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+    const id = `zip_${Date.now()}_${randomBytes(4).toString('hex')}`;
     const store = this.getStore();
     store.set(id, {
       id,

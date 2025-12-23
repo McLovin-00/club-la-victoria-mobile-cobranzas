@@ -12,6 +12,29 @@ import { loginRateLimiter, passwordChangeRateLimiter } from '../middlewares/rate
 import { prismaService } from '../config/prisma';
 import { AppLogger } from '../config/logger';
 
+// ============================================================================
+// HELPERS
+// ============================================================================
+
+/** Verifica si el usuario actual puede modificar al usuario objetivo */
+function canModifyUser(currentUser: any, targetUser: any): boolean {
+  if (currentUser.role === 'SUPERADMIN') return true;
+  if (['ADMIN', 'ADMIN_INTERNO'].includes(currentUser.role) && targetUser.empresaId === currentUser.empresaId) return true;
+  if (currentUser.role === 'DADOR_DE_CARGA') {
+    return ['TRANSPORTISTA', 'CHOFER'].includes(targetUser.role) &&
+      (targetUser.creadoPorId === currentUser.userId || targetUser.dadorCargaId === currentUser.dadorCargaId);
+  }
+  if (currentUser.role === 'TRANSPORTISTA') {
+    return targetUser.role === 'CHOFER' &&
+      (targetUser.creadoPorId === currentUser.userId || targetUser.empresaTransportistaId === currentUser.empresaTransportistaId);
+  }
+  return false;
+}
+
+// ============================================================================
+// ROUTES
+// ============================================================================
+
 const router = Router();
 
 /**
@@ -250,24 +273,7 @@ router.patch(
       }
       
       // Verificar permisos según órbita
-      const canModify = (() => {
-        if (currentUser.role === 'SUPERADMIN') return true;
-        if (currentUser.role === 'ADMIN' && targetUser.empresaId === currentUser.empresaId) return true;
-        if (currentUser.role === 'ADMIN_INTERNO' && targetUser.empresaId === currentUser.empresaId) return true;
-        if (currentUser.role === 'DADOR_DE_CARGA') {
-          // Solo puede modificar transportistas/choferes que creó o de su dador
-          return ['TRANSPORTISTA', 'CHOFER'].includes(targetUser.role) &&
-            (targetUser.creadoPorId === currentUser.userId || targetUser.dadorCargaId === (currentUser as any).dadorCargaId);
-        }
-        if (currentUser.role === 'TRANSPORTISTA') {
-          // Solo puede modificar choferes de su empresa transportista
-          return targetUser.role === 'CHOFER' &&
-            (targetUser.creadoPorId === currentUser.userId || targetUser.empresaTransportistaId === (currentUser as any).empresaTransportistaId);
-        }
-        return false;
-      })();
-      
-      if (!canModify) {
+      if (!canModifyUser(currentUser, targetUser)) {
         res.status(403).json({ success: false, message: 'No tiene permisos para modificar este usuario' });
         return;
       }

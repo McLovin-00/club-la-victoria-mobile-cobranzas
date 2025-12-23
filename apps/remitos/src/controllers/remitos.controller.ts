@@ -35,6 +35,13 @@ function getBase64Inputs(body: any): string[] {
       : [];
 }
 
+/** Convierte valor de peso a número o undefined (para updates parciales) */
+function parseWeight(value: any): number | null | undefined {
+  if (value === undefined) return undefined;
+  if (value === null || value === '') return null;
+  return Number(value);
+}
+
 function buildInputs(filesFromMulter: Express.Multer.File[], base64Inputs: string[]): FileInput[] {
   const inputs: FileInput[] = [];
 
@@ -268,12 +275,12 @@ export class RemitosController {
         choferDni,
         patenteChasis,
         patenteAcoplado,
-        pesoOrigenBruto: pesoOrigenBruto !== undefined ? (pesoOrigenBruto === null || pesoOrigenBruto === '' ? null : Number(pesoOrigenBruto)) : undefined,
-        pesoOrigenTara: pesoOrigenTara !== undefined ? (pesoOrigenTara === null || pesoOrigenTara === '' ? null : Number(pesoOrigenTara)) : undefined,
-        pesoOrigenNeto: pesoOrigenNeto !== undefined ? (pesoOrigenNeto === null || pesoOrigenNeto === '' ? null : Number(pesoOrigenNeto)) : undefined,
-        pesoDestinoBruto: pesoDestinoBruto !== undefined ? (pesoDestinoBruto === null || pesoDestinoBruto === '' ? null : Number(pesoDestinoBruto)) : undefined,
-        pesoDestinoTara: pesoDestinoTara !== undefined ? (pesoDestinoTara === null || pesoDestinoTara === '' ? null : Number(pesoDestinoTara)) : undefined,
-        pesoDestinoNeto: pesoDestinoNeto !== undefined ? (pesoDestinoNeto === null || pesoDestinoNeto === '' ? null : Number(pesoDestinoNeto)) : undefined,
+        pesoOrigenBruto: parseWeight(pesoOrigenBruto),
+        pesoOrigenTara: parseWeight(pesoOrigenTara),
+        pesoOrigenNeto: parseWeight(pesoOrigenNeto),
+        pesoDestinoBruto: parseWeight(pesoDestinoBruto),
+        pesoDestinoTara: parseWeight(pesoDestinoTara),
+        pesoDestinoNeto: parseWeight(pesoDestinoNeto),
       });
 
       res.json({ success: true, message: 'Remito actualizado', data: remito });

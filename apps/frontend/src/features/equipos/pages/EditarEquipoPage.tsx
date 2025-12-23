@@ -19,6 +19,7 @@ import {
   useCreateAcopladoMutation,
   useCreateChoferMutation,
   useCreateEmpresaTransportistaMutation,
+  useLazyCheckMissingDocsForClientQuery,
 } from '../../documentos/api/documentosApiSlice';
 import { useRegisterChoferWizardMutation, useRegisterTransportistaWizardMutation } from '../../platform-users/api/platformUsersApiSlice';
 import { Button } from '../../../components/ui/button';
@@ -84,6 +85,7 @@ const EditarEquipoPage: React.FC = () => {
   const [createEmpresaTransportista, { isLoading: creatingTransportista }] = useCreateEmpresaTransportistaMutation();
   const [registerChoferWizard, { isLoading: creatingChoferUser }] = useRegisterChoferWizardMutation();
   const [registerTransportistaWizard, { isLoading: creatingTransportistaUser }] = useRegisterTransportistaWizardMutation();
+  const [checkMissingDocs] = useLazyCheckMissingDocsForClientQuery();
   
   // Estados para modales de creación de Camión/Acoplado
   const [showNewCamionModal, setShowNewCamionModal] = useState(false);
@@ -111,7 +113,13 @@ const EditarEquipoPage: React.FC = () => {
   const [clienteToAdd, setClienteToAdd] = useState<number | ''>('');
   
   // Mensaje de estado
-  const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+  const [message, setMessage] = useState<{ type: 'success' | 'error' | 'info'; text: string } | null>(null);
+  
+  // Estado para alerta de documentos faltantes al agregar cliente
+  const [missingDocsAlert, setMissingDocsAlert] = useState<{
+    clienteName: string;
+    templates: Array<{ templateName: string; entityType: string; obligatorio: boolean }>;
+  } | null>(null);
   
   // Listas de datos
   const clientes = useMemo(() => (clientsResp as any)?.list || [], [clientsResp]);
@@ -376,15 +384,45 @@ const EditarEquipoPage: React.FC = () => {
   const handleAddCliente = async () => {
     if (!clienteToAdd) return;
     
+    const newClienteId = Number(clienteToAdd);
+    const existingClienteIds = clientesActuales.map((c: any) => c.id);
+    
     try {
+      // Primero verificar documentos faltantes
+      const missingResult = await checkMissingDocs({
+        equipoId,
+        clienteId: newClienteId,
+        existingClienteIds,
+      }).unwrap();
+      
+      // Agregar el cliente
       await associateCliente({
         equipoId,
-        clienteId: Number(clienteToAdd),
+        clienteId: newClienteId,
         asignadoDesde: new Date().toISOString(),
       }).unwrap();
-      setMessage({ type: 'success', text: 'Cliente agregado correctamente' });
+      
       setClienteToAdd('');
       refetch();
+      refetchRequisitos();
+      
+      // Si hay documentos faltantes, mostrar alerta informativa
+      if (missingResult.missingTemplates && missingResult.missingTemplates.length > 0) {
+        setMissingDocsAlert({
+          clienteName: missingResult.newClientName,
+          templates: missingResult.missingTemplates.map((t: any) => ({
+            templateName: t.templateName,
+            entityType: t.entityType,
+            obligatorio: t.obligatorio,
+          })),
+        });
+        setMessage({ 
+          type: 'info', 
+          text: `Cliente "${missingResult.newClientName}" agregado. Hay ${missingResult.missingTemplates.length} documento(s) adicionales requeridos.` 
+        });
+      } else {
+        setMessage({ type: 'success', text: 'Cliente agregado correctamente. Todos los documentos requeridos ya están cargados.' });
+      }
     } catch (err: any) {
       setMessage({ type: 'error', text: err?.data?.message || 'Error al agregar cliente' });
     }
@@ -844,6 +882,44 @@ const EditarEquipoPage: React.FC = () => {
         <p className='text-xs text-gray-500 mt-2'>
           El equipo debe tener al menos un cliente asociado.
         </p>
+        )}
+        
+        {/* Alerta de documentos faltantes al agregar cliente */}
+        {missingDocsAlert && (
+          <div className='mt-4 p-4 bg-amber-50 border border-amber-200 rounded-lg'>
+            <div className='flex items-start gap-3'>
+              <ExclamationTriangleIcon className='h-5 w-5 text-amber-600 mt-0.5 flex-shrink-0' />
+              <div className='flex-1'>
+                <h4 className='font-medium text-amber-800'>
+                  Documentos adicionales requeridos por "{missingDocsAlert.clienteName}"
+                </h4>
+                <p className='text-sm text-amber-700 mt-1'>
+                  El cliente agregado requiere los siguientes documentos que aún no están cargados:
+                </p>
+                <ul className='mt-2 space-y-1'>
+                  {missingDocsAlert.templates.map((t, idx) => (
+                    <li key={idx} className='text-sm text-amber-700 flex items-center gap-2'>
+                      <span className={`w-2 h-2 rounded-full ${t.obligatorio ? 'bg-red-500' : 'bg-yellow-500'}`}></span>
+                      <span className='font-medium'>{t.templateName}</span>
+                      <span className='text-amber-500'>({t.entityType})</span>
+                      {t.obligatorio && <span className='text-xs text-red-600 font-medium'>OBLIGATORIO</span>}
+                    </li>
+                  ))}
+                </ul>
+                <p className='text-xs text-amber-600 mt-3'>
+                  Estos documentos figurarán como faltantes hasta que se carguen.
+                </p>
+                <Button 
+                  variant='outline' 
+                  size='sm' 
+                  className='mt-3'
+                  onClick={() => setMissingDocsAlert(null)}
+                >
+                  Entendido
+                </Button>
+              </div>
+            </div>
+          </div>
         )}
       </Card>
       

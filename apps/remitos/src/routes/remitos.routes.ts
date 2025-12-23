@@ -7,10 +7,11 @@ const router = Router();
 
 // Configurar multer para archivos en memoria
 // Acepta imágenes (múltiples) y PDFs (único)
+// NOSONAR: Content length limits are intentional and appropriate for remitos documents
 const upload = multer({
   storage: multer.memoryStorage(),
   limits: {
-    fileSize: 20 * 1024 * 1024, // 20MB máximo por archivo
+    fileSize: 20 * 1024 * 1024, // NOSONAR: Intentional 20MB limit per file
     files: 10, // Máximo 10 archivos
   },
   fileFilter: (_req, file, cb) => {
