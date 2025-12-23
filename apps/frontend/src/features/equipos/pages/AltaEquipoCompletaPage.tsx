@@ -445,12 +445,10 @@ const AltaEquipoCompletaPage: React.FC = () => {
     }
   };
 
-  if (loadingTemplates || (clienteIds.length > 0 && loadingConsolidated)) {
+  if (loadingTemplates) {
     return (
       <div className='container mx-auto px-4 py-6'>
-        <div className='text-center'>
-          {loadingConsolidated ? 'Cargando documentos requeridos por clientes...' : 'Cargando templates...'}
-        </div>
+        <div className='text-center'>Cargando templates...</div>
       </div>
     );
   }
