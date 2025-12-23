@@ -13,6 +13,7 @@ import {
   ClipboardDocumentListIcon,
   DocumentTextIcon,
   ClipboardDocumentCheckIcon,
+  TruckIcon,
 } from '@heroicons/react/24/outline';
 import { ThemeToggle } from '../ui/theme-toggle';
 import { Logger } from '../../lib/utils';
@@ -177,6 +178,9 @@ const SidebarContent = ({ closeSidebar }: SidebarContentProps) => {
   const isDadorDeCarga = user?.role === 'DADOR_DE_CARGA';
   const isTransportista = user?.role === 'TRANSPORTISTA';
   
+  // SUPERADMIN tiene acceso a las mismas funcionalidades que ADMIN_INTERNO
+  const hasAdminInternoAccess = isAdminInterno || isSuperAdmin || isAdmin;
+  
   // Roles que pueden gestionar usuarios (crear/editar)
   const canManageUsers = isAdmin || isAdminInterno || isDadorDeCarga || isTransportista;
   
@@ -201,11 +205,39 @@ const SidebarContent = ({ closeSidebar }: SidebarContentProps) => {
           <NavItem to='/' icon={HomeIcon} text='Dashboard' closeSidebar={closeSidebar} />
         </nav>
 
-        {/* Sección de gestión - Visible para todos los usuarios autenticados */}
-        <div>{/* Sección de gestión removida - perfiles eliminados */}</div>
+        {/* Sección de gestión - Para ADMIN_INTERNO, SUPERADMIN, ADMIN */}
+        {hasAdminInternoAccess && (
+          <div>
+            <h3 className='px-4 text-xs font-semibold text-muted-foreground uppercase tracking-wider'>
+              Gestión
+            </h3>
+            <div className='mt-3 space-y-1'>
+              {/* Portal Admin Interno - Acceso rápido a alta y consulta de equipos */}
+              <NavItem
+                to='/portal/admin-interno'
+                icon={TruckIcon}
+                text='Portal Equipos'
+                closeSidebar={closeSidebar}
+              />
+              <NavItem
+                to='/platform-users'
+                icon={UsersIcon}
+                text='Usuarios'
+                closeSidebar={closeSidebar}
+              />
+              {/* Remitos - visible para roles administrativos */}
+              <NavItem
+                to='/remitos'
+                icon={ClipboardDocumentCheckIcon}
+                text='Remitos'
+                closeSidebar={closeSidebar}
+              />
+            </div>
+          </div>
+        )}
 
-        {/* Sección de usuarios - Para roles que pueden crear usuarios pero no son admin */}
-        {canManageUsers && !isAdmin && (
+        {/* Sección de usuarios - Para roles que pueden crear usuarios pero no son admin ni admin_interno */}
+        {canManageUsers && !isAdmin && !isAdminInterno && (
           <div>
             <h3 className='px-4 text-xs font-semibold text-muted-foreground uppercase tracking-wider'>
               Gestión
@@ -228,7 +260,7 @@ const SidebarContent = ({ closeSidebar }: SidebarContentProps) => {
           </div>
         )}
 
-        {/* Sección de administración - Solo visible para admin/superadmin */}
+        {/* Sección de administración - Solo visible para admin/superadmin (funciones exclusivas) */}
         {isAdmin && (
           <div>
             <h3 className='px-4 text-xs font-semibold text-muted-foreground uppercase tracking-wider'>
@@ -245,18 +277,6 @@ const SidebarContent = ({ closeSidebar }: SidebarContentProps) => {
                 />
               )}
 
-              {/* Usuarios legacy eliminados */}
-
-              {/* Usuarios de plataforma (admin/superadmin) */}
-              {canManageUsers && (
-                <NavItem
-                  to='/platform-users'
-                  icon={UsersIcon}
-                  text='Usuarios'
-                  closeSidebar={closeSidebar}
-                />
-              )}
-
               {/* Usuarios finales (admin/superadmin) */}
               {isSuperAdmin && (
                 <NavItem
@@ -267,8 +287,6 @@ const SidebarContent = ({ closeSidebar }: SidebarContentProps) => {
                 />
               )}
 
-              {/* Eliminado: Instancias, Gateway y Chat Processor */}
-
               {/* Gestión de Documentos - Solo si está habilitado */}
               {serviceFlags.documentos && (
                 <NavItem
@@ -278,14 +296,6 @@ const SidebarContent = ({ closeSidebar }: SidebarContentProps) => {
                   closeSidebar={closeSidebar}
                 />
               )}
-
-              {/* Gestión de Remitos */}
-              <NavItem
-                to='/remitos'
-                icon={ClipboardDocumentCheckIcon}
-                text='Remitos'
-                closeSidebar={closeSidebar}
-              />
 
               {/* Eliminado: Calidad (QMS) */}
 

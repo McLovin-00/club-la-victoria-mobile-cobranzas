@@ -23,6 +23,7 @@ export default function DashboardPage() {
     // Redirecciones desde raíz según rol
     switch (user.role) {
       case 'ADMIN_INTERNO':
+        // Solo ADMIN_INTERNO va directo al portal de admin interno
         return <Navigate to='/portal/admin-interno' replace />;
       case 'DADOR_DE_CARGA':
         return <Navigate to='/dador' replace />;
@@ -36,7 +37,7 @@ export default function DashboardPage() {
         return <Navigate to='/cliente' replace />;
       case 'SUPERADMIN':
       case 'ADMIN':
-        // SUPERADMIN y ADMIN pueden estar en raíz, mostrar su dashboard
+        // SUPERADMIN y ADMIN se quedan en su dashboard propio
         break;
       default:
         // Cualquier otro rol por defecto
