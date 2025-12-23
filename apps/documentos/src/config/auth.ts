@@ -74,7 +74,7 @@ export class DocumentosAuthService {
       }
       AppLogger.debug('✅ Token JWT verificado exitosamente', { userId: payload.userId, email: payload.email, role: payload.role });
       return payload;
-    } catch {
+    } catch (err) {
       // Fallback transitorio: aceptar tokens HS256 si está configurado JWT_LEGACY_SECRET
       const secret = this.getLegacySecret();
       if (secret) {
@@ -92,7 +92,7 @@ export class DocumentosAuthService {
           return null;
         }
       }
-      AppLogger.warn('⚠️ Token JWT inválido:', error);
+      AppLogger.warn('⚠️ Token JWT inválido:', err);
       return null;
     }
   }
