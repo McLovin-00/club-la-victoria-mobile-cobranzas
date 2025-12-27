@@ -121,7 +121,8 @@ export const ConsultaPage: React.FC = () => {
   const [trigger] = useLazySearchEquiposQuery();
   const [getCompliance] = useLazyGetEquipoComplianceQuery();
   const [deleteEquipo] = useDeleteEquipoMutation();
-  const [toggleActivo] = useToggleEquipoActivoMutation();
+  const [toggleActivo, { isLoading: isTogglingActivo }] = useToggleEquipoActivoMutation();
+  const [togglingEquipoId, setTogglingEquipoId] = useState<number | null>(null);
   // CSV DNIs search
   const [searchByDnis, { isLoading: loadingCsvSearch }] = useSearchEquiposByDnisMutation();
   const [csvResults, setCsvResults] = useState<Array<any>>([]);
@@ -1203,17 +1204,28 @@ export const ConsultaPage: React.FC = () => {
                 <Button 
                   variant='outline' 
                   size='sm' 
-                  className={eq.activo !== false ? 'text-orange-600 border-orange-300 hover:bg-orange-50' : 'text-green-600 border-green-300 hover:bg-green-50'}
+                  className={eq.activo !== false ? 'text-orange-600 border-orange-300 hover:bg-orange-50 dark:hover:bg-orange-950' : 'text-green-600 border-green-300 hover:bg-green-50 dark:hover:bg-green-950'}
+                  disabled={togglingEquipoId === eq.id}
                   onClick={async ()=>{
                     try {
+                      setTogglingEquipoId(eq.id);
                       await toggleActivo({ equipoId: eq.id, activo: eq.activo === false }).unwrap();
                       showToast(`Equipo ${eq.activo === false ? 'activado' : 'desactivado'} exitosamente`, 'success');
                     } catch (e: any) {
                       showToast(e?.data?.message || 'Error al cambiar estado', 'error');
+                    } finally {
+                      setTogglingEquipoId(null);
                     }
                   }}
                 >
-                  {eq.activo !== false ? '⏸ Desactivar' : '▶ Activar'}
+                  {togglingEquipoId === eq.id ? (
+                    <span className='flex items-center gap-1'>
+                      <span className='animate-spin rounded-full h-3 w-3 border-b-2 border-current'></span>
+                      Procesando...
+                    </span>
+                  ) : (
+                    eq.activo !== false ? '⏸ Desactivar' : '▶ Activar'
+                  )}
                 </Button>
                 <Button variant='destructive' size='sm' onClick={async ()=>{
                   const ok = await confirm({ title: 'Eliminar equipo', message: `¿Eliminar equipo #${eq.id}? Esta acción es irreversible.`, confirmText: 'Eliminar', variant: 'danger' });

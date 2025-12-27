@@ -468,15 +468,42 @@ export class DashboardController {
 
   /**
    * GET /api/docs/dashboard/approval-kpis - KPIs de aprobación
+   * Calcula pending, approvedToday, rejectedToday y avgReviewMinutes en una sola query eficiente
    */
   static async getApprovalKpis(req: AuthRequest, res: Response): Promise<void> {
     try {
       const tenantEmpresaId = req.tenantId!;
       const { db } = await import('../config/database');
-      const pending = await db.getClient().document.count({ where: { tenantEmpresaId, status: 'PENDIENTE_APROBACION' as any } });
       const startOfDay = new Date(new Date().toDateString());
-      const approvedToday = await db.getClient().document.count({ where: { tenantEmpresaId, status: 'APROBADO' as any, validatedAt: { gte: startOfDay } } });
-      res.json({ success: true, data: { pending, approvedToday, asOf: new Date().toISOString() } });
+
+      // Query única y eficiente que calcula todos los KPIs
+      const [kpis] = await db.getClient().$queryRaw<Array<{
+        pending: bigint;
+        approvedToday: bigint;
+        rejectedToday: bigint;
+        avgReviewMinutes: number | null;
+      }>>`
+        SELECT
+          COUNT(*) FILTER (WHERE status = 'PENDIENTE_APROBACION') AS "pending",
+          COUNT(*) FILTER (WHERE status = 'APROBADO' AND validated_at >= ${startOfDay}) AS "approvedToday",
+          COUNT(*) FILTER (WHERE status = 'RECHAZADO' AND validated_at >= ${startOfDay}) AS "rejectedToday",
+          ROUND(AVG(EXTRACT(EPOCH FROM (validated_at - uploaded_at)) / 60) FILTER (
+            WHERE status IN ('APROBADO', 'RECHAZADO') AND validated_at >= ${startOfDay}
+          ))::integer AS "avgReviewMinutes"
+        FROM documents
+        WHERE tenant_empresa_id = ${tenantEmpresaId}
+      `;
+
+      res.json({
+        success: true,
+        data: {
+          pending: Number(kpis?.pending ?? 0),
+          approvedToday: Number(kpis?.approvedToday ?? 0),
+          rejectedToday: Number(kpis?.rejectedToday ?? 0),
+          avgReviewMinutes: kpis?.avgReviewMinutes ?? 0,
+          asOf: new Date().toISOString(),
+        },
+      });
     } catch (error) {
       AppLogger.error('💥 Error obteniendo KPIs de aprobación:', error);
       res.status(500).json({ success: false, message: 'Error obteniendo KPIs de aprobación', code: 'KPIS_ERROR' });
