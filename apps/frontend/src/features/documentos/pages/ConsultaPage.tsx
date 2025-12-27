@@ -1121,8 +1121,20 @@ export const ConsultaPage: React.FC = () => {
       <div className='grid gap-3'>
         {displayResults.map((it: any) => {
           const eq = it.equipo || it;
+          const isToggling = togglingEquipoId === eq.id;
           return (
-            <div key={eq.id} className={`rounded-lg border bg-white dark:bg-slate-900 p-3 grid gap-3 md:grid-cols-[1fr,auto,auto] items-center ${eq.activo === false ? 'opacity-50 bg-gray-100' : ''}`}>
+            <div key={eq.id} className={`relative rounded-lg border bg-white dark:bg-slate-900 p-3 grid gap-3 md:grid-cols-[1fr,auto,auto] items-center ${eq.activo === false ? 'opacity-50 bg-gray-100 dark:bg-slate-800/50' : ''} ${isToggling ? 'ring-2 ring-blue-400' : ''}`}>
+              {/* Overlay de carga durante toggle */}
+              {isToggling && (
+                <div className='absolute inset-0 bg-white/70 dark:bg-slate-900/70 rounded-lg flex items-center justify-center z-10'>
+                  <div className='flex items-center gap-3 bg-white dark:bg-slate-800 px-4 py-2 rounded-full shadow-lg border'>
+                    <span className='animate-spin rounded-full h-5 w-5 border-b-2 border-blue-600'></span>
+                    <span className='text-sm font-medium text-gray-700 dark:text-gray-200'>
+                      {eq.activo !== false ? 'Desactivando...' : 'Activando...'}
+                    </span>
+                  </div>
+                </div>
+              )}
               <div className='space-y-1'>
                 <div className='font-medium flex items-center gap-2'>
                   <span>Equipo #{eq.id}</span>
