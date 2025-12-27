@@ -1222,7 +1222,11 @@ export const ConsultaPage: React.FC = () => {
                   onClick={async ()=>{
                     try {
                       setTogglingEquipoId(eq.id);
+                      const startTime = Date.now();
                       await toggleActivo({ equipoId: eq.id, activo: eq.activo === false }).unwrap();
+                      // Mantener indicador visible mínimo 600ms para feedback visual
+                      const elapsed = Date.now() - startTime;
+                      if (elapsed < 600) await new Promise(r => setTimeout(r, 600 - elapsed));
                       showToast(`Equipo ${eq.activo === false ? 'activado' : 'desactivado'} exitosamente`, 'success');
                     } catch (e: any) {
                       showToast(e?.data?.message || 'Error al cambiar estado', 'error');
