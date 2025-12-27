@@ -551,7 +551,42 @@ export const documentosApiSlice = createApi({
     }),
     toggleEquipoActivo: builder.mutation<{ success: boolean; data: { id: number; activo: boolean } }, { equipoId: number; activo: boolean }>({
       query: ({ equipoId, activo }) => ({ url: `/equipos/${equipoId}/toggle-activo`, method: 'PATCH', body: { activo } }),
-      invalidatesTags: ['Equipos', 'Search'],
+      // Optimistic update: actualizar cache inmediatamente sin esperar servidor
+      async onQueryStarted({ equipoId, activo }, { dispatch, queryFulfilled }) {
+        // Actualizar todas las queries de búsqueda paginada en cache
+        const patchResults: Array<{ undo: () => void }> = [];
+        
+        // Intentar actualizar el cache de searchEquiposPaged
+        try {
+          // Obtener el estado actual de RTK Query para buscar las queries activas
+          const patches = dispatch(
+            documentosApiSlice.util.updateQueryData('searchEquiposPaged', undefined as any, (draft) => {
+              if (draft?.data) {
+                const equipo = draft.data.find((e: any) => (e.equipo?.id || e.id) === equipoId);
+                if (equipo) {
+                  if (equipo.equipo) {
+                    equipo.equipo.activo = activo;
+                  } else {
+                    equipo.activo = activo;
+                  }
+                }
+              }
+            })
+          );
+          patchResults.push(patches);
+        } catch {
+          // Ignorar si no hay cache
+        }
+
+        try {
+          await queryFulfilled;
+        } catch {
+          // Revertir cambios optimistas si falla
+          patchResults.forEach((p) => p.undo());
+        }
+      },
+      // Solo invalidar después de éxito, no refetch inmediato
+      invalidatesTags: (result) => result ? ['Equipos', 'Search'] : [],
     }),
     getEquipoRequisitos: builder.query<
       Array<{
