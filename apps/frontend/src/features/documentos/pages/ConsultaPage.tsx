@@ -856,7 +856,8 @@ export const ConsultaPage: React.FC = () => {
         </div>
       </Card>
 
-      {isFetching && (
+      {/* Solo mostrar spinner global en primera carga, no en refetch */}
+      {isFetching && displayResults.length === 0 && (
         <div className='flex flex-col items-center justify-center py-12'>
           <div className='animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mb-4'></div>
           <div className='text-lg font-medium text-gray-600'>Buscando equipos...</div>
@@ -1118,7 +1119,7 @@ export const ConsultaPage: React.FC = () => {
       )}
 
       <div className='grid gap-3'>
-        {!isFetching && displayResults.map((it: any) => {
+        {displayResults.map((it: any) => {
           const eq = it.equipo || it;
           return (
             <div key={eq.id} className={`rounded-lg border bg-white dark:bg-slate-900 p-3 grid gap-3 md:grid-cols-[1fr,auto,auto] items-center ${eq.activo === false ? 'opacity-50 bg-gray-100' : ''}`}>
