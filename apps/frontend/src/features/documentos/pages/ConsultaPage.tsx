@@ -869,8 +869,8 @@ export const ConsultaPage: React.FC = () => {
       )}
       {isError && <div className='text-sm text-red-600'>Error al buscar{(error as any)?.status ? ` (${(error as any).status})` : ''}. Revise los filtros seleccionados.</div>}
       
-      {/* Dashboard de estado documental */}
-      {hasSearched && !isFetching && dashboardStats.total > 0 && (
+      {/* Dashboard de estado documental - siempre visible si hay datos */}
+      {hasSearched && dashboardStats.total > 0 && (
         <div className='grid grid-cols-2 md:grid-cols-4 gap-3 mb-4'>
           <button
             onClick={() => { setComplianceFilter('all'); setPage(1); }}
@@ -941,7 +941,7 @@ export const ConsultaPage: React.FC = () => {
       )}
       
       {/* Barra de paginación (solo para resultados del servidor, no para búsqueda masiva) */}
-      {hasSearched && !isFetching && csvResults.length === 0 && displayResults.length > 0 && (
+      {hasSearched && csvResults.length === 0 && displayResults.length > 0 && (
         <div className='flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4 p-3 bg-gray-50 dark:bg-slate-800 rounded-lg'>
           <div className='text-sm text-gray-600 dark:text-gray-400'>
             Mostrando {((pagination.page - 1) * pagination.limit) + 1} - {Math.min(pagination.page * pagination.limit, pagination.total)} de {pagination.total} equipos
