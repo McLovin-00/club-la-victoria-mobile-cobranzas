@@ -183,7 +183,7 @@ export class TemplatesController {
    */
   static async updateTemplate(req: AuthRequest, res: Response): Promise<void> {
     try {
-      const { id } = req.params;
+      const { id } = req.params as { id: string };
       const { name, active, isActive } = req.body;
       // Normalizar isActive a active para compatibilidad con frontend
       const activeValue = active !== undefined ? active : isActive;
@@ -270,7 +270,7 @@ export class TemplatesController {
    */
   static async deleteTemplate(req: AuthRequest, res: Response): Promise<void> {
     try {
-      const { id } = req.params;
+      const { id } = req.params as { id: string };
 
       // Verificar que la plantilla existe
       const existingTemplate = await db.getClient().documentTemplate.findUnique({

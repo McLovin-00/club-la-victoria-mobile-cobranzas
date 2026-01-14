@@ -75,7 +75,7 @@ export class NotificationsController {
         return;
       }
 
-      const notificationId = parseInt(req.params.id);
+      const notificationId = parseInt(String(req.params.id));
       await InternalNotificationService.markAsRead(notificationId, userId);
 
       res.json({
@@ -122,7 +122,7 @@ export class NotificationsController {
         return;
       }
 
-      const notificationId = parseInt(req.params.id);
+      const notificationId = parseInt(String(req.params.id));
       await InternalNotificationService.deleteNotification(notificationId, userId);
 
       res.json({

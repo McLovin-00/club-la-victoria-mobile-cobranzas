@@ -85,7 +85,7 @@ export class EntityDataController {
     try {
       const tenantEmpresaId = req.tenantId as number;
       const entityType = req.params.entityType as EntityType;
-      const entityId = parseInt(req.params.entityId, 10);
+      const entityId = parseInt(String(req.params.entityId), 10);
 
       if (!validateParams(entityType, entityId)) {
         return sendError(res, 400, 'Parámetros inválidos', 'INVALID_PARAMS');
@@ -120,7 +120,7 @@ export class EntityDataController {
     try {
       const tenantEmpresaId = req.tenantId as number;
       const entityType = req.params.entityType as EntityType;
-      const entityId = parseInt(req.params.entityId, 10);
+      const entityId = parseInt(String(req.params.entityId), 10);
 
       if (!validateParams(entityType, entityId)) {
         return sendError(res, 400, 'Parámetros inválidos', 'INVALID_PARAMS');
@@ -155,7 +155,7 @@ export class EntityDataController {
     try {
       const tenantEmpresaId = req.tenantId as number;
       const entityType = req.params.entityType as EntityType;
-      const entityId = parseInt(req.params.entityId, 10);
+      const entityId = parseInt(String(req.params.entityId), 10);
       const { data: newData } = req.body;
 
       if (!validateParams(entityType, entityId) || !newData) {
@@ -201,7 +201,7 @@ export class EntityDataController {
     try {
       const tenantEmpresaId = req.tenantId as number;
       const entityType = req.params.entityType as EntityType;
-      const entityId = parseInt(req.params.entityId, 10);
+      const entityId = parseInt(String(req.params.entityId), 10);
       const page = parseInt(req.query.page as string, 10) || 1;
       const limit = Math.min(parseInt(req.query.limit as string, 10) || 20, 100);
 

@@ -865,7 +865,7 @@ export class DocumentsController {
    */
   static async resubmitDocument(req: AuthRequest, res: Response): Promise<void> {
     try {
-      const documentId = parseInt(req.params.id);
+      const documentId = parseInt(String(req.params.id));
       const tenantId = req.tenantId!;
       
       // Obtener documento actual

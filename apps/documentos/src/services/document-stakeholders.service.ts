@@ -95,7 +95,7 @@ export class DocumentStakeholdersService {
         return [];
       }
 
-      const data = await response.json();
+      const data = (await response.json()) as { data?: any[] };
       const users = data?.data ?? [];
 
       return users.map((user: any) => ({
@@ -134,7 +134,7 @@ export class DocumentStakeholdersService {
         return [];
       }
 
-      const data = await response.json();
+      const data = (await response.json()) as { data?: any[] };
       const users = data?.data ?? [];
 
       return users.map((user: any) => ({
@@ -203,7 +203,7 @@ export class DocumentStakeholdersService {
         return [];
       }
 
-      const data = await response.json();
+      const data = (await response.json()) as { data?: any[] };
       const users = data?.data ?? [];
 
       return users.map((user: any) => ({
@@ -244,7 +244,7 @@ export class DocumentStakeholdersService {
         return [];
       }
 
-      const data = await response.json();
+      const data = (await response.json()) as { data?: any[] };
       const users = data?.data ?? [];
 
       return users.map((user: any) => ({
