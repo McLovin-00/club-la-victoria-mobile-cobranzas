@@ -2,6 +2,7 @@ import { Response } from 'express';
 import { AuthRequest } from '../middlewares/auth.middleware';
 import { InternalNotificationService } from '../services/internal-notification.service';
 import { AppLogger } from '../config/logger';
+import { parseParamId } from '../utils/params';
 
 /**
  * Controlador de Notificaciones Internas
@@ -75,7 +76,7 @@ export class NotificationsController {
         return;
       }
 
-      const notificationId = parseInt(String(req.params.id));
+      const notificationId = parseParamId(req.params, 'id');
       await InternalNotificationService.markAsRead(notificationId, userId);
 
       res.json({
@@ -122,7 +123,7 @@ export class NotificationsController {
         return;
       }
 
-      const notificationId = parseInt(String(req.params.id));
+      const notificationId = parseParamId(req.params, 'id');
       await InternalNotificationService.deleteNotification(notificationId, userId);
 
       res.json({

@@ -4,6 +4,7 @@ import { AuditService } from '../services/audit.service';
 import { db } from '../config/database';
 import { AppLogger } from '../config/logger';
 import { createError } from '../middlewares/error.middleware';
+import { parseParamId } from '../utils/params';
 
 /**
  * Controlador de Templates - Simplicidad Absoluta
@@ -15,10 +16,10 @@ export class TemplatesController {
    */
   static async getTemplateById(req: AuthRequest, res: Response): Promise<void> {
     try {
-      const { id } = req.params as any;
+      const id = parseParamId(req.params, 'id');
 
       const template = await db.getClient().documentTemplate.findUnique({
-        where: { id: parseInt(id) },
+        where: { id },
         select: {
           id: true,
           name: true,
@@ -183,14 +184,14 @@ export class TemplatesController {
    */
   static async updateTemplate(req: AuthRequest, res: Response): Promise<void> {
     try {
-      const { id } = req.params as { id: string };
+      const id = parseParamId(req.params, 'id');
       const { name, active, isActive } = req.body;
       // Normalizar isActive a active para compatibilidad con frontend
       const activeValue = active !== undefined ? active : isActive;
 
       // Verificar que la plantilla existe
       const existingTemplate = await db.getClient().documentTemplate.findUnique({
-        where: { id: parseInt(id) },
+        where: { id },
       });
 
       if (!existingTemplate) {
@@ -203,7 +204,7 @@ export class TemplatesController {
           where: {
             name: name.trim(),
             entityType: existingTemplate.entityType,
-            id: { not: parseInt(id) },
+            id: { not: id },
           },
         });
 
@@ -217,7 +218,7 @@ export class TemplatesController {
       }
 
       const updatedTemplate = await db.getClient().documentTemplate.update({
-        where: { id: parseInt(id) },
+        where: { id },
         data: {
           ...(name && { name: name.trim() }),
           ...(activeValue !== undefined && { active: activeValue }),
@@ -270,11 +271,11 @@ export class TemplatesController {
    */
   static async deleteTemplate(req: AuthRequest, res: Response): Promise<void> {
     try {
-      const { id } = req.params as { id: string };
+      const id = parseParamId(req.params, 'id');
 
       // Verificar que la plantilla existe
       const existingTemplate = await db.getClient().documentTemplate.findUnique({
-        where: { id: parseInt(id) },
+        where: { id },
         include: {
           documents: { take: 1 }, // Solo verificar si hay documentos
           clientRequirements: { take: 1 }, // Solo verificar si hay requerimientos por cliente
@@ -295,7 +296,7 @@ export class TemplatesController {
       }
 
       await db.getClient().documentTemplate.delete({
-        where: { id: parseInt(id) },
+        where: { id },
       });
 
       AppLogger.info(`🗑️ Template eliminado: ${existingTemplate.name}`, {

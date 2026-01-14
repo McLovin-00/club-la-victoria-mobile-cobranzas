@@ -5,6 +5,7 @@ import { minioService } from '../services/minio.service';
 import { MediaService } from '../services/media.service';
 import { createError } from '../middlewares/error.middleware';
 import { AppLogger } from '../config/logger';
+import { parseParamId } from '../utils/params';
 
 // ============================================================================
 // HELPERS
@@ -217,7 +218,7 @@ export class RemitosController {
    */
   static async getById(req: AuthRequest, res: Response): Promise<void> {
     try {
-      const id = parseInt(String(req.params.id));
+      const id = parseParamId(req.params, 'id');
       const remito = await RemitoService.getById(id, req.user?.userId, req.user?.role);
 
       if (!remito) {
@@ -242,7 +243,7 @@ export class RemitosController {
    */
   static async update(req: AuthRequest, res: Response): Promise<void> {
     try {
-      const id = parseInt(String(req.params.id));
+      const id = parseParamId(req.params, 'id');
       const {
         numeroRemito,
         fechaOperacion,
@@ -294,7 +295,7 @@ export class RemitosController {
    */
   static async approve(req: AuthRequest, res: Response): Promise<void> {
     try {
-      const id = parseInt(String(req.params.id));
+      const id = parseParamId(req.params, 'id');
       const remito = await RemitoService.approve(id, req.user!.userId);
       res.json({ success: true, message: 'Remito aprobado', data: remito });
     } catch (error: any) {
@@ -307,7 +308,7 @@ export class RemitosController {
    */
   static async reject(req: AuthRequest, res: Response): Promise<void> {
     try {
-      const id = parseInt(String(req.params.id));
+      const id = parseParamId(req.params, 'id');
       const { motivo } = req.body;
 
       if (!motivo || motivo.trim().length < 5) {
@@ -340,14 +341,14 @@ export class RemitosController {
    */
   static async getImage(req: AuthRequest, res: Response): Promise<void> {
     try {
-      const remitoId = parseInt(String(req.params.id));
+      const remitoId = parseParamId(req.params, 'id');
       const remito = await RemitoService.getById(remitoId, req.user?.userId, req.user?.role);
 
       if (!remito) {
         throw createError('Remito no encontrado', 404, 'NOT_FOUND');
       }
 
-      const imagenId = parseInt(String(req.params.imagenId));
+      const imagenId = parseParamId(req.params, 'imagenId');
       const imagen = remito.imagenes.find((i) => i.id === imagenId);
 
       if (!imagen) {
@@ -366,7 +367,7 @@ export class RemitosController {
    */
   static async reprocess(req: AuthRequest, res: Response): Promise<void> {
     try {
-      const id = parseInt(String(req.params.id));
+      const id = parseParamId(req.params, 'id');
       const result = await RemitoService.reprocess(id, req.user!.userId);
       res.json({ success: true, message: 'Remito encolado para reprocesamiento', data: result });
     } catch (error: any) {

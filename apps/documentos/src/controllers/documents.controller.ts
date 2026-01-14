@@ -10,6 +10,7 @@ import { AppLogger } from '../config/logger';
 import { createError } from '../middlewares/error.middleware';
 import { MediaService, type MediaInput } from '../services/media.service';
 import { AuditService } from '../services/audit.service';
+import { parseParamId, parseParamIdOptional } from '../utils/params';
 
 // ============================================================================
 // MULTER MIDDLEWARE PARA UPLOAD
@@ -395,7 +396,7 @@ export class DocumentsController {
    */
   static async getDocumentsByEmpresa(req: AuthRequest, res: Response): Promise<void> {
     try {
-      const empresaId = parseInt((req.params as any).dadorId || (req.params as any).empresaId);
+      const empresaId = parseParamIdOptional(req.params, 'dadorId') ?? parseParamId(req.params, 'empresaId');
       const { status, page = '1', limit = '50' } = req.query as any;
       const pageNum = parseInt(String(page), 10) || 1;
       const limitNum = Math.min(parseInt(String(limit), 10) || 50, 100);
@@ -746,7 +747,7 @@ export class DocumentsController {
    */
   static async renewDocument(req: AuthRequest, res: Response): Promise<void> {
     try {
-      const id = parseInt((req.params as any).id);
+      const id = parseParamId(req.params, 'id');
       const { expiresAt } = (req.body || {}) as any;
       const next = await DocumentService.renew(id, {
         expiresAt: expiresAt ? new Date(expiresAt) : undefined,
@@ -765,7 +766,7 @@ export class DocumentsController {
    */
   static async getDocumentHistory(req: AuthRequest, res: Response): Promise<void> {
     try {
-      const id = parseInt((req.params as any).id);
+      const id = parseParamId(req.params, 'id');
       const rows = await DocumentService.getHistory(id);
       res.json({ success: true, data: rows });
     } catch (error) {
@@ -865,7 +866,7 @@ export class DocumentsController {
    */
   static async resubmitDocument(req: AuthRequest, res: Response): Promise<void> {
     try {
-      const documentId = parseInt(String(req.params.id));
+      const documentId = parseParamId(req.params, 'id');
       const tenantId = req.tenantId!;
       
       // Obtener documento actual

@@ -3,6 +3,7 @@ import { AuthRequest } from '../middlewares/auth.middleware';
 import { prisma } from '../config/database';
 import { AppLogger } from '../config/logger';
 import type { EntityType } from '../../node_modules/.prisma/documentos';
+import { parseParamId, parseParamString } from '../utils/params';
 
 // ============================================================================
 // HELPERS
@@ -84,8 +85,8 @@ export class EntityDataController {
   static async getExtractedData(req: AuthRequest, res: Response): Promise<void> {
     try {
       const tenantEmpresaId = req.tenantId as number;
-      const entityType = req.params.entityType as EntityType;
-      const entityId = parseInt(String(req.params.entityId), 10);
+      const entityType = parseParamString(req.params, 'entityType') as EntityType;
+      const entityId = parseParamId(req.params, 'entityId');
 
       if (!validateParams(entityType, entityId)) {
         return sendError(res, 400, 'Parámetros inválidos', 'INVALID_PARAMS');
@@ -119,8 +120,8 @@ export class EntityDataController {
   static async deleteExtractedData(req: AuthRequest, res: Response): Promise<void> {
     try {
       const tenantEmpresaId = req.tenantId as number;
-      const entityType = req.params.entityType as EntityType;
-      const entityId = parseInt(String(req.params.entityId), 10);
+      const entityType = parseParamString(req.params, 'entityType') as EntityType;
+      const entityId = parseParamId(req.params, 'entityId');
 
       if (!validateParams(entityType, entityId)) {
         return sendError(res, 400, 'Parámetros inválidos', 'INVALID_PARAMS');
@@ -154,8 +155,8 @@ export class EntityDataController {
   static async updateExtractedData(req: AuthRequest, res: Response): Promise<void> {
     try {
       const tenantEmpresaId = req.tenantId as number;
-      const entityType = req.params.entityType as EntityType;
-      const entityId = parseInt(String(req.params.entityId), 10);
+      const entityType = parseParamString(req.params, 'entityType') as EntityType;
+      const entityId = parseParamId(req.params, 'entityId');
       const { data: newData } = req.body;
 
       if (!validateParams(entityType, entityId) || !newData) {
@@ -200,8 +201,8 @@ export class EntityDataController {
   static async getExtractionHistory(req: AuthRequest, res: Response): Promise<void> {
     try {
       const tenantEmpresaId = req.tenantId as number;
-      const entityType = req.params.entityType as EntityType;
-      const entityId = parseInt(String(req.params.entityId), 10);
+      const entityType = parseParamString(req.params, 'entityType') as EntityType;
+      const entityId = parseParamId(req.params, 'entityId');
       const page = parseInt(req.query.page as string, 10) || 1;
       const limit = Math.min(parseInt(req.query.limit as string, 10) || 20, 100);
 
