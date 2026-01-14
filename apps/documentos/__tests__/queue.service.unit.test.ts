@@ -244,7 +244,8 @@ describe('QueueService', () => {
   describe('Job status tracking', () => {
     type JobStatus = 'waiting' | 'active' | 'completed' | 'failed' | 'delayed' | 'paused';
 
-    interface JobProgress {
+    // Interface para documentar estructura de progreso de job
+    interface _JobProgress {
       progress: number;
       message?: string;
       stage?: string;
@@ -283,7 +284,8 @@ describe('QueueService', () => {
   });
 
   describe('Dead letter queue', () => {
-    interface FailedJob {
+    // Interface para documentar estructura de job fallido
+    interface _FailedJob {
       id: string;
       type: string;
       data: any;
@@ -330,7 +332,8 @@ describe('QueueService', () => {
   });
 
   describe('Queue metrics', () => {
-    interface QueueMetrics {
+    // Interface para documentar métricas de cola
+    interface _QueueMetrics {
       waiting: number;
       active: number;
       completed: number;

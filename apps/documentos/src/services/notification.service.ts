@@ -52,7 +52,7 @@ async function sendToPhones(
   service: typeof NotificationService,
   phones: string[],
   text: string,
-  meta: { tenantId: number; dadorId: number; documentId: number; audience: string; type: string; templateKey: string },
+  meta: { tenantId: number; dadorId: number; documentId: number; audience: 'DADOR' | 'CHOFER'; type: string; templateKey: string },
   maxPhones: number
 ): Promise<number> {
   let sent = 0;

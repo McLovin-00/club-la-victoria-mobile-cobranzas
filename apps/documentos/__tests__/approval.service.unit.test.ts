@@ -308,7 +308,8 @@ describe('ApprovalService', () => {
   });
 
   describe('Approval notification', () => {
-    interface ApprovalNotification {
+    // Interface para documentar estructura de notificación de aprobación
+    interface _ApprovalNotification {
       documentId: number;
       decision: string;
       recipientType: 'UPLOADER' | 'CHOFER' | 'TRANSPORTISTA';
@@ -342,7 +343,8 @@ describe('ApprovalService', () => {
   });
 
   describe('Entity extraction from approval', () => {
-    interface ExtractedData {
+    // Interface para documentar estructura de datos extraídos
+    interface _ExtractedData {
       entityType: string;
       entityId: number;
       confirmedData: Record<string, any>;

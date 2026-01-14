@@ -87,10 +87,49 @@ export default defineConfig({
   },
   build: {
     sourcemap: true,
+    chunkSizeWarningLimit: 600, // Aumentar límite a 600KB
     rollupOptions: {
       output: {
-        manualChunks: {
-          vendor: ['react', 'react-dom', 'react-router-dom', '@reduxjs/toolkit'],
+        manualChunks: (id) => {
+          // Separar node_modules en chunks más pequeños
+          if (id.includes('node_modules')) {
+            // React ecosystem
+            if (id.includes('react') || id.includes('react-dom') || id.includes('react-router')) {
+              return 'vendor-react';
+            }
+            // Redux
+            if (id.includes('redux') || id.includes('@reduxjs')) {
+              return 'vendor-redux';
+            }
+            // UI Components (Radix, Headless, etc)
+            if (id.includes('@radix-ui') || id.includes('@headlessui') || id.includes('lucide')) {
+              return 'vendor-ui';
+            }
+            // Utilidades grandes
+            if (id.includes('date-fns') || id.includes('zod') || id.includes('axios')) {
+              return 'vendor-utils';
+            }
+            // Heroicons
+            if (id.includes('@heroicons')) {
+              return 'vendor-icons';
+            }
+            // JSZip (ya está separado pero asegurar)
+            if (id.includes('jszip')) {
+              return 'vendor-jszip';
+            }
+            // Socket.io
+            if (id.includes('socket.io')) {
+              return 'vendor-socket';
+            }
+          }
+          // Features de documentos
+          if (id.includes('/features/documentos/')) {
+            return 'feature-documentos';
+          }
+          // Features de remitos
+          if (id.includes('/features/remitos/')) {
+            return 'feature-remitos';
+          }
         },
       },
     },

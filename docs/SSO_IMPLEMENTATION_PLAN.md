@@ -1,982 +1,880 @@
-# Plan de Implementación de Single Sign-On (SSO)
+# PLAN DE IMPLEMENTACIÓN: SINGLE SIGN-ON (SSO) CENTRALIZADO
 
-> **Documento de Arquitectura y Decisión (ADR)**  
-> **Fecha**: 26 de Diciembre, 2025  
-> **Estado**: En Evaluación  
-> **Autor**: Equipo de Desarrollo
-
----
-
-## Tabla de Contenidos
-
-1. [Resumen Ejecutivo](#1-resumen-ejecutivo)
-2. [Contexto y Motivación](#2-contexto-y-motivación)
-3. [Introspección del Stack Tecnológico Actual](#3-introspección-del-stack-tecnológico-actual)
-4. [Análisis de Opciones de SSO](#4-análisis-de-opciones-de-sso)
-5. [Evaluación Detallada: Zitadel](#5-evaluación-detallada-zitadel)
-6. [Arquitectura Propuesta](#6-arquitectura-propuesta)
-7. [Guía de Instalación](#7-guía-de-instalación)
-8. [Plan de Migración](#8-plan-de-migración)
-9. [Consideraciones de Seguridad](#9-consideraciones-de-seguridad)
-10. [Cronograma Estimado](#10-cronograma-estimado)
-11. [Riesgos y Mitigaciones](#11-riesgos-y-mitigaciones)
-12. [Referencias](#12-referencias)
+> **Proyecto**: Sistema de Autenticación Unificada para BCA  
+> **Fecha**: Enero 2026  
+> **Estado**: En planificación  
+> **Owner**: DevOps/Backend Lead  
 
 ---
 
-## 1. Resumen Ejecutivo
+## 📋 RESUMEN EJECUTIVO
 
 ### Objetivo
 
-Implementar un **Identity Provider (IdP) centralizado y autónomo** que sirva como fuente única de autenticación para todas las aplicaciones desarrolladas por el equipo, tanto actuales como futuras.
+Implementar un sistema de **Single Sign-On (SSO)** centralizado que permita a los usuarios de BCA autenticarse una sola vez y acceder a todas las aplicaciones de la organización:
 
-### Decisión
+- ✅ Monorepo BCA (sistema actual)
+- 🔄 Monorepo Logística (en desarrollo)
+- 🔄 Monorepo Inventario (planificado)
+- 🔄 Otras aplicaciones futuras
+- 🔄 Acceso a la red corporativa (opcional)
 
-Después de evaluar múltiples opciones, se recomienda **Zitadel** como la solución de SSO por las siguientes razones:
+### Solución Propuesta
 
-- ✅ Arquitectura cloud-native (Go, binario único)
-- ✅ Multi-tenancy nativo (Organizations)
-- ✅ Ligero (~256MB RAM vs 1GB+ de Keycloak)
-- ✅ UI moderna y developer-friendly
-- ✅ Soporte completo de OIDC/OAuth 2.0/SAML
-- ✅ Passkeys/WebAuthn incluido
-- ✅ Open Source (AGPL-3.0)
-- ✅ Self-hosted sin costos de licencia
+**Zitadel** - Plataforma moderna de Identity and Access Management (IAM) open source con multi-tenancy nativo
 
-### Alcance
+### Beneficios Clave
 
-| Aplicación | Estado | Integración SSO |
-|------------|--------|-----------------|
-| Monorepo BCA | Producción | Prioritaria |
-| Futuras apps | Planificadas | Desde inicio |
+| Beneficio | Descripción | Impacto |
+|-----------|-------------|---------|
+| **UX Mejorada** | Una sola credencial para todas las apps | Alto |
+| **Seguridad** | Gestión centralizada de políticas | Alto |
+| **Administración** | Onboarding/offboarding simplificado | Alto |
+| **Auditoría** | Logs centralizados de accesos | Medio |
+| **Escalabilidad** | Soporte para múltiples aplicaciones | Alto |
+| **Cumplimiento** | Integración con AD/LDAP corporativo | Medio |
 
----
+### Timeline
 
-## 2. Contexto y Motivación
+**Estimado**: 2-3 meses
 
-### Situación Actual
-
-El sistema actual de autenticación presenta las siguientes características:
-
-**Fortalezas:**
-- JWT con RS256 (firma asimétrica)
-- bcrypt 12 rounds para hashing
-- Sistema RBAC robusto con múltiples roles
-- Multi-tenant con `empresaId`/`tenantEmpresaId`
-
-**Debilidades:**
-- No hay refresh tokens (token único de larga duración)
-- Sin SSO real entre aplicaciones
-- Sin MFA/2FA
-- Sin OAuth externo (Google, Microsoft, Azure AD)
-- Sesiones no revocables (JWT stateless)
-- Cada aplicación futura requeriría reimplementar auth
-
-### Necesidad
-
-Se requiere un **Identity Provider autónomo** que:
-
-1. Sea independiente de las aplicaciones que sirve
-2. Permita SSO real entre múltiples aplicaciones
-3. Centralice la gestión de usuarios e identidades
-4. Soporte métodos de autenticación modernos (Passkeys, MFA)
-5. Escale para futuras aplicaciones sin retrabajar
-6. Opcionalmente integre con IdPs corporativos (Azure AD, Google Workspace)
+**Fases**:
+1. Setup y POC (2-3 semanas)
+2. Configuración roles/permisos (1-2 semanas)
+3. Deploy Staging (1 semana)
+4. Migración Producción (2 semanas)
+5. Integración apps futuras (continuo)
 
 ---
 
-## 3. Introspección del Stack Tecnológico Actual
+## 🎯 ALCANCE DEL PROYECTO
 
-### Arquitectura General
+### En Alcance
 
-```
-┌─────────────────────────────────────────────────────────────────────────┐
-│                           NGINX (Reverse Proxy)                         │
-│                    bca.microsyst.com.ar │ doc.microsyst.com.ar          │
-└────────────────────────────┬───────────────────────────────────────────┘
-                             │
-         ┌───────────────────┼───────────────────┐
-         ▼                   ▼                   ▼
-┌─────────────────┐ ┌─────────────────┐ ┌─────────────────┐
-│    Frontend     │ │    Backend      │ │   Documentos    │
-│   React 18 TS   │ │  Express 4.x    │ │   Express 5.x   │
-│   Vite + Redux  │ │  Prisma + JWT   │ │  BullMQ + MinIO │
-│   TailwindCSS   │ │    RS256        │ │   Socket.io     │
-└─────────────────┘ └────────┬────────┘ └────────┬────────┘
-                             │                   │
-                    ┌────────┴───────────────────┴────────┐
-                    ▼                                     ▼
-            ┌───────────────┐                     ┌───────────────┐
-            │  PostgreSQL   │                     │     Redis     │
-            │      16       │                     │       7       │
-            └───────────────┘                     └───────────────┘
-```
+- ✅ Instalación y configuración de Zitadel
+- ✅ Integración con Monorepo BCA (actual)
+- ✅ Migración de usuarios existentes
+- ✅ Configuración de roles y permisos
+- ✅ Setup de organizations, projects y applications
+- ✅ Documentación completa
+- ✅ Training para administradores
 
-### Stack Detallado
+### Fuera de Alcance (Fase 1)
 
-#### Frontend
-| Tecnología | Versión | Propósito |
-|------------|---------|-----------|
-| React | 18.2 | UI Framework |
-| TypeScript | 5.x | Tipado estático |
-| Vite | 6.2 | Build tool |
-| Redux Toolkit | 2.6 | Estado global + RTK Query |
-| TailwindCSS | 3.4 | Estilos |
-| Radix UI | 1.x | Componentes accesibles |
-| React Router DOM | 7.5 | Routing |
-| Zod | 3.x | Validación |
-| Socket.io Client | 4.8 | WebSockets |
-
-#### Backend
-| Tecnología | Versión | Propósito |
-|------------|---------|-----------|
-| Node.js | ≥20 | Runtime |
-| Express | 4.18 | Framework HTTP |
-| TypeScript | 5.x | Tipado |
-| Prisma | 6.12 | ORM |
-| jsonwebtoken | 9.x | JWT RS256 |
-| bcrypt | 6.0 | Hashing (12 rounds) |
-| Winston | 3.x | Logging |
-| Zod | 3.x | Validación |
-| express-rate-limit | 7.x | Rate limiting |
-
-#### Microservicios
-| Servicio | Stack | Función |
-|----------|-------|---------|
-| `documentos` | Express 5, Prisma, MinIO, BullMQ | Gestión documental |
-| `remitos` | Express 5, Prisma, Flowise | OCR e IA |
-
-#### Infraestructura
-| Componente | Tecnología |
-|------------|------------|
-| Contenedores | Docker + Docker Compose |
-| Reverse Proxy | Nginx |
-| Base de datos | PostgreSQL 16 |
-| Cache/Queue | Redis 7 |
-| Storage | MinIO (S3-compatible) |
-| IA | Flowise |
-| Process Manager | PM2 |
-
-### Sistema de Autenticación Actual
-
-#### Modelo de Datos (Prisma)
-
-```prisma
-model User {
-  id                     Int        @id @default(autoincrement())
-  email                  String     @unique
-  password               String
-  role                   UserRole   @default(OPERATOR)
-  empresaId              Int?
-  nombre                 String?
-  apellido               String?
-  activo                 Boolean    @default(true)
-  mustChangePassword     Boolean    @default(false)
-  
-  // Asociaciones por rol
-  dadorCargaId           Int?
-  empresaTransportistaId Int?
-  choferId               Int?
-  clienteId              Int?
-  
-  @@map("platform_users")
-}
-
-enum UserRole {
-  SUPERADMIN
-  ADMIN
-  OPERATOR
-  OPERADOR_INTERNO
-  ADMIN_INTERNO
-  DADOR_DE_CARGA
-  TRANSPORTISTA
-  CHOFER
-  CLIENTE
-}
-```
-
-#### Flujo de Autenticación Actual
-
-```
-Usuario                    Frontend                   Backend
-   │                          │                          │
-   │── Ingresa credenciales ──►                          │
-   │                          │── POST /api/auth/login ──►
-   │                          │                          │
-   │                          │◄── { token, user } ──────│
-   │                          │                          │
-   │                          │── Guarda en localStorage │
-   │                          │                          │
-   │◄── Redirect a dashboard ─│                          │
-   │                          │                          │
-   │    (Cada request)        │                          │
-   │                          │── Authorization: Bearer ─►
-   │                          │                          │
-   │                          │── Verifica JWT RS256 ────│
-   │                          │                          │
-```
-
-#### Middlewares de Autenticación
-
-```typescript
-// apps/backend/src/middlewares/auth.middleware.ts
-export const verifyToken = (token: string): TokenPayload | null => {
-  try {
-    return jwt.verify(token, getPublicKey(), { algorithms: ['RS256'] }) as TokenPayload;
-  } catch {
-    // Fallback legacy HS256
-    const legacy = getLegacySecret();
-    if (legacy) {
-      try {
-        return jwt.verify(token, legacy, { algorithms: ['HS256'] }) as TokenPayload;
-      } catch {
-        return null;
-      }
-    }
-    return null;
-  }
-};
-```
+- ❌ Integración con Active Directory (Fase 2)
+- ❌ Multi-factor Authentication (MFA) (Fase 2)
+- ❌ Integración con otras apps (se hará gradualmente)
+- ❌ Single Logout federado completo (Fase 2)
 
 ---
 
-## 4. Análisis de Opciones de SSO
+## 🏗️ ARQUITECTURA PROPUESTA
 
-### Opciones Evaluadas
-
-#### Self-Hosted (Open Source)
-
-| Solución | Lenguaje | RAM Mínima | Multi-tenant | SAML | Madurez |
-|----------|----------|------------|--------------|------|---------|
-| **Keycloak** | Java | ~1GB | Realms | ✅ | ⭐⭐⭐⭐⭐ |
-| **Zitadel** | Go | ~256MB | Organizations | ✅ | ⭐⭐⭐⭐ |
-| **Authentik** | Python | ~512MB | Tenants | ✅ | ⭐⭐⭐⭐ |
-| **Ory Stack** | Go | ~128MB | Manual | ❌ | ⭐⭐⭐⭐ |
-| **Logto** | TypeScript | ~256MB | Organizations | ❌ | ⭐⭐⭐ |
-
-#### SaaS (Gestionados)
-
-| Servicio | Precio Inicial | MAU Gratis | Enterprise SSO |
-|----------|---------------|------------|----------------|
-| **Auth0** | $23/mes | 7K | ✅ |
-| **Clerk** | Gratis | 10K | ✅ |
-| **WorkOS** | $125/mes | - | ✅ |
-| **Descope** | Gratis | 7.5K | ✅ |
-
-### Matriz de Decisión
-
-| Criterio | Peso | Keycloak | Zitadel | Authentik | Logto |
-|----------|------|----------|---------|-----------|-------|
-| Ligereza (recursos) | 20% | ⭐⭐ | ⭐⭐⭐⭐⭐ | ⭐⭐⭐ | ⭐⭐⭐⭐ |
-| Facilidad de setup | 20% | ⭐⭐ | ⭐⭐⭐⭐ | ⭐⭐⭐ | ⭐⭐⭐⭐⭐ |
-| Multi-tenant nativo | 15% | ⭐⭐⭐⭐ | ⭐⭐⭐⭐⭐ | ⭐⭐⭐ | ⭐⭐⭐⭐ |
-| UI moderna | 10% | ⭐⭐ | ⭐⭐⭐⭐⭐ | ⭐⭐⭐⭐⭐ | ⭐⭐⭐⭐⭐ |
-| Documentación | 10% | ⭐⭐⭐⭐⭐ | ⭐⭐⭐⭐ | ⭐⭐⭐⭐ | ⭐⭐⭐ |
-| Madurez/estabilidad | 15% | ⭐⭐⭐⭐⭐ | ⭐⭐⭐⭐ | ⭐⭐⭐⭐ | ⭐⭐⭐ |
-| Enterprise SSO (SAML) | 10% | ⭐⭐⭐⭐⭐ | ⭐⭐⭐⭐ | ⭐⭐⭐⭐⭐ | ⭐⭐ |
-| **TOTAL** | 100% | **72%** | **88%** | **80%** | **78%** |
-
-### Decisión: Zitadel
-
-**Zitadel** es la opción recomendada por:
-
-1. **Arquitectura moderna**: Go, binario único, cloud-native
-2. **Multi-tenancy desde el diseño**: "Organizations" como ciudadano de primera clase
-3. **Recursos mínimos**: ~256MB RAM en producción
-4. **Developer experience**: SDKs para Node.js y React
-5. **Autenticación moderna**: Passkeys/WebAuthn nativo
-6. **Sin vendor lock-in**: Open source, self-hosted
-
----
-
-## 5. Evaluación Detallada: Zitadel
-
-### Ficha Técnica
-
-| Aspecto | Detalle |
-|---------|---------|
-| **Nombre** | Zitadel |
-| **Origen** | Suiza (Zitadel Cloud GmbH) |
-| **Licencia** | AGPL-3.0 (Open Source) |
-| **Lenguaje** | Go |
-| **Base de datos** | PostgreSQL ≥14 o CockroachDB |
-| **Protocolos** | OIDC, OAuth 2.0, SAML 2.0 |
-| **GitHub** | github.com/zitadel/zitadel (~9K stars) |
-
-### Arquitectura de Zitadel
+### Diagrama de Alto Nivel
 
 ```
-┌─────────────────────────────────────────────────────────────────────────┐
-│                           ZITADEL                                       │
-│                                                                         │
-│  ┌─────────────────────────────────────────────────────────────────┐   │
-│  │                      Single Binary (Go)                         │   │
-│  │                     ~50MB, sin JVM, sin Node                    │   │
-│  │                                                                 │   │
-│  │  ┌─────────────┐  ┌─────────────┐  ┌─────────────────────────┐ │   │
-│  │  │ gRPC API    │  │ REST API    │  │ Login UI (embebida)     │ │   │
-│  │  │ (Admin)     │  │ (OIDC/OAuth)│  │ Personalizable          │ │   │
-│  │  └─────────────┘  └─────────────┘  └─────────────────────────┘ │   │
-│  └─────────────────────────────────────────────────────────────────┘   │
-│                                 │                                       │
-│                                 ▼                                       │
-│  ┌─────────────────────────────────────────────────────────────────┐   │
-│  │                    Event Store (CQRS)                           │   │
-│  │              Arquitectura basada en eventos                     │   │
-│  │          (Auditoría completa, replay de estados)                │   │
-│  └─────────────────────────────────────────────────────────────────┘   │
-│                                 │                                       │
-│                                 ▼                                       │
-│  ┌─────────────────────────────────────────────────────────────────┐   │
-│  │              PostgreSQL 14+ / CockroachDB                       │   │
-│  └─────────────────────────────────────────────────────────────────┘   │
-└─────────────────────────────────────────────────────────────────────────┘
-```
-
-### Modelo de Datos Jerárquico
-
-```
-Instance (instalación de Zitadel)
-  │
-  ├── Organization 1 (Empresa BCA)
-  │     ├── Users (empleados, admins)
-  │     ├── Projects
-  │     │     ├── App: Monorepo BCA (client_id, client_secret)
-  │     │     ├── App: Portal Clientes (client_id)
-  │     │     └── App: API Móvil (client_id)
-  │     └── Policies (MFA, password, branding)
-  │
-  ├── Organization 2 (Otra empresa)
-  │     ├── Users
-  │     └── Projects
-  │           └── App: CRM (client_id)
-  │
-  └── Organization N...
-```
-
-### Características Principales
-
-#### Métodos de Autenticación
-
-| Método | Soportado | Notas |
-|--------|-----------|-------|
-| Email/Password | ✅ | Políticas de complejidad configurables |
-| Passkeys (WebAuthn/FIDO2) | ✅ | Nativo, sin plugins |
-| TOTP (Google Authenticator) | ✅ | MFA |
-| SMS OTP | ✅ | Requiere proveedor SMS |
-| Magic Links | ✅ | Passwordless |
-| Social Login | ✅ | Google, GitHub, Microsoft, etc. |
-| Enterprise SSO (SAML/OIDC) | ✅ | Azure AD, Google Workspace, Okta |
-| LDAP/Active Directory | ✅ | Sync de usuarios |
-
-#### Actions (Extensibilidad)
-
-Zitadel permite ejecutar JavaScript en sandbox para personalizar flujos:
-
-```javascript
-// Ejemplo: Agregar claims custom al token
-function enrich(ctx, api) {
-  // Leer metadata del usuario
-  const empresaId = ctx.user.metadata['empresa_id'];
-  const role = ctx.user.metadata['role'];
-  
-  // Agregar al token
-  api.claims.setClaim('custom:empresa_id', empresaId);
-  api.claims.setClaim('custom:role', role);
-}
-```
-
-**Eventos disponibles:**
-- Pre/Post Registration
-- Pre/Post Login
-- Pre Token Creation
-- Password Change
-- User Deactivation
-
-### Requisitos de Infraestructura
-
-| Recurso | Mínimo | Recomendado Producción |
-|---------|--------|------------------------|
-| RAM | 256MB | 512MB - 1GB |
-| CPU | 1 core | 2 cores |
-| Disco | 1GB | 10GB+ (eventos) |
-| PostgreSQL | 14+ | 16 |
-
-### Comparativa de Recursos: Zitadel vs Keycloak
-
-| Métrica | Zitadel | Keycloak |
-|---------|---------|----------|
-| RAM en reposo | ~200MB | ~500MB-1GB |
-| Tiempo de inicio | ~5 segundos | ~30-60 segundos |
-| Tamaño imagen Docker | ~50MB | ~400MB+ |
-| Runtime | Go (nativo) | Java (JVM) |
-
-### Modelo de Precios
-
-#### Self-Hosted (AGPL-3.0)
-- **Costo**: $0 (Gratis)
-- **Límites**: Ninguno
-- **Requisito AGPL**: Si modificas código, debes publicar cambios
-
-#### Cloud (Gestionado)
-| Plan | Precio | Incluye |
-|------|--------|---------|
-| Free | $0 | 25K MAU, 3 organizaciones |
-| Pro | Desde $100/mes | MAU ilimitados, SLA 99.9% |
-| Enterprise | Custom | Dedicated, compliance, support |
-
-**Recomendación**: Self-hosted (ya existe infraestructura Docker + PostgreSQL).
-
----
-
-## 6. Arquitectura Propuesta
-
-### Diagrama General
-
-```
-┌─────────────────────────────────────────────────────────────────────────┐
-│                     ZITADEL (IdP Autónomo)                              │
-│                   auth.microsyst.com.ar                                 │
-│                                                                         │
-│  ┌─────────────────────────────────────────────────────────────────┐   │
-│  │  Instancia Docker independiente                                 │   │
-│  │  DB: PostgreSQL (schema separado: zitadel)                      │   │
-│  │  Puerto: 8080 (interno) → 443 (nginx con SSL)                   │   │
-│  └─────────────────────────────────────────────────────────────────┘   │
-│                                                                         │
-│  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐   │
-│  │ Org: BCA    │  │ Org: CRM    │  │ Org: ERP    │  │ Org: ...    │   │
-│  │ (Tenant 1)  │  │ (Tenant 2)  │  │ (Tenant 3)  │  │             │   │
-│  └─────────────┘  └─────────────┘  └─────────────┘  └─────────────┘   │
-└─────────────────────────────────────┬───────────────────────────────────┘
-                                      │
-                    OIDC/OAuth 2.0    │
-       ┌──────────────────────────────┼──────────────────────────────┐
-       ▼                              ▼                              ▼
-┌──────────────────┐        ┌──────────────────┐        ┌──────────────────┐
-│ Monorepo BCA     │        │ Proyecto CRM     │        │ App Móvil        │
-│ bca.microsyst    │        │ crm.microsyst    │        │ (iOS/Android)    │
-│                  │        │                  │        │                  │
-│ - Backend valida │        │ - Mismo flujo    │        │ - PKCE flow      │
-│   tokens OIDC    │        │   OIDC           │        │                  │
-│ - Frontend usa   │        │                  │        │                  │
-│   SDK React      │        │                  │        │                  │
-└──────────────────┘        └──────────────────┘        └──────────────────┘
-```
-
-### Flujo de SSO
-
-```
-Usuario accede a bca.microsyst.com.ar
-        │
-        ▼
-┌─────────────────────────┐
-│ ¿Tiene token válido?    │──── Sí ────► Acceso directo a la app
-└───────────┬─────────────┘
-            │ No
-            ▼
-Redirect a auth.microsyst.com.ar/oauth/v2/authorize
-        │
-        ▼
-┌─────────────────────────┐
-│ ¿Sesión activa en       │
-│ Zitadel?                │──── Sí ────► SSO: No pide credenciales
-└───────────┬─────────────┘              │
-            │ No                         │
-            ▼                            │
-┌─────────────────────────┐              │
-│ Login UI de Zitadel     │              │
-│ (Passkey, Password,     │              │
-│  Google, etc.)          │              │
-└───────────┬─────────────┘              │
-            │                            │
-            ▼                            │
-Usuario se autentica (una sola vez)      │
-            │                            │
-            └──────────┬─────────────────┘
+                    USUARIOS
+                       │
                        ▼
-Redirect a bca.microsyst.com.ar/callback?code=xxx
-        │
-        ▼
-Frontend intercambia code por tokens (access_token, id_token, refresh_token)
-        │
-        ▼
-Usuario accede a BCA
-        │
-        ▼
-Si luego va a crm.microsyst.com.ar → SSO automático (no login)
+        ┌──────────────────────────┐
+        │    NAVEGADOR WEB         │
+        └──────────┬───────────────┘
+                   │
+                   │ HTTPS
+                   ▼
+        ┌──────────────────────────┐
+        │    NGINX (Reverse Proxy) │
+        │    sso.bca.com.ar        │
+        └──────────┬───────────────┘
+                   │
+                   ▼
+        ┌──────────────────────────┐
+        │    ZITADEL               │
+        │    Puerto: 8080          │
+        │    OpenID Connect        │
+        │    OAuth 2.0             │
+        │    Multi-Tenant Nativo   │
+        └──────────┬───────────────┘
+                   │
+        ┌──────────┴──────────┐
+        │                     │
+        ▼                     ▼
+┌──────────────┐    ┌──────────────┐
+│ PostgreSQL   │    │ Redis (opt)  │
+│ (Zitadel DB) │    │ (Cache)      │
+│ Event-Source │    │              │
+└──────────────┘    └──────────────┘
+
+
+APLICACIONES CLIENTE:
+════════════════════
+
+┌─────────────────────────────────────┐
+│  app.bca.com.ar (Monorepo BCA)     │
+│  Client Type: public (SPA)          │
+│  Flow: Authorization Code + PKCE   │
+└─────────────────────────────────────┘
+
+┌─────────────────────────────────────┐
+│  logistica.bca.com.ar (Futuro)     │
+│  Client Type: public                │
+│  Flow: Authorization Code + PKCE   │
+└─────────────────────────────────────┘
+
+┌─────────────────────────────────────┐
+│  api.bca.com.ar (Backend API)      │
+│  Client Type: bearer-only           │
+│  Validación de tokens solamente     │
+└─────────────────────────────────────┘
 ```
 
-### Integración con Aplicaciones
-
-#### Backend (Node.js/Express)
+### Flujo de Autenticación (Authorization Code Flow con PKCE)
 
 ```
-Backend                                 Zitadel
-   │                                       │
-   │  1. Recibe request con Bearer token   │
-   │                                       │
-   │  2. Obtiene JWKS ─────────────────────►│
-   │     GET /.well-known/jwks.json        │
-   │                                       │
-   │◄────── { keys: [...] } ───────────────│
-   │                                       │
-   │  3. Verifica firma JWT localmente     │
-   │     (no necesita llamar a Zitadel     │
-   │      en cada request)                 │
-   │                                       │
-   │  4. Extrae claims: userId, email,     │
-   │     role, empresaId, etc.             │
-   │                                       │
-   │  5. Autoriza según RBAC local         │
-   └───────────────────────────────────────┘
+1. Usuario accede a app.bca.com.ar
+   │
+2. Frontend detecta no autenticado
+   │
+3. Genera code_verifier y code_challenge (PKCE)
+   │
+4. Redirige a Zitadel:
+   GET https://sso.bca.com.ar/oauth/v2/authorize
+   ?client_id=<client_id>
+   &redirect_uri=https://app.bca.com.ar/callback
+   &response_type=code
+   &scope=openid profile email urn:zitadel:iam:org:project:id:zitadel:aud
+   &code_challenge=<hash>
+   &code_challenge_method=S256
+   │
+5. Usuario ingresa credenciales en Zitadel
+   │
+6. Zitadel valida credenciales
+   │
+7. Zitadel redirige a app con authorization code:
+   https://app.bca.com.ar/callback?code=abc123...
+   │
+8. Frontend intercambia code por tokens:
+   POST https://sso.bca.com.ar/oauth/v2/token
+   {
+     grant_type: "authorization_code",
+     code: "abc123...",
+     redirect_uri: "https://app.bca.com.ar/callback",
+     client_id: "<client_id>",
+     code_verifier: "<original>"
+   }
+   │
+9. Zitadel responde con tokens:
+   {
+     access_token: "eyJhbGc...",  (1 hora)
+     refresh_token: "eyJhbGc...", (30 días)
+     id_token: "eyJhbGc...",
+     token_type: "Bearer",
+     expires_in: 3600
+   }
+   │
+10. Frontend almacena tokens (httpOnly cookie preferido o localStorage)
+    │
+11. Frontend hace requests a API con Access Token:
+    Authorization: Bearer <access_token>
+    │
+12. API valida token con JWKS de Zitadel o introspección
+    │
+13. API responde con datos
 ```
-
-**Librerías recomendadas:**
-- `openid-client` - Cliente OIDC oficial para Node.js
-- `jose` - Validación de JWTs y JWKS
-- `@zitadel/node` - SDK oficial (opcional)
-
-#### Frontend (React)
-
-**Librerías recomendadas:**
-- `@zitadel/react` - SDK oficial
-- `oidc-client-ts` - Cliente OIDC genérico
-- `react-oidc-context` - Context wrapper
-
-**Flujo:**
-1. Usuario clickea "Login"
-2. Redirect a Zitadel (`/oauth/v2/authorize`)
-3. Usuario se autentica
-4. Redirect de vuelta con `code`
-5. Intercambio code → tokens
-6. `access_token` en memoria, `refresh_token` en httpOnly cookie
-
-### Mapeo de Roles
-
-| Rol en Zitadel | Rol en App BCA | Permisos |
-|----------------|----------------|----------|
-| `org:admin` | SUPERADMIN | Acceso total |
-| `project:bca:admin` | ADMIN | Admin de BCA |
-| `project:bca:operator` | OPERATOR | Operador |
-| `project:bca:dador` | DADOR_DE_CARGA | Solo su dador |
-| `project:bca:transportista` | TRANSPORTISTA | Solo su empresa |
-| `project:bca:chofer` | CHOFER | Solo su perfil |
-| `project:bca:cliente` | CLIENTE | Solo lectura |
 
 ---
 
-## 7. Guía de Instalación
+## 🛠️ ESPECIFICACIÓN TÉCNICA
 
-### Opción A: Docker Compose (PoC Rápido)
+### Zitadel
 
-#### Estructura de archivos
+**Versión**: v2.x (latest stable)
 
-```
-zitadel/
-├── docker-compose.yml
-├── machinekey/           # Se genera automáticamente
-└── data/                 # Persistencia PostgreSQL
-```
+**Stack**:
+- Go (lenguaje nativo)
+- gRPC + HTTP/2
+- PostgreSQL 16 (base de datos con event-sourcing)
+- Redis (opcional, para cache de proyecciones)
 
-#### docker-compose.yml
+**Características Diferenciales**:
+- Multi-tenancy nativo (organizations)
+- Event-sourcing architecture
+- API-first design (gRPC + REST)
+- UI moderna y responsive
+- Actions (webhooks y custom logic)
+- Rendimiento superior vs Keycloak
+
+**Requisitos de Hardware**:
+
+| Ambiente | CPU | RAM | Disco |
+|----------|-----|-----|-------|
+| **Development** | 2 cores | 1 GB | 10 GB |
+| **Staging** | 2 cores | 2 GB | 20 GB |
+| **Producción** | 4 cores | 4 GB | 50 GB |
+
+**Configuración Docker**:
 
 ```yaml
-version: '3.8'
+# docker-compose.zitadel.yml
+version: '3.9'
 
 services:
   zitadel:
     image: ghcr.io/zitadel/zitadel:latest
     container_name: zitadel
-    restart: unless-stopped
-    command: start-from-init --masterkey "MustBe32CharactersLongMasterKey!" --tlsMode disabled
+    command: 'start-from-init --masterkeyFromEnv --tlsMode external'
     environment:
-      # Base de datos
-      ZITADEL_DATABASE_POSTGRES_HOST: zitadel-db
+      # Database
+      ZITADEL_DATABASE_POSTGRES_HOST: postgres
       ZITADEL_DATABASE_POSTGRES_PORT: 5432
       ZITADEL_DATABASE_POSTGRES_DATABASE: zitadel
       ZITADEL_DATABASE_POSTGRES_USER_USERNAME: zitadel
-      ZITADEL_DATABASE_POSTGRES_USER_PASSWORD: zitadel-password
+      ZITADEL_DATABASE_POSTGRES_USER_PASSWORD: ${ZITADEL_DB_PASSWORD}
       ZITADEL_DATABASE_POSTGRES_USER_SSL_MODE: disable
       ZITADEL_DATABASE_POSTGRES_ADMIN_USERNAME: postgres
-      ZITADEL_DATABASE_POSTGRES_ADMIN_PASSWORD: postgres-password
+      ZITADEL_DATABASE_POSTGRES_ADMIN_PASSWORD: ${POSTGRES_PASSWORD}
       ZITADEL_DATABASE_POSTGRES_ADMIN_SSL_MODE: disable
       
-      # URLs externas
-      ZITADEL_EXTERNALDOMAIN: localhost
-      ZITADEL_EXTERNALPORT: 8080
-      ZITADEL_EXTERNALSECURE: "false"
+      # External Domain
+      ZITADEL_EXTERNALDOMAIN: sso.bca.com.ar
+      ZITADEL_EXTERNALPORT: 443
+      ZITADEL_EXTERNALSECURE: true
+      ZITADEL_TLS_ENABLED: false  # TLS terminado en Nginx
       
-      # Primer usuario admin
-      ZITADEL_FIRSTINSTANCE_ORG_HUMAN_USERNAME: admin@localhost
-      ZITADEL_FIRSTINSTANCE_ORG_HUMAN_PASSWORD: Admin123!
+      # Master Key (encryption at rest)
+      ZITADEL_MASTERKEY: ${ZITADEL_MASTERKEY}
+      
+      # First Instance (admin)
+      ZITADEL_FIRSTINSTANCE_ORG_NAME: BCA
+      ZITADEL_FIRSTINSTANCE_ORG_HUMAN_USERNAME: admin
+      ZITADEL_FIRSTINSTANCE_ORG_HUMAN_PASSWORD: ${ZITADEL_ADMIN_PASSWORD}
+      
+      # Logging
+      ZITADEL_LOG_LEVEL: info
+      ZITADEL_LOG_FORMATTER_FORMAT: json
     ports:
       - "8080:8080"
-    volumes:
-      - ./machinekey:/machinekey
     depends_on:
-      zitadel-db:
+      postgres:
         condition: service_healthy
-    networks:
-      - zitadel-network
-
-  zitadel-db:
-    image: postgres:16-alpine
-    container_name: zitadel-db
-    restart: unless-stopped
-    environment:
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres-password
-      POSTGRES_DB: zitadel
     volumes:
-      - ./data:/var/lib/postgresql/data
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres -d zitadel"]
-      interval: 5s
-      timeout: 5s
-      retries: 10
+      - zitadel_data:/data
     networks:
-      - zitadel-network
+      - zitadel-net
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:8080/debug/healthz"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
+  postgres:
+    image: postgres:16-alpine
+    container_name: zitadel-postgres
+    environment:
+      POSTGRES_DB: zitadel
+      POSTGRES_USER: zitadel
+      POSTGRES_PASSWORD: ${KEYCLOAK_DB_PASSWORD}
+    volumes:
+      - zitadel_pg_data:/var/lib/postgresql/data
+    networks:
+      - zitadel-net
+
+volumes:
+  zitadel_data:
+  zitadel_pg_data:
 
 networks:
-  zitadel-network:
+  zitadel-net:
     driver: bridge
 ```
 
-#### Comandos
+### Configuración de Organization y Project
 
-```bash
-# Crear directorio
-mkdir -p ~/zitadel && cd ~/zitadel
+**Organization**: `BCA` (organización principal)
 
-# Crear docker-compose.yml
-nano docker-compose.yml
+**Project**: `BCA-Apps` (proyecto que agrupa todas las aplicaciones)
 
-# Iniciar
-docker compose up -d
-
-# Ver logs
-docker compose logs -f zitadel
-
-# Acceso: http://localhost:8080/ui/console
-# Usuario: admin@localhost
-# Password: Admin123!
-```
-
-### Opción B: Usar PostgreSQL Existente
-
-#### Preparar la base de datos
-
-```sql
--- Conectar a PostgreSQL
-psql -h 10.3.0.244 -U postgres
-
--- Crear base de datos y usuario
-CREATE DATABASE zitadel;
-CREATE USER zitadel_user WITH PASSWORD 'password_seguro';
-GRANT ALL PRIVILEGES ON DATABASE zitadel TO zitadel_user;
-
--- Permisos para crear schema (temporal)
-ALTER USER zitadel_user WITH SUPERUSER;
--- Después del primer inicio: ALTER USER zitadel_user WITH NOSUPERUSER;
-```
-
-#### docker-compose.yml (Solo Zitadel)
-
+**Configuración de Organization**:
 ```yaml
-version: '3.8'
-
-services:
-  zitadel:
-    image: ghcr.io/zitadel/zitadel:latest
-    container_name: zitadel
-    restart: unless-stopped
-    command: start-from-init --masterkey "${ZITADEL_MASTERKEY}" --tlsMode disabled
-    environment:
-      ZITADEL_DATABASE_POSTGRES_HOST: ${DB_HOST}
-      ZITADEL_DATABASE_POSTGRES_PORT: 5432
-      ZITADEL_DATABASE_POSTGRES_DATABASE: zitadel
-      ZITADEL_DATABASE_POSTGRES_USER_USERNAME: zitadel_user
-      ZITADEL_DATABASE_POSTGRES_USER_PASSWORD: ${ZITADEL_DB_PASSWORD}
-      ZITADEL_DATABASE_POSTGRES_USER_SSL_MODE: disable
-      ZITADEL_DATABASE_POSTGRES_ADMIN_USERNAME: ${DB_USER}
-      ZITADEL_DATABASE_POSTGRES_ADMIN_PASSWORD: ${DB_PASSWORD}
-      ZITADEL_DATABASE_POSTGRES_ADMIN_SSL_MODE: disable
-      
-      ZITADEL_EXTERNALDOMAIN: auth.microsyst.com.ar
-      ZITADEL_EXTERNALPORT: 443
-      ZITADEL_EXTERNALSECURE: "true"
-      
-      ZITADEL_FIRSTINSTANCE_ORG_HUMAN_USERNAME: admin@microsyst.com.ar
-      ZITADEL_FIRSTINSTANCE_ORG_HUMAN_PASSWORD: ${ZITADEL_ADMIN_PASSWORD}
-    ports:
-      - "8080:8080"
-    volumes:
-      - ./machinekey:/machinekey
-    networks:
-      - backend
-
-networks:
-  backend:
-    external: true
+Organization:
+  Name: BCA
+  Domain: bca.com.ar
+  
+  # Políticas de Seguridad
+  Password Policy:
+    MinLength: 8
+    RequireUppercase: true
+    RequireLowercase: true
+    RequireNumber: true
+    RequireSymbol: false
+    MaxAgeDays: 90
+    
+  Lockout Policy:
+    MaxPasswordAttempts: 5
+    ShowLockoutFailures: true
+    
+  Privacy Policy:
+    TOSLink: https://bca.com.ar/terms
+    PrivacyLink: https://bca.com.ar/privacy
+    HelpLink: https://soporte.bca.com.ar
+    
+  # Branding
+  LoginSettings:
+    AllowUsernamePassword: true
+    AllowRegister: false
+    AllowExternalIDP: false
+    ForceMFA: false  # Fase 2
+    HidePasswordReset: false
+    
+  # Session Configuration
+  AccessTokenLifetime: 3600s  # 1 hora
+  IDTokenLifetime: 3600s
+  RefreshTokenIdleExpiration: 2592000s  # 30 días
+  RefreshTokenExpiration: 7776000s  # 90 días
 ```
 
-### Opción C: Producción con Nginx SSL
+**Configuración de Project**:
+```yaml
+Project:
+  Name: BCA-Apps
+  HasProjectCheck: true  # Validar proyecto en tokens
+  PrivateLabelingSetting: ENFORCE_PROJECT_RESOURCE_OWNER_POLICY
+  
+  # Roles del Proyecto (sincronizados con sistema actual)
+  Roles:
+    - SUPERADMIN
+    - ADMIN
+    - OPERATOR
+    - OPERADOR_INTERNO
+    - ADMIN_INTERNO
+    - DADOR_DE_CARGA
+    - TRANSPORTISTA
+    - CHOFER
+    - CLIENTE
+```
 
-#### Agregar a nginx.conf
+### Configuración de Clients
 
-```nginx
-# ================================
-# ZITADEL IDENTITY PROVIDER
-# ================================
-server {
-    listen 80;
-    server_name auth.microsyst.com.ar;
-    return 301 https://$server_name$request_uri;
+**Client 1: bca-frontend**
+
+```json
+{
+  "clientId": "bca-frontend",
+  "name": "BCA Frontend SPA",
+  "description": "Monorepo BCA - Frontend React",
+  "rootUrl": "https://app.bca.com.ar",
+  "adminUrl": "https://app.bca.com.ar",
+  "baseUrl": "/",
+  "enabled": true,
+  "clientAuthenticatorType": "client-secret",
+  "redirectUris": [
+    "https://app.bca.com.ar/*",
+    "http://localhost:8550/*"
+  ],
+  "webOrigins": [
+    "https://app.bca.com.ar",
+    "http://localhost:8550"
+  ],
+  "publicClient": true,
+  "protocol": "openid-connect",
+  "attributes": {
+    "pkce.code.challenge.method": "S256"
+  },
+  "standardFlowEnabled": true,
+  "implicitFlowEnabled": false,
+  "directAccessGrantsEnabled": false,
+  "serviceAccountsEnabled": false,
+  "defaultClientScopes": [
+    "web-origins",
+    "roles",
+    "profile",
+    "email"
+  ]
 }
+```
 
-server {
-    listen 443 ssl http2;
-    server_name auth.microsyst.com.ar;
-    
-    ssl_certificate /etc/nginx/ssl/auth.microsyst.com.ar.crt;
-    ssl_certificate_key /etc/nginx/ssl/auth.microsyst.com.ar.key;
-    
-    # Security headers
-    add_header X-Frame-Options SAMEORIGIN;
-    add_header X-Content-Type-Options nosniff;
-    add_header X-XSS-Protection "1; mode=block";
-    add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
-    
-    location / {
-        proxy_pass http://zitadel:8080;
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;
-        proxy_set_header X-Forwarded-Host $host;
-        
-        # WebSocket support
-        proxy_http_version 1.1;
-        proxy_set_header Upgrade $http_upgrade;
-        proxy_set_header Connection "upgrade";
-        
-        proxy_read_timeout 300s;
-        proxy_connect_timeout 75s;
-    }
+**Client 2: bca-backend**
+
+```json
+{
+  "clientId": "bca-backend",
+  "name": "BCA Backend API",
+  "description": "Monorepo BCA - Backend Express",
+  "enabled": true,
+  "bearerOnly": true,
+  "protocol": "openid-connect"
 }
 ```
 
-### Variables de Entorno
+### Configuración de Roles
 
-| Variable | Descripción | Ejemplo |
-|----------|-------------|---------|
-| `ZITADEL_EXTERNALDOMAIN` | Dominio público | `auth.microsyst.com.ar` |
-| `ZITADEL_EXTERNALPORT` | Puerto público | `443` |
-| `ZITADEL_EXTERNALSECURE` | HTTPS | `true` |
-| `ZITADEL_MASTERKEY` | Clave encriptación (32 chars) | `MustBe32CharactersLong...` |
-| `ZITADEL_DATABASE_POSTGRES_HOST` | Host PostgreSQL | `10.3.0.244` |
-| `ZITADEL_FIRSTINSTANCE_ORG_HUMAN_USERNAME` | Admin inicial | `admin@microsyst.com.ar` |
-| `ZITADEL_FIRSTINSTANCE_ORG_HUMAN_PASSWORD` | Password admin | `SecurePassword123!` |
+**Project Roles** (aplicables a todas las apps del proyecto BCA-Apps):
+- `SUPERADMIN` - Acceso total a todo el ecosistema BCA
+- `ADMIN` - Administrador de su empresa
+- `ADMIN_INTERNO` - Administrador interno de BCA
+- `OPERATOR` - Operador estándar
+- `OPERADOR_INTERNO` - Operador interno de BCA
+- `DADOR_DE_CARGA` - Gestiona equipos y transportistas
+- `TRANSPORTISTA` - Gestiona su flota
+- `CHOFER` - Acceso limitado a sus datos
+- `CLIENTE` - Consulta compliance documental
 
----
+**Application-Specific Grants** (permisos por aplicación):
 
-## 8. Plan de Migración
+**bca-frontend**:
+- `admin_interno` - Admin interno de plataforma
+- `admin_dador` - Admin de empresa dadora de carga
+- `transportista` - Usuario transportista
+- `chofer` - Chofer
 
-### Fase 1: Instalación y Configuración (Semana 1)
+**Mapeo de Roles Actuales**:
 
-| Tarea | Duración | Responsable |
-|-------|----------|-------------|
-| Instalar Zitadel en ambiente de desarrollo | 1 día | DevOps |
-| Configurar SSL y DNS | 1 día | DevOps |
-| Crear Organization "BCA" | 0.5 día | Dev |
-| Registrar app BCA como cliente OIDC | 0.5 día | Dev |
-| Documentar configuración | 1 día | Dev |
-
-### Fase 2: Integración Backend (Semana 2)
-
-| Tarea | Duración | Responsable |
-|-------|----------|-------------|
-| Instalar librerías OIDC (openid-client, jose) | 0.5 día | Backend |
-| Crear middleware de validación OIDC | 1 día | Backend |
-| Mantener compatibilidad con JWT actual (dual mode) | 1 día | Backend |
-| Mapear claims de Zitadel a roles locales | 1 día | Backend |
-| Tests de integración | 1.5 días | Backend |
-
-### Fase 3: Integración Frontend (Semana 3)
-
-| Tarea | Duración | Responsable |
-|-------|----------|-------------|
-| Instalar SDK Zitadel React | 0.5 día | Frontend |
-| Refactorizar AuthSlice para OIDC | 1.5 días | Frontend |
-| Implementar flujo de login con redirect | 1 día | Frontend |
-| Manejar refresh tokens silenciosos | 1 día | Frontend |
-| Tests E2E | 1 día | Frontend |
-
-### Fase 4: Migración de Usuarios (Semana 4)
-
-| Tarea | Duración | Responsable |
-|-------|----------|-------------|
-| Script de exportación de usuarios actuales | 1 día | Backend |
-| Importar usuarios a Zitadel (API o CSV) | 1 día | Backend |
-| Enviar emails de reset password | 0.5 día | Backend |
-| Período de migración gradual (dual auth) | 2 días | Equipo |
-| Desactivar auth legacy | 0.5 día | Backend |
-
-### Fase 5: Producción (Semana 5)
-
-| Tarea | Duración | Responsable |
-|-------|----------|-------------|
-| Deploy Zitadel en producción | 1 día | DevOps |
-| Configurar backups de Zitadel DB | 0.5 día | DevOps |
-| Monitoreo y alertas | 0.5 día | DevOps |
-| Comunicación a usuarios | 1 día | PM |
-| Go-live y soporte | 2 días | Equipo |
+| Rol Actual (Monorepo BCA) | Realm Role | Client Role |
+|---------------------------|------------|-------------|
+| SUPERADMIN | superadmin | admin_interno |
+| ADMIN (empresa) | admin | admin_dador |
+| USER | user | transportista |
 
 ---
 
-## 9. Consideraciones de Seguridad
+## 📋 PLAN DE IMPLEMENTACIÓN
 
-### Buenas Prácticas
+### Fase 1: Setup y Prueba de Concepto (2-3 semanas)
 
-| Aspecto | Recomendación |
-|---------|---------------|
-| **MASTERKEY** | Generar con `openssl rand -hex 16` y guardar en vault |
-| **SSL/TLS** | Obligatorio en producción (Let's Encrypt o certs propios) |
-| **Cookies** | `httpOnly`, `Secure`, `SameSite=Strict` |
-| **Tokens** | Access token corto (15min), refresh largo (7d) |
-| **MFA** | Habilitar TOTP o Passkeys para admins |
-| **Rate Limiting** | Configurar en nginx y Zitadel |
-| **Audit Logs** | Habilitar y retener por compliance |
+**Objetivos**:
+- ✅ Zitadel funcionando en desarrollo
+- ✅ Organization BCA configurada
+- ✅ Frontend integrado con Zitadel
+- ✅ Backend validando tokens de Zitadel
+- ✅ POC completo con usuario de prueba
 
-### Checklist de Seguridad Pre-Go-Live
+**Tareas**:
 
-- [ ] MASTERKEY almacenada en vault/secrets manager
-- [ ] SSL/TLS configurado con certificado válido
-- [ ] Headers de seguridad en nginx (HSTS, X-Frame-Options, etc.)
-- [ ] MFA habilitado para usuarios administrativos
-- [ ] Políticas de password configuradas (mínimo 12 chars, complejidad)
-- [ ] Rate limiting activo
-- [ ] Backups automáticos de la DB de Zitadel
-- [ ] Monitoreo de logs de autenticación
-- [ ] Plan de respuesta a incidentes documentado
+**Semana 1**:
+1. Instalar Zitadel en servidor DEV (Docker Compose)
+2. Configurar PostgreSQL para Zitadel
+3. Acceder a Admin Console (http://localhost:8080)
+4. Crear Realm "BCA"
+5. Configurar clients (bca-frontend, bca-backend)
+6. Crear usuario de prueba
+7. Documentar configuración
+
+**Semana 2**:
+1. Integrar frontend con Zitadel
+   - Instalar `@zitadel/react` o `oidc-client-ts`
+   - Configurar redirect URIs
+   - Implementar login/logout
+   - Almacenar tokens
+2. Probar flujo de autenticación completo
+3. Implementar refresh token automático
+
+**Semana 3**:
+1. Adaptar backend para validar tokens de Zitadel
+   - Obtener JWKS de Zitadel (https://sso.bca.com.ar/oauth/v2/keys)
+   - Validar firma JWT
+   - Extraer claims (roles, email, sub)
+2. Mantener compatibilidad con sistema actual (dual mode)
+3. Testing exhaustivo de integración
+4. Ajustar configuración según resultados
+
+**Entregables**:
+- ✅ Keycloak funcionando en DEV
+- ✅ Documentación de setup
+- ✅ POC con flujo completo
+- ✅ Report de testing
+
+### Fase 2: Migración de Usuarios y Configuración de Roles (1-2 semanas)
+
+**Objetivos**:
+- ✅ Todos los usuarios migrados a Zitadel
+- ✅ Roles mapeados correctamente
+- ✅ Custom attributes configurados
+
+**Tareas**:
+
+**Semana 1**:
+1. Exportar usuarios de BD actual (PostgreSQL)
+   ```sql
+   SELECT id, email, username, role, empresa_id, created_at
+   FROM users
+   WHERE active = true;
+   ```
+2. Transformar a formato de importación de Zitadel (API)
+3. Importar usuarios a Zitadel via Management API o bulk import
+4. Verificar importación correcta
+5. Configurar custom attributes:
+   - `empresaId`
+   - `tenantId`
+6. Mapear roles actuales a Zitadel project roles
+
+**Semana 2**:
+1. Configurar organizations en Zitadel (por empresa si multi-tenant)
+2. Asignar usuarios a grupos
+3. Configurar role mappings
+4. Testing de permisos con diferentes roles
+5. Ajustes finales
+
+**Entregables**:
+- ✅ Script de migración de usuarios
+- ✅ Usuarios migrados exitosamente
+- ✅ Roles configurados
+- ✅ Documentación de mapeo de roles
+
+### Fase 3: Deploy a Staging (1 semana)
+
+**Objetivos**:
+- ✅ Zitadel corriendo en Staging
+- ✅ Aplicación Monorepo BCA integrada
+- ✅ Testing con usuarios reales
+
+**Tareas**:
+
+**Días 1-2**:
+1. Provisionar infraestructura en Staging:
+   - Servidor Zitadel (Docker Swarm)
+   - PostgreSQL dedicado para Zitadel
+   - Redis para sesiones (opcional)
+2. Configurar DNS: sso.staging.bca.com.ar
+3. Configurar certificados SSL (Let's Encrypt)
+4. Deploy de Zitadel
+
+**Días 3-4**:
+1. Importar configuración de DEV (Realm export)
+2. Importar usuarios de producción (anonimizados)
+3. Configurar Nginx para proxy a Zitadel
+4. Deploy de Monorepo BCA apuntando a Zitadel
+5. Smoke tests
+
+**Día 5**:
+1. Testing con usuarios del equipo (QA)
+2. Validar flujos:
+   - Login/Logout
+   - Refresh token
+   - Acceso a recursos protegidos
+   - Manejo de errores
+3. Ajustes y fixes
+
+**Entregables**:
+- ✅ Zitadel en Staging operativo
+- ✅ App integrada y funcionando
+- ✅ Report de testing en Staging
+
+### Fase 4: Migración Gradual a Producción (2 semanas)
+
+**Objetivos**:
+- ✅ Zitadel en producción
+- ✅ Migración gradual de usuarios
+- ✅ Rollback plan listo
+- ✅ 0 downtime
+
+**Estrategia**: Blue-Green deployment con rollout gradual
+
+**Semana 1: Preparación**:
+1. Provisionar infraestructura en Producción:
+   - Servidor Zitadel (Docker Swarm, 2+ réplicas)
+   - PostgreSQL con replicación
+   - Backups automáticos
+2. Configurar DNS: sso.bca.com.ar
+3. SSL/TLS configurado
+4. Deploy de Zitadel
+5. Importar configuración final
+6. Testing exhaustivo
+
+**Semana 2: Rollout Gradual**:
+
+**Día 1-2: 10% usuarios (Canary)**:
+1. Seleccionar 10% usuarios para migración inicial (equipo interno)
+2. Notificar cambio (email + in-app notification)
+3. Forzar logout de sistema actual
+4. Usuarios hacen login con Zitadel
+5. Monitoreo intensivo (Sentry, logs)
+6. Recolectar feedback
+
+**Día 3-4: 50% usuarios**:
+1. Si canary OK, migrar 50% usuarios restantes
+2. Notificación masiva
+3. Monitoreo continuo
+4. Soporte activo para dudas
+
+**Día 5: 100% usuarios**:
+1. Migración de todos los usuarios restantes
+2. Deshabilitar sistema de auth antiguo (mantener como fallback 1 semana)
+3. Monitoreo intensivo 24h
+4. Celebración del equipo 🎉
+
+**Rollback Plan**:
+- Si falla > 5% de logins: Rollback inmediato
+- Revertir a sistema antiguo (switch en backend)
+- Investigar y resolver issues
+- Reintento de migración cuando esté estable
+
+**Entregables**:
+- ✅ Zitadel en Producción operativo
+- ✅ 100% usuarios migrados exitosamente
+- ✅ Sistema antiguo deprecado
+- ✅ Documentación de troubleshooting
+
+### Fase 5: Integración de Apps Futuras (Continuo)
+
+**Objetivo**: Onboarding de nuevas aplicaciones al SSO
+
+**Proceso Estándar**:
+
+1. **Registrar Application en Zitadel Project**
+   - Crear nuevo client (ej: `logistica-frontend`)
+   - Configurar redirect URIs
+   - Configurar roles específicos
+
+2. **Integrar App**
+   - Usar librerías estándar (@zitadel/react, oidc-client-ts)
+   - Implementar login/logout
+   - Validar tokens
+
+3. **Testing**
+   - Flujo completo de autenticación
+   - SSO funcionando (login en una app = login en todas)
+
+4. **Deploy**
+
+**Tiempo Estimado por App**: 1-2 semanas
 
 ---
 
-## 10. Cronograma Estimado
+## 🔐 SEGURIDAD
 
-```
-Semana 1      Semana 2      Semana 3      Semana 4      Semana 5
-┌─────────────┬─────────────┬─────────────┬─────────────┬─────────────┐
-│ Instalación │ Integración │ Integración │ Migración   │ Go-Live     │
-│ y Config    │ Backend     │ Frontend    │ Usuarios    │ Producción  │
-│             │             │             │             │             │
-│ - Zitadel   │ - Middleware│ - SDK React │ - Export    │ - Deploy    │
-│ - SSL/DNS   │ - OIDC      │ - AuthSlice │ - Import    │ - Backups   │
-│ - Org BCA   │ - Mapeo     │ - Redirect  │ - Dual auth │ - Monitor   │
-│ - App OIDC  │ - Tests     │ - Refresh   │ - Cutover   │ - Soporte   │
-└─────────────┴─────────────┴─────────────┴─────────────┴─────────────┘
+### Configuración de Seguridad Recomendada
 
-Total estimado: 5 semanas
-```
+**Zitadel**:
+- ✅ HTTPS obligatorio (sslRequired: external)
+- ✅ PKCE habilitado para SPAs
+- ✅ Brute force protection activado
+- ✅ Tokens con expiración corta (15 min access, 30 días refresh)
+- ✅ Refresh token rotation habilitado
+- ✅ Session idle timeout: 30 min
+- ✅ Session max lifespan: 10 horas
+
+**Network**:
+- ✅ Zitadel en red privada, expuesto solo via Nginx
+- ✅ PostgreSQL no expuesto públicamente
+- ✅ Firewall rules estrictas
+
+**Auditoría**:
+- ✅ Zitadel events activados (login, logout, token refresh)
+- ✅ Admin events activados (cambios de configuración)
+- ✅ Logs centralizados (Winston + Sentry)
+
+### Gestión de Credenciales
+
+**Admin Password**:
+- Mínimo 20 caracteres
+- Almacenado en 1Password / Bitwarden
+- Rotación cada 90 días
+
+**Database Password**:
+- Generado aleatoriamente (64 caracteres)
+- Almacenado en .env (no versionado)
+- Rotación cada 90 días
+
+**Client Secrets** (si aplica):
+- Generados aleatoriamente
+- Almacenados en vault (HashiCorp Vault en futuro)
 
 ---
 
-## 11. Riesgos y Mitigaciones
+## 📊 MONITOREO Y OBSERVABILIDAD
+
+### Métricas Clave
+
+| Métrica | Threshold | Acción |
+|---------|-----------|--------|
+| **Tasa de Éxito de Login** | > 95% | Alerta si < 95% |
+| **Response Time Login** | < 1s (p95) | Alerta si > 2s |
+| **Disponibilidad Zitadel** | > 99.5% | Alerta si down |
+| **Tokens Expirados/Revocados** | < 1% | Investigar si > 2% |
+
+### Dashboards
+
+**Grafana Dashboard** (futuro):
+- Logins por hora
+- Logins fallidos
+- Usuarios activos
+- Sessions concurrentes
+- Response time de endpoints
+
+### Alertas
+
+**Críticas** (PagerDuty / Slack):
+- Zitadel down
+- PostgreSQL down
+- Tasa de login fallidos > 10%
+
+**Warnings** (Slack):
+- Response time alto
+- CPU/RAM alto
+- Disco > 80%
+
+---
+
+## 🧪 TESTING
+
+### Test Cases Críticos
+
+**Login Flow**:
+1. Login exitoso con credenciales válidas
+2. Login fallido con credenciales inválidas
+3. Login con usuario bloqueado (brute force)
+4. Login con usuario inactivo
+5. Redirect correcto después de login
+
+**Token Management**:
+1. Access token válido permite acceso
+2. Access token expirado retorna 401
+3. Refresh token renueva access token
+4. Refresh token expirado requiere re-login
+5. Logout invalida tokens
+
+**SSO (Multiple Apps)**:
+1. Login en App A → acceso directo a App B
+2. Logout en App A → logout en App B (si single logout habilitado)
+
+**Roles y Permisos**:
+1. SUPERADMIN accede a todo
+2. ADMIN accede solo a su empresa
+3. USER accede solo a sus datos
+4. Intento de acceso no autorizado retorna 403
+
+### Herramientas de Testing
+
+- **Postman**: Testing de flujos OAuth/OIDC
+- **Playwright**: Tests E2E automatizados
+- **Jest**: Tests unitarios de integración
+
+---
+
+## 📚 DOCUMENTACIÓN
+
+### Documentos a Crear
+
+1. **Admin Guide** - Cómo administrar Zitadel (crear usuarios, roles, applications)
+2. **Developer Guide** - Cómo integrar nuevas apps con Zitadel
+3. **User Guide** - Cómo usar el nuevo sistema de login (FAQ)
+4. **Troubleshooting Guide** - Problemas comunes y soluciones
+5. **Runbook** - Procedimientos operativos (backup, restore, upgrade)
+
+### Training
+
+**Administradores** (2 horas):
+- Overview de Zitadel
+- Cómo crear/editar usuarios
+- Cómo gestionar roles y permisos
+- Cómo revisar logs y eventos
+- Troubleshooting básico
+
+**Desarrolladores** (4 horas):
+- Arquitectura de SSO
+- OpenID Connect / OAuth 2.0
+- Cómo integrar nuevas apps
+- Best practices
+- Debugging
+
+**Usuarios Finales**:
+- Video tutorial (5 min)
+- FAQ page
+- Email de onboarding
+
+---
+
+## 💰 ESTIMACIÓN DE COSTOS
+
+### Infraestructura
+
+| Recurso | Costo Mensual (USD) | Costo Anual (USD) |
+|---------|---------------------|-------------------|
+| **Servidor Zitadel** (4 cores, 4GB RAM) | $30 | $360 |
+| **PostgreSQL** (para Zitadel) | $20 | $240 |
+| **Disco** (50 GB SSD) | $10 | $120 |
+| **Bandwidth** | $5 | $60 |
+| **Backups** | $5 | $60 |
+| **Total Infraestructura** | **$90** | **$1,080** |
+
+### Recursos Humanos
+
+| Rol | Horas | Costo/Hora | Total |
+|-----|-------|------------|-------|
+| **DevOps/Backend Senior** | 320h | $50 | $16,000 |
+| **Developer Backend** | 160h | $35 | $5,600 |
+| **QA Tester** | 80h | $25 | $2,000 |
+| **Total RRHH** | 560h | - | **$23,600** |
+
+### Costo Total del Proyecto
+
+**One-time**: $23,600 (implementación)  
+**Recurrente**: $90/mes ($1,080/año) (infraestructura)
+
+---
+
+## 🚧 RIESGOS Y MITIGACIONES
 
 | Riesgo | Probabilidad | Impacto | Mitigación |
 |--------|--------------|---------|------------|
-| **Downtime durante migración** | Media | Alto | Período de dual auth, rollback plan |
-| **Usuarios no migran passwords** | Media | Medio | Magic links, comunicación clara |
-| **Incompatibilidad con apps legacy** | Baja | Alto | Mantener endpoint legacy temporal |
-| **Zitadel tiene vulnerabilidad** | Baja | Alto | Monitorear CVEs, actualizar rápido |
-| **Performance degradado** | Baja | Medio | Cache de JWKS, validación local |
-| **Pérdida de MASTERKEY** | Muy baja | Crítico | Backup en múltiples lugares seguros |
+| **Usuarios no pueden loguearse** | Media | Alto | Mantener sistema antiguo como fallback 1 semana |
+| **Performance issues de Zitadel** | Baja | Alto | Testing de carga previo, 2+ réplicas en prod (Zitadel es más eficiente que Keycloak) |
+| **Migración de usuarios falla** | Media | Alto | Script de migración testeado en staging primero |
+| **Integración rompe app actual** | Baja | Alto | Feature flag para habilitar/deshabilitar SSO |
+| **Zitadel down en producción** | Baja | Crítico | Alta disponibilidad (2+ réplicas), monitoreo 24/7 |
 
 ---
 
-## 12. Referencias
+## ✅ CRITERIOS DE ÉXITO
 
-### Documentación Oficial
-
-- [Zitadel Docs](https://zitadel.com/docs)
-- [Zitadel Self-Hosting Guide](https://zitadel.com/docs/self-hosting/deploy/overview)
-- [Zitadel Node.js SDK](https://github.com/zitadel/zitadel-node)
-- [Zitadel React SDK](https://github.com/zitadel/zitadel-react)
-
-### Especificaciones
-
-- [OpenID Connect Core](https://openid.net/specs/openid-connect-core-1_0.html)
-- [OAuth 2.0 RFC 6749](https://tools.ietf.org/html/rfc6749)
-- [PKCE RFC 7636](https://tools.ietf.org/html/rfc7636)
-
-### Recursos Internos
-
-- [ADR: RS256 y Tenant](./ADR_RS256_TENANT.md)
-- [Permisos y Roles del Sistema](./PERMISOS_Y_ROLES_SISTEMA.md)
-- [Docker Compose Dev](./docker-compose.dev.yml)
+| Criterio | Target | Medición |
+|----------|--------|----------|
+| **Tasa de Éxito de Login** | > 95% | Zitadel events logs |
+| **Response Time Login** | < 2s (p95) | Monitoring (Grafana) |
+| **Usuarios Migrados** | 100% | Count en Zitadel |
+| **Downtime** | 0 minutos | Uptime monitoring |
+| **Satisfacción de Usuarios** | > 80% | Encuesta post-migración |
+| **Reducción en Tickets de Soporte** | > 20% | Comparar con mes anterior |
 
 ---
 
-## Apéndice A: Glosario
+## 📞 CONTACTOS Y RESPONSABLES
 
-| Término | Definición |
-|---------|------------|
-| **IdP** | Identity Provider - Servicio que gestiona identidades y autenticación |
-| **SSO** | Single Sign-On - Autenticación única para múltiples aplicaciones |
-| **OIDC** | OpenID Connect - Protocolo de identidad sobre OAuth 2.0 |
-| **OAuth 2.0** | Protocolo de autorización para acceso delegado |
-| **SAML** | Security Assertion Markup Language - Protocolo enterprise SSO |
-| **JWT** | JSON Web Token - Token firmado para transmitir claims |
-| **JWKS** | JSON Web Key Set - Conjunto de claves públicas para verificar JWTs |
-| **PKCE** | Proof Key for Code Exchange - Extensión OAuth para apps públicas |
-| **MFA** | Multi-Factor Authentication - Autenticación de múltiples factores |
-| **Passkeys** | Credenciales WebAuthn/FIDO2 sin contraseña |
+| Rol | Nombre | Email | Responsabilidad |
+|-----|--------|-------|-----------------|
+| **Project Owner** | DevOps Lead | devops@bca.com.ar | Implementación técnica |
+| **Stakeholder** | CTO / Founder | cto@bca.com.ar | Aprobaciones y decisiones |
+| **Developer** | Backend Dev | backend@bca.com.ar | Integración de apps |
+| **QA** | QA Lead | qa@bca.com.ar | Testing y validación |
 
 ---
 
-## Apéndice B: Checklist de Implementación
+## 🗓️ CRONOGRAMA CONSOLIDADO
 
-### Pre-requisitos
-- [ ] Dominio `auth.microsyst.com.ar` apuntando al servidor
-- [ ] Certificado SSL para el dominio
-- [ ] PostgreSQL 16 disponible
-- [ ] Docker y Docker Compose instalados
-
-### Instalación
-- [ ] Zitadel desplegado y accesible
-- [ ] Admin puede iniciar sesión
-- [ ] Organization creada
-- [ ] Project y App OIDC configurados
-
-### Backend
-- [ ] Middleware OIDC implementado
-- [ ] Dual auth funcionando (legacy + OIDC)
-- [ ] Claims mapeados a roles
-- [ ] Tests pasando
-
-### Frontend
-- [ ] SDK instalado y configurado
-- [ ] Login redirect funcionando
-- [ ] Refresh token automático
-- [ ] Logout funciona correctamente
-
-### Migración
-- [ ] Script de migración probado
-- [ ] Usuarios importados
-- [ ] Comunicación enviada
-- [ ] Legacy auth desactivado
-
-### Producción
-- [ ] Deploy en producción
-- [ ] Backups configurados
-- [ ] Monitoreo activo
-- [ ] Documentación actualizada
+```
+MES 1                           MES 2                           MES 3
+│                               │                               │
+├─ Semana 1-3: POC              ├─ Semana 5-6: Migración       ├─ Semana 9-10: Producción
+│  • Setup Zitadel              │  • Exportar usuarios          │  • Deploy Prod
+│  • Configurar organization    │  • Importar a Zitadel         │  • Rollout 10% (Day 1-2)
+│  • Integrar frontend          │  • Mapear roles               │  • Rollout 50% (Day 3-4)
+│  • Adaptar backend            │  • Testing permisos           │  • Rollout 100% (Day 5)
+│  • Testing POC                │                               │  • Monitoreo 24h
+│                               │                               │
+├─ Semana 4: Staging            ├─ Semana 7: Preparación Prod  ├─ Semana 11-12: Post-Launch
+│  • Deploy Staging             │  • Provisionar infra          │  • Monitoreo continuo
+│  • Importar config            │  • Deploy Zitadel             │  • Soporte usuarios
+│  • Testing con equipo         │  • Testing exhaustivo         │  • Docs finales
+│  • Ajustes finales            │  • Backup plan                │  • Training
+│                               │                               │  • Retro del proyecto
+```
 
 ---
 
-**Documento creado**: 26 de Diciembre, 2025  
-**Última actualización**: 26 de Diciembre, 2025  
+**Documento elaborado**: 14 Enero 2026  
+**Próxima revisión**: Post-implementación  
 **Versión**: 1.0  
-**Estado**: En Evaluación
 
+---
+
+Para consultas sobre este plan, contactar al equipo de DevOps en Slack #devops o vía email.

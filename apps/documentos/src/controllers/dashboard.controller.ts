@@ -543,4 +543,231 @@ export class DashboardController {
       res.status(500).json({ success: false, message: 'Error obteniendo estadísticas', code: 'STATS_ERROR' });
     }
   }
+
+  /**
+   * GET /api/docs/dashboard/rejected - Lista de documentos rechazados
+   */
+  static async getRejectedDocuments(req: AuthRequest, res: Response): Promise<void> {
+    try {
+      const prisma = (await import('../config/database')).db.getClient();
+      const user = req.user!;
+      const page = parseInt(req.query.page as string) || 1;
+      const limit = parseInt(req.query.limit as string) || 20;
+      const entityType = req.query.entityType as string | undefined;
+      const skip = (page - 1) * limit;
+
+      // Filtros base
+      const whereBase: any = {
+        tenantEmpresaId: req.tenantId!,
+        status: 'RECHAZADO' as any,
+        archived: false,
+      };
+
+      // Filtro por tipo de entidad
+      if (entityType) {
+        whereBase.entityType = entityType;
+      }
+
+      // Filtro por empresa según rol
+      if (user.role !== UserRole.SUPERADMIN && user.role !== UserRole.ADMIN_INTERNO) {
+        whereBase.dadorCargaId = user.empresaId!;
+      }
+
+      // Consultar documentos rechazados con paginación
+      const [documents, total] = await Promise.all([
+        prisma.document.findMany({
+          where: whereBase,
+          include: {
+            template: { select: { id: true, name: true, entityType: true } },
+          },
+          orderBy: [
+            { rejectedAt: 'desc' },
+            { id: 'desc' },
+          ],
+          skip,
+          take: limit,
+        }),
+        prisma.document.count({ where: whereBase }),
+      ]);
+
+      // Enriquecer con nombres de entidad
+      const enrichedDocs = await Promise.all(
+        documents.map(async (doc) => {
+          const entityNaturalId = await getEntityNaturalId(doc.entityType, doc.entityId);
+          return {
+            ...doc,
+            entityNaturalId,
+          };
+        })
+      );
+
+      res.json({
+        success: true,
+        data: enrichedDocs,
+        pagination: {
+          page,
+          limit,
+          total,
+          pages: Math.ceil(total / limit),
+        },
+      });
+    } catch (error) {
+      AppLogger.error('💥 Error obteniendo documentos rechazados:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Error interno',
+        code: 'REJECTED_DOCUMENTS_ERROR',
+      });
+    }
+  }
+
+  /**
+   * GET /api/docs/dashboard/rejected/stats - Estadísticas de documentos rechazados
+   */
+  static async getRejectedStats(req: AuthRequest, res: Response): Promise<void> {
+    try {
+      const prisma = (await import('../config/database')).db.getClient();
+      const user = req.user!;
+      const tenantEmpresaId = req.tenantId!;
+
+      // Filtros base
+      const whereBase: any = {
+        tenantEmpresaId,
+        status: 'RECHAZADO' as any,
+        archived: false,
+      };
+
+      // Filtro por empresa según rol
+      if (user.role !== UserRole.SUPERADMIN && user.role !== UserRole.ADMIN_INTERNO) {
+        whereBase.dadorCargaId = user.empresaId!;
+      }
+
+      // Estadísticas por tipo de entidad
+      const byEntityType = await prisma.document.groupBy({
+        by: ['entityType'],
+        where: whereBase,
+        _count: { entityType: true },
+      });
+
+      // Estadísticas por template
+      const byTemplate = await prisma.document.groupBy({
+        by: ['templateId'],
+        where: whereBase,
+        _count: { templateId: true },
+        orderBy: { _count: { templateId: 'desc' } },
+        take: 10,
+      });
+
+      // Obtener nombres de templates
+      const templateIds = byTemplate.map((t: any) => t.templateId);
+      const templates = templateIds.length
+        ? await prisma.documentTemplate.findMany({
+            where: { id: { in: templateIds } },
+            select: { id: true, name: true },
+          })
+        : [];
+
+      // Top motivos de rechazo
+      const rejectedDocs = await prisma.document.findMany({
+        where: whereBase,
+        select: { rejectionReason: true },
+        take: 100,
+      });
+
+      const reasonCounts: Record<string, number> = {};
+      rejectedDocs.forEach((doc) => {
+        if (doc.rejectionReason) {
+          const key = doc.rejectionReason.substring(0, 100); // Truncar para agrupar
+          reasonCounts[key] = (reasonCounts[key] || 0) + 1;
+        }
+      });
+
+      const topReasons = Object.entries(reasonCounts)
+        .map(([reason, count]) => ({ reason, count }))
+        .sort((a, b) => b.count - a.count)
+        .slice(0, 5);
+
+      // Rechazados hoy y últimos 7 días
+      const now = new Date();
+      const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+      const sevenDaysAgo = new Date(startOfDay);
+      sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+
+      const [rejectedToday, rejectedLast7Days] = await Promise.all([
+        prisma.document.count({
+          where: {
+            ...whereBase,
+            rejectedAt: { gte: startOfDay },
+          },
+        }),
+        prisma.document.count({
+          where: {
+            ...whereBase,
+            rejectedAt: { gte: sevenDaysAgo },
+          },
+        }),
+      ]);
+
+      res.json({
+        success: true,
+        data: {
+          rejectedToday,
+          rejectedLast7Days,
+          byEntityType: byEntityType.map((item: any) => ({
+            entityType: item.entityType,
+            count: Number(item._count.entityType),
+          })),
+          byTemplate: byTemplate.map((item: any) => ({
+            templateId: item.templateId,
+            templateName: templates.find((t) => t.id === item.templateId)?.name || `Template #${item.templateId}`,
+            count: Number(item._count.templateId),
+          })),
+          topReasons,
+        },
+      });
+    } catch (error) {
+      AppLogger.error('💥 Error obteniendo estadísticas de rechazados:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Error interno',
+        code: 'REJECTED_STATS_ERROR',
+      });
+    }
+  }
+}
+
+// ============================================================================
+// HELPER para obtener nombre natural de entidad
+// ============================================================================
+async function getEntityNaturalId(entityType: string, entityId: number): Promise<string | null> {
+  try {
+    const prisma = (await import('../config/database')).db.getClient();
+    
+    switch (entityType) {
+      case 'EMPRESA_TRANSPORTISTA': {
+        const emp = await prisma.empresaTransportista.findUnique({ where: { id: entityId }, select: { cuit: true, razonSocial: true } });
+        return emp ? `${emp.razonSocial} (${emp.cuit})` : null;
+      }
+      case 'CHOFER': {
+        const ch = await prisma.chofer.findUnique({ where: { id: entityId }, select: { dni: true, nombre: true, apellido: true } });
+        return ch ? `${ch.nombre} ${ch.apellido} (DNI: ${ch.dni})` : null;
+      }
+      case 'CAMION': {
+        const cm = await prisma.camion.findUnique({ where: { id: entityId }, select: { patente: true } });
+        return cm ? `Camión ${cm.patente}` : null;
+      }
+      case 'ACOPLADO': {
+        const ac = await prisma.acoplado.findUnique({ where: { id: entityId }, select: { patente: true } });
+        return ac ? `Acoplado ${ac.patente}` : null;
+      }
+      case 'DADOR': {
+        const dador = await prisma.dadorCarga.findUnique({ where: { id: entityId }, select: { razonSocial: true, cuit: true } });
+        return dador ? `${dador.razonSocial} (${dador.cuit})` : null;
+      }
+      default:
+        return null;
+    }
+  } catch {
+    return null;
+  }
 }

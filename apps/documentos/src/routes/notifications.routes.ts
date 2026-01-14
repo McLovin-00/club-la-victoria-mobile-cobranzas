@@ -1,17 +1,16 @@
 import { Router } from 'express';
-import { authenticate, authorize } from '../middlewares/auth.middleware';
-import { UserRole } from '../types/roles';
+import { authenticate } from '../middlewares/auth.middleware';
 import { NotificationsController } from '../controllers/notifications.controller';
 
 const router = Router();
 
 router.use(authenticate);
-router.get('/', authorize([UserRole.ADMIN, UserRole.SUPERADMIN]), NotificationsController.getConfig);
-router.put('/', authorize([UserRole.ADMIN, UserRole.SUPERADMIN]), NotificationsController.updateConfig);
-router.post('/test', authorize([UserRole.ADMIN, UserRole.SUPERADMIN]), NotificationsController.test);
-router.post('/run-expirations', authorize([UserRole.ADMIN, UserRole.SUPERADMIN]), NotificationsController.runExpirations);
-router.post('/run-missing', authorize([UserRole.ADMIN, UserRole.SUPERADMIN]), NotificationsController.runMissing);
+
+router.get('/', NotificationsController.getUserNotifications);
+router.get('/unread-count', NotificationsController.getUnreadCount);
+router.patch('/:id/read', NotificationsController.markAsRead);
+router.post('/mark-all-read', NotificationsController.markAllAsRead);
+router.delete('/:id', NotificationsController.deleteNotification);
+router.post('/delete-all-read', NotificationsController.deleteAllRead);
 
 export default router;
-
-

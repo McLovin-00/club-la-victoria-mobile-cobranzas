@@ -1,4 +1,5 @@
 import { db } from '../config/database';
+import { AppLogger } from '../config/logger';
 import type { DocumentStatus, Prisma } from '.prisma/documentos';
 
 // ============================================================================
@@ -11,7 +12,7 @@ const normalizeText = (s: string): string => String(s)
   .replace(/[\u0300-\u036f]/g, '')
   .toUpperCase()
   .replace(/[^A-Z0-9]+/g, '_')
-  .replace(/(?:^_+|_+$)/g, '');
+  .replace(/^_+/, '').replace(/_+$/, '');
 const isInt32 = (n: number): boolean => Number.isInteger(n) && n >= -2147483648 && n <= 2147483647;
 
 // ============================================================================
@@ -466,7 +467,7 @@ export class ApprovalService {
       throw new Error('Debe especificar un motivo de rechazo');
     }
     
-    return db.getClient().$transaction(async (tx) => {
+    const updatedDocument = await db.getClient().$transaction(async (tx) => {
       const document = await tx.document.findFirst({
         where: { id: documentId, tenantEmpresaId, status: 'PENDIENTE_APROBACION' as DocumentStatus },
         include: { classification: true },
@@ -497,6 +498,21 @@ export class ApprovalService {
         },
       });
     });
+
+    // Enviar notificaciones de rechazo (best-effort, no bloquea la transacción)
+    setImmediate(async () => {
+      try {
+        const { RejectionNotificationService } = await import('./rejection-notification.service');
+        await RejectionNotificationService.notifyDocumentRejection(
+          documentId,
+          reviewData.reason
+        );
+      } catch (error) {
+        AppLogger.error('Error enviando notificaciones de rechazo:', error);
+      }
+    });
+
+    return updatedDocument;
   }
 
   static async getApprovalStats(tenantEmpresaId: number) {

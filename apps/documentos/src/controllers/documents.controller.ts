@@ -203,7 +203,7 @@ function normalizeFileName(s: string): string {
     .replace(/[\u0300-\u036f]/g, '')
     .toUpperCase()
     .replace(/[^A-Z0-9]+/g, '_')
-    .replace(/(?:^_+|_+$)/g, '');
+    .replace(/^_+/, '').replace(/_+$/, '');
 }
 
 /** Construye nombre de archivo según convención */
@@ -1007,8 +1007,9 @@ export class DocumentsController {
 /**
  * Configuración de Multer para reupload de archivos
  * NOSONAR: Content length limits are intentional and appropriate for document uploads
+ * TODO: Implementar ruta de reupload que use este middleware
  */
-const reuploadMiddleware = multer({
+const _reuploadMiddleware = multer({
   storage: multer.memoryStorage(),
   limits: {
     fileSize: 10 * 1024 * 1024, // NOSONAR: Intentional 10MB limit

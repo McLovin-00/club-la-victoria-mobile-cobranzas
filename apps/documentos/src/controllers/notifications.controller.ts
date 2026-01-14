@@ -1,51 +1,160 @@
 import { Response } from 'express';
 import { AuthRequest } from '../middlewares/auth.middleware';
-import { SystemConfigService } from '../services/system-config.service';
-import { NotificationService } from '../services/notification.service';
+import { InternalNotificationService } from '../services/internal-notification.service';
+import { AppLogger } from '../config/logger';
 
+/**
+ * Controlador de Notificaciones Internas
+ */
 export class NotificationsController {
-  static async getConfig(req: AuthRequest, res: Response) {
-    const tenantPrefix = `tenant:${req.tenantId}:notifications.`;
+  
+  /**
+   * GET /api/docs/notifications - Obtener notificaciones del usuario
+   */
+  static async getUserNotifications(req: AuthRequest, res: Response): Promise<void> {
+    try {
+      const userId = req.user?.userId;
+      if (!userId) {
+        res.status(401).json({ success: false, message: 'Usuario no autenticado', code: 'UNAUTHORIZED' });
+        return;
+      }
 
-    // Obtener configuraciones con fallback a globales
-    const enabledVal = await SystemConfigService.getConfig(`${tenantPrefix}enabled`) ?? await SystemConfigService.getConfig('notifications.enabled');
-    const windowsVal = await SystemConfigService.getConfig(`${tenantPrefix}windows`) ?? await SystemConfigService.getConfig('notifications.windows');
-    const templatesVal = await SystemConfigService.getConfig(`${tenantPrefix}templates`) ?? await SystemConfigService.getConfig('notifications.templates');
+      const page = parseInt(req.query.page as string) || 1;
+      const limit = parseInt(req.query.limit as string) || 20;
+      const unreadOnly = req.query.unreadOnly === 'true';
 
-    // Parsear valores
-    const enabled = enabledVal === 'true';
-    const windows = windowsVal ? JSON.parse(windowsVal as string) : null;
-    const templates = templatesVal ? JSON.parse(templatesVal as string) : null;
+      const result = await InternalNotificationService.getUserNotifications(userId, {
+        page,
+        limit,
+        unreadOnly,
+      });
 
-    res.json({ success: true, data: { enabled, windows, templates } });
+      res.json({
+        success: true,
+        data: result.data,
+        pagination: result.pagination,
+        unreadCount: result.unreadCount,
+      });
+    } catch (error) {
+      AppLogger.error('Error obteniendo notificaciones:', error);
+      res.status(500).json({ success: false, message: 'Error interno', code: 'GET_NOTIFICATIONS_ERROR' });
+    }
   }
 
-  static async updateConfig(req: AuthRequest, res: Response) {
-    const { enabled, windows, templates } = req.body || {};
-    const tenantPrefix = `tenant:${req.tenantId}:notifications.`;
-    if (enabled !== undefined) await SystemConfigService.setConfig(`${tenantPrefix}enabled`, String(Boolean(enabled)));
-    if (windows !== undefined) await SystemConfigService.setConfig(`${tenantPrefix}windows`, JSON.stringify(windows));
-    if (templates !== undefined) await SystemConfigService.setConfig(`${tenantPrefix}templates`, JSON.stringify(templates));
-    res.json({ success: true });
+  /**
+   * GET /api/docs/notifications/unread-count - Obtener contador de no leídas
+   */
+  static async getUnreadCount(req: AuthRequest, res: Response): Promise<void> {
+    try {
+      const userId = req.user?.userId;
+      if (!userId) {
+        res.status(401).json({ success: false, message: 'Usuario no autenticado', code: 'UNAUTHORIZED' });
+        return;
+      }
+
+      const count = await InternalNotificationService.getUnreadCount(userId);
+
+      res.json({
+        success: true,
+        data: { count },
+      });
+    } catch (error) {
+      AppLogger.error('Error obteniendo contador:', error);
+      res.status(500).json({ success: false, message: 'Error interno', code: 'GET_UNREAD_COUNT_ERROR' });
+    }
   }
 
-  static async test(req: AuthRequest, res: Response) {
-    const { msisdn, text } = req.body || {};
-    if (!msisdn) return res.status(400).json({ success: false, message: 'msisdn requerido' });
-    const msg = text || 'Mensaje de prueba';
-    await NotificationService.send(msisdn, msg, { tenantId: req.tenantId!, audience: 'CHOFER', type: 'aviso', templateKey: 'test' });
-    res.json({ success: true });
+  /**
+   * PATCH /api/docs/notifications/:id/read - Marcar como leída
+   */
+  static async markAsRead(req: AuthRequest, res: Response): Promise<void> {
+    try {
+      const userId = req.user?.userId;
+      if (!userId) {
+        res.status(401).json({ success: false, message: 'Usuario no autenticado', code: 'UNAUTHORIZED' });
+        return;
+      }
+
+      const notificationId = parseInt(req.params.id);
+      await InternalNotificationService.markAsRead(notificationId, userId);
+
+      res.json({
+        success: true,
+        message: 'Notificación marcada como leída',
+      });
+    } catch (error) {
+      AppLogger.error('Error marcando como leída:', error);
+      res.status(500).json({ success: false, message: 'Error interno', code: 'MARK_READ_ERROR' });
+    }
   }
 
-  static async runExpirations(req: AuthRequest, res: Response) {
-    const count = await NotificationService.checkExpirations(req.tenantId!);
-    res.json({ success: true, sent: count });
+  /**
+   * POST /api/docs/notifications/mark-all-read - Marcar todas como leídas
+   */
+  static async markAllAsRead(req: AuthRequest, res: Response): Promise<void> {
+    try {
+      const userId = req.user?.userId;
+      if (!userId) {
+        res.status(401).json({ success: false, message: 'Usuario no autenticado', code: 'UNAUTHORIZED' });
+        return;
+      }
+
+      await InternalNotificationService.markAllAsRead(userId);
+
+      res.json({
+        success: true,
+        message: 'Todas las notificaciones marcadas como leídas',
+      });
+    } catch (error) {
+      AppLogger.error('Error marcando todas como leídas:', error);
+      res.status(500).json({ success: false, message: 'Error interno', code: 'MARK_ALL_READ_ERROR' });
+    }
   }
 
-  static async runMissing(req: AuthRequest, res: Response) {
-    const count = await NotificationService.checkMissingDocs(req.tenantId!);
-    res.json({ success: true, sent: count });
+  /**
+   * DELETE /api/docs/notifications/:id - Borrar notificación
+   */
+  static async deleteNotification(req: AuthRequest, res: Response): Promise<void> {
+    try {
+      const userId = req.user?.userId;
+      if (!userId) {
+        res.status(401).json({ success: false, message: 'Usuario no autenticado', code: 'UNAUTHORIZED' });
+        return;
+      }
+
+      const notificationId = parseInt(req.params.id);
+      await InternalNotificationService.deleteNotification(notificationId, userId);
+
+      res.json({
+        success: true,
+        message: 'Notificación borrada',
+      });
+    } catch (error) {
+      AppLogger.error('Error borrando notificación:', error);
+      res.status(500).json({ success: false, message: 'Error interno', code: 'DELETE_NOTIFICATION_ERROR' });
+    }
+  }
+
+  /**
+   * POST /api/docs/notifications/delete-all-read - Borrar todas las leídas
+   */
+  static async deleteAllRead(req: AuthRequest, res: Response): Promise<void> {
+    try {
+      const userId = req.user?.userId;
+      if (!userId) {
+        res.status(401).json({ success: false, message: 'Usuario no autenticado', code: 'UNAUTHORIZED' });
+        return;
+      }
+
+      await InternalNotificationService.deleteAllRead(userId);
+
+      res.json({
+        success: true,
+        message: 'Todas las notificaciones leídas borradas',
+      });
+    } catch (error) {
+      AppLogger.error('Error borrando todas las leídas:', error);
+      res.status(500).json({ success: false, message: 'Error interno', code: 'DELETE_ALL_READ_ERROR' });
+    }
   }
 }
-
-

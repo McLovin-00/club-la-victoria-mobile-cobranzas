@@ -19,6 +19,7 @@ import { ThemeToggle } from '../ui/theme-toggle';
 import { Logger } from '../../lib/utils';
 import { useServiceFlags } from '../../hooks/useServiceConfig';
 import bcaLogo from '../../assets/logo-bca.jpg';
+import { NotificationBell } from '../notifications/NotificationBell';
 // Tenant selector removido de la UI: el tenant se toma del empresaId del usuario
 
 export const MainLayout = () => {
@@ -51,6 +52,7 @@ export const MainLayout = () => {
 
           {/* Menú Usuario (tenant oculto; se deriva de empresaId) */}
           <div className='flex items-center gap-3'>
+            <NotificationBell />
             <UserMenu />
           </div>
         </div>

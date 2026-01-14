@@ -73,7 +73,7 @@ async function loadEquipoWithRelations(equipoId: number): Promise<{ equipo: Equi
     equipo.trailerId ? prisma.acoplado.findUnique({ where: { id: equipo.trailerId }, select: { patente: true } }) : null,
   ]);
 
-  return { equipo, relations: { chofer, camion, acoplado } };
+  return { equipo, relations: { chofer: chofer as any, camion, acoplado } };
 }
 
 function buildExcelRow(equipo: EquipoData, relations: EntityRelations): EquipoExcelRow {

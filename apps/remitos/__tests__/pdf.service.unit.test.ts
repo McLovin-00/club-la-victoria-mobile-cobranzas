@@ -59,7 +59,8 @@ describe('PDFService', () => {
       format: 'A4' | 'Letter' | 'Legal';
     }
 
-    const defaultOptions: ConversionOptions = {
+    // Opciones por defecto para futuro uso
+    const _defaultOptions: ConversionOptions = {
       fitToPage: true,
       margin: 20,
       quality: 85,

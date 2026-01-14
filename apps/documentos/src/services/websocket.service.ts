@@ -227,6 +227,21 @@ export class WebSocketService {
   }
 
   /**
+   * Notificar a un usuario específico
+   */
+  public notifyUser(userId: number, data: any): void {
+    if (!this.io) {
+      AppLogger.warn('WebSocket no inicializado');
+      return;
+    }
+
+    // Enviar a la room del usuario específico
+    this.io.to(`user_${userId}`).emit('notification', data);
+    
+    AppLogger.debug(`Notificación WebSocket enviada al usuario ${userId}`);
+  }
+
+  /**
    * Generar mensaje amigable para cambios de estado
    */
   private getStatusChangeMessage(oldStatus: string, newStatus: string, templateName: string): string {

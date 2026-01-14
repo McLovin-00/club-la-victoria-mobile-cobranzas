@@ -34,6 +34,8 @@ import ApprovalDetailPage from './features/documentos/pages/ApprovalDetailPage';
 import ExtractedDataPage from './features/documentos/pages/ExtractedDataPage';
 import EmpresasTransportistasPage from './features/documentos/pages/EmpresasTransportistasPage';
 import EmpresaTransportistaDetailPage from './features/documentos/pages/EmpresaTransportistaDetailPage';
+import { RejectedDocumentsPage } from './pages/documentos/RejectedDocumentsPage';
+import { NotificationsPage } from './pages/notificaciones/NotificationsPage';
 // Eliminado: EmpresasDocPage (no existe)
 import ChoferesPage from './features/documentos/pages/ChoferesPage';
 import CamionesPage from './features/documentos/pages/CamionesPage';
@@ -189,6 +191,16 @@ function App() {
                 <Route path='/documentos/dashboard' element={
                   <ProtectedServiceRoute service="documentos">
                     <DashboardDadoresPage />
+                  </ProtectedServiceRoute>
+                } />
+                <Route path='/documentos/rechazados' element={
+                  <ProtectedServiceRoute service="documentos">
+                    <RejectedDocumentsPage />
+                  </ProtectedServiceRoute>
+                } />
+                <Route path='/notificaciones' element={
+                  <ProtectedServiceRoute service="documentos">
+                    <NotificationsPage />
                   </ProtectedServiceRoute>
                 } />
                 <Route path='/documentos/empresas-transportistas' element={

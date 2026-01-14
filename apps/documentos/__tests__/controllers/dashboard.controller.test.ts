@@ -1,7 +1,7 @@
 /**
  * Tests unitarios para DashboardController
  */
-import { Request, Response } from 'express';
+import { Response } from 'express';
 import { prismaMock, resetPrismaMock } from '../mocks/prisma.mock';
 
 // Mock database before importing

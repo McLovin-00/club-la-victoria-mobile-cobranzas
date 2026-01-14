@@ -81,4 +81,24 @@ router.get(
   DashboardController.getStatsPorRol
 );
 
+/**
+ * GET /api/docs/dashboard/rejected - Lista de documentos rechazados
+ * Acceso: Administradores y Dadores de Carga
+ */
+router.get(
+  '/rejected',
+  authorize([UserRole.SUPERADMIN, UserRole.ADMIN, UserRole.ADMIN_INTERNO, UserRole.DADOR_DE_CARGA]),
+  DashboardController.getRejectedDocuments
+);
+
+/**
+ * GET /api/docs/dashboard/rejected/stats - Estadísticas de documentos rechazados
+ * Acceso: Administradores y Dadores de Carga
+ */
+router.get(
+  '/rejected/stats',
+  authorize([UserRole.SUPERADMIN, UserRole.ADMIN, UserRole.ADMIN_INTERNO, UserRole.DADOR_DE_CARGA]),
+  DashboardController.getRejectedStats
+);
+
 export default router;

@@ -4,20 +4,19 @@
  */
 
 import * as fs from 'fs/promises';
-import * as path from 'path';
 
 // Mock child_process
 const mockExecFile = jest.fn();
 jest.mock('child_process', () => ({
-  execFile: (cmd: string, args: string[], opts: any, cb: Function) => {
+  execFile: (cmd: string, args: string[], opts: any, cb: (error: Error | null, stdout: string, stderr: string) => void) => {
     return mockExecFile(cmd, args, opts, cb);
   },
 }));
 
 // Mock util.promisify to work with our mock
 jest.mock('util', () => ({
-  promisify: (fn: any) => async (cmd: string, args: string[], opts?: any) => {
-    return new Promise((resolve, reject) => {
+  promisify: (_fn: any) => async (cmd: string, _args: string[], _opts?: any) => {
+    return new Promise((resolve) => {
       if (cmd === 'pdftoppm' && mockExecFile.mock.calls.length === 0) {
         mockExecFile.mockImplementation(() => {});
         resolve({ stdout: '', stderr: '' });

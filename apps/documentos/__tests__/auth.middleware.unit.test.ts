@@ -75,7 +75,7 @@ describe('Auth Middleware', () => {
   describe('Permission sets', () => {
     const ADMIN_ROLES = ['SUPERADMIN', 'ADMIN'];
     const INTERNAL_ROLES = ['SUPERADMIN', 'ADMIN', 'OPERATOR'];
-    const CLIENT_ROLES = ['CLIENTE', 'DADOR_CARGA'];
+    const _CLIENT_ROLES = ['CLIENTE', 'DADOR_CARGA']; // Para futuras validaciones
     const UPLOAD_ROLES = ['SUPERADMIN', 'ADMIN', 'OPERATOR', 'TRANSPORTISTA', 'CHOFER'];
 
     it('should define admin roles', () => {

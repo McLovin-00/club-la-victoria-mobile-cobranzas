@@ -330,7 +330,7 @@ export class PortalClienteController {
         
         // Estado de compliance (extraído a helper)
         const compliance = complianceResults.get(equipo.id);
-        const complianceState = determineComplianceState(compliance);
+        const complianceState = compliance ? determineComplianceState(compliance) : { estadoCompliance: 'INCOMPLETO', proximoVencimiento: null, tieneVencidos: false, tieneFaltantes: true, tieneProximos: false };
         const { estadoCompliance, proximoVencimiento, tieneVencidos, tieneFaltantes, tieneProximos } = complianceState;
 
         return {

@@ -72,7 +72,7 @@ describe('SystemConfigService', () => {
 
       prismaMock.systemConfig.upsert.mockResolvedValue(mockUpdated);
 
-      const result = await SystemConfigService.updateFlowiseConfig({
+      const _result = await SystemConfigService.updateFlowiseConfig({
         enabled: true,
         baseUrl: 'http://new-flowise:3000',
         flowId: 'new-flow-id',

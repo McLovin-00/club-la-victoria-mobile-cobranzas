@@ -291,13 +291,13 @@ ${JSON.stringify(request.datosEntidad, null, 2)}
       update: {
         documentoEsValido: result.esDocumentoCorrecto,
         motivoInvalidez: result.motivoSiIncorrecto || null,
-        datosExtraidos: result.datosExtraidos,
-        disparidades: result.disparidades,
+        datosExtraidos: result.datosExtraidos as any,
+        disparidades: result.disparidades as any,
         tieneDisparidades,
         vencimientoDetectado,
         vencimientoOrigen: result.vencimientoEnDocumento ? 'documento' : null,
         confidence: result.confianza,
-        aiResponse: result as unknown as Record<string, unknown>,
+        aiResponse: result as any,
         detectedDocumentType: result.tipoDocumentoDetectado,
         validationStatus: 'validated', // Marcar como validado por IA
         updatedAt: new Date(),
@@ -306,13 +306,13 @@ ${JSON.stringify(request.datosEntidad, null, 2)}
         documentId,
         documentoEsValido: result.esDocumentoCorrecto,
         motivoInvalidez: result.motivoSiIncorrecto || null,
-        datosExtraidos: result.datosExtraidos,
-        disparidades: result.disparidades,
+        datosExtraidos: result.datosExtraidos as any,
+        disparidades: result.disparidades as any,
         tieneDisparidades,
         vencimientoDetectado,
         vencimientoOrigen: result.vencimientoEnDocumento ? 'documento' : null,
         confidence: result.confianza,
-        aiResponse: result as unknown as Record<string, unknown>,
+        aiResponse: result as any,
         detectedDocumentType: result.tipoDocumentoDetectado,
         validationStatus: 'validated', // Marcar como validado por IA
       },
@@ -337,8 +337,8 @@ ${JSON.stringify(request.datosEntidad, null, 2)}
         entityId: doc.entityId,
         documentId: request.documentId,
         templateName: request.tipoDocumento,
-        datosExtraidos: result.datosExtraidos ?? {}, // Valor por defecto si es undefined
-        disparidades: result.disparidades ?? [], // Valor por defecto si es undefined
+        datosExtraidos: (result.datosExtraidos ?? {}) as any, // Valor por defecto si es undefined
+        disparidades: (result.disparidades ?? []) as any, // Valor por defecto si es undefined
         esValido: result.esDocumentoCorrecto ?? false,
         confianza: result.confianza ?? 0,
         solicitadoPor: request.solicitadoPor || null,
@@ -372,7 +372,7 @@ ${JSON.stringify(request.datosEntidad, null, 2)}
         },
       },
       update: {
-        datosExtraidos: this.mergeExtractedData(extracted),
+        datosExtraidos: this.mergeExtractedData(extracted) as any,
         ultimaExtraccionAt: new Date(),
         ultimoDocumentoId: request.documentId,
         ultimoDocumentoTipo: request.tipoDocumento,
@@ -385,7 +385,7 @@ ${JSON.stringify(request.datosEntidad, null, 2)}
         dadorCargaId: doc.dadorCargaId,
         entityType: doc.entityType,
         entityId: doc.entityId,
-        datosExtraidos: extracted,
+        datosExtraidos: extracted as any,
         ultimaExtraccionAt: new Date(),
         ultimoDocumentoId: request.documentId,
         ultimoDocumentoTipo: request.tipoDocumento,

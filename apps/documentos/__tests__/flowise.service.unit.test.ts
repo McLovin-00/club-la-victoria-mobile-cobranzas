@@ -269,8 +269,8 @@ describe('FlowiseService', () => {
   describe('Date extraction', () => {
     function extractDatesFromText(text: string): string[] {
       const datePatterns = [
-        /(\d{2})[\/\-](\d{2})[\/\-](\d{4})/g, // DD/MM/YYYY or DD-MM-YYYY
-        /(\d{4})[\/\-](\d{2})[\/\-](\d{2})/g, // YYYY-MM-DD
+        /(\d{2})[/-](\d{2})[/-](\d{4})/g, // DD/MM/YYYY or DD-MM-YYYY
+        /(\d{4})[/-](\d{2})[/-](\d{2})/g, // YYYY-MM-DD
       ];
       
       const dates: string[] = [];

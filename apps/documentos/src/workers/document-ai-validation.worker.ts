@@ -34,7 +34,13 @@ async function getFileFromMinio(filePath: string): Promise<{ buffer: Buffer } | 
   try {
     const [bucketName, ...pathParts] = filePath.split('/');
     const objectPath = pathParts.join('/');
-    const buffer = await minioService.getObject(bucketName, objectPath);
+    const stream = await minioService.getObject(bucketName, objectPath);
+    // Convertir stream a buffer
+    const chunks: Buffer[] = [];
+    for await (const chunk of stream) {
+      chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
+    }
+    const buffer = Buffer.concat(chunks);
     return { buffer };
   } catch {
     return { error: 'MINIO_ERROR' };

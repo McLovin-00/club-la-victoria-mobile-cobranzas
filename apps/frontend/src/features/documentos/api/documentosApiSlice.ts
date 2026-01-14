@@ -82,7 +82,7 @@ export const documentosApiSlice = createApi({
       return headers;
     },
   }),
-  tagTypes: ['DocumentTemplate', 'Document', 'Dashboard', 'Clients', 'Equipos', 'Search', 'ClientRequirements', 'Maestros', 'Approval', 'EmpresasTransportistas', 'ExtractedData'],
+  tagTypes: ['DocumentTemplate', 'Document', 'Dashboard', 'Clients', 'Equipos', 'Search', 'ClientRequirements', 'Maestros', 'Approval', 'EmpresasTransportistas', 'ExtractedData', 'Notifications'],
   endpoints: (builder) => ({
     // =================================
     // COMPLIANCE
@@ -1189,6 +1189,87 @@ export const documentosApiSlice = createApi({
         pagination: r?.pagination ?? { page: 1, limit: 20, total: 0, pages: 0 },
       }),
     }),
+
+    // =================================
+    // NOTIFICACIONES INTERNAS
+    // =================================
+    getUserNotifications: builder.query<
+      { data: any[]; pagination: any; unreadCount: number },
+      { page?: number; limit?: number; unreadOnly?: boolean }
+    >({
+      query: ({ page = 1, limit = 20, unreadOnly = false }) => ({
+        url: '/notifications',
+        params: { page, limit, unreadOnly },
+      }),
+      transformResponse: (r: any) => ({
+        data: r?.data ?? [],
+        pagination: r?.pagination ?? { page: 1, limit: 20, total: 0, pages: 0 },
+        unreadCount: r?.unreadCount ?? 0,
+      }),
+      providesTags: ['Notifications'],
+    }),
+
+    getUnreadNotificationsCount: builder.query<number, void>({
+      query: () => '/notifications/unread-count',
+      transformResponse: (r: any) => r?.data?.count ?? 0,
+      providesTags: ['Notifications'],
+    }),
+
+    markNotificationAsRead: builder.mutation<any, number>({
+      query: (notificationId) => ({
+        url: `/notifications/${notificationId}/read`,
+        method: 'PATCH',
+      }),
+      invalidatesTags: ['Notifications'],
+    }),
+
+    markAllNotificationsAsRead: builder.mutation<any, void>({
+      query: () => ({
+        url: '/notifications/mark-all-read',
+        method: 'POST',
+      }),
+      invalidatesTags: ['Notifications'],
+    }),
+
+    deleteNotification: builder.mutation<any, number>({
+      query: (notificationId) => ({
+        url: `/notifications/${notificationId}`,
+        method: 'DELETE',
+      }),
+      invalidatesTags: ['Notifications'],
+    }),
+
+    deleteAllReadNotifications: builder.mutation<any, void>({
+      query: () => ({
+        url: '/notifications/delete-all-read',
+        method: 'POST',
+      }),
+      invalidatesTags: ['Notifications'],
+    }),
+
+    // =================================
+    // DOCUMENTOS RECHAZADOS (DASHBOARD)
+    // =================================
+    getRejectedDocuments: builder.query<
+      { data: any[]; pagination: any },
+      { page?: number; limit?: number; entityType?: string; dadorId?: number }
+    >({
+      query: ({ page = 1, limit = 20, entityType, dadorId }) => ({
+        url: '/dashboard/rejected',
+        params: { page, limit, entityType, dadorId },
+      }),
+      transformResponse: (r: any) => ({
+        data: r?.data ?? [],
+        pagination: r?.pagination ?? { page: 1, limit: 20, total: 0, pages: 0 },
+      }),
+      providesTags: ['Dashboard'],
+    }),
+
+    getRejectedStats: builder.query<any, void>({
+      query: () => '/dashboard/rejected/stats',
+      transformResponse: (r: any) => r?.data ?? {},
+      providesTags: ['Dashboard'],
+    }),
   }),
 });
 
@@ -1328,4 +1409,14 @@ export const {
   useGetEntityExtractionHistoryQuery,
   useUpdateEntityExtractedDataMutation,
   useDeleteEntityExtractedDataMutation,
+  // Notificaciones internas
+  useGetUserNotificationsQuery,
+  useGetUnreadNotificationsCountQuery,
+  useMarkNotificationAsReadMutation,
+  useMarkAllNotificationsAsReadMutation,
+  useDeleteNotificationMutation,
+  useDeleteAllReadNotificationsMutation,
+  // Documentos rechazados
+  useGetRejectedDocumentsQuery,
+  useGetRejectedStatsQuery,
 } = documentosApiSlice;

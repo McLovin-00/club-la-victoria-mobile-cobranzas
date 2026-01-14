@@ -144,8 +144,13 @@ async function getOrCreateEmpresaTransportista(
   return empresa;
 }
 
-/** Valida DNI y crea chofer (error si existe) */
-async function createChoferNoDuplicado(
+/** 
+ * Valida DNI y obtiene o crea chofer.
+ * - Si existe y está huérfano (sin equipo activo): lo reutiliza
+ * - Si existe y está en uso por otro equipo activo: error
+ * - Si no existe: lo crea
+ */
+async function getOrCreateChofer(
   tx: any, ctx: AltaCompletaContext, dniRaw: string, nombre?: string, apellido?: string, phones?: string[]
 ): Promise<any> {
   const dni = normalizeDni(dniRaw);
@@ -156,8 +161,31 @@ async function createChoferNoDuplicado(
   const existe = await tx.chofer.findFirst({
     where: { tenantEmpresaId: ctx.tenantEmpresaId, dadorCargaId: ctx.dadorCargaId, dniNorm: dni },
   });
+
   if (existe) {
-    throw createError(`El chofer con DNI ${dniRaw} ya existe en el sistema. No se puede duplicar.`, 409, 'CHOFER_DUPLICADO');
+    // Verificar si está en uso por algún equipo activo
+    const enUso = await tx.equipo.findFirst({
+      where: { driverId: existe.id, validTo: null },
+    });
+
+    if (enUso) {
+      throw createError(
+        `El chofer con DNI ${dniRaw} ya está asignado al equipo #${enUso.id}. No se puede duplicar.`,
+        409,
+        'CHOFER_EN_USO'
+      );
+    }
+
+    // Chofer existe pero está huérfano, reutilizarlo (actualizar datos si se proporcionaron)
+    return tx.chofer.update({
+      where: { id: existe.id },
+      data: {
+        nombre: nombre?.trim() || existe.nombre,
+        apellido: apellido?.trim() || existe.apellido,
+        phones: phones ?? existe.phones,
+        activo: true,
+      },
+    });
   }
 
   return tx.chofer.create({
@@ -169,8 +197,13 @@ async function createChoferNoDuplicado(
   });
 }
 
-/** Valida patente y crea camión (error si existe) */
-async function createCamionNoDuplicado(
+/** 
+ * Valida patente y obtiene o crea camión.
+ * - Si existe y está huérfano (sin equipo activo): lo reutiliza
+ * - Si existe y está en uso por otro equipo activo: error
+ * - Si no existe: lo crea
+ */
+async function getOrCreateCamion(
   tx: any, ctx: AltaCompletaContext, patenteRaw: string, marca?: string, modelo?: string
 ): Promise<any> {
   const patente = normalizePlate(patenteRaw);
@@ -181,8 +214,30 @@ async function createCamionNoDuplicado(
   const existe = await tx.camion.findFirst({
     where: { tenantEmpresaId: ctx.tenantEmpresaId, dadorCargaId: ctx.dadorCargaId, patenteNorm: patente },
   });
+
   if (existe) {
-    throw createError(`El camión con patente ${patenteRaw} ya existe en el sistema. No se puede duplicar.`, 409, 'CAMION_DUPLICADO');
+    // Verificar si está en uso por algún equipo activo
+    const enUso = await tx.equipo.findFirst({
+      where: { truckId: existe.id, validTo: null },
+    });
+
+    if (enUso) {
+      throw createError(
+        `El camión con patente ${patenteRaw} ya está asignado al equipo #${enUso.id}. No se puede duplicar.`,
+        409,
+        'CAMION_EN_USO'
+      );
+    }
+
+    // Camión existe pero está huérfano, reutilizarlo (actualizar datos si se proporcionaron)
+    return tx.camion.update({
+      where: { id: existe.id },
+      data: {
+        marca: marca?.trim() || existe.marca,
+        modelo: modelo?.trim() || existe.modelo,
+        activo: true,
+      },
+    });
   }
 
   return tx.camion.create({
@@ -193,8 +248,14 @@ async function createCamionNoDuplicado(
   });
 }
 
-/** Valida patente y crea acoplado (error si existe). Retorna null si no hay patente */
-async function createAcopladoNoDuplicado(
+/** 
+ * Valida patente y obtiene o crea acoplado.
+ * - Si existe y está huérfano (sin equipo activo): lo reutiliza
+ * - Si existe y está en uso por otro equipo activo: error
+ * - Si no existe: lo crea
+ * Retorna null si no hay patente
+ */
+async function getOrCreateAcoplado(
   tx: any, ctx: AltaCompletaContext, patenteRaw: string | null | undefined, tipo?: string
 ): Promise<any | null> {
   if (!patenteRaw?.trim()) return null;
@@ -207,8 +268,29 @@ async function createAcopladoNoDuplicado(
   const existe = await tx.acoplado.findFirst({
     where: { tenantEmpresaId: ctx.tenantEmpresaId, dadorCargaId: ctx.dadorCargaId, patenteNorm: patente },
   });
+
   if (existe) {
-    throw createError(`El acoplado con patente ${patenteRaw} ya existe en el sistema. No se puede duplicar.`, 409, 'ACOPLADO_DUPLICADO');
+    // Verificar si está en uso por algún equipo activo
+    const enUso = await tx.equipo.findFirst({
+      where: { trailerId: existe.id, validTo: null },
+    });
+
+    if (enUso) {
+      throw createError(
+        `El acoplado con patente ${patenteRaw} ya está asignado al equipo #${enUso.id}. No se puede duplicar.`,
+        409,
+        'ACOPLADO_EN_USO'
+      );
+    }
+
+    // Acoplado existe pero está huérfano, reutilizarlo (actualizar datos si se proporcionaron)
+    return tx.acoplado.update({
+      where: { id: existe.id },
+      data: {
+        tipo: tipo?.trim() || existe.tipo,
+        activo: true,
+      },
+    });
   }
 
   return tx.acoplado.create({
@@ -1278,9 +1360,12 @@ export class EquipoService {
    * 
    * Flujo:
    * 1. EMPRESA (CUIT): Si existe, usar. Si no, crear.
-   * 2. CHOFER (DNI): Si existe, ERROR + ROLLBACK. Si no, crear.
-   * 3. CAMIÓN (Patente): Si existe, ERROR + ROLLBACK. Si no, crear.
-   * 4. ACOPLADO (Patente): Si existe, ERROR + ROLLBACK. Si no, crear.
+   * 2. CHOFER (DNI): Si existe y está huérfano (sin equipo activo), reutilizar. 
+   *                  Si está en uso por otro equipo, ERROR. Si no existe, crear.
+   * 3. CAMIÓN (Patente): Si existe y está huérfano, reutilizar. 
+   *                      Si está en uso, ERROR. Si no existe, crear.
+   * 4. ACOPLADO (Patente): Si existe y está huérfano, reutilizar. 
+   *                        Si está en uso, ERROR. Si no existe, crear.
    * 5. Crear EQUIPO con las 4 entidades.
    * 6. Asociar clientes al equipo.
    * 
@@ -1320,18 +1405,18 @@ export class EquipoService {
         tx, ctx, input.empresaTransportistaCuit, input.empresaTransportistaNombre
       );
 
-      // 2. CHOFER: Si existe (por DNI), ERROR. Si no, crear.
-      const chofer = await createChoferNoDuplicado(
+      // 2. CHOFER: Si existe y está huérfano, reutilizar. Si está en uso, error. Si no existe, crear.
+      const chofer = await getOrCreateChofer(
         tx, ctx, input.choferDni, input.choferNombre, input.choferApellido, input.choferPhones
       );
 
-      // 3. CAMIÓN: Si existe (por Patente), ERROR. Si no, crear.
-      const camion = await createCamionNoDuplicado(
+      // 3. CAMIÓN: Si existe y está huérfano, reutilizar. Si está en uso, error. Si no existe, crear.
+      const camion = await getOrCreateCamion(
         tx, ctx, input.camionPatente, input.camionMarca, input.camionModelo
       );
 
-      // 4. ACOPLADO (Opcional): Si existe (por Patente), ERROR. Si no, crear.
-      const acoplado = await createAcopladoNoDuplicado(tx, ctx, input.acopladoPatente, input.acopladoTipo);
+      // 4. ACOPLADO (Opcional): Si existe y está huérfano, reutilizar. Si está en uso, error. Si no existe, crear.
+      const acoplado = await getOrCreateAcoplado(tx, ctx, input.acopladoPatente, input.acopladoTipo);
       const acopladoId = acoplado?.id || null;
 
       // 5. CREAR EQUIPO con las 4 entidades

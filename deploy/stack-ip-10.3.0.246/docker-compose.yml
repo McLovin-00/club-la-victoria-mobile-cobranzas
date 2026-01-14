@@ -116,6 +116,8 @@ services:
     environment:
       NODE_ENV: development
       BACKEND_PORT: 4810
+      # Rate limiting x10 para testing
+      RATE_LIMIT_MULTIPLIER: "10"
       DATABASE_URL: postgresql://evo:phoenix@postgres:5432/monorepo-bca?schema=platform
       DB_HOST: postgres
       DB_PORT: 5432
@@ -163,6 +165,8 @@ services:
       NODE_ENV: development
       ENABLE_DOCUMENTOS: "true"
       DOCUMENTOS_PORT: 4812
+      # Rate limiting x10 para testing
+      RATE_LIMIT_MULTIPLIER: "10"
       DOCUMENTOS_DATABASE_URL: postgresql://evo:phoenix@postgres:5432/monorepo-bca?schema=documentos
       DEFAULT_TENANT_ID: "1"
       MINIO_ENDPOINT: 10.3.0.246:9002

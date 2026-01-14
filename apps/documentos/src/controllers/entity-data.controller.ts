@@ -136,7 +136,7 @@ export class EntityDataController {
       if (docIds.length > 0) {
         await prisma.documentClassification.updateMany({
           where: { documentId: { in: docIds } },
-          data: { disparidades: null, validationStatus: null },
+          data: { disparidades: undefined, validationStatus: undefined },
         });
       }
 
@@ -178,7 +178,7 @@ export class EntityDataController {
         datosExtraidos: { ...(existingAiResponse.datosExtraidos || {}), ...newData },
         manuallyEdited: true,
         editedAt: new Date().toISOString(),
-        editedBy: req.user?.id || req.user?.userId,
+        editedBy: req.user?.userId,
       };
 
       await prisma.documentClassification.update({
@@ -186,7 +186,7 @@ export class EntityDataController {
         data: { aiResponse: updatedAiResponse as any },
       });
 
-      AppLogger.info(`✏️ Datos IA actualizados para ${entityType} ${entityId}`, { tenantEmpresaId, userId: req.user?.id || req.user?.userId });
+      AppLogger.info(`✏️ Datos IA actualizados para ${entityType} ${entityId}`, { tenantEmpresaId, userId: req.user?.userId });
       res.json({ success: true, message: 'Datos actualizados correctamente' });
     } catch (error) {
       AppLogger.error('EntityDataController.updateExtractedData error:', error);
