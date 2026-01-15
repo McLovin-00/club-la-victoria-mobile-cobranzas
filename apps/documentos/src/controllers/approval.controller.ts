@@ -4,6 +4,48 @@ import { webSocketService } from '../services/websocket.service';
 import { AppLogger } from '../config/logger';
 import { AuditService } from '../services/audit.service';
 
+// ============================================================================
+// HELPERS - Reducción de complejidad cognitiva
+// ============================================================================
+
+interface RequestUser {
+  userId: number | undefined;
+  userRole: string | undefined;
+  tenantEmpresaId: number;
+}
+
+/**
+ * Extrae información del usuario del request
+ */
+function extractUserFromRequest(req: Request): RequestUser {
+  const user = (req as any).user;
+  return {
+    userId: user?.id ?? user?.userId,
+    userRole: user?.role,
+    tenantEmpresaId: (req as any).tenantId as number,
+  };
+}
+
+/**
+ * Valida que el usuario puede aprobar documentos
+ * Retorna mensaje de error si no puede, undefined si puede
+ */
+function validateCanApprove(user: RequestUser): { status: number; message: string; code: string } | undefined {
+  if (!user.userId) {
+    return { status: 401, message: 'Usuario no identificado', code: 'USER_NOT_IDENTIFIED' };
+  }
+  if (user.userRole === 'TRANSPORTISTA' || user.userRole === 'EMPRESA_TRANSPORTISTA') {
+    return { 
+      status: 403, 
+      message: 'Las Empresas Transportistas no tienen permiso para aprobar documentos. Contacte al Dador de Carga.',
+      code: 'TRANSPORTISTA_CANNOT_APPROVE'
+    };
+  }
+  return undefined;
+}
+
+// ============================================================================
+
 export class ApprovalController {
   static async getPendingDocuments(req: Request, res: Response): Promise<void> {
     try {
@@ -25,23 +67,14 @@ export class ApprovalController {
 
   static async batchApprove(req: Request, res: Response): Promise<void> {
     try {
-      const tenantEmpresaId = (req as any).tenantId as number;
-      const userId = ((req as any).user?.id ?? (req as any).user?.userId) as number | undefined;
-      const userRole = ((req as any).user?.role) as string | undefined;
+      const user = extractUserFromRequest(req);
+      const validationError = validateCanApprove(user);
+      if (validationError) {
+        res.status(validationError.status).json({ success: false, message: validationError.message, code: validationError.code });
+        return;
+      }
+      
       const { ids, overrides } = (req.body || {}) as { ids: number[]; overrides?: { confirmedEntityType?: string; confirmedEntityId?: number; confirmedExpiration?: string; reviewNotes?: string } };
-      if (!userId) {
-        res.status(401).json({ success: false, message: 'Usuario no identificado', code: 'USER_NOT_IDENTIFIED' });
-        return;
-      }
-      // Transportistas no pueden aprobar documentos
-      if (userRole === 'TRANSPORTISTA' || userRole === 'EMPRESA_TRANSPORTISTA') {
-        res.status(403).json({ 
-          success: false, 
-          message: 'Las Empresas Transportistas no tienen permiso para aprobar documentos. Contacte al Dador de Carga.',
-          code: 'TRANSPORTISTA_CANNOT_APPROVE'
-        });
-        return;
-      }
       if (!Array.isArray(ids) || ids.length === 0) {
         res.status(400).json({ success: false, message: 'Debe enviar ids[]', code: 'BAD_REQUEST' });
         return;
@@ -52,8 +85,8 @@ export class ApprovalController {
         const chunk = ids.slice(i, i + chunkSize);
         const ops = chunk.map(async (id) => {
           try {
-            await ApprovalService.approveDocument(id, tenantEmpresaId, {
-              reviewedBy: userId,
+            await ApprovalService.approveDocument(id, user.tenantEmpresaId, {
+              reviewedBy: user.userId!,
               confirmedEntityType: overrides?.confirmedEntityType,
               confirmedEntityId: overrides?.confirmedEntityId,
               confirmedExpiration: overrides?.confirmedExpiration ? new Date(overrides.confirmedExpiration) : undefined,
@@ -70,9 +103,9 @@ export class ApprovalController {
       res.json({ success: true, approved, failed: results.length - approved, results });
       // Audit best-effort
       void AuditService.log({
-        tenantEmpresaId: (req as any).tenantId,
-        userId: (req as any).user?.userId ?? (req as any).user?.id,
-        userRole: (req as any).user?.role,
+        tenantEmpresaId: user.tenantEmpresaId,
+        userId: user.userId,
+        userRole: user.userRole,
         method: req.method,
         path: req.originalUrl || req.path,
         statusCode: res.statusCode,
@@ -109,26 +142,18 @@ export class ApprovalController {
 
   static async approveDocument(req: Request, res: Response): Promise<void> {
     try {
-      const tenantEmpresaId = (req as any).tenantId as number;
-      const userId = ((req as any).user?.id ?? (req as any).user?.userId) as number | undefined;
-      const userRole = ((req as any).user?.role) as string | undefined;
+      const user = extractUserFromRequest(req);
+      const validationError = validateCanApprove(user);
+      if (validationError) {
+        res.status(validationError.status).json({ success: false, message: validationError.message, code: validationError.code });
+        return;
+      }
+      
       const id = Number((req.params as any).id);
       const { confirmedEntityType, confirmedEntityId, confirmedExpiration, confirmedTemplateId, reviewNotes } = (req.body || {}) as any;
-      if (!userId) {
-        res.status(401).json({ success: false, message: 'Usuario no identificado', code: 'USER_NOT_IDENTIFIED' });
-        return;
-      }
-      // Transportistas no pueden aprobar documentos
-      if (userRole === 'TRANSPORTISTA' || userRole === 'EMPRESA_TRANSPORTISTA') {
-        res.status(403).json({ 
-          success: false, 
-          message: 'Las Empresas Transportistas no tienen permiso para aprobar documentos. Contacte al Dador de Carga.',
-          code: 'TRANSPORTISTA_CANNOT_APPROVE'
-        });
-        return;
-      }
-      const doc = await ApprovalService.approveDocument(id, tenantEmpresaId, {
-        reviewedBy: userId,
+      
+      const doc = await ApprovalService.approveDocument(id, user.tenantEmpresaId, {
+        reviewedBy: user.userId!,
         confirmedEntityType,
         confirmedEntityId,
         confirmedExpiration: confirmedExpiration ? new Date(confirmedExpiration) : undefined,
