@@ -33,6 +33,19 @@ interface EntityContext {
   entityType: string;
 }
 
+// Helper: validar datos requeridos para aprobación
+function validateApprovalData(params: {
+  finalEntityType: string | null;
+  finalEntityId: number | null;
+  tplIdCandidate: number | null;
+  finalExpiration: Date | null;
+}): void {
+  if (!params.finalEntityType) throw new Error('Debe seleccionar la entidad');
+  if (!params.finalEntityId) throw new Error('Debe confirmarse la identidad de la entidad antes de aprobar');
+  if (!params.tplIdCandidate) throw new Error('Debe seleccionar el tipo de documento');
+  if (!params.finalExpiration) throw new Error('Debe especificar la fecha de vencimiento');
+}
+
 // ============================================================================
 // FUNCIONES DE CREACIÓN/BÚSQUEDA DE ENTIDADES
 // ============================================================================
@@ -403,10 +416,7 @@ export class ApprovalService {
       const finalExpiration = reviewData.confirmedExpiration || classification.detectedExpiration;
       const tplIdCandidate = reviewData.confirmedTemplateId ?? document.templateId;
       
-      if (!finalEntityType) throw new Error('Debe seleccionar la entidad');
-      if (!finalEntityId) throw new Error('Debe confirmarse la identidad de la entidad antes de aprobar');
-      if (!tplIdCandidate) throw new Error('Debe seleccionar el tipo de documento');
-      if (!finalExpiration) throw new Error('Debe especificar la fecha de vencimiento');
+      validateApprovalData({ finalEntityType, finalEntityId, tplIdCandidate, finalExpiration });
 
       // 4. Actualizar clasificación
       await tx.documentClassification.update({
@@ -430,7 +440,7 @@ export class ApprovalService {
           status: 'APROBADO' as DocumentStatus,
           validatedAt: new Date(),
           entityType: finalEntityType as any,
-          entityId: finalEntityId,
+          entityId: finalEntityId!,
           expiresAt: finalExpiration,
           ...(newTemplateId ? { templateId: newTemplateId } : {}),
         },
@@ -443,7 +453,7 @@ export class ApprovalService {
           tx,
           updated.id,
           updated.entityType as string,
-          updated.template?.name || 'DOC',
+          (updated as any).template?.name || 'DOC',
           reviewData.confirmedEntityId,
           classification.detectedEntityId
         );
