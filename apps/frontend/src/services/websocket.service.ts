@@ -105,6 +105,19 @@ class WebSocketService {
     this.socket.on('connect_error', (error) => {
       console.error('❌ Error de conexión WebSocket:', error.message);
       this.isConnecting = false;
+      
+      // Si el error es de token inválido/expirado, redirigir al login
+      if (error.message?.toLowerCase().includes('token') || 
+          error.message?.toLowerCase().includes('unauthorized') ||
+          error.message?.toLowerCase().includes('jwt')) {
+        console.warn('🔐 Token inválido o expirado - redirigiendo al login');
+        this.disconnect();
+        localStorage.removeItem('token');
+        localStorage.removeItem('user');
+        window.location.href = '/login?expired=true';
+        return;
+      }
+      
       this.handleReconnect();
     });
 
