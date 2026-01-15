@@ -44,6 +44,33 @@ function validateFlowiseInput(data: any, requireAll = false): void {
   }
 }
 
+/** Ejecuta fetch con timeout y manejo de errores */
+async function fetchWithTimeout(
+  url: string,
+  headers: Record<string, string>,
+  timeout: number
+): Promise<{ ok: boolean; status: number; responseTime: number }> {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), timeout);
+  const startTime = Date.now();
+
+  try {
+    const response = await fetch(url, { method: 'GET', headers, signal: controller.signal });
+    clearTimeout(timeoutId);
+    const responseTime = Date.now() - startTime;
+    
+    // 404/405 es aceptable - el servidor responde
+    const ok = response.ok || response.status === 404 || response.status === 405;
+    return { ok, status: response.status, responseTime };
+  } catch (fetchError) {
+    clearTimeout(timeoutId);
+    if (fetchError instanceof Error && fetchError.name === 'AbortError') {
+      throw new Error(`Timeout después de ${timeout}ms`);
+    }
+    throw new Error(`Error de conexión: ${fetchError instanceof Error ? fetchError.message : 'desconocido'}`);
+  }
+}
+
 /** Construye datos de actualización para Flowise */
 function buildFlowiseUpdateData(input: any, currentApiKey?: string): Partial<FlowiseConfig> {
   const data: Partial<FlowiseConfig> = {};
@@ -125,81 +152,41 @@ export class FlowiseConfigController {
       requireSuperadmin(req);
       validateFlowiseInput(req.body, true);
 
-      const { baseUrl, apiKey, flowId, timeout } = req.body;
+      const { baseUrl, apiKey, flowId, timeout = 30000 } = req.body;
 
-      const startTime = Date.now();
+      const headers: Record<string, string> = {
+        'Content-Type': 'application/json',
+        'User-Agent': 'MKT-DocumentService/1.0',
+      };
 
-      // Probar conexión real
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), timeout || 30000);
-
-      try {
-        const headers: Record<string, string> = {
-          'Content-Type': 'application/json',
-          'User-Agent': 'MKT-DocumentService/1.0',
-        };
-
-        if (apiKey && apiKey !== '***' + (await SystemConfigService.getFlowiseConfig()).apiKey?.slice(-4)) {
-          headers['Authorization'] = `Bearer ${apiKey}`;
-        }
-
-        // Test con endpoint de predicción real
-        const testUrl = baseUrl.endsWith('/') 
-          ? `${baseUrl}api/v1/prediction/${flowId}` 
-          : `${baseUrl}/api/v1/prediction/${flowId}`;
-        
-        const response = await fetch(testUrl, {
-          method: 'GET',
-          headers,
-          signal: controller.signal,
-        });
-
-        clearTimeout(timeoutId);
-        const responseTime = Date.now() - startTime;
-
-        if (response.ok || response.status === 404 || response.status === 405) {
-          // 404/405 es aceptable - significa que el servidor responde pero no acepta GET en ese endpoint
-          AppLogger.info('✅ Test de conexión Flowise exitoso', {
-            baseUrl,
-            flowId,
-            responseTime,
-            status: response.status,
-            testedBy: req.user?.userId,
-          });
-
-          res.json({
-            success: true,
-            responseTime,
-            status: response.status,
-            message: response.status === 200 ? 'Conexión exitosa' : 'Servidor responde (endpoint encontrado, conexión OK)',
-          });
-        } else {
-          throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-        }
-      } catch (fetchError) {
-        clearTimeout(timeoutId);
-        
-        if (fetchError instanceof Error) {
-          if (fetchError.name === 'AbortError') {
-            throw new Error(`Timeout después de ${timeout || 30000}ms`);
-          }
-          throw new Error(`Error de conexión: ${fetchError.message}`);
-        }
-        throw new Error('Error desconocido de conexión');
+      // Solo agregar auth si no es el placeholder
+      const currentConfig = await SystemConfigService.getFlowiseConfig();
+      if (apiKey && apiKey !== '***' + currentConfig.apiKey?.slice(-4)) {
+        headers['Authorization'] = `Bearer ${apiKey}`;
       }
+
+      const testUrl = baseUrl.endsWith('/') 
+        ? `${baseUrl}api/v1/prediction/${flowId}` 
+        : `${baseUrl}/api/v1/prediction/${flowId}`;
+
+      const result = await fetchWithTimeout(testUrl, headers, timeout);
+
+      if (!result.ok) {
+        throw new Error(`HTTP ${result.status}`);
+      }
+
+      AppLogger.info('✅ Test de conexión Flowise exitoso', { baseUrl, flowId, responseTime: result.responseTime, status: result.status, testedBy: req.user?.userId });
+      
+      res.json({
+        success: true,
+        responseTime: result.responseTime,
+        status: result.status,
+        message: result.status === 200 ? 'Conexión exitosa' : 'Servidor responde (conexión OK)',
+      });
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Error desconocido';
-      
-      AppLogger.error('💥 Error en test de conexión Flowise:', {
-        error: errorMessage,
-        baseUrl: req.body?.baseUrl,
-        testedBy: req.user?.userId,
-      });
-
-      res.status(400).json({
-        success: false,
-        error: errorMessage,
-      });
+      AppLogger.error('💥 Error en test de conexión Flowise:', { error: errorMessage, baseUrl: req.body?.baseUrl, testedBy: req.user?.userId });
+      res.status(400).json({ success: false, error: errorMessage });
     }
   }
 
