@@ -589,6 +589,51 @@ async function detachTrailerFromOrigin(
 }
 
 // ============================================================================
+// HELPERS PARA COMPLIANCE FILTER
+// ============================================================================
+
+type ComplianceState = { tieneFaltantes?: boolean; tieneVencidos?: boolean; tieneProximos?: boolean };
+
+function filterByComplianceState(
+  equipoIds: number[],
+  complianceMap: Map<number, ComplianceState>,
+  filter: 'faltantes' | 'vencidos' | 'por_vencer'
+): number[] {
+  return equipoIds.filter(eqId => {
+    const state = complianceMap.get(eqId);
+    if (!state) return false;
+    if (filter === 'faltantes') return state.tieneFaltantes;
+    if (filter === 'vencidos') return state.tieneVencidos;
+    if (filter === 'por_vencer') return state.tieneProximos;
+    return false;
+  });
+}
+
+async function buildPaginatedResult(
+  filteredIds: number[],
+  page: number,
+  limit: number,
+  stats: { total: number; conFaltantes: number; conVencidos: number; conPorVencer: number }
+) {
+  const take = Math.min(Math.max(limit, 1), 100);
+  const skip = Math.max((page - 1) * take, 0);
+  
+  if (filteredIds.length === 0) {
+    return { equipos: [], total: 0, page, limit: take, totalPages: 0, hasNext: false, hasPrev: false, stats };
+  }
+  
+  const paginatedIds = filteredIds.slice(skip, skip + take);
+  const equipos = await prisma.equipo.findMany({
+    where: { id: { in: paginatedIds } },
+    orderBy: { id: 'asc' },
+    include: { clientes: { where: { asignadoHasta: null }, include: { cliente: true } }, dador: true, empresaTransportista: true }
+  });
+  
+  const totalPages = Math.ceil(filteredIds.length / take);
+  return { equipos, total: filteredIds.length, page, limit: take, totalPages, hasNext: page < totalPages, hasPrev: page > 1, stats };
+}
+
+// ============================================================================
 // HELPERS PARA UPDATE EQUIPO
 // ============================================================================
 
@@ -626,11 +671,52 @@ async function validateAcopladoChange(newAcopladoId: number | null, equipo: any)
 
 async function validateEmpresaChange(newEmpresaId: number, equipo: any): Promise<EntityUpdate | null> {
   if (newEmpresaId === equipo.empresaTransportistaId) return null;
-  const empresa = await prisma.empresaTransportista.findUnique({ where: { id: newEmpresaId } });
-  if (!empresa || empresa.dadorCargaId !== equipo.dadorCargaId) {
-    throw createError('Empresa transportista no válida para este dador de carga', 400, 'EMPRESA_INVALIDA');
-  }
+  const empresa = await prisma.empresaTransportista.findFirst({ where: { id: newEmpresaId, dadorCargaId: equipo.dadorCargaId } });
+  if (!empresa) throw createError('Empresa transportista no válida', 400, 'EMPRESA_INVALIDA');
   return { field: 'empresaTransportista', id: newEmpresaId };
+}
+
+type EntityChangeInput = {
+  choferId?: number;
+  camionId?: number;
+  acopladoId?: number | null;
+  empresaTransportistaId?: number;
+};
+
+async function collectEntityChanges(input: EntityChangeInput, equipo: any): Promise<{ updates: any; cambios: Array<{ campo: string; anterior: any; nuevo: any }> }> {
+  const updates: any = {};
+  const cambios: Array<{ campo: string; anterior: any; nuevo: any }> = [];
+  
+  const validators: Array<{ key: keyof EntityChangeInput; validate: () => Promise<EntityUpdate | null>; applyUpdate: (r: EntityUpdate) => void; getPrev: () => any }> = [
+    { key: 'choferId', validate: () => validateChoferChange(input.choferId!, equipo), applyUpdate: (r) => { updates.driverId = r.id; updates.driverDniNorm = r.norm; }, getPrev: () => equipo.driverId },
+    { key: 'camionId', validate: () => validateCamionChange(input.camionId!, equipo), applyUpdate: (r) => { updates.truckId = r.id; updates.truckPlateNorm = r.norm; }, getPrev: () => equipo.truckId },
+    { key: 'acopladoId', validate: () => validateAcopladoChange(input.acopladoId!, equipo), applyUpdate: (r) => { updates.trailerId = r.id; updates.trailerPlateNorm = r.norm ?? null; }, getPrev: () => equipo.trailerId },
+    { key: 'empresaTransportistaId', validate: () => validateEmpresaChange(input.empresaTransportistaId!, equipo), applyUpdate: (r) => { updates.empresaTransportistaId = r.id; }, getPrev: () => equipo.empresaTransportistaId },
+  ];
+  
+  for (const v of validators) {
+    if (input[v.key] !== undefined) {
+      const r = await v.validate();
+      if (r) {
+        v.applyUpdate(r);
+        cambios.push({ campo: r.field, anterior: v.getPrev(), nuevo: r.id });
+      }
+    }
+  }
+  
+  return { updates, cambios };
+}
+
+async function logEquipoChanges(equipoId: number, usuarioId: number, cambios: Array<{ campo: string; anterior: any; nuevo: any }>) {
+  if (cambios.length === 0) return;
+  
+  await Promise.all(cambios.map(c => AuditService.logEquipoChange({
+    equipoId, usuarioId, accion: 'EDITAR', campoModificado: c.campo, valorAnterior: c.anterior, valorNuevo: c.nuevo,
+  })));
+  
+  await prisma.equipoHistory.create({
+    data: { equipoId, action: 'edit', component: cambios.map(c => c.campo).join(','), payload: { cambios } as any },
+  });
 }
 
 // ============================================================================
@@ -932,66 +1018,13 @@ export class EquipoService {
     page: number = 1,
     limit: number = 10
   ) {
-    // Obtener stats (incluye _complianceMap precalculado)
     const stats = await this.getComplianceStats(tenantEmpresaId, filters);
+    const statsResumen = { total: stats.total, conFaltantes: stats.conFaltantes, conVencidos: stats.conVencidos, conPorVencer: stats.conPorVencer };
     
-    // Si hay filtro de compliance, filtrar usando el mapa precalculado
+    // Aplicar filtro de compliance si existe
     if (filters.complianceFilter && stats._complianceMap) {
-      const filteredIds: number[] = [];
-      
-      for (const eqId of stats.equipoIds) {
-        const state = stats._complianceMap.get(eqId);
-        if (!state) continue;
-        
-        const matches = 
-          (filters.complianceFilter === 'faltantes' && state.tieneFaltantes) ||
-          (filters.complianceFilter === 'vencidos' && state.tieneVencidos) ||
-          (filters.complianceFilter === 'por_vencer' && state.tieneProximos);
-        
-        if (matches) filteredIds.push(eqId);
-      }
-      
-      if (filteredIds.length === 0) {
-        return {
-          equipos: [],
-          total: 0,
-          page,
-          limit,
-          totalPages: 0,
-          hasNext: false,
-          hasPrev: false,
-          stats: { total: stats.total, conFaltantes: stats.conFaltantes, conVencidos: stats.conVencidos, conPorVencer: stats.conPorVencer }
-        };
-      }
-      
-      // Paginar sobre los IDs filtrados
-      const take = Math.min(Math.max(limit, 1), 100);
-      const skip = Math.max((page - 1) * take, 0);
-      const paginatedIds = filteredIds.slice(skip, skip + take);
-      
-      const equipos = await prisma.equipo.findMany({
-        where: { id: { in: paginatedIds } },
-        orderBy: { id: 'asc' },
-        include: { 
-          clientes: { where: { asignadoHasta: null }, include: { cliente: true } }, 
-          dador: true,
-          empresaTransportista: true
-        }
-      });
-      
-      const totalFiltered = filteredIds.length;
-      const totalPages = Math.ceil(totalFiltered / take);
-      
-      return {
-        equipos,
-        total: totalFiltered,
-        page,
-        limit: take,
-        totalPages,
-        hasNext: page < totalPages,
-        hasPrev: page > 1,
-        stats: { total: stats.total, conFaltantes: stats.conFaltantes, conVencidos: stats.conVencidos, conPorVencer: stats.conPorVencer }
-      };
+      const filteredIds = filterByComplianceState(stats.equipoIds, stats._complianceMap, filters.complianceFilter);
+      return buildPaginatedResult(filteredIds, page, limit, statsResumen);
     }
     
     // Sin filtro de compliance, usar búsqueda normal + stats ya calculados
@@ -1721,59 +1754,14 @@ export class EquipoService {
       throw createError('Equipo no encontrado', 404, 'EQUIPO_NOT_FOUND');
     }
 
-    const updates: any = {};
-    const cambios: Array<{ campo: string; anterior: any; nuevo: any }> = [];
+    // Validar y acumular cambios
+    const { updates, cambios } = await collectEntityChanges(input, equipo);
+    if (Object.keys(updates).length === 0) return equipo;
 
-    // Validar y acumular cambios de entidades
-    if (input.choferId !== undefined) {
-      const r = await validateChoferChange(input.choferId, equipo);
-      if (r) { updates.driverId = r.id; updates.driverDniNorm = r.norm; cambios.push({ campo: r.field, anterior: equipo.driverId, nuevo: r.id }); }
-    }
-    if (input.camionId !== undefined) {
-      const r = await validateCamionChange(input.camionId, equipo);
-      if (r) { updates.truckId = r.id; updates.truckPlateNorm = r.norm; cambios.push({ campo: r.field, anterior: equipo.truckId, nuevo: r.id }); }
-    }
-    if (input.acopladoId !== undefined) {
-      const r = await validateAcopladoChange(input.acopladoId, equipo);
-      if (r) { updates.trailerId = r.id; updates.trailerPlateNorm = r.norm ?? null; cambios.push({ campo: r.field, anterior: equipo.trailerId, nuevo: r.id }); }
-    }
-    if (input.empresaTransportistaId !== undefined) {
-      const r = await validateEmpresaChange(input.empresaTransportistaId, equipo);
-      if (r) { updates.empresaTransportistaId = r.id; cambios.push({ campo: r.field, anterior: equipo.empresaTransportistaId, nuevo: r.id }); }
-    }
-
-    if (Object.keys(updates).length === 0) {
-      return equipo;
-    }
-
-    // Actualizar equipo
-    const updated = await prisma.equipo.update({
-      where: { id: input.equipoId },
-      data: updates,
-    });
-
-    // Registrar auditoría
-    for (const cambio of cambios) {
-      await AuditService.logEquipoChange({
-        equipoId: input.equipoId,
-        usuarioId: input.usuarioId,
-        accion: 'EDITAR',
-        campoModificado: cambio.campo,
-        valorAnterior: cambio.anterior,
-        valorNuevo: cambio.nuevo,
-      });
-    }
-
-    // Registrar en historial
-    await prisma.equipoHistory.create({
-      data: {
-        equipoId: input.equipoId,
-        action: 'edit',
-        component: cambios.map(c => c.campo).join(','),
-        payload: { cambios } as any,
-      },
-    });
-
+    // Actualizar y registrar
+    const updated = await prisma.equipo.update({ where: { id: input.equipoId }, data: updates });
+    await logEquipoChanges(input.equipoId, input.usuarioId, cambios);
+    
     return updated;
   }
 

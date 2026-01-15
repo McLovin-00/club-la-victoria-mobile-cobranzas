@@ -17,6 +17,40 @@ dotenv.config({ path: path.resolve(__dirname, '../../../.env') });
 // Crear aplicación Express
 const app = express();
 
+// Helper: importar ruta de forma segura (sin fallar si no existe)
+async function safeImportRoute(routePath: string): Promise<any | null> {
+  try {
+    return (await import(('./routes/' + routePath) as any)).default;
+  } catch {
+    return null;
+  }
+}
+
+// Helper: registrar ruta si existe
+function registerRouteIfExists(path: string, router: any | null): void {
+  if (router) {
+    app.use(path, router);
+  }
+}
+
+// Helper: registrar rutas de documentos
+async function registerDocumentosRoutes(): Promise<void> {
+  AppLogger.info('📄 Loading Documentos service routes');
+  try {
+    const [notificationsRoutes, evolutionRoutes, docsRoutes] = await Promise.all([
+      safeImportRoute('notifications.routes'),
+      safeImportRoute('evolution.routes'),
+      safeImportRoute('docs.routes'),
+    ]);
+    registerRouteIfExists('/api/docs/notifications', notificationsRoutes);
+    registerRouteIfExists('/api/docs/evolution', evolutionRoutes);
+    registerRouteIfExists('/api/docs', docsRoutes);
+    AppLogger.debug('-> Documentos routes registered');
+  } catch (e) {
+    AppLogger.error('❌ Failed to load Documentos routes', e);
+  }
+}
+
 // Función para inicializar la aplicación
 export const initializeApp = async (skipPrismaInit: boolean = false): Promise<express.Application> => {
   try {
@@ -90,86 +124,53 @@ const setupMiddlewares = (): void => {
 
 // Función para configurar rutas (async para importaciones dinámicas)
 const setupRoutes = async (): Promise<void> => {
-  // Obtener configuración de servicios
   const serviceConfig = backendServiceConfig.getConfig();
-  const enabledServices = backendServiceConfig.getEnabledServices();
-  AppLogger.info('🔧 Configuración de servicios:', {
-    documentos: serviceConfig.documentos.enabled,
-    enabledServices: enabledServices.join(', ') || 'Solo servicios core'
-  });
+  AppLogger.info('🔧 Configuración de servicios:', { documentos: serviceConfig.documentos.enabled });
 
-  // Importar rutas core (siempre habilitadas)
-  const dashboardRoutes = (await import(('./routes/' + 'dashboard.routes') as any)).default as any;
-  const healthRoutes = (await import(('./routes/' + 'health.routes') as any)).default as any;
-  const metricsRoutes = (await import(('./routes/' + 'metrics.routes') as any)).default as any;
-  let docsRouter: any;
-  try {
-    docsRouter = (await import(('./routes/' + 'openapi.routes') as any)).default as any;
-  } catch {}
-  // Diferir carga de rutas de dominio a runtime, para no romper el build minimalista
-  let empresaRoutes: any, serviceRoutes: any, instanceRoutes: any, permisoRoutes: any, configRoutes: any;
-  try { empresaRoutes = (await import(('./routes/' + 'empresa.routes') as any)).default as any; } catch {}
-  try { serviceRoutes = (await import(('./routes/' + 'service.routes') as any)).default as any; } catch {}
-  try { instanceRoutes = (await import(('./routes/' + 'instance.routes') as any)).default as any; } catch {}
-  try { permisoRoutes = (await import(('./routes/' + 'permiso.routes') as any)).default as any; } catch {}
-  try { configRoutes = (await import(('./routes/' + 'config.routes') as any)).default as any; } catch {}
-  // Rutas para split users (User / EndUser) - siempre habilitadas
+  // Importar rutas en paralelo
+  const [dashboardRoutes, healthRoutes, metricsRoutes, docsRouter, empresaRoutes, serviceRoutes, instanceRoutes, permisoRoutes, configRoutes] = await Promise.all([
+    safeImportRoute('dashboard.routes'),
+    safeImportRoute('health.routes'),
+    safeImportRoute('metrics.routes'),
+    safeImportRoute('openapi.routes'),
+    safeImportRoute('empresa.routes'),
+    safeImportRoute('service.routes'),
+    safeImportRoute('instance.routes'),
+    safeImportRoute('permiso.routes'),
+    safeImportRoute('config.routes'),
+  ]);
+
+  // Rutas user siempre habilitadas
   const platformAuthRoutes = (await import('./routes/platformAuth.routes')).default;
   const platformUserRoutes = (await import('./routes/user.routes')).default;
   const endUserRoutes = (await import('./routes/endUser.routes')).default;
 
-  // Configurar rutas core (siempre habilitadas)
+  // Registrar rutas core
   AppLogger.debug('Registering core routes...');
-  app.use('/health', healthRoutes);
-  app.use('/metrics', metricsRoutes);
-  if (docsRouter) app.use('/docs', docsRouter);
-  app.use('/api/dashboard', dashboardRoutes);
-  if (empresaRoutes) app.use('/api/empresas', empresaRoutes);
-  if (serviceRoutes) app.use('/api/services', serviceRoutes);
-  if (instanceRoutes) app.use('/api/instances', instanceRoutes);
-  if (permisoRoutes) app.use('/api/permisos', permisoRoutes);
-  if (configRoutes) app.use('/api/config', configRoutes);
+  registerRouteIfExists('/health', healthRoutes);
+  registerRouteIfExists('/metrics', metricsRoutes);
+  registerRouteIfExists('/docs', docsRouter);
+  registerRouteIfExists('/api/dashboard', dashboardRoutes);
+  registerRouteIfExists('/api/empresas', empresaRoutes);
+  registerRouteIfExists('/api/services', serviceRoutes);
+  registerRouteIfExists('/api/instances', instanceRoutes);
+  registerRouteIfExists('/api/permisos', permisoRoutes);
+  registerRouteIfExists('/api/config', configRoutes);
   AppLogger.debug('-> Core routes registered');
-
-  // Rutas de servicios no core eliminadas (gateway, chat-processor, calidad)
 
   // Documentos service (conditional)
   if (serviceConfig.documentos.enabled) {
-    AppLogger.info('📄 Loading Documentos service routes (ENABLE_DOCUMENTOS=true)');
-    try {
-      const notificationsRoutes = (await import(('./routes/' + 'notifications.routes') as any)).default as any;
-      const evolutionRoutes = (await import(('./routes/' + 'evolution.routes') as any)).default as any;
-      const docsRoutes = (await import(('./routes/' + 'docs.routes') as any)).default as any;
-      app.use('/api/docs/notifications', notificationsRoutes);
-      app.use('/api/docs/evolution', evolutionRoutes);
-      app.use('/api/docs', docsRoutes);
-      AppLogger.debug('-> Notifications routes registered at /api/docs/notifications');
-      AppLogger.debug('-> Evolution routes registered at /api/docs/evolution');
-      AppLogger.debug('-> Docs core routes registered at /api/docs');
-    } catch (e) {
-      AppLogger.error('❌ Failed to load Documentos routes at runtime', e);
-    }
+    await registerDocumentosRoutes();
   } else {
-    AppLogger.warn('⚠️ Documentos routes disabled (ENABLE_DOCUMENTOS=false)');
-    app.use('/api/docs/*', (req, res) => {
-      res.status(404).json({ 
-        message: 'Documentos service is disabled',
-        service: 'documentos',
-        enabled: false 
-      });
-    });
+    app.use('/api/docs/*', (req, res) => res.status(404).json({ message: 'Documentos service is disabled', service: 'documentos', enabled: false }));
   }
 
-  AppLogger.debug('Registering User/EndUser routes...');
+  // User routes
   app.use('/api/platform/auth', platformAuthRoutes);
-  AppLogger.debug('-> platformAuth.routes registered');
   app.use('/api/usuarios', platformUserRoutes);
-  AppLogger.debug('-> platformUser.routes registered');
-  // Montar EndUser en ruta canónica y alias legacy
   app.use('/api/end-users', endUserRoutes);
   app.use('/api/clients', endUserRoutes);
-  AppLogger.debug('-> endUser.routes registered (/api/end-users + alias /api/clients)');
-  AppLogger.info('🔀 PlatformUser/EndUser routes forced enabled');
+  AppLogger.info('🔀 PlatformUser/EndUser routes registered');
 
   // Test route
   AppLogger.debug('Registering test route...');
