@@ -38,6 +38,18 @@ async function validateEmpresaTransportista(
 }
 
 /**
+ * Valida empresa transportista para un equipo existente (por ID de equipo)
+ */
+async function validateEmpresaTransportistaForEquipo(equipoId: number, empresaTransportistaId: number): Promise<void> {
+  const equipo = await prisma.equipo.findUnique({ 
+    where: { id: equipoId }, 
+    select: { dadorCargaId: true, tenantEmpresaId: true } 
+  });
+  if (!equipo) throw createError('Equipo no encontrado', 404, 'EQUIPO_NOT_FOUND');
+  await validateEmpresaTransportista(empresaTransportistaId, equipo.tenantEmpresaId, equipo.dadorCargaId);
+}
+
+/**
  * Busca conflictos de componentes en equipos activos
  */
 async function findComponentConflicts(
@@ -1362,37 +1374,23 @@ export class EquipoService {
     estado?: 'activa' | 'finalizada';
     empresaTransportistaId?: number;
   }) {
-    // Validar coherencia empresa transportista ↔ dador
-    if (data.empresaTransportistaId !== undefined) {
-      const equipo = await prisma.equipo.findUnique({ where: { id }, select: { dadorCargaId: true, tenantEmpresaId: true } });
-      if (!equipo) throw createError('Equipo no encontrado', 404, 'EQUIPO_NOT_FOUND');
-      if (data.empresaTransportistaId && data.empresaTransportistaId !== 0) {
-        const empresa = await prisma.empresaTransportista.findFirst({ where: { id: data.empresaTransportistaId, tenantEmpresaId: equipo.tenantEmpresaId }, select: { dadorCargaId: true } });
-        if (!empresa || empresa.dadorCargaId !== equipo.dadorCargaId) {
-          throw createError('La empresa transportista no pertenece al dador del equipo', 409, 'EMPRESA_MISMATCH');
-        }
-      }
-    }
-    // Normalizar trailerPlateNorm
-    let trailerPlateNorm: string | null | undefined = undefined;
-    if (data.trailerPlate !== undefined) {
-      trailerPlateNorm = data.trailerPlate ? normalizePlate(data.trailerPlate) : null;
-    }
-
-    // Normalizar empresaTransportistaId (0 significa null)
-    let empresaTransportistaIdNorm: number | null | undefined = undefined;
-    if (data.empresaTransportistaId !== undefined) {
-      empresaTransportistaIdNorm = data.empresaTransportistaId === 0 ? null : data.empresaTransportistaId;
+    // Validar empresa transportista si se proporciona
+    if (data.empresaTransportistaId !== undefined && data.empresaTransportistaId !== 0) {
+      await validateEmpresaTransportistaForEquipo(id, data.empresaTransportistaId);
     }
 
     return prisma.equipo.update({
       where: { id },
       data: {
         trailerId: data.trailerId,
-        trailerPlateNorm,
+        trailerPlateNorm: data.trailerPlate !== undefined 
+          ? (data.trailerPlate ? normalizePlate(data.trailerPlate) : null) 
+          : undefined,
         validTo: data.validTo ?? undefined,
         estado: data.estado as any,
-        empresaTransportistaId: empresaTransportistaIdNorm,
+        empresaTransportistaId: data.empresaTransportistaId !== undefined
+          ? (data.empresaTransportistaId === 0 ? null : data.empresaTransportistaId)
+          : undefined,
       },
     });
   }

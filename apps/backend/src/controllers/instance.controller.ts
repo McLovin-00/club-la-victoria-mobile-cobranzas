@@ -5,6 +5,30 @@ import { AuthRequest } from '../middlewares/platformAuth.middleware';
 
 const instanceService = InstanceService.getInstance();
 
+// Helper: determinar empresaId para creación de instancia
+function resolveTargetEmpresa(user: any, empresaId?: number): { targetId: number | null; error: string | null } {
+  if (user.role === 'SUPERADMIN') {
+    return empresaId 
+      ? { targetId: empresaId, error: null }
+      : { targetId: null, error: 'Debe especificar una empresa para la instancia' };
+  }
+  if (user.role === 'ADMIN' && user.empresaId) {
+    return { targetId: user.empresaId, error: null };
+  }
+  return { targetId: null, error: 'No tienes permisos para crear instancias' };
+}
+
+// Helper: mapear errores de creación de instancia
+function mapInstanceCreationError(error: Error): { status: number; message: string } | null {
+  const errorMessages = [
+    'Ya existe una instancia con este nombre',
+    'El servicio especificado no existe',
+    'La empresa especificada no existe',
+  ];
+  const matchedError = errorMessages.find(msg => error.message.includes(msg));
+  return matchedError ? { status: 400, message: error.message } : null;
+}
+
 /**
  * Obtener todas las instancias (con filtros por empresa según permisos)
  */
@@ -145,82 +169,37 @@ export const createInstance = async (req: AuthRequest, res: Response) => {
     const user = req.user!;
 
     AppLogger.info('📝 Creando nueva instancia', {
-      nombre,
-      serviceId,
-      empresaId,
-      userId: user.userId,
-      userRole: user.role,
+      nombre, serviceId, empresaId, userId: user.userId, userRole: user.role,
     });
 
     // Validar permisos y determinar empresaId
-    let targetEmpresaId = empresaId;
-
-    if (user.role === 'SUPERADMIN') {
-      // Superadmin puede crear instancias para cualquier empresa
-      if (!targetEmpresaId) {
-        return res.status(400).json({
-          success: false,
-          message: 'Debe especificar una empresa para la instancia',
-        });
+    const { targetId: targetEmpresaId, error: permError } = resolveTargetEmpresa(user, empresaId);
+    
+    if (permError) {
+      const status = permError.includes('permisos') ? 403 : 400;
+      if (status === 403) {
+        AppLogger.warn('⚠️ Usuario sin permisos para crear instancias', { userId: user.userId, userRole: user.role });
       }
-    } else if (user.role === 'ADMIN' && user.empresaId) {
-      // Admin solo puede crear instancias para su empresa
-      targetEmpresaId = user.empresaId;
-    } else {
-      // Usuarios normales no pueden crear instancias
-      AppLogger.warn('⚠️ Usuario sin permisos para crear instancias', {
-        userId: user.userId,
-        userRole: user.role,
-      });
-      return res.status(403).json({
-        success: false,
-        message: 'No tienes permisos para crear instancias',
-      });
+      return res.status(status).json({ success: false, message: permError });
     }
 
     const instance = await instanceService.create({
-      nombre,
-      serviceId,
-      empresaId: targetEmpresaId,
-      estado,
-      configuracion,
+      nombre, serviceId, empresaId: targetEmpresaId!, estado, configuracion,
     });
 
-    AppLogger.info('✅ Instancia creada exitosamente', {
-      instanceId: instance.id,
-      nombre: instance.nombre,
-      userId: user.userId,
-    });
-
+    AppLogger.info('✅ Instancia creada exitosamente', { instanceId: instance.id, nombre: instance.nombre, userId: user.userId });
     res.status(201).json(instance);
   } catch (error) {
     AppLogger.error('❌ Error al crear instancia:', error);
 
     if (error instanceof Error) {
-      if (error.message.includes('Ya existe una instancia con este nombre')) {
-        return res.status(400).json({
-          success: false,
-          message: error.message,
-        });
-      }
-      if (error.message.includes('El servicio especificado no existe')) {
-        return res.status(400).json({
-          success: false,
-          message: error.message,
-        });
-      }
-      if (error.message.includes('La empresa especificada no existe')) {
-        return res.status(400).json({
-          success: false,
-          message: error.message,
-        });
+      const mappedError = mapInstanceCreationError(error);
+      if (mappedError) {
+        return res.status(mappedError.status).json({ success: false, message: mappedError.message });
       }
     }
 
-    res.status(500).json({
-      success: false,
-      message: 'Error interno del servidor',
-    });
+    res.status(500).json({ success: false, message: 'Error interno del servidor' });
   }
 };
 

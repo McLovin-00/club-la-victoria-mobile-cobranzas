@@ -1,5 +1,50 @@
 import { prisma } from '../config/database';
 
+type ConsolidatedTemplate = {
+  templateId: number;
+  templateName: string;
+  entityType: string;
+  obligatorio: boolean;
+  diasAnticipacion: number;
+  clienteIds: number[];
+  clienteNames: string[];
+};
+
+// Helper: merge un requisito en el mapa consolidado
+function mergeRequirement(
+  map: Map<string, ConsolidatedTemplate>,
+  req: { templateId: number; entityType: string; obligatorio: boolean; diasAnticipacion: number; clienteId: number; template?: { name: string } | null; cliente?: { razonSocial: string } | null }
+): void {
+  const key = `${req.templateId}:${req.entityType}`;
+  const existing = map.get(key);
+  const clienteName = req.cliente?.razonSocial || `Cliente ${req.clienteId}`;
+
+  if (!existing) {
+    map.set(key, {
+      templateId: req.templateId,
+      templateName: req.template?.name || `Template ${req.templateId}`,
+      entityType: req.entityType,
+      obligatorio: req.obligatorio,
+      diasAnticipacion: req.diasAnticipacion,
+      clienteIds: [req.clienteId],
+      clienteNames: [clienteName],
+    });
+    return;
+  }
+
+  // Agregar cliente si no existe
+  if (!existing.clienteIds.includes(req.clienteId)) {
+    existing.clienteIds.push(req.clienteId);
+    existing.clienteNames.push(clienteName);
+  }
+  // Obligatorio gana
+  if (req.obligatorio) existing.obligatorio = true;
+  // Mayor anticipación gana
+  if (req.diasAnticipacion > existing.diasAnticipacion) {
+    existing.diasAnticipacion = req.diasAnticipacion;
+  }
+}
+
 export class ClientsService {
   static async list(tenantEmpresaId: number, activo?: boolean) {
     return prisma.cliente.findMany({
@@ -101,65 +146,22 @@ export class ClientsService {
       return { templates: [], byEntityType: {} };
     }
 
-    // Obtener todos los requisitos de los clientes seleccionados
     const requirements = await prisma.clienteDocumentRequirement.findMany({
-      where: {
-        tenantEmpresaId,
-        clienteId: { in: clienteIds },
-      },
-      include: {
-        template: true,
-        cliente: { select: { id: true, razonSocial: true } },
-      },
+      where: { tenantEmpresaId, clienteId: { in: clienteIds } },
+      include: { template: true, cliente: { select: { id: true, razonSocial: true } } },
       orderBy: [{ entityType: 'asc' }, { templateId: 'asc' }],
     });
 
-    // Consolidar: clave única = templateId:entityType
-    const consolidated = new Map<string, {
-      templateId: number;
-      templateName: string;
-      entityType: string;
-      obligatorio: boolean;
-      diasAnticipacion: number;
-      clienteIds: number[];
-      clienteNames: string[];
-    }>();
-
+    // Consolidar usando helper
+    const consolidated = new Map<string, ConsolidatedTemplate>();
     for (const req of requirements) {
-      const key = `${req.templateId}:${req.entityType}`;
-      const existing = consolidated.get(key);
-
-      if (!existing) {
-        consolidated.set(key, {
-          templateId: req.templateId,
-          templateName: req.template?.name || `Template ${req.templateId}`,
-          entityType: req.entityType,
-          obligatorio: req.obligatorio,
-          diasAnticipacion: req.diasAnticipacion,
-          clienteIds: [req.clienteId],
-          clienteNames: [req.cliente?.razonSocial || `Cliente ${req.clienteId}`],
-        });
-      } else {
-        // Agregar cliente a la lista
-        if (!existing.clienteIds.includes(req.clienteId)) {
-          existing.clienteIds.push(req.clienteId);
-          existing.clienteNames.push(req.cliente?.razonSocial || `Cliente ${req.clienteId}`);
-        }
-        // El obligatorio gana
-        if (req.obligatorio && !existing.obligatorio) {
-          existing.obligatorio = true;
-        }
-        // Mayor anticipación gana
-        if (req.diasAnticipacion > existing.diasAnticipacion) {
-          existing.diasAnticipacion = req.diasAnticipacion;
-        }
-      }
+      mergeRequirement(consolidated, req);
     }
 
     const templates = Array.from(consolidated.values());
 
     // Agrupar por entityType
-    const byEntityType: Record<string, typeof templates> = {
+    const byEntityType: Record<string, ConsolidatedTemplate[]> = {
       EMPRESA_TRANSPORTISTA: [],
       CHOFER: [],
       CAMION: [],
@@ -167,9 +169,7 @@ export class ClientsService {
     };
 
     for (const t of templates) {
-      if (byEntityType[t.entityType]) {
-        byEntityType[t.entityType].push(t);
-      }
+      byEntityType[t.entityType]?.push(t);
     }
 
     return { templates, byEntityType };

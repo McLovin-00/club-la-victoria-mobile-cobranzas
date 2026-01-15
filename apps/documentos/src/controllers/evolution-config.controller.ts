@@ -6,6 +6,31 @@ const KEY_SERVER = 'evolution.server';
 const KEY_TOKEN = 'evolution.token';
 const KEY_INSTANCE = 'evolution.instance';
 
+// Helper: normalizar URL del servidor
+function normalizeServerUrl(raw: string): string {
+  let server = raw.trim();
+  server = server.replace(/^https?:\/\/https?:\/\//, 'http://');
+  server = server.replace('http//', '');
+  if (!/^https?:\/\//i.test(server)) server = `http://${server}`;
+  return server.replace(/\/$/, '');
+}
+
+// Helper: probar un endpoint específico
+async function tryEndpoint(url: string, headers: Record<string, string>, signal: AbortSignal): Promise<{ ok: boolean; status?: number; message?: string; version?: string }> {
+  try {
+    const resp = await fetch(url, { method: 'GET', headers, signal });
+    if (!resp.ok) return { ok: false, status: resp.status };
+    
+    const data = await resp.json().catch(() => ({}));
+    if (data && typeof data === 'object' && 'message' in data) {
+      return { ok: true, message: (data as any).message, version: (data as any).version };
+    }
+    return { ok: true, status: resp.status };
+  } catch (e: any) {
+    return { ok: false, message: e?.message || String(e) };
+  }
+}
+
 export class EvolutionConfigController {
   static async getConfig(req: AuthRequest, res: Response) {
     const [server, token, instance] = await Promise.all([
@@ -30,78 +55,49 @@ export class EvolutionConfigController {
   }
 
   static async testConnection(req: AuthRequest, res: Response) {
-    // Intentar una verificación real contra el servidor Evolution
     const [serverRaw, token, instance] = await Promise.all([
       SystemConfigService.getConfig(KEY_SERVER),
       SystemConfigService.getConfig(KEY_TOKEN),
       SystemConfigService.getConfig(KEY_INSTANCE),
     ]);
-    const okParams = Boolean(serverRaw && token && instance);
-    if (!okParams) {
+    
+    if (!serverRaw || !token || !instance) {
       return res.json({ success: false, message: 'Faltan parámetros' });
     }
 
-    // Normalizar URL del servidor
-    let server = String(serverRaw ?? '').trim();
-    server = server.replace(/^https?:\/\/https?:\/\//, 'http://');
-    server = server.replace('http//', '');
-    if (!/^https?:\/\//i.test(server)) server = `http://${server}`;
-    server = server.replace(/\/$/, '');
-
+    const server = normalizeServerUrl(String(serverRaw));
     const headers: Record<string, string> = {
       Authorization: `Bearer ${String(token)}`,
-      // Algunas instalaciones usan 'apikey'
       apikey: String(token),
       'Content-Type': 'application/json',
     };
 
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 3000);
-    let lastError: any = null;
+    
     try {
-      // 1) Intento principal: raíz debería devolver el JSON de bienvenida
-      try {
-        const url = `${server}/`;
-        const resp = await fetch(url, { method: 'GET', headers, signal: controller.signal });
-        if (resp.ok) {
-          const data = await resp.json().catch(() => ({}));
-          if (data && typeof data === 'object' && 'message' in data) {
-            clearTimeout(timeout);
-            const v = (data as any).version ? ` v${(data as any).version}` : '';
-            return res.json({ success: true, message: `Conexión OK${v}: ${(data as any).message}` });
-          }
-          clearTimeout(timeout);
-          return res.json({ success: true, message: `Conexión OK (${resp.status})` });
-        }
-        lastError = `HTTP ${resp.status}`;
-      } catch (e: any) {
-        lastError = e?.message || e;
+      // 1) Intento principal: raíz
+      const mainResult = await tryEndpoint(`${server}/`, headers, controller.signal);
+      if (mainResult.ok) {
+        clearTimeout(timeout);
+        const v = mainResult.version ? ` v${mainResult.version}` : '';
+        const msg = mainResult.message ? `Conexión OK${v}: ${mainResult.message}` : `Conexión OK (${mainResult.status})`;
+        return res.json({ success: true, message: msg });
       }
 
-      // 2) Fallback: probar otros endpoints comunes
-      const candidates = [
-        '/health',
-        '/status',
-        `/instances/${instance}`,
-        `/instances/${instance}/status`,
-        `/evolution/${instance}/status`,
-        '/api/status',
-      ];
+      // 2) Fallback: endpoints comunes
+      const candidates = ['/health', '/status', `/instances/${instance}`, `/instances/${instance}/status`, `/evolution/${instance}/status`, '/api/status'];
+      
       for (const path of candidates) {
-        try {
-          const url = `${server}${path}`;
-          const resp = await fetch(url, { method: 'GET', headers, signal: controller.signal });
-          if (resp.ok) {
-            clearTimeout(timeout);
-            return res.json({ success: true, message: `Conexión OK (${resp.status}) en ${path}` });
-          }
-          lastError = `HTTP ${resp.status}`;
-        } catch (e: any) {
-          lastError = e?.message || e;
+        const result = await tryEndpoint(`${server}${path}`, headers, controller.signal);
+        if (result.ok) {
+          clearTimeout(timeout);
+          return res.json({ success: true, message: `Conexión OK (${result.status}) en ${path}` });
         }
       }
+      
       clearTimeout(timeout);
-      return res.status(502).json({ success: false, message: `No se pudo contactar Evolution API (${String(lastError)})` });
+      return res.status(502).json({ success: false, message: `No se pudo contactar Evolution API` });
     } catch (e: any) {
       clearTimeout(timeout);
       return res.status(500).json({ success: false, message: e?.message || 'Error desconocido' });

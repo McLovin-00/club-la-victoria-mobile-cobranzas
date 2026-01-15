@@ -8,47 +8,65 @@ type MinimalUser = {
   metadata?: Record<string, any>;
 };
 
+// Roles con acceso admin completo
+const ADMIN_ROLES = [UserRole.ADMIN, UserRole.OPERATOR, UserRole.OPERADOR_INTERNO, UserRole.ADMIN_INTERNO];
+
+// Helper: extrae metadata numérica de forma segura
+function getMetaNumber(metadata: Record<string, any> | undefined, key: string): number | undefined {
+  const val = metadata?.[key];
+  return typeof val === 'number' ? val : undefined;
+}
+
+// Helper: extrae metadata string de forma segura  
+function getMetaString(metadata: Record<string, any> | undefined, key: string): string | undefined {
+  const val = metadata?.[key];
+  return typeof val === 'string' ? val : undefined;
+}
+
 export class PermissionsService {
   static async canAccessEquipo(user: MinimalUser, equipoId: number): Promise<boolean> {
+    const role = String(user.role);
+    
+    // Superadmin siempre tiene acceso
+    if (role === UserRole.SUPERADMIN) return true;
+
     const eq = await prisma.equipo.findUnique({
       where: { id: equipoId },
       select: { id: true, tenantEmpresaId: true, dadorCargaId: true, empresaTransportistaId: true, driverId: true, driverDniNorm: true },
     });
     if (!eq) return false;
 
-    const role = String(user.role);
-    if (role === UserRole.SUPERADMIN) return true;
-
+    // Verificar mismo tenant
     const sameTenant = typeof user.empresaId === 'number' && eq.tenantEmpresaId === user.empresaId;
     if (!sameTenant) return false;
 
-    if (role === UserRole.ADMIN || role === UserRole.OPERATOR || role === UserRole.OPERADOR_INTERNO || role === UserRole.ADMIN_INTERNO) {
-      return true;
-    }
+    // Roles admin tienen acceso total en su tenant
+    if (ADMIN_ROLES.includes(role as UserRole)) return true;
 
-    const dadorId: number | undefined =
-      typeof user.metadata?.dadorCargaId === 'number' ? user.metadata!.dadorCargaId : undefined;
+    // Verificaciones específicas por rol
+    const meta = user.metadata;
+    
     if (role === UserRole.DADOR_DE_CARGA) {
+      const dadorId = getMetaNumber(meta, 'dadorCargaId');
       return !!dadorId && eq.dadorCargaId === dadorId;
     }
-
-    const empresaTransportistaId: number | undefined =
-      typeof user.metadata?.empresaTransportistaId === 'number' ? user.metadata!.empresaTransportistaId : undefined;
-    const choferId: number | undefined = typeof user.metadata?.choferId === 'number' ? user.metadata!.choferId : undefined;
-    const choferDniNorm: string | undefined = typeof user.metadata?.choferDniNorm === 'string' ? user.metadata!.choferDniNorm : undefined;
-
+    
     if (role === UserRole.TRANSPORTISTA) {
-      return !!empresaTransportistaId && eq.empresaTransportistaId === empresaTransportistaId;
+      const empresaId = getMetaNumber(meta, 'empresaTransportistaId');
+      return !!empresaId && eq.empresaTransportistaId === empresaId;
     }
+    
     if (role === UserRole.CHOFER) {
-      return (typeof choferId === 'number' && eq.driverId === choferId) ||
-             (!!choferDniNorm && eq.driverDniNorm === choferDniNorm);
+      const choferId = getMetaNumber(meta, 'choferId');
+      const choferDni = getMetaString(meta, 'choferDniNorm');
+      return (!!choferId && eq.driverId === choferId) || (!!choferDni && eq.driverDniNorm === choferDni);
     }
+    
     if (role === UserRole.CLIENTE) {
-      // Cliente solo por equipos asignados: verificación más estricta podría requerir join
-      const assigned = await prisma.equipoCliente.findFirst({ where: { equipoId: equipoId } });
+      const assigned = await prisma.equipoCliente.findFirst({ where: { equipoId } });
       return !!assigned;
     }
+    
     return false;
   }
 

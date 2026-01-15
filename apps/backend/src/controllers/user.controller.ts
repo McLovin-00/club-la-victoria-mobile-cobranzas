@@ -22,6 +22,50 @@ const getPrivateKey = (): string => {
   return CACHED_PRIVATE_KEY;
 };
 
+// Helper: agregar filtro de búsqueda
+function addSearchFilter(where: any, search: string | undefined): void {
+  if (search && typeof search === 'string' && search.trim()) {
+    const searchTerm = search.trim();
+    where.OR = [
+      { email: { contains: searchTerm, mode: 'insensitive' } },
+      { nombre: { contains: searchTerm, mode: 'insensitive' } },
+      { apellido: { contains: searchTerm, mode: 'insensitive' } },
+    ];
+  }
+}
+
+// Helper: agregar filtro de rol
+function addRoleFilter(where: any, role: string | undefined): void {
+  if (role && typeof role === 'string') {
+    where.role = role.toUpperCase();
+  }
+}
+
+// Helper: agregar filtro de empresa
+function addEmpresaFilter(where: any, empresaId: string | undefined): void {
+  if (empresaId && typeof empresaId === 'string') {
+    const empresaIdNum = parseInt(empresaId);
+    if (!isNaN(empresaIdNum)) {
+      where.empresaId = empresaIdNum;
+    }
+  }
+}
+
+// Helper: aplicar restricciones de rol
+function applyRoleRestrictions(where: any, user: any, tenantId?: number): void {
+  if (user.role === 'ADMIN') {
+    where.empresaId = user.empresaId;
+    where.role = { not: 'SUPERADMIN' };
+    AppLogger.debug('🔒 Aplicando restricciones de admin', {
+      adminEmpresaId: user.empresaId,
+      excludingSuperadmins: true,
+    });
+  } else if (user.role === 'SUPERADMIN' && tenantId && Number.isInteger(tenantId)) {
+    where.empresaId = tenantId;
+    AppLogger.debug('🏢 Filtro por tenant aplicado (superadmin)', { tenantId });
+  }
+}
+
 export class PlatformUserController {
   /**
    * Obtener lista de usuarios de plataforma con filtros y paginación
@@ -40,68 +84,18 @@ export class PlatformUserController {
       }
 
       const user = req.user!;
-      const { 
-        page = '1', 
-        limit = '10', 
-        search = '', 
-        role,
-        empresaId 
-      } = req.query;
+      const { page = '1', limit = '10', search, role, empresaId } = req.query;
 
       AppLogger.info('📋 Obteniendo usuarios de plataforma', {
-        userId: user.userId,
-        userRole: user.role,
-        page,
-        limit,
-        search,
-        role,
-        empresaId,
+        userId: user.userId, userRole: user.role, page, limit, search, role, empresaId,
       });
 
       // Construir filtros de consulta
       const where: any = {};
-
-      // Filtro de búsqueda por texto
-      if (search && typeof search === 'string' && search.trim()) {
-        const searchTerm = search.trim();
-        where.OR = [
-          { email: { contains: searchTerm, mode: 'insensitive' } },
-          { nombre: { contains: searchTerm, mode: 'insensitive' } },
-          { apellido: { contains: searchTerm, mode: 'insensitive' } },
-        ];
-      }
-
-      // Filtro por rol
-      if (role && typeof role === 'string') {
-        where.role = role.toUpperCase();
-      }
-
-      // Filtro por empresa
-      if (empresaId && typeof empresaId === 'string') {
-        const empresaIdNum = parseInt(empresaId);
-        if (!isNaN(empresaIdNum)) {
-          where.empresaId = empresaIdNum;
-        }
-      }
-
-      // Aplicar restricciones según el rol del usuario actual
-      if (user.role === 'ADMIN') {
-        // Los administradores solo pueden ver usuarios de su empresa
-        // y no pueden ver otros superadministradores
-        where.empresaId = user.empresaId;
-        where.role = { not: 'SUPERADMIN' };
-        
-        AppLogger.debug('🔒 Aplicando restricciones de admin', {
-          adminEmpresaId: user.empresaId,
-          excludingSuperadmins: true,
-        });
-      } else if (user.role === 'SUPERADMIN') {
-        // Si es superadmin y viene tenant seleccionado, filtrar por esa empresa
-        if (req.tenantId && Number.isInteger(req.tenantId)) {
-          where.empresaId = req.tenantId;
-          AppLogger.debug('🏢 Filtro por tenant aplicado (superadmin)', { tenantId: req.tenantId });
-        }
-      }
+      addSearchFilter(where, search as string);
+      addRoleFilter(where, role as string);
+      addEmpresaFilter(where, empresaId as string);
+      applyRoleRestrictions(where, user, req.tenantId ?? undefined)
 
       // Configurar paginación
       const pageNum = parseInt(page as string) || 1;
