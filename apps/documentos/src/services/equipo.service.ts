@@ -13,6 +13,160 @@ function normalizePlate(plate: string): string {
   return (plate || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
 }
 
+// ============================================================================
+// HELPERS PARA CREACIÓN DE EQUIPOS - Reducción de complejidad cognitiva
+// ============================================================================
+
+/**
+ * Valida que la empresa transportista pertenezca al dador
+ */
+async function validateEmpresaTransportista(
+  empresaTransportistaId: number | null | undefined,
+  tenantEmpresaId: number,
+  dadorCargaId: number
+): Promise<void> {
+  if (!empresaTransportistaId) return;
+  
+  const empresa = await prisma.empresaTransportista.findFirst({
+    where: { id: empresaTransportistaId, tenantEmpresaId },
+    select: { dadorCargaId: true }
+  });
+  
+  if (!empresa || empresa.dadorCargaId !== dadorCargaId) {
+    throw createError('La empresa transportista no pertenece al dador del equipo', 409, 'EMPRESA_MISMATCH');
+  }
+}
+
+/**
+ * Busca conflictos de componentes en equipos activos
+ */
+async function findComponentConflicts(
+  tenantEmpresaId: number,
+  dniNorm: string,
+  truckNorm: string,
+  trailerNorm: string | null
+): Promise<{ conflicts: string[]; driverEquipoId: number | null; truckEquipoId: number | null; trailerEquipoId: number | null }> {
+  const conflicts: string[] = [];
+  let driverEquipoId: number | null = null;
+  let truckEquipoId: number | null = null;
+  let trailerEquipoId: number | null = null;
+
+  const driverInUse = await prisma.equipo.findFirst({
+    where: { tenantEmpresaId, driverDniNorm: dniNorm, validTo: null }
+  });
+  if (driverInUse) {
+    conflicts.push(`Chofer en equipo #${driverInUse.id}`);
+    driverEquipoId = driverInUse.id;
+  }
+
+  const truckInUse = await prisma.equipo.findFirst({
+    where: { tenantEmpresaId, truckPlateNorm: truckNorm, validTo: null }
+  });
+  if (truckInUse) {
+    conflicts.push(`Camión en equipo #${truckInUse.id}`);
+    truckEquipoId = truckInUse.id;
+  }
+
+  if (trailerNorm) {
+    const trailerInUse = await prisma.equipo.findFirst({
+      where: { tenantEmpresaId, trailerPlateNorm: trailerNorm, validTo: null }
+    });
+    if (trailerInUse) {
+      conflicts.push(`Acoplado en equipo #${trailerInUse.id}`);
+      trailerEquipoId = trailerInUse.id;
+    }
+  }
+
+  return { conflicts, driverEquipoId, truckEquipoId, trailerEquipoId };
+}
+
+/**
+ * Resuelve conflictos de componentes cerrando/desasociando equipos existentes
+ */
+async function resolveComponentConflicts(
+  tenantEmpresaId: number,
+  dniNorm: string,
+  truckNorm: string,
+  trailerNorm: string | null
+): Promise<void> {
+  // Cerrar equipo del chofer
+  const driverInUse = await prisma.equipo.findFirst({
+    where: { tenantEmpresaId, driverDniNorm: dniNorm, validTo: null }
+  });
+  if (driverInUse) {
+    await prisma.$transaction([
+      prisma.equipo.update({ where: { id: driverInUse.id }, data: { validTo: new Date(), estado: 'finalizada' as any } }),
+      prisma.equipoHistory.create({ data: { equipoId: driverInUse.id, action: 'close', component: 'driver', originEquipoId: undefined as any, payload: { reason: 'forceMove' } as any } })
+    ]);
+  }
+
+  // Cerrar equipo del camión
+  const truckInUse = await prisma.equipo.findFirst({
+    where: { tenantEmpresaId, truckPlateNorm: truckNorm, validTo: null }
+  });
+  if (truckInUse) {
+    await prisma.$transaction([
+      prisma.equipo.update({ where: { id: truckInUse.id }, data: { validTo: new Date(), estado: 'finalizada' as any } }),
+      prisma.equipoHistory.create({ data: { equipoId: truckInUse.id, action: 'close', component: 'truck', originEquipoId: undefined as any, payload: { reason: 'forceMove' } as any } })
+    ]);
+  }
+
+  // Desasociar acoplado
+  if (trailerNorm) {
+    const trailerInUse = await prisma.equipo.findFirst({
+      where: { tenantEmpresaId, trailerPlateNorm: trailerNorm, validTo: null }
+    });
+    if (trailerInUse) {
+      await prisma.$transaction([
+        prisma.equipo.update({ where: { id: trailerInUse.id }, data: { trailerId: null, trailerPlateNorm: null } }),
+        prisma.equipoHistory.create({ data: { equipoId: trailerInUse.id, action: 'detach', component: 'trailer', originEquipoId: undefined as any, payload: { reason: 'forceMove' } as any } })
+      ]);
+    }
+  }
+}
+
+/**
+ * Ejecuta acciones post-creación de equipo
+ */
+async function onEquipoCreated(
+  equipo: { id: number },
+  tenantEmpresaId: number,
+  dniNorm: string,
+  truckNorm: string,
+  trailerNorm: string | null
+): Promise<void> {
+  // Registrar en historial
+  try {
+    await prisma.equipoHistory.create({
+      data: {
+        equipoId: equipo.id,
+        action: 'create',
+        component: 'system',
+        originEquipoId: null,
+        payload: { driverDni: dniNorm, truckPlate: truckNorm, trailerPlate: trailerNorm } as any
+      }
+    });
+  } catch { /* noop */ }
+
+  // Encolar chequeo de faltantes
+  try {
+    const { queueService } = await import('./queue.service');
+    await queueService.addMissingCheckForEquipo(tenantEmpresaId, equipo.id, 15 * 60 * 1000);
+  } catch { /* noop */ }
+
+  // Asociar cliente por defecto
+  try {
+    const { SystemConfigService } = await import('./system-config.service');
+    const defIdStr = await SystemConfigService.getConfig(`tenant:${tenantEmpresaId}:defaults.defaultClienteId`);
+    const defId = defIdStr ? Number(defIdStr) : NaN;
+    if (!Number.isNaN(defId)) {
+      await EquipoService.associateCliente(tenantEmpresaId, equipo.id, defId, new Date());
+    }
+  } catch { /* noop */ }
+}
+
+// ============================================================================
+
 interface EquipoEntityIds {
   driverId: number;
   truckId: number;
@@ -1144,18 +1298,15 @@ export class EquipoService {
     validTo?: Date | null;
     forceMove?: boolean;
   }) {
-    // Validar coherencia empresa transportista ↔ dador
-    if (input.empresaTransportistaId) {
-      const empresa = await prisma.empresaTransportista.findFirst({ where: { id: input.empresaTransportistaId, tenantEmpresaId: input.tenantEmpresaId }, select: { dadorCargaId: true } });
-      if (!empresa || empresa.dadorCargaId !== input.dadorCargaId) {
-        throw createError('La empresa transportista no pertenece al dador del equipo', 409, 'EMPRESA_MISMATCH');
-      }
-    }
-    // Prevenir duplicados: mismo DNI + patente camión + (patente acoplado opcional) activos/solapados
+    // Validar empresa transportista
+    await validateEmpresaTransportista(input.empresaTransportistaId, input.tenantEmpresaId, input.dadorCargaId);
+
+    // Normalizar identificadores
     const dniNorm = normalizeDni(input.driverDni);
     const truckNorm = normalizePlate(input.truckPlate);
     const trailerNorm = input.trailerPlate ? normalizePlate(input.trailerPlate) : null;
 
+    // Verificar duplicados
     const existing = await prisma.equipo.findFirst({
       where: {
         tenantEmpresaId: input.tenantEmpresaId,
@@ -1163,61 +1314,26 @@ export class EquipoService {
         driverDniNorm: dniNorm,
         truckPlateNorm: truckNorm,
         trailerPlateNorm: trailerNorm,
-        OR: [
-          { validTo: null },
-          { validTo: { gte: input.validFrom } },
-        ],
+        OR: [{ validTo: null }, { validTo: { gte: input.validFrom } }],
       },
     });
-
     if (existing) {
       throw createError('Equipo ya existe para este DNI/patentes en vigencia', 409, 'EQUIPO_DUPLICATE');
     }
 
-    // Validar que los componentes no estén en otros equipos activos
-    const conflicts: Array<string> = [];
-    const driverInUse = await prisma.equipo.findFirst({ where: { tenantEmpresaId: input.tenantEmpresaId, driverDniNorm: dniNorm, validTo: null } });
-    if (driverInUse) conflicts.push(`Chofer en equipo #${driverInUse.id}`);
-    const truckInUse = await prisma.equipo.findFirst({ where: { tenantEmpresaId: input.tenantEmpresaId, truckPlateNorm: truckNorm, validTo: null } });
-    if (truckInUse) conflicts.push(`Camión en equipo #${truckInUse.id}`);
-    if (trailerNorm) {
-      const trailerInUse = await prisma.equipo.findFirst({ where: { tenantEmpresaId: input.tenantEmpresaId, trailerPlateNorm: trailerNorm, validTo: null } });
-      if (trailerInUse) conflicts.push(`Acoplado en equipo #${trailerInUse.id}`);
-    }
+    // Buscar conflictos de componentes
+    const { conflicts } = await findComponentConflicts(input.tenantEmpresaId, dniNorm, truckNorm, trailerNorm);
+    
     if (conflicts.length && !input.forceMove) {
       throw createError(`Componentes ya en uso: ${conflicts.join(', ')}`, 409, 'COMPONENT_IN_USE');
     }
 
-    // Si forceMove, aplicamos la misma política de swap que en attachComponents
+    // Resolver conflictos si forceMove
     if (conflicts.length && input.forceMove) {
-      // Cerrar equipo origen del chofer
-      const driverInUse = await prisma.equipo.findFirst({ where: { tenantEmpresaId: input.tenantEmpresaId, driverDniNorm: dniNorm, validTo: null } });
-      if (driverInUse) {
-        await prisma.$transaction([
-          prisma.equipo.update({ where: { id: driverInUse.id }, data: { validTo: new Date(), estado: 'finalizada' as any } }),
-          prisma.equipoHistory.create({ data: { equipoId: driverInUse.id, action: 'close', component: 'driver', originEquipoId: undefined as any, payload: { reason: 'forceMove' } as any } })
-        ]);
-      }
-      // Cerrar equipo origen del camión
-      const truckInUse = await prisma.equipo.findFirst({ where: { tenantEmpresaId: input.tenantEmpresaId, truckPlateNorm: truckNorm, validTo: null } });
-      if (truckInUse) {
-        await prisma.$transaction([
-          prisma.equipo.update({ where: { id: truckInUse.id }, data: { validTo: new Date(), estado: 'finalizada' as any } }),
-          prisma.equipoHistory.create({ data: { equipoId: truckInUse.id, action: 'close', component: 'truck', originEquipoId: undefined as any, payload: { reason: 'forceMove' } as any } })
-        ]);
-      }
-      // Desasociar acoplado de su equipo origen
-      if (trailerNorm) {
-        const trailerInUse = await prisma.equipo.findFirst({ where: { tenantEmpresaId: input.tenantEmpresaId, trailerPlateNorm: trailerNorm, validTo: null } });
-        if (trailerInUse) {
-          await prisma.$transaction([
-            prisma.equipo.update({ where: { id: trailerInUse.id }, data: { trailerId: null, trailerPlateNorm: null } }),
-            prisma.equipoHistory.create({ data: { equipoId: trailerInUse.id, action: 'detach', component: 'trailer', originEquipoId: undefined as any, payload: { reason: 'forceMove' } as any } })
-          ]);
-        }
-      }
+      await resolveComponentConflicts(input.tenantEmpresaId, dniNorm, truckNorm, trailerNorm);
     }
 
+    // Crear equipo
     const equipo = await prisma.equipo.create({
       data: {
         tenantEmpresaId: input.tenantEmpresaId,
@@ -1233,22 +1349,9 @@ export class EquipoService {
         validTo: input.validTo ?? null,
       },
     });
-    // Registrar creación
-    try { await prisma.equipoHistory.create({ data: { equipoId: equipo.id, action: 'create', component: 'system', originEquipoId: null, payload: { driverDni: dniNorm, truckPlate: truckNorm, trailerPlate: trailerNorm } as any } }); } catch {}
-    // Encolar chequeo de faltantes en 15 minutos
-    try {
-      const { queueService } = await import('./queue.service');
-      await queueService.addMissingCheckForEquipo(input.tenantEmpresaId, equipo.id, 15 * 60 * 1000);
-    } catch { /* noop */ }
-    // Asociar cliente por defecto si existe
-    try {
-      const { SystemConfigService } = await import('./system-config.service');
-      const defIdStr = await SystemConfigService.getConfig(`tenant:${input.tenantEmpresaId}:defaults.defaultClienteId`);
-      const defId = defIdStr ? Number(defIdStr) : NaN;
-      if (!Number.isNaN(defId)) {
-        await this.associateCliente(input.tenantEmpresaId, equipo.id, defId, new Date());
-      }
-    } catch { /* noop */ }
+    // Ejecutar acciones post-creación
+    await onEquipoCreated(equipo, input.tenantEmpresaId, dniNorm, truckNorm, trailerNorm);
+    
     return equipo;
   }
 
