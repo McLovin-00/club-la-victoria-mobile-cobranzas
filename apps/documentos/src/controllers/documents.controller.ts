@@ -78,6 +78,30 @@ function extractExpirationDate(req: AuthRequest, templateId: string | number): D
   return null;
 }
 
+/** Convierte un archivo a PDF si es imagen */
+async function convertFileToPdf(file: Express.Multer.File): Promise<{ buffer: Buffer; fileName: string }> {
+  if (/^application\/pdf$/i.test(file.mimetype)) {
+    return { buffer: file.buffer, fileName: file.originalname.replace(/\.[^.]+$/, '.pdf') };
+  }
+  
+  // Convertir imagen a PDF
+  const PDFDocument = (await import('pdfkit')).default;
+  const doc = new PDFDocument({ autoFirstPage: false });
+  const chunks: Buffer[] = [];
+  doc.on('data', (chunk: Buffer) => chunks.push(chunk));
+  
+  const sharp = (await import('sharp')).default;
+  const imgMeta = await sharp(file.buffer).metadata();
+  const width = imgMeta.width || 595;
+  const height = imgMeta.height || 842;
+  doc.addPage({ size: [width, height], margin: 0 });
+  doc.image(file.buffer, 0, 0, { width, height });
+  doc.end();
+  
+  await new Promise<void>((resolve) => doc.on('end', resolve));
+  return { buffer: Buffer.concat(chunks), fileName: file.originalname.replace(/\.[^.]+$/, '.pdf') };
+}
+
 /** Marca documento anterior como deprecado */
 async function deprecatePreviousDocument(
   last: { id: number; status: string } | null, 
@@ -896,32 +920,8 @@ export class DocumentsController {
       const file = files[0];
       
       // Preparar buffer final (convertir a PDF si es imagen)
-      let finalBuffer: Buffer;
-      let finalFileName: string;
+      const { buffer: finalBuffer, fileName: finalFileName } = await convertFileToPdf(file);
       const finalMime = 'application/pdf';
-      
-      if (/^application\/pdf$/i.test(file.mimetype)) {
-        finalBuffer = file.buffer;
-        finalFileName = file.originalname.replace(/\.[^.]+$/, '.pdf');
-      } else {
-        // Convertir imagen a PDF
-        const PDFDocument = (await import('pdfkit')).default;
-        const doc = new PDFDocument({ autoFirstPage: false });
-        const chunks: Buffer[] = [];
-        doc.on('data', (chunk: Buffer) => chunks.push(chunk));
-        
-        const sharp = (await import('sharp')).default;
-        const imgMeta = await sharp(file.buffer).metadata();
-        const width = imgMeta.width || 595;
-        const height = imgMeta.height || 842;
-        doc.addPage({ size: [width, height], margin: 0 });
-        doc.image(file.buffer, 0, 0, { width, height });
-        doc.end();
-        
-        await new Promise<void>((resolve) => doc.on('end', resolve));
-        finalBuffer = Buffer.concat(chunks);
-        finalFileName = file.originalname.replace(/\.[^.]+$/, '.pdf');
-      }
       
       // Eliminar archivo anterior de MinIO
       try {
