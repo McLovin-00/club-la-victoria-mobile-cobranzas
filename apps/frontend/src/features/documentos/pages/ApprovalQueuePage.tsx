@@ -1,7 +1,7 @@
 import { useMemo, useState, useEffect } from 'react';
 import { Pagination } from '../../../components/ui/Pagination';
 import { Link, useNavigate } from 'react-router-dom';
-import { useGetApprovalPendingQuery, useGetApprovalKpisQuery } from '../api/documentosApiSlice';
+import { useGetApprovalPendingQuery, useGetApprovalKpisQuery } from '@/features/documentos/api/documentosApiSlice';
 import { formatDateTime } from '../../../utils/formatters';
 import type { ApprovalPendingDocument } from '../types/entities';
 import { useAppSelector } from '../../../store/hooks';

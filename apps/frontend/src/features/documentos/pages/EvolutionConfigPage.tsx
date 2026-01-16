@@ -5,6 +5,7 @@ import { Input } from '../../../components/ui/input';
 import { useSelector } from 'react-redux';
 import { RootState } from '../../../store/store';
 import { useRoleBasedNavigation } from '../../../hooks/useRoleBasedNavigation';
+import { getRuntimeEnv } from '../../../lib/runtimeEnv';
 
 const EvolutionConfigPage: React.FC = () => {
   const { goBack } = useRoleBasedNavigation();
@@ -15,7 +16,7 @@ const EvolutionConfigPage: React.FC = () => {
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
 
-  const baseUrl = `${import.meta.env.VITE_DOCUMENTOS_API_URL}/api/docs/evolution`;
+  const baseUrl = `${getRuntimeEnv('VITE_DOCUMENTOS_API_URL') || ''}/api/docs/evolution`;
   const authToken = useSelector((s: RootState) => s.auth?.token);
   const empresaId = useSelector((s: RootState) => s.auth?.user?.empresaId);
 

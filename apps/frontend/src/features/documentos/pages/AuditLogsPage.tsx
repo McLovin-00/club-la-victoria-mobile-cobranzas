@@ -4,6 +4,7 @@ import { useGetAuditLogsQuery } from '../../documentos/api/documentosApiSlice';
 import { useAppSelector } from '../../../store/hooks';
 import { showToast } from '../../../components/ui/Toast.utils';
 import { ArrowLeftIcon } from '@heroicons/react/24/outline';
+import { getRuntimeEnv } from '../../../lib/runtimeEnv';
 
 const toInt = (s: string | null, def: number): number => {
   const n = s ? parseInt(s, 10) : NaN;
@@ -96,7 +97,7 @@ const AuditLogsPage: React.FC = () => {
 
   const download = async (fmt: 'csv' | 'xlsx') => {
     setDownloading(fmt);
-    const base = import.meta.env.VITE_DOCUMENTOS_API_URL;
+    const base = getRuntimeEnv('VITE_DOCUMENTOS_API_URL') || '';
     const qs = new URLSearchParams(params as any).toString();
     const url = `${base}/api/docs/audit/logs.${fmt}?${qs}`;
     const headers: Record<string, string> = {};

@@ -1,6 +1,7 @@
 import { createApi, fetchBaseQuery } from '@reduxjs/toolkit/query/react';
 import { RootState } from '../../../store/store';
 import type { EmpresaTransportista, ApprovalPendingDocument, ApprovalStats, EquipoWithExtras, EquipoDocumento } from '../types/entities';
+import { getRuntimeEnv } from '../../../lib/runtimeEnv';
 
 // =================================
 // TIPOS Y INTERFACES - Simplicidad Elegante
@@ -72,7 +73,7 @@ export interface DashboardData {
 export const documentosApiSlice = createApi({
   reducerPath: 'documentosApi',
   baseQuery: fetchBaseQuery({
-    baseUrl: `${import.meta.env.VITE_DOCUMENTOS_API_URL}/api/docs`,
+    baseUrl: `${getRuntimeEnv('VITE_DOCUMENTOS_API_URL') ?? ''}/api/docs`,
     prepareHeaders: (headers, { getState }) => {
       const state = getState() as RootState;
       const token = state.auth?.token;

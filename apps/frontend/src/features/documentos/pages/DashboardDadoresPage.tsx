@@ -5,8 +5,9 @@ import { useGetApprovalKpisQuery, useUploadBatchDocsDadorMutation } from '../api
 import { useSelector } from 'react-redux';
 import { RootState } from '../../../store/store';
 import { useRoleBasedNavigation } from '../../../hooks/useRoleBasedNavigation';
+import { getRuntimeEnv } from '../../../lib/runtimeEnv';
 
-const baseUrl = `${import.meta.env.VITE_DOCUMENTOS_API_URL}/api/docs`;
+const baseUrl = `${getRuntimeEnv('VITE_DOCUMENTOS_API_URL') || ''}/api/docs`;
 
 const StatusDot: React.FC<{ count: number; color: 'red' | 'yellow' | 'green' }> = ({ count, color }) => {
   const colorClass = color === 'red' ? 'bg-red-500' : color === 'yellow' ? 'bg-yellow-500' : 'bg-green-500';

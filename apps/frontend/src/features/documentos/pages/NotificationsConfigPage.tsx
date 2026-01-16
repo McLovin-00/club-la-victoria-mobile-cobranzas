@@ -5,12 +5,13 @@ import { Input } from '../../../components/ui/input';
 import { useSelector } from 'react-redux';
 import { RootState } from '../../../store/store';
 import { useRoleBasedNavigation } from '../../../hooks/useRoleBasedNavigation';
+import { getRuntimeEnv } from '../../../lib/runtimeEnv';
 
 type Unit = 'days' | 'weeks' | 'months';
 
 const NotificationsConfigPage: React.FC = () => {
   const { goBack } = useRoleBasedNavigation();
-  const baseUrl = `${import.meta.env.VITE_DOCUMENTOS_API_URL}/api/docs/notifications`;
+  const baseUrl = `${getRuntimeEnv('VITE_DOCUMENTOS_API_URL') || ''}/api/docs/notifications`;
   const token = useSelector((s: RootState) => s.auth?.token);
   const empresaId = useSelector((s: RootState) => s.auth?.user?.empresaId);
   const headers: HeadersInit = useMemo(() => ({

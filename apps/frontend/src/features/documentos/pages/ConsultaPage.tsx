@@ -3,6 +3,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useSelector } from 'react-redux';
 import { RootState } from '../../../store/store';
 import { useAppSelector } from '../../../store/hooks';
+import { getRuntimeEnv } from '../../../lib/runtimeEnv';
 import { Card } from '../../../components/ui/card';
 import { Button } from '../../../components/ui/button';
 import { Input } from '../../../components/ui/input';
@@ -218,7 +219,7 @@ export const ConsultaPage: React.FC = () => {
     setIaDataLoading(true);
     setIaData({ empresaTransportista: null, chofer: null, camion: null, acoplado: null });
     
-    const baseUrl = import.meta.env.VITE_DOCUMENTOS_API_URL || '';
+    const baseUrl = getRuntimeEnv('VITE_DOCUMENTOS_API_URL') || '';
     const headers = { Authorization: `Bearer ${authToken}` };
     
     try {
@@ -275,7 +276,7 @@ export const ConsultaPage: React.FC = () => {
   };
   
   const handleDeleteIAData = async (entityType: string, entityId: number) => {
-    const baseUrl = import.meta.env.VITE_DOCUMENTOS_API_URL || '';
+    const baseUrl = getRuntimeEnv('VITE_DOCUMENTOS_API_URL') || '';
     try {
       const resp = await fetch(`${baseUrl}/api/docs/entities/${entityType}/${entityId}/extracted-data`, {
         method: 'DELETE',
@@ -296,7 +297,7 @@ export const ConsultaPage: React.FC = () => {
   
   const handleSaveEdit = async () => {
     if (!editingEntity) return;
-    const baseUrl = import.meta.env.VITE_DOCUMENTOS_API_URL || '';
+    const baseUrl = getRuntimeEnv('VITE_DOCUMENTOS_API_URL') || '';
     try {
       const resp = await fetch(`${baseUrl}/api/docs/entities/${editingEntity.entityType}/${editingEntity.entityId}/extracted-data`, {
         method: 'PUT',
@@ -514,7 +515,7 @@ export const ConsultaPage: React.FC = () => {
         }
 
         // Descargar TODOS los equipos que coinciden con los filtros actuales usando paginación del servidor
-        const baseUrl = import.meta.env.VITE_DOCUMENTOS_API_URL || '';
+        const baseUrl = getRuntimeEnv('VITE_DOCUMENTOS_API_URL') || '';
         const take = 100; // máximo razonable por request
         let currentPage = 1;
         const allIds: number[] = [];
@@ -558,7 +559,7 @@ export const ConsultaPage: React.FC = () => {
       }
 
       // Descarga nativa vía formulario (evita blob en JS para ZIPs grandes)
-      const baseUrl = import.meta.env.VITE_DOCUMENTOS_API_URL || '';
+      const baseUrl = getRuntimeEnv('VITE_DOCUMENTOS_API_URL') || '';
       const form = document.createElement('form');
       form.method = 'POST';
       form.action = `${baseUrl}/api/docs/equipos/download/vigentes-form`;
@@ -1177,7 +1178,7 @@ export const ConsultaPage: React.FC = () => {
                   onClick={async ()=>{
                     try {
                       setIsDownloadingSingle(eq.id);
-                      const baseUrl = import.meta.env.VITE_DOCUMENTOS_API_URL || '';
+                      const baseUrl = getRuntimeEnv('VITE_DOCUMENTOS_API_URL') || '';
                       const zipUrl = `${baseUrl}/api/docs/clients/equipos/${eq.id}/zip`;
                       const resp = await fetch(zipUrl, { headers: { 'Authorization': `Bearer ${authToken}` } });
                       if (!resp.ok) { show('Error al descargar documentación'); return; }

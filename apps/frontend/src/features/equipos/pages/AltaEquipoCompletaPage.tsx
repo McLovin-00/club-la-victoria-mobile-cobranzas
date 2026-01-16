@@ -64,19 +64,19 @@ const AltaEquipoCompletaPage: React.FC = () => {
 
   // Permisos
   const canUpload = ['SUPERADMIN', 'ADMIN', 'OPERATOR', 'ADMIN_INTERNO', 'DADOR_DE_CARGA', 'TRANSPORTISTA'].includes(role || '');
-  const isAdminInterno = role === 'ADMIN_INTERNO';
-  
+  const isAdminInterno = (role as string) === 'ADMIN_INTERNO';
+
   // Listas de dadores y clientes
   const dadoresList = useMemo(() => {
     const raw = (dadoresResp as any)?.data || (dadoresResp as any)?.list || [];
     return Array.isArray(raw) ? raw : [];
   }, [dadoresResp]);
-  
+
   const clientesList = useMemo(() => {
     const raw = (clientsResp as any)?.data || (clientsResp as any)?.list || [];
     return Array.isArray(raw) ? raw : [];
   }, [clientsResp]);
-  
+
   // Si el usuario NO es ADMIN_INTERNO, usar su empresaId como dadorCargaId por defecto
   useEffect(() => {
     if (!isAdminInterno && empresaId && !dadorCargaId) {
@@ -127,14 +127,14 @@ const AltaEquipoCompletaPage: React.FC = () => {
 
     // Sin clientes seleccionados: usar todos los templates globales
     const rawTemplates = (templatesResp as any)?.data || (templatesResp as any) || [];
-    
+
     // Mapear 'nombre' del backend a 'name' esperado por el componente
     const allTemplates = rawTemplates.map((t: any) => ({
       id: t.id,
       name: t.nombre || t.name, // El backend devuelve 'nombre'
       entityType: t.entityType,
     }));
-    
+
     return {
       EMPRESA_TRANSPORTISTA: allTemplates.filter((t: Template) => t.entityType === 'EMPRESA_TRANSPORTISTA'),
       CHOFER: allTemplates.filter((t: Template) => t.entityType === 'CHOFER'),
@@ -177,14 +177,14 @@ const AltaEquipoCompletaPage: React.FC = () => {
   // Calcular documentos obligatorios
   const templateIdsObligatorios = useMemo(() => {
     const ids: number[] = [
-      ...templatesPorTipo.EMPRESA_TRANSPORTISTA.map((t) => t.id),
-      ...templatesPorTipo.CHOFER.map((t) => t.id),
-      ...templatesPorTipo.CAMION.map((t) => t.id),
+      ...templatesPorTipo.EMPRESA_TRANSPORTISTA.map((t: any) => t.id),
+      ...templatesPorTipo.CHOFER.map((t: any) => t.id),
+      ...templatesPorTipo.CAMION.map((t: any) => t.id),
     ];
 
     // Si hay patente semi, agregar documentos de semi
     if (semiPatente && semiPatente.length >= 5) {
-      ids.push(...templatesPorTipo.ACOPLADO.map((t) => t.id));
+      ids.push(...templatesPorTipo.ACOPLADO.map((t: any) => t.id));
     }
 
     return ids;
@@ -265,26 +265,26 @@ const AltaEquipoCompletaPage: React.FC = () => {
       // ═══════════════════════════════════════════════════════════════════
       const payload = {
         dadorCargaId: dadorCargaId,
-        
+
         // Empresa Transportista
         empresaTransportistaCuit: cuitTransportista,
         empresaTransportistaNombre: empresaTransportista,
-        
+
         // Chofer
         choferDni: choferDni,
         choferNombre: choferNombre || undefined,
         choferApellido: choferApellido || undefined,
         choferPhones: choferPhones ? choferPhones.split(',').map((p) => p.trim()) : undefined,
-        
+
         // Camión
         camionPatente: tractorPatente,
         camionMarca: tractorMarca || undefined,
         camionModelo: tractorModelo || undefined,
-        
+
         // Acoplado (opcional)
         acopladoPatente: semiPatente || null,
         acopladoTipo: semiTipo || undefined,
-        
+
         // Clientes a asociar
         clienteIds: clienteIds.length > 0 ? clienteIds : undefined,
       };
@@ -369,8 +369,9 @@ const AltaEquipoCompletaPage: React.FC = () => {
           uploadedCount++;
           setMessage({ type: 'success', text: `⏳ Subidos ${uploadedCount}/${selectedFiles.size} documentos...` });
         } catch (err: any) {
+          const templateName = [...Object.values(templatesPorTipo)].flat().find((t) => t.id === templateId)?.name || 'Documento';
           const errorMsg = err?.data?.message || err?.message || 'Error desconocido';
-          uploadErrors.push(`${template.name}: ${errorMsg}`);
+          uploadErrors.push(`${templateName}: ${errorMsg}`);
         }
       }
 
@@ -409,9 +410,9 @@ const AltaEquipoCompletaPage: React.FC = () => {
         // ÉXITO COMPLETO
         // ═══════════════════════════════════════════════════════════════════
         setMessage({ type: 'success', text: '✅ Equipo creado exitosamente con todos sus documentos' });
-      setTimeout(() => {
+        setTimeout(() => {
           navigate(getHomeRoute());
-      }, 2000);
+        }, 2000);
       }
     } catch (error: any) {
       // ═══════════════════════════════════════════════════════════════════
@@ -496,11 +497,10 @@ const AltaEquipoCompletaPage: React.FC = () => {
       {/* Mensaje */}
       {message && (
         <div
-          className={`mb-4 p-4 rounded-lg ${
-            message.type === 'success'
-              ? 'bg-green-50 border border-green-200 text-green-800'
-              : 'bg-red-50 border border-red-200 text-red-800'
-          }`}
+          className={`mb-4 p-4 rounded-lg ${message.type === 'success'
+            ? 'bg-green-50 border border-green-200 text-green-800'
+            : 'bg-red-50 border border-red-200 text-red-800'
+            }`}
         >
           {message.text}
         </div>
@@ -598,14 +598,14 @@ const AltaEquipoCompletaPage: React.FC = () => {
       </div>
 
       {/* DATOS BÁSICOS AGRUPADOS POR ENTIDAD */}
-      
+
       {/* EMPRESA TRANSPORTISTA */}
       <div className='bg-white border border-gray-300 rounded-lg p-6 mb-4'>
         <h2 className='text-xl font-semibold text-gray-900 mb-4 flex items-center'>
           <span className='bg-blue-100 text-blue-800 rounded-full w-8 h-8 flex items-center justify-center mr-3 text-sm font-bold'>1</span>
           🏢 Empresa Transportista
         </h2>
-        
+
         <div className='grid grid-cols-1 md:grid-cols-2 gap-4'>
           <div>
             <label className='block text-sm font-medium text-gray-700 mb-1'>
@@ -645,7 +645,7 @@ const AltaEquipoCompletaPage: React.FC = () => {
           <span className='bg-green-100 text-green-800 rounded-full w-8 h-8 flex items-center justify-center mr-3 text-sm font-bold'>2</span>
           👤 Chofer
         </h2>
-        
+
         <div className='grid grid-cols-1 md:grid-cols-3 gap-4'>
           <div>
             <label className='block text-sm font-medium text-gray-700 mb-1'>
@@ -708,7 +708,7 @@ const AltaEquipoCompletaPage: React.FC = () => {
           <span className='bg-orange-100 text-orange-800 rounded-full w-8 h-8 flex items-center justify-center mr-3 text-sm font-bold'>3</span>
           🚛 Tractor
         </h2>
-        
+
         <div className='grid grid-cols-1 md:grid-cols-3 gap-4'>
           <div>
             <label className='block text-sm font-medium text-gray-700 mb-1'>
@@ -757,7 +757,7 @@ const AltaEquipoCompletaPage: React.FC = () => {
           <span className='bg-purple-100 text-purple-800 rounded-full w-8 h-8 flex items-center justify-center mr-3 text-sm font-bold'>4</span>
           🚚 Semi / Acoplado
         </h2>
-        
+
         <div className='grid grid-cols-1 md:grid-cols-2 gap-4'>
           <div>
             <label className='block text-sm font-medium text-gray-700 mb-1'>
@@ -785,7 +785,7 @@ const AltaEquipoCompletaPage: React.FC = () => {
             />
           </div>
         </div>
-        
+
         {semiPatente && semiPatente.trim().length > 0 && (
           <div className='mt-3 bg-purple-50 border border-purple-200 rounded p-3 text-sm text-purple-800'>
             ℹ️ Al completar los datos básicos, aparecerá la sección de documentos del semi (5 documentos obligatorios)
@@ -868,6 +868,7 @@ const AltaEquipoCompletaPage: React.FC = () => {
       <div className='mt-8 flex justify-center'>
         <button
           onClick={handleCrearEquipo}
+          data-testid='boton-crear-equipo'
           disabled={!datosBasicosCompletos || !todosDocumentosSeleccionados || creatingEquipo}
           className='px-8 py-3 text-lg font-semibold text-white bg-green-600 rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors shadow-lg'
         >

@@ -154,3 +154,7 @@ apps/e2e/test-results/
 apps/e2e/playwright-report/
 apps/e2e/coverage/
 apps/e2e/.auth/
+
+# Archivos problemáticos de Windows
+**/nul
+nul
