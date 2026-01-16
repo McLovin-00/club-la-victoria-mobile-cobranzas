@@ -85,7 +85,7 @@ export class PermissionsService {
     }
     if (role === UserRole.DADOR_DE_CARGA) {
       // Política acotada: permitir si doc pertenece a su dador (ajustable por flag en el futuro)
-      const dadorId: number | undefined = typeof user.metadata?.dadorCargaId === 'number' ? user.metadata!.dadorCargaId : undefined;
+      const dadorId: number | undefined = typeof user.metadata?.dadorCargaId === 'number' ? user.metadata.dadorCargaId : undefined;
       return !!dadorId && doc.dadorCargaId === dadorId;
     }
     return false;

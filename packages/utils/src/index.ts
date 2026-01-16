@@ -2,9 +2,13 @@ import { UserRole, User, ValidationError } from '@workspace/types';
 import { randomBytes, randomUUID } from 'crypto';
 
 // Validation utilities
-// NOSONAR: Email regex is safe - negated character classes [^\s@] don't cause
-// catastrophic backtracking as they have no overlap with themselves.
+/**
+ * Validates email format
+ * @security Input bounded to 254 chars (RFC 5321 max email length)
+ */
 export const validateEmail = (email: string): boolean => {
+  // Bound input to RFC max email length to prevent ReDoS
+  if (!email || email.length > 254) return false;
   const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
   return emailRegex.test(email);
 };
@@ -30,7 +34,7 @@ export const validatePassword = (password: string): ValidationError[] => {
     });
   }
 
-  if (!/[0-9]/.test(password)) {
+  if (!/\d/.test(password)) {
     errors.push({ field: 'password', message: 'Password must contain at least one number' });
   }
 
@@ -60,8 +64,14 @@ export const capitalize = (str: string): string => {
     .join(' ');
 };
 
+/**
+ * Converts string to URL-safe slug
+ * @security Input bounded to 256 chars to prevent DoS
+ */
 export const slugify = (str: string): string => {
-  return str
+  // Bound input to prevent ReDoS
+  const bounded = str.slice(0, 256);
+  return bounded
     .toLowerCase()
     .trim()
     .replace(/[^\w\s-]/g, '') // Remove non-word chars
@@ -257,7 +267,7 @@ export const retry = async <T>(
   maxAttempts = 3,
   delayMs = 1000
 ): Promise<T> => {
-  let lastError: Error;
+  let lastError: Error = new Error('Retry failed');
 
   for (let attempt = 1; attempt <= maxAttempts; attempt++) {
     try {
@@ -273,7 +283,7 @@ export const retry = async <T>(
     }
   }
 
-  throw lastError!;
+  throw lastError;
 };
 
 // Debounce utility

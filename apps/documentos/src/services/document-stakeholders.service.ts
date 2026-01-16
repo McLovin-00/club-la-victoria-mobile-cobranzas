@@ -3,6 +3,23 @@ import { AppLogger } from '../config/logger';
 import { UserRole } from '../types/roles';
 
 /**
+ * Backend API URL for internal service communication.
+ * @security In production, BACKEND_API_URL must be set with HTTPS protocol.
+ * The http:// fallback is only for local Docker development where services
+ * communicate over an internal network not exposed to the internet.
+ */
+const BACKEND_API_URL = (() => {
+  const url = process.env.BACKEND_API_URL;
+  if (url) return url;
+  
+  // Log warning when using insecure fallback (only in development)
+  if (process.env.NODE_ENV === 'production') {
+    AppLogger.warn('⚠️ BACKEND_API_URL not set in production - using insecure HTTP fallback');
+  }
+  return 'http://backend:3000'; // Internal Docker network only
+})();
+
+/**
  * Stakeholder (responsable) en la cadena de un documento
  */
 export interface DocumentStakeholder {
@@ -83,7 +100,7 @@ export class DocumentStakeholdersService {
   private static async getAdminUsers(tenantEmpresaId: number): Promise<DocumentStakeholder[]> {
     try {
       // Consultar al backend principal para obtener admins
-      const backendUrl = process.env.BACKEND_API_URL || 'http://backend:3000';
+      const backendUrl = BACKEND_API_URL;
       const response = await fetch(`${backendUrl}/api/users?role=ADMIN,SUPERADMIN,ADMIN_INTERNO&empresaId=${tenantEmpresaId}`, {
         headers: {
           'X-Internal-Service': process.env.INTERNAL_SERVICE_TOKEN || '',
@@ -119,7 +136,7 @@ export class DocumentStakeholdersService {
   ): Promise<DocumentStakeholder[]> {
     try {
       // Obtener usuarios del rol DADOR_DE_CARGA asociados a este dador desde el backend principal
-      const backendUrl = process.env.BACKEND_API_URL || 'http://backend:3000';
+      const backendUrl = BACKEND_API_URL;
       const response = await fetch(
         `${backendUrl}/api/users?role=DADOR_DE_CARGA&empresaId=${tenantEmpresaId}&dadorCargaId=${dadorCargaId}`,
         {
@@ -188,7 +205,7 @@ export class DocumentStakeholdersService {
       if (!empresaTransportistaId) return [];
 
       // Obtener usuarios del rol TRANSPORTISTA asociados a esta empresa desde el backend principal
-      const backendUrl = process.env.BACKEND_API_URL || 'http://backend:3000';
+      const backendUrl = BACKEND_API_URL;
       const response = await fetch(
         `${backendUrl}/api/users?role=TRANSPORTISTA&empresaId=${tenantEmpresaId}&empresaTransportistaId=${empresaTransportistaId}`,
         {
@@ -229,7 +246,7 @@ export class DocumentStakeholdersService {
   ): Promise<DocumentStakeholder[]> {
     try {
       // Obtener usuarios del rol CHOFER asociados a este chofer desde el backend principal
-      const backendUrl = process.env.BACKEND_API_URL || 'http://backend:3000';
+      const backendUrl = BACKEND_API_URL;
       const response = await fetch(
         `${backendUrl}/api/users?role=CHOFER&empresaId=${tenantEmpresaId}&choferId=${choferId}`,
         {

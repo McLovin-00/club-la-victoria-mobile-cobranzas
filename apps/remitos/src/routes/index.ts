@@ -1,8 +1,8 @@
-import { Router, Request, Response } from 'express';
+import { Router, Request, Response, IRouter } from 'express';
 import remitosRoutes from './remitos.routes';
 import configRoutes from './config.routes';
 
-const router = Router();
+const router: IRouter = Router();
 
 // Health check
 router.get('/health', (_req: Request, res: Response) => {

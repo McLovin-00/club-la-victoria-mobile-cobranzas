@@ -6,7 +6,7 @@ import { prisma } from '../config/database';
 export class DadoresController {
   static async list(req: AuthRequest, res: Response) {
     const activo = typeof req.query.activo !== 'undefined' ? req.query.activo === 'true' : undefined;
-    const data = await DadorService.list(activo, req.tenantId!);
+    const data = await DadorService.list(activo, req.tenantId);
     const { SystemConfigService } = await import('../services/system-config.service');
     const def = await SystemConfigService.getConfig(`tenant:${req.tenantId!}:defaults.defaultDadorId`);
     res.json({ success: true, data, defaults: { defaultDadorId: def ? Number(def) : null } });

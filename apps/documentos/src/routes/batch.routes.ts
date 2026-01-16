@@ -6,7 +6,7 @@ import { SystemConfigService } from '../services/system-config.service';
 import { EquipoService } from '../services/equipo.service';
 import { JobsService } from '../services/jobs.service';
 
-const router = Router();
+const router: ReturnType<typeof Router> = Router();
 // NOSONAR: Content length 50MB is intentional for batch CSV imports with large datasets
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 50 * 1024 * 1024 } });
 
@@ -188,7 +188,7 @@ router.get('/jobs/:jobId/status', authenticate, async (req, res) => {
         return {
           documentId: it.documentId,
           fileName: it.fileName || d?.fileName || `document-${it.documentId}`,
-          status: (d?.status as any) || 'PENDIENTE',
+          status: d?.status || 'PENDIENTE',
           comprobante: ai?.comprobante,
           vencimiento: d?.expiresAt ? new Date(d.expiresAt).toISOString() : null,
         };

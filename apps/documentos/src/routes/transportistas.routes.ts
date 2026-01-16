@@ -2,7 +2,7 @@ import { Router } from 'express';
 import { authenticate } from '../middlewares/auth.middleware';
 import { prisma } from '../config/database';
 
-const router = Router();
+const router: ReturnType<typeof Router> = Router();
 
 router.use(authenticate);
 
@@ -43,7 +43,7 @@ function buildSearchFilter(meta: any, body: any): Record<string, any> | null {
 
 // Mis equipos (para chofer logueado) - requiere que el token tenga un dni o choferId
 router.get('/mis-equipos', async (req: any, res) => {
-  const user = req.user as any;
+  const user = req.user;
   if (!user) return res.status(401).json({ success: false, message: 'UNAUTHORIZED' });
   // Intentar mapear chofer por DNI o por userId si hay relación
   let chofer: any = null;
@@ -65,7 +65,7 @@ router.get('/mis-equipos', async (req: any, res) => {
 
 // Búsquedas limitadas por transportista (por DNI/placa, acotadas al dueño)
 router.post('/search', async (req: any, res) => {
-  const user = req.user as any;
+  const user = req.user;
   if (!user) return res.status(401).json({ success: false, message: 'UNAUTHORIZED' });
   
   const where = buildSearchFilter(user.metadata || {}, req.body);

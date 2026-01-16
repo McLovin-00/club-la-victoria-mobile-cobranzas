@@ -10,16 +10,14 @@ const FormData = require('form-data');
 const axios = require('axios');
 const { Client } = require('pg');
 
-// Configuración
+// ============= CONFIGURACIÓN =============
+
 const SERVERS = {
   staging: {
     name: 'Staging (10.3.0.243)',
     apiUrl: 'http://10.3.0.243:4802/api/docs',
     authUrl: 'http://10.3.0.243:4800/api/platform',
-    dbConfig: {
-      host: '10.3.0.243', port: 5432,
-      database: 'monorepo-bca', user: 'evo', password: 'phoenix'
-    },
+    dbConfig: { host: '10.3.0.243', port: 5432, database: 'monorepo-bca', user: 'evo', password: 'phoenix' },
     dadorId: 1,
     templates: {
       'Constancia de Inscripción en ARCA': 69,
@@ -30,13 +28,11 @@ const SERVERS = {
       'Licencia Nacional de Conducir (frente y dorso)': 44,
       'Póliza de A.R.T. con nómina (incluye Cláusula de No Repetición)': 45,
       'Póliza de Seguro de Vida Obligatorio': 46,
-      'Cédula_CAMION': 47,
-      'RTO - Revisión Técnica Obligatoria_CAMION': 48,
+      'Cédula_CAMION': 47, 'RTO - Revisión Técnica Obligatoria_CAMION': 48,
       'Póliza de Seguro (incluye Cláusula de No Repetición)_CAMION': 49,
       'Seguro: Certificado de libre deuda y Comprobante de pago_CAMION': 50,
       'Título o Contrato de Alquiler Certificado_CAMION': 51,
-      'Cédula_ACOPLADO': 52,
-      'RTO - Revisión Técnica Obligatoria_ACOPLADO': 53,
+      'Cédula_ACOPLADO': 52, 'RTO - Revisión Técnica Obligatoria_ACOPLADO': 53,
       'Póliza de Seguro (incluye Cláusula de No Repetición)_ACOPLADO': 54,
       'Seguro: Certificado de libre deuda y Comprobante de pago_ACOPLADO': 55,
       'Título o Contrato de Alquiler Certificado_ACOPLADO': 56,
@@ -46,10 +42,7 @@ const SERVERS = {
     name: 'Producción (10.8.10.20)',
     apiUrl: 'http://10.8.10.20:4802/api/docs',
     authUrl: 'http://10.8.10.20:4800/api/platform',
-    dbConfig: {
-      host: '10.8.10.20', port: 5432,
-      database: 'monorepo-bca', user: 'evo', password: 'phoenix'
-    },
+    dbConfig: { host: '10.8.10.20', port: 5432, database: 'monorepo-bca', user: 'evo', password: 'phoenix' },
     dadorId: 1,
     templates: {
       'Constancia de Inscripción en ARCA': 57,
@@ -60,13 +53,11 @@ const SERVERS = {
       'Licencia Nacional de Conducir (frente y dorso)': 44,
       'Póliza de A.R.T. con nómina (incluye Cláusula de No Repetición)': 45,
       'Póliza de Seguro de Vida Obligatorio': 46,
-      'Cédula_CAMION': 47,
-      'RTO - Revisión Técnica Obligatoria_CAMION': 48,
+      'Cédula_CAMION': 47, 'RTO - Revisión Técnica Obligatoria_CAMION': 48,
       'Póliza de Seguro (incluye Cláusula de No Repetición)_CAMION': 49,
       'Seguro: Certificado de libre deuda y Comprobante de pago_CAMION': 50,
       'Título o Contrato de Alquiler Certificado_CAMION': 51,
-      'Cédula_ACOPLADO': 52,
-      'RTO - Revisión Técnica Obligatoria_ACOPLADO': 53,
+      'Cédula_ACOPLADO': 52, 'RTO - Revisión Técnica Obligatoria_ACOPLADO': 53,
       'Póliza de Seguro (incluye Cláusula de No Repetición)_ACOPLADO': 54,
       'Seguro: Certificado de libre deuda y Comprobante de pago_ACOPLADO': 55,
       'Título o Contrato de Alquiler Certificado_ACOPLADO': 56,
@@ -97,6 +88,8 @@ const TEMPLATE_PATTERNS = [
   { pattern: /POLIZA.*A\.?R\.?T/i, entityType: 'CHOFER', templateKey: 'Póliza de A.R.T. con nómina (incluye Cláusula de No Repetición)' },
   { pattern: /POLIZA.*SEGURO.*VIDA/i, entityType: 'CHOFER', templateKey: 'Póliza de Seguro de Vida Obligatorio' },
 ];
+
+// ============= HELPERS =============
 
 function matchTemplate(fileName) {
   const normalized = fileName.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
@@ -141,20 +134,131 @@ async function uploadAndApprove(server, token, entityType, entityId, templateKey
   return uploadRes.data;
 }
 
+function getValidRows(excelPath) {
+  const workbook = XLSX.readFile(excelPath);
+  const rows = XLSX.utils.sheet_to_json(workbook.Sheets[workbook.SheetNames[0]], { header: 1 }).slice(1);
+  return rows.filter(r => {
+    const dni = String(r[33] || '').trim();
+    return dni && dni !== 'PENDIENTE' && dni.match(/^\d+$/);
+  });
+}
+
+async function findEquipoByDni(db, dni) {
+  const result = await db.query(`
+    SELECT e.id, e.driver_id, e.truck_id, e.trailer_id, e.empresa_transportista_id
+    FROM documentos.equipo e
+    JOIN documentos.choferes c ON c.id = e.driver_id
+    WHERE c.dni = $1
+    LIMIT 1
+  `, [dni]);
+  return result.rows[0] || null;
+}
+
+function getEntityIdForType(equipo, entityType) {
+  const mapping = {
+    'EMPRESA_TRANSPORTISTA': equipo.empresa_transportista_id,
+    'CHOFER': equipo.driver_id,
+    'CAMION': equipo.truck_id,
+    'ACOPLADO': equipo.trailer_id
+  };
+  return mapping[entityType] || null;
+}
+
+async function uploadFilesFromFolder(server, token, folderPath, equipo) {
+  const files = fs.readdirSync(folderPath);
+  let uploaded = 0;
+
+  for (const file of files) {
+    const tc = matchTemplate(file);
+    if (!tc) continue;
+    
+    const entityId = getEntityIdForType(equipo, tc.entityType);
+    if (!entityId) continue;
+    
+    try {
+      await uploadAndApprove(server, token, tc.entityType, entityId, tc.templateKey, path.join(folderPath, file), server.dadorId);
+      uploaded++;
+    } catch (err) {
+      // Ignorar errores de documento existente
+      const msg = err.response?.data?.message || err.message;
+      if (!msg.includes('ya existe')) {
+        // Log silently
+      }
+    }
+    await new Promise(r => setTimeout(r, 50));
+  }
+
+  return uploaded;
+}
+
+async function processRow(server, token, db, row, docsFolder) {
+  const id = row[0];
+  const dni = String(row[33]).trim();
+
+  const equipo = await findEquipoByDni(db, dni);
+  if (!equipo) {
+    return { status: 'not_found', id, dni };
+  }
+
+  const folderName = fs.readdirSync(docsFolder).find(f => f.startsWith(id + ' '));
+  if (!folderName) {
+    return { status: 'no_folder', id };
+  }
+
+  const uploaded = await uploadFilesFromFolder(server, token, path.join(docsFolder, folderName), equipo);
+  return { status: 'ok', id, uploaded };
+}
+
+async function processServer(serverName, server, validRows, docsFolder) {
+  console.log(`\n${'='.repeat(60)}`);
+  console.log(`SUBIENDO DOCUMENTOS A: ${server.name}`);
+  console.log(`${'='.repeat(60)}\n`);
+  
+  const db = new Client(server.dbConfig);
+  await db.connect();
+  console.log('🔗 Conectado a BD');
+  
+  const token = await authenticate(server);
+  console.log('✅ Autenticado\n');
+  
+  let success = 0, failed = 0, totalDocs = 0;
+  
+  for (let i = 0; i < validRows.length; i++) {
+    const row = validRows[i];
+    process.stdout.write(`\r🔄 ${row[0]} (${i + 1}/${validRows.length})...                              `);
+    
+    const result = await processRow(server, token, db, row, docsFolder);
+    
+    if (result.status === 'not_found') {
+      failed++;
+      process.stdout.write(`❌ ${result.id}: No encontrado DNI ${result.dni}\n`);
+    } else if (result.status === 'no_folder') {
+      success++;
+      process.stdout.write(`⚪ ${result.id}: Sin carpeta\n`);
+    } else {
+      success++;
+      totalDocs += result.uploaded;
+      const icon = result.uploaded > 0 ? '✅' : '⚪';
+      process.stdout.write(`${icon} ${result.id}: ${result.uploaded} docs\n`);
+    }
+  }
+  
+  await db.end();
+  console.log(`\n${'─'.repeat(60)}`);
+  console.log(`RESUMEN ${server.name}: ${success} OK, ${failed} FAIL, ${totalDocs} docs`);
+  
+  return { success, failed, totalDocs };
+}
+
+// ============= MAIN =============
+
 async function run() {
   console.log('╔════════════════════════════════════════════════════════════╗');
   console.log('║     SUBIDA DE DOCUMENTOS (v2 - SQL directo)                ║');
   console.log('╚════════════════════════════════════════════════════════════╝');
   
-  const workbook = XLSX.readFile(path.join(__dirname, 'planilla-actualizada.xlsx'));
-  const rows = XLSX.utils.sheet_to_json(workbook.Sheets[workbook.SheetNames[0]], { header: 1 }).slice(1);
+  const validRows = getValidRows(path.join(__dirname, 'planilla-actualizada.xlsx'));
   const docsFolder = path.join(__dirname, 'documentos');
-  
-  const validRows = rows.filter(r => {
-    const dni = String(r[33] || '').trim();
-    return dni && dni !== 'PENDIENTE' && dni.match(/^\d+$/);
-  });
-  
   console.log(`📄 Filas válidas: ${validRows.length}`);
   
   const serversToRun = process.argv.slice(2);
@@ -165,98 +269,10 @@ async function run() {
   for (const serverName of serversToRun) {
     const server = SERVERS[serverName];
     if (!server) continue;
-    
-    console.log(`\n============================================================`);
-    console.log(`SUBIENDO DOCUMENTOS A: ${server.name}`);
-    console.log(`============================================================\n`);
-    
-    // Conectar a BD
-    const db = new Client(server.dbConfig);
-    await db.connect();
-    console.log('🔗 Conectado a BD');
-    
-    const token = await authenticate(server);
-    console.log('✅ Autenticado\n');
-    
-    let success = 0, failed = 0, totalDocs = 0;
-    
-    for (let i = 0; i < validRows.length; i++) {
-      const row = validRows[i];
-      const id = row[0];
-      const dni = String(row[33]).trim();
-      
-      process.stdout.write(`\r🔄 ${id} (${i + 1}/${validRows.length})...                              `);
-      
-      // Buscar equipo por DNI en BD
-      const equipoQuery = await db.query(`
-        SELECT e.id, e.driver_id, e.truck_id, e.trailer_id, e.empresa_transportista_id
-        FROM documentos.equipo e
-        JOIN documentos.choferes c ON c.id = e.driver_id
-        WHERE c.dni = $1
-        LIMIT 1
-      `, [dni]);
-      
-      if (equipoQuery.rows.length === 0) {
-        failed++;
-        process.stdout.write(`❌ ${id}: No encontrado DNI ${dni}\n`);
-        continue;
-      }
-      
-      const equipo = equipoQuery.rows[0];
-      
-      // Buscar carpeta
-      const folderName = fs.readdirSync(docsFolder).find(f => f.startsWith(id + ' '));
-      if (!folderName) {
-        success++;
-        process.stdout.write(`⚪ ${id}: Sin carpeta\n`);
-        continue;
-      }
-      
-      const folderPath = path.join(docsFolder, folderName);
-      const files = fs.readdirSync(folderPath);
-      let docsUploaded = 0;
-      
-      for (const file of files) {
-        const tc = matchTemplate(file);
-        if (!tc) continue;
-        
-        let entityId;
-        switch (tc.entityType) {
-          case 'EMPRESA_TRANSPORTISTA': entityId = equipo.empresa_transportista_id; break;
-          case 'CHOFER': entityId = equipo.driver_id; break;
-          case 'CAMION': entityId = equipo.truck_id; break;
-          case 'ACOPLADO': entityId = equipo.trailer_id; if (!entityId) continue; break;
-        }
-        if (!entityId) continue;
-        
-        try {
-          await uploadAndApprove(server, token, tc.entityType, entityId, tc.templateKey, path.join(folderPath, file), server.dadorId);
-          docsUploaded++;
-        } catch (err) {
-          const msg = err.response?.data?.message || err.message;
-          if (!msg.includes('ya existe')) {
-            // Solo log errores no esperados
-          }
-        }
-        await new Promise(r => setTimeout(r, 50));
-      }
-      
-      if (docsUploaded > 0) {
-        totalDocs += docsUploaded;
-        process.stdout.write(`✅ ${id}: ${docsUploaded} docs\n`);
-      } else {
-        process.stdout.write(`⚪ ${id}: 0 docs\n`);
-      }
-      success++;
-    }
-    
-    await db.end();
-    results[serverName] = { success, failed, totalDocs };
-    console.log(`\n────────────────────────────────────────────────────────────`);
-    console.log(`RESUMEN ${server.name}: ${success} OK, ${failed} FAIL, ${totalDocs} docs`);
+    results[serverName] = await processServer(serverName, server, validRows, docsFolder);
   }
   
-  console.log('\n════════════════════════════════════════════════════════════');
+  console.log('\n' + '='.repeat(60));
   console.log('RESUMEN FINAL');
   for (const [n, r] of Object.entries(results)) {
     console.log(`${SERVERS[n].name}: ${r.success} OK, ${r.failed} FAIL, ${r.totalDocs} docs`);
@@ -264,4 +280,3 @@ async function run() {
 }
 
 run().catch(console.error);
-

@@ -95,7 +95,7 @@ async function resolveEmpresaTransportista(tenantId: number, dadorId: number, cu
       empresa = await EmpresaTransportistaService.create({ tenantEmpresaId: tenantId, dadorCargaId: dadorId, cuit, razonSocial: `Empresa ${cuit}`, activo: true });
     } catch { return null; }
   }
-  return empresa ? { type: 'EMPRESA_TRANSPORTISTA', id: (empresa as any).id, dadorId } : null;
+  return empresa ? { type: 'EMPRESA_TRANSPORTISTA', id: empresa.id, dadorId } : null;
 }
 
 async function resolveChofer(tenantId: number, dadorId: number, dni: string): Promise<ResolvedEntity | null> {
@@ -106,7 +106,7 @@ async function resolveChofer(tenantId: number, dadorId: number, dni: string): Pr
       chofer = await MaestrosService.createChofer({ tenantEmpresaId: tenantId, dadorCargaId: dadorId, dni, activo: true, phones: [] });
     } catch { return null; }
   }
-  return chofer ? { type: 'CHOFER', id: (chofer as any).id, dadorId: (chofer as any).dadorCargaId } : null;
+  return chofer ? { type: 'CHOFER', id: chofer.id, dadorId: chofer.dadorCargaId } : null;
 }
 
 async function resolveCamion(tenantId: number, dadorId: number, patente: string): Promise<ResolvedEntity | null> {
@@ -118,7 +118,7 @@ async function resolveCamion(tenantId: number, dadorId: number, patente: string)
       camion = await MaestrosService.createCamion({ tenantEmpresaId: tenantId, dadorCargaId: dadorId, patente, activo: true });
     } catch { return null; }
   }
-  return camion ? { type: 'CAMION', id: (camion as any).id, dadorId: (camion as any).dadorCargaId } : null;
+  return camion ? { type: 'CAMION', id: camion.id, dadorId: camion.dadorCargaId } : null;
 }
 
 async function resolveAcoplado(tenantId: number, dadorId: number, patente: string): Promise<ResolvedEntity | null> {
@@ -130,7 +130,7 @@ async function resolveAcoplado(tenantId: number, dadorId: number, patente: strin
       acoplado = await MaestrosService.createAcoplado({ tenantEmpresaId: tenantId, dadorCargaId: dadorId, patente, activo: true });
     } catch { return null; }
   }
-  return acoplado ? { type: 'ACOPLADO', id: (acoplado as any).id, dadorId: (acoplado as any).dadorCargaId } : null;
+  return acoplado ? { type: 'ACOPLADO', id: acoplado.id, dadorId: acoplado.dadorCargaId } : null;
 }
 
 async function resolveEntity(tenantId: number, dadorId: number, entityType: string, entityIdRaw: string): Promise<ResolvedEntity | null> {
@@ -159,10 +159,10 @@ async function deprecateDuplicates(updatedDoc: any): Promise<void> {
     where: {
       id: { not: updatedDoc.id },
       tenantEmpresaId: updatedDoc.tenantEmpresaId,
-      entityType: updatedDoc.entityType as any,
+      entityType: updatedDoc.entityType,
       entityId: updatedDoc.entityId,
       templateId: updatedDoc.templateId,
-      status: 'APROBADO' as any,
+      status: 'APROBADO',
       expiresAt: updatedDoc.expiresAt,
     },
     select: { id: true, validationData: true },
@@ -190,10 +190,10 @@ async function applyRetentionPolicy(updatedDoc: any): Promise<void> {
   const deprecated = await db.getClient().document.findMany({
     where: {
       tenantEmpresaId: updatedDoc.tenantEmpresaId,
-      entityType: updatedDoc.entityType as any,
+      entityType: updatedDoc.entityType,
       entityId: updatedDoc.entityId,
       templateId: updatedDoc.templateId,
-      status: 'DEPRECADO' as any,
+      status: 'DEPRECADO',
       expiresAt: updatedDoc.expiresAt,
     },
     orderBy: { uploadedAt: 'desc' },
@@ -206,7 +206,7 @@ async function applyRetentionPolicy(updatedDoc: any): Promise<void> {
   for (const d of toDelete) {
     try {
       if (d.filePath) {
-        const [bucketName, ...pathParts] = (d.filePath as string).split('/');
+        const [bucketName, ...pathParts] = d.filePath.split('/');
         await minioService.deleteDocument(bucketName, pathParts.join('/'));
       }
     } catch { AppLogger.warn('No se pudo eliminar objeto de MinIO', { id: d.id }); }
@@ -253,7 +253,7 @@ class DocumentValidationWorker {
       'document-validation',
       this.processValidation.bind(this),
       {
-        connection: this.redis,
+        connection: this.redis as never,
         concurrency: 2,
         removeOnComplete: { count: 10 },
         removeOnFail: { count: 50 },
@@ -368,7 +368,7 @@ class DocumentValidationWorker {
       }
 
       if (await this.documentExists(documentId)) {
-        await db.getClient().document.update({ where: { id: documentId }, data: { templateId: (tpl as any).id } });
+        await db.getClient().document.update({ where: { id: documentId }, data: { templateId: tpl.id } });
       }
     } catch { /* noop */ }
   }

@@ -144,7 +144,7 @@ class NPMConfigurator:
                 try:
                     error_data = e.response.json()
                     print(f"   Detalles: {error_data}")
-                except:
+                except (ValueError, KeyError):
                     print(f"   Respuesta HTTP: {e.response.text}")
             return False
     

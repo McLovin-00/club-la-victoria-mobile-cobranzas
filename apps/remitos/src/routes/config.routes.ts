@@ -1,8 +1,8 @@
-import { Router } from 'express';
+import { Router, IRouter } from 'express';
 import { ConfigController } from '../controllers/config.controller';
 import { authenticate, authorize, ROLES_CONFIG } from '../middlewares/auth.middleware';
 
-const router = Router();
+const router: IRouter = Router();
 
 // GET /config/flowise - Obtener configuración
 router.get(

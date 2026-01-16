@@ -50,7 +50,7 @@ async function getClienteStats(prisma: any, clienteId: number | undefined) {
   
   let vigentes = 0, proximosVencer = 0, vencidos = 0;
   for (const ec of equipos) {
-    const estado = (ec as any).equipo?.estado?.toUpperCase();
+    const estado = ec.equipo?.estado?.toUpperCase();
     if (estado === 'VIGENTE' || estado === 'OK') vigentes++;
     else if (estado === 'PROXIMO_VENCER' || estado === 'WARNING') proximosVencer++;
     else if (estado === 'VENCIDO' || estado === 'EXPIRED') vencidos++;
@@ -298,7 +298,7 @@ export class DashboardController {
           };
           
           // Sumar estadísticas de todas las empresas
-          const globalSummaries = await StatusService.getGlobalStatusSummary(req.tenantId!);
+          const globalSummaries = await StatusService.getGlobalStatusSummary(req.tenantId);
           for (const summary of globalSummaries) {
             const empresaStats = await DocumentService.getDocumentStats(req.tenantId!, summary.empresaId);
             stats.total += empresaStats.total;

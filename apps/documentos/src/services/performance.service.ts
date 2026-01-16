@@ -95,7 +95,16 @@ export class PerformanceService {
       const whereClause = empresaId ? 'WHERE empresa_id = $1' : '';
       const params = empresaId ? [empresaId] : [];
 
-      const results = await db.getClient().$queryRawUnsafe(`
+      const results = await db.getClient().$queryRawUnsafe<Array<{
+        empresaId: number;
+        entityType: string;
+        entityId: number;
+        redCount: number;
+        yellowCount: number;
+        greenCount: number;
+        totalCount: number;
+        lastUpdated: Date;
+      }>>(`
         SELECT 
           empresa_id as "empresaId",
           entity_type as "entityType", 
@@ -108,16 +117,7 @@ export class PerformanceService {
         FROM document_status_summary 
         ${whereClause}
         ORDER BY red_count DESC, yellow_count DESC
-      `, ...params) as Array<{
-        empresaId: number;
-        entityType: string;
-        entityId: number;
-        redCount: number;
-        yellowCount: number;
-        greenCount: number;
-        totalCount: number;
-        lastUpdated: Date;
-      }>;
+      `, ...params);
 
       // Calcular estado general para cada entidad
       return results.map(row => ({
@@ -144,7 +144,16 @@ export class PerformanceService {
     avgProcessingHours: number;
   }> {
     try {
-      const result = await db.getClient().$queryRawUnsafe(`
+      const result = await db.getClient().$queryRawUnsafe<Array<{
+        totalDocuments: number;
+        pendingCount: number;
+        validatingCount: number;
+        approvedCount: number;
+        rejectedCount: number;
+        expiredCount: number;
+        activeCompanies: number;
+        avgProcessingHours: number;
+      }>>(`
         SELECT 
           total_documents as "totalDocuments",
           pending_count as "pendingCount",
@@ -156,16 +165,7 @@ export class PerformanceService {
           COALESCE(avg_processing_hours, 0) as "avgProcessingHours"
         FROM global_document_stats
         LIMIT 1
-      `) as Array<{
-        totalDocuments: number;
-        pendingCount: number;
-        validatingCount: number;
-        approvedCount: number;
-        rejectedCount: number;
-        expiredCount: number;
-        activeCompanies: number;
-        avgProcessingHours: number;
-      }>;
+      `);
 
       return result[0] || {
         totalDocuments: 0,
@@ -250,7 +250,13 @@ export class PerformanceService {
     totalCount: number;
   }>> {
     try {
-      const rows = await db.getClient().$queryRawUnsafe(`
+      const rows = await db.getClient().$queryRawUnsafe<Array<{
+        tenantId: number;
+        redCount: number;
+        yellowCount: number;
+        greenCount: number;
+        totalCount: number;
+      }>>(`
         SELECT 
           tenant_id   AS "tenantId",
           SUM(red_count)    AS "redCount",
@@ -260,13 +266,7 @@ export class PerformanceService {
         FROM ${this.mvName}
         GROUP BY tenant_id
         ORDER BY tenant_id
-      `) as Array<{
-        tenantId: number;
-        redCount: number;
-        yellowCount: number;
-        greenCount: number;
-        totalCount: number;
-      }>;
+      `);
       return rows;
     } catch (_e) {
       AppLogger.error('💥 Error obteniendo agregados por tenant:', _e);
@@ -324,24 +324,24 @@ export class PerformanceService {
   }> {
     try {
       // Conexiones activas
-      const connectionsResult = await db.getClient().$queryRawUnsafe(`
+      const connectionsResult = await db.getClient().$queryRawUnsafe<Array<{ connections: bigint }>>(`
         SELECT count(*) as connections 
         FROM pg_stat_activity 
         WHERE state = 'active'
-      `) as Array<{ connections: bigint }>;
+      `);
 
       // Edad de la vista materializada
-      const viewAgeResult = await db.getClient().$queryRawUnsafe(`
+      const viewAgeResult = await db.getClient().$queryRawUnsafe<Array<{ age_minutes: number }>>(`
         SELECT 
           EXTRACT(EPOCH FROM (NOW() - MAX(last_updated)))/60 as age_minutes
         FROM document_status_summary
-      `) as Array<{ age_minutes: number }>;
+      `);
 
       return {
         databaseConnections: Number(connectionsResult[0]?.connections || 0),
         materializedViewAge: viewAgeResult[0]?.age_minutes || 0,
-        avgQueryTime: 0, // TODO: Implementar con pg_stat_statements
-        cacheHitRatio: 0, // TODO: Implementar cache metrics
+        avgQueryTime: 0, // Requiere pg_stat_statements extension
+        cacheHitRatio: 0, // Requiere configuración de métricas de cache
       };
     } catch (_e) {
       AppLogger.error('💥 Error obteniendo métricas del sistema:', _e);

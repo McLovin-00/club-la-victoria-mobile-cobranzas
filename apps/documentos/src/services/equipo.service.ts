@@ -1130,7 +1130,7 @@ export class EquipoService {
 
     try {
       await prisma.equipoHistory.create({
-        data: { equipoId, action: 'attach', component: getComponent(), originEquipoId: null, payload: updates as any },
+        data: { equipoId, action: 'attach', component: getComponent(), originEquipoId: null, payload: updates },
       });
 
       if (driverResult?.originEquipoId) {
@@ -1412,20 +1412,24 @@ export class EquipoService {
       await validateEmpresaTransportistaForEquipo(id, data.empresaTransportistaId);
     }
 
-    return prisma.equipo.update({
-      where: { id },
-      data: {
-        trailerId: data.trailerId,
-        trailerPlateNorm: data.trailerPlate !== undefined 
-          ? (data.trailerPlate ? normalizePlate(data.trailerPlate) : null) 
-          : undefined,
-        validTo: data.validTo ?? undefined,
-        estado: data.estado as any,
-        empresaTransportistaId: data.empresaTransportistaId !== undefined
-          ? (data.empresaTransportistaId === 0 ? null : data.empresaTransportistaId)
-          : undefined,
-      },
-    });
+    // Construir datos de actualización evitando ternarios anidados
+    const updateData: any = {
+      trailerId: data.trailerId,
+      validTo: data.validTo ?? undefined,
+      estado: data.estado as any,
+    };
+    
+    // Normalizar trailerPlateNorm si se proporciona
+    if (data.trailerPlate !== undefined) {
+      updateData.trailerPlateNorm = data.trailerPlate ? normalizePlate(data.trailerPlate) : null;
+    }
+    
+    // Normalizar empresaTransportistaId (0 significa null)
+    if (data.empresaTransportistaId !== undefined) {
+      updateData.empresaTransportistaId = data.empresaTransportistaId === 0 ? null : data.empresaTransportistaId;
+    }
+    
+    return prisma.equipo.update({ where: { id }, data: updateData });
   }
 
   static async associateCliente(tenantEmpresaId: number, equipoId: number, clienteId: number, asignadoDesde: Date, asignadoHasta?: Date | null) {

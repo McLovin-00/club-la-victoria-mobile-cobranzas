@@ -1,5 +1,5 @@
 import { Router, Request, Response } from 'express';
-import { body, param, query } from 'express-validator';
+import { body, param, query, validationResult } from 'express-validator';
 import {
   getInstances,
   getInstanceById,
@@ -10,7 +10,6 @@ import {
   changeInstanceEstado,
 } from '../controllers/instance.controller';
 import { authenticateUser, authorizeRoles } from '../middlewares/platformAuth.middleware';
-import { validationResult } from 'express-validator';
 import { AuthPayload } from '../services/platformAuth.service';
 import { AppLogger } from '../config/logger';
 import { InstanceService } from '../services/instance.service';

@@ -27,7 +27,7 @@ describe('URL Utilities Coverage', () => {
 
     it('should encode special characters', () => {
       const url = buildUrl('/api/search', { q: 'hello world' });
-      expect(url).toContain('hello%20world') || expect(url).toContain('hello+world');
+      expect(url).toMatch(/hello(%20|\+)world/);
     });
 
     it('should handle array values', () => {

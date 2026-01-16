@@ -253,11 +253,23 @@ function extractFileName(fileUrl: string): string {
 // ============================================================================
 // NORMALIZACIÓN DE COMPROBANTES
 // ============================================================================
-const COMPROBANTE_MATCHERS: Array<{ re: RegExp; value: string }> = [
+// Helper para simplificar regex F.931 (dividida para reducir complejidad)
+const F931_PATTERNS = [
+  /f\.?\s*931.*(presentacion|acuse|constancia\s*de\s*pago)/i,
+  /formulario\s*931.*(presentacion|acuse|declaracion)/i,
+  /presentacion\b.*f\.?\s*931/i,
+];
+function matchesF931(text: string): boolean {
+  return F931_PATTERNS.some(p => p.test(text));
+}
+
+const COMPROBANTE_MATCHERS: Array<{ re: RegExp | ((t: string) => boolean); value: string }> = [
   // EMPRESA_TRANSPORTISTA
-  { re: /\bconstancia\b.*\barca\b.*\bempresa\b|\barca\b.*\bempresa\b/i, value: 'Constancia de ARCA Empresa' },
-  { re: /\bconstancia\b.*\biibb\b.*\bempresa\b|\bingresos\s*brutos\b.*\bempresa\b|\bconstancia\b.*\bingresos\s*brutos\b/i, value: 'Constancia IIBB de Empresa' },
-  { re: /(f\.?\s*931|formulario\s*931).*(presentacion|acuse|constancia\s*de\s*pago|declaracion\s*jurada)|\bpresentacion\b.*f\.?\s*931/i, value: 'Presentación mensual de la declaración jurada F.931, acuse y constancia de pago' },
+  { re: /\bconstancia\b.*\barca\b.*\bempresa\b/i, value: 'Constancia de ARCA Empresa' },
+  { re: /\barca\b.*\bempresa\b/i, value: 'Constancia de ARCA Empresa' },
+  { re: /\bconstancia\b.*\biibb\b.*\bempresa\b/i, value: 'Constancia IIBB de Empresa' },
+  { re: /\bingresos\s*brutos\b.*\bempresa\b/i, value: 'Constancia IIBB de Empresa' },
+  { re: matchesF931, value: 'Presentación mensual de la declaración jurada F.931, acuse y constancia de pago' },
   // CHOFER
   { re: /^dni$|\bdni\b/i, value: 'DNI' },
   { re: /^licencia(\s*de\s*conducir)?$|\blicencia\b/i, value: 'Licencia' },
@@ -283,7 +295,8 @@ function normalizeComprobanteName(original: string): string {
   const noAccents = raw.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
 
   for (const { re, value } of COMPROBANTE_MATCHERS) {
-    if (re.test(noAccents)) return value;
+    const matches = typeof re === 'function' ? re(noAccents) : re.test(noAccents);
+    if (matches) return value;
   }
 
   return raw.charAt(0).toUpperCase() + raw.slice(1);
@@ -305,11 +318,13 @@ export class FlowiseService {
   private async updateConfig() {
     const config = await getCurrentFlowiseConfig();
     
-    this.endpoint = config.baseUrl && config.flowId
-      ? (config.baseUrl.endsWith('/') 
-          ? `${config.baseUrl}api/v1/prediction/${config.flowId}`
-          : `${config.baseUrl}/api/v1/prediction/${config.flowId}`)
-      : '';
+    // Construir endpoint evitando ternarios anidados
+    let endpoint = '';
+    if (config.baseUrl && config.flowId) {
+      const base = config.baseUrl.endsWith('/') ? config.baseUrl.slice(0, -1) : config.baseUrl;
+      endpoint = `${base}/api/v1/prediction/${config.flowId}`;
+    }
+    this.endpoint = endpoint;
     
     this.apiKey = config.apiKey || '';
     this.enabled = config.enabled && !!config.baseUrl && !!config.flowId;
@@ -500,9 +515,15 @@ export class FlowiseService {
 
   private parseFlowiseResponse(data: any): FlowiseResponse {
     try {
-      const rawText = typeof data === 'string' ? data
-        : (typeof data?.result === 'string' ? data.result
-          : (typeof data?.text === 'string' ? data.text : undefined));
+      // Extraer texto de la respuesta buscando en diferentes ubicaciones
+      let rawText: string | undefined;
+      if (typeof data === 'string') {
+        rawText = data;
+      } else if (typeof data?.result === 'string') {
+        rawText = data.result;
+      } else if (typeof data?.text === 'string') {
+        rawText = data.text;
+      }
 
       if (rawText) {
         const parsed = this.extractAiTaggedFields(rawText);

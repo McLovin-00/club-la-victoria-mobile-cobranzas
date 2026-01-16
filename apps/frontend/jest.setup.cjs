@@ -43,18 +43,18 @@ global.import = {
 
 // Mock IntersectionObserver
 global.IntersectionObserver = class IntersectionObserver {
-  constructor() {}
-  disconnect() {}
-  observe() {}
-  unobserve() {}
+  constructor() { /* Mock: no-op for Jest testing environment */ }
+  disconnect() { /* Mock: no-op for Jest testing environment */ }
+  observe() { /* Mock: no-op for Jest testing environment */ }
+  unobserve() { /* Mock: no-op for Jest testing environment */ }
 };
 
 // Mock ResizeObserver
 global.ResizeObserver = class ResizeObserver {
-  constructor() {}
-  disconnect() {}
-  observe() {}
-  unobserve() {}
+  constructor() { /* Mock: no-op for Jest testing environment */ }
+  disconnect() { /* Mock: no-op for Jest testing environment */ }
+  observe() { /* Mock: no-op for Jest testing environment */ }
+  unobserve() { /* Mock: no-op for Jest testing environment */ }
 };
 
 // Mock window.matchMedia

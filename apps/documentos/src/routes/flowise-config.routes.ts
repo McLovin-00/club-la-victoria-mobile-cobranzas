@@ -2,7 +2,7 @@ import { Router } from 'express';
 import { FlowiseConfigController } from '../controllers/flowise-config.controller';
 import { authorize } from '../middlewares/auth.middleware';
 
-const router = Router();
+const router: ReturnType<typeof Router> = Router();
 
 // =================================
 // RUTAS DE CONFIGURACIÓN FLOWISE - Solo SUPERADMIN

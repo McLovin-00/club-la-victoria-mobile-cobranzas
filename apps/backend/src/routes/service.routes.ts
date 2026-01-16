@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { body, param, query } from 'express-validator';
+import { body, param, query, validationResult } from 'express-validator';
 import {
   getServices,
   getServiceById,
@@ -11,7 +11,6 @@ import {
   changeServiceEstado,
 } from '../controllers/service.controller';
 import { authenticateUser, authorizeRoles, tenantResolver } from '../middlewares/platformAuth.middleware';
-import { validationResult } from 'express-validator';
 
 const router = Router();
 

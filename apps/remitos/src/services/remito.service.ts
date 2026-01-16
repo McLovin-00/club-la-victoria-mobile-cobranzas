@@ -360,11 +360,16 @@ export class RemitoService {
 
     // Solo incluir campos que fueron enviados (incluyendo null para borrar)
     const updateData: any = {};
+    
+    // Parsear fecha evitando ternario anidado
+    let fechaOperacionValue: Date | null | undefined = undefined;
+    if (data.fechaOperacion !== undefined) {
+      fechaOperacionValue = data.fechaOperacion ? parseDate(data.fechaOperacion) : null;
+    }
+    
     assignDefined(updateData, {
       numeroRemito: data.numeroRemito,
-      fechaOperacion: data.fechaOperacion !== undefined 
-        ? (data.fechaOperacion ? parseDate(data.fechaOperacion) : null) 
-        : undefined,
+      fechaOperacion: fechaOperacionValue,
       emisorNombre: data.emisorNombre,
       emisorDetalle: data.emisorDetalle,
       clienteNombre: data.clienteNombre,

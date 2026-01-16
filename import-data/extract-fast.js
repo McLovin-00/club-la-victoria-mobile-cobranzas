@@ -27,43 +27,43 @@ async function terminateOCR() {
   if (scheduler) await scheduler.terminate();
 }
 
-function extractFromText(text) {
-  let dni = null;
-  let apellido = null;
-  let nombre = null;
-  
-  // Buscar DNI con puntos: 32.192.744
+function extractDni(text) {
+  // DNI con puntos: 32.192.744
   const dniWithDots = text.match(/\b(\d{2}\.\d{3}\.\d{3})\b/);
-  if (dniWithDots) dni = dniWithDots[1].replace(/\./g, '');
+  if (dniWithDots) return dniWithDots[1].replace(/\./g, '');
   
-  // Buscar DNI sin puntos
-  if (!dni) {
-    const dniMatches = text.match(/\b(\d{7,8})\b/g);
-    if (dniMatches) {
-      const valid = dniMatches.filter(d => parseInt(d) >= 1000000 && parseInt(d) <= 99999999);
-      if (valid.length) dni = valid[0];
-    }
+  // DNI sin puntos
+  const dniMatches = text.match(/\b(\d{7,8})\b/g);
+  if (dniMatches) {
+    const valid = dniMatches.find(d => parseInt(d) >= 1000000 && parseInt(d) <= 99999999);
+    if (valid) return valid;
   }
-  
-  // Buscar en MRZ: APELLIDO<<NOMBRE<<<
+  return null;
+}
+
+function extractNombreApellido(text) {
+  // MRZ: APELLIDO<<NOMBRE<<<
   const mrzMatch = text.match(/([A-Z]{2,})<<([A-Z]+)<([A-Z]*)/);
   if (mrzMatch) {
-    apellido = mrzMatch[1];
-    nombre = mrzMatch[2] + (mrzMatch[3] ? ' ' + mrzMatch[3] : '');
+    return {
+      apellido: mrzMatch[1],
+      nombre: mrzMatch[2] + (mrzMatch[3] ? ' ' + mrzMatch[3] : '')
+    };
   }
   
-  // Buscar patrón Apellido/Surname
-  if (!apellido) {
-    const apellidoMatch = text.match(/Apel+ido[\s\/]*Surname[\s\n\r]+([A-ZÁÉÍÓÚÑ]+)/i);
-    if (apellidoMatch) apellido = apellidoMatch[1];
-  }
+  // Patrones de texto
+  const apellidoMatch = text.match(/Apel+ido[\s/]*Surname\s+([A-ZÁÉÍÓÚÑ]+)/i);
+  const nombreMatch = text.match(/Nombre[\s/]*Name\s+([A-ZÁÉÍÓÚÑ\s]+?)(?:\s*Sexo|$)/im);
   
-  // Buscar patrón Nombre/Name
-  if (!nombre) {
-    const nombreMatch = text.match(/Nombre[\s\/]*Name[\s\n\r]+([A-ZÁÉÍÓÚÑ\s]+?)(?:\s*Sexo|$)/im);
-    if (nombreMatch) nombre = nombreMatch[1].trim();
-  }
-  
+  return {
+    apellido: apellidoMatch?.[1] || null,
+    nombre: nombreMatch?.[1]?.trim() || null
+  };
+}
+
+function extractFromText(text) {
+  const dni = extractDni(text);
+  const { apellido, nombre } = extractNombreApellido(text);
   return { dni, apellido, nombre };
 }
 

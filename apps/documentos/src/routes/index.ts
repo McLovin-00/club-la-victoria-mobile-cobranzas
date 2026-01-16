@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { generalRateLimit } from '../middlewares/rateLimiter.middleware';
+import { generalRateLimit, configRateLimit } from '../middlewares/rateLimiter.middleware';
 import { AppLogger } from '../config/logger';
 import { requestContext } from '../middlewares/requestContext.middleware';
 import { auditMiddleware } from '../middlewares/audit.middleware';
@@ -28,14 +28,13 @@ import { autoFilterByDador } from '../middlewares/autoFilterByDador.middleware';
 import { authorizeTransportista } from '../middlewares/authorizeTransportista.middleware';
 import empresasTransportistasRoutes from './empresas-transportistas.routes';
 import approvalRoutes from './approval.routes';
-import { configRateLimit } from '../middlewares/rateLimiter.middleware';
 import complianceRoutes from './compliance.routes';
 import auditLogsRoutes from './audit.routes';
 import portalClienteRoutes from './portal-cliente.routes';
 import portalTransportistaRoutes from './portal-transportista.routes';
 import entityDataRoutes from './entity-data.routes';
 
-const router = Router();
+const router: ReturnType<typeof Router> = Router();
 
 // =================================
 // MIDDLEWARE GLOBAL

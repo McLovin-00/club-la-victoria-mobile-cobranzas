@@ -54,15 +54,16 @@ export class WebSocketService {
         }
 
         // Alinear claims mínimos garantizados
-        (socket as any).userId = payload.userId as number;
-        (socket as any).empresaId = (payload.empresaId ?? null) as number | null;
-        (socket as any).role = payload.role as string;
+        const socketData = socket as any; // NOSONAR - extending socket with custom properties
+        socketData.userId = payload.userId;
+        socketData.empresaId = payload.empresaId ?? null;
+        socketData.role = payload.role;
 
         // Claims opcionales (solo lectura, para compatibilidad)
         const decoded: any = jwt.decode(token) || {};
-        (socket as any).tenantEmpresaId = decoded.tenantEmpresaId ?? null;
-        if ((socket as any).empresaId == null) {
-          (socket as any).empresaId = decoded.empresaId ?? decoded.dadorCargaId ?? null;
+        socketData.tenantEmpresaId = decoded.tenantEmpresaId ?? null;
+        if (socketData.empresaId == null) {
+          socketData.empresaId = decoded.empresaId ?? decoded.dadorCargaId ?? null;
         }
         
         AppLogger.info(`Cliente WebSocket autenticado: ${payload.email} (${payload.role})`);

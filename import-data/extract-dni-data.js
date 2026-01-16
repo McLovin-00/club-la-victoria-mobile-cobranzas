@@ -119,10 +119,28 @@ async function extractDNIData(imagePath) {
   }
 }
 
+function mergeExtractedData(allData, newData) {
+  allData.texts.push(newData.text);
+  if (newData.dni && !allData.dni) allData.dni = newData.dni;
+  if (newData.apellido && !allData.apellido) allData.apellido = newData.apellido;
+  if (newData.nombre && !allData.nombre) allData.nombre = newData.nombre;
+}
+
+async function processImagesFromPdf(dniPath, prefix) {
+  const allData = { dni: null, apellido: null, nombre: null, texts: [] };
+  const images = await processPDF(dniPath, prefix);
+  
+  for (const img of images) {
+    const data = await extractDNIData(img);
+    mergeExtractedData(allData, data);
+    try { fs.unlinkSync(img); } catch { /* ignore cleanup errors */ }
+  }
+  
+  return allData;
+}
+
 async function processFolder(folderName) {
   const folderPath = path.join(DOCS_DIR, folderName);
-  
-  // Buscar archivo de DNI
   const files = fs.readdirSync(folderPath);
   const dniFile = files.find(f => f.toLowerCase().includes('dni'));
   
@@ -133,37 +151,21 @@ async function processFolder(folderName) {
   
   const dniPath = path.join(folderPath, dniFile);
   const ext = path.extname(dniFile).toLowerCase();
-  
-  let allData = { dni: null, apellido: null, nombre: null, texts: [] };
-  
-  // Extraer ID para prefijo único
-  const idMatch = folderName.match(/^(ID\d+)/);
-  const prefix = idMatch ? idMatch[1] : 'unknown';
+  const prefix = folderName.match(/^(ID\d+)/)?.[1] || 'unknown';
   
   try {
     if (ext === '.pdf') {
-      const images = await processPDF(dniPath, prefix);
-      
-      for (const img of images) {
-        const data = await extractDNIData(img);
-        allData.texts.push(data.text);
-        
-        if (data.dni && !allData.dni) allData.dni = data.dni;
-        if (data.apellido && !allData.apellido) allData.apellido = data.apellido;
-        if (data.nombre && !allData.nombre) allData.nombre = data.nombre;
-        
-        // Limpiar imagen
-        try { fs.unlinkSync(img); } catch {}
-      }
-    } else if (['.jpg', '.jpeg', '.png'].includes(ext)) {
+      return await processImagesFromPdf(dniPath, prefix);
+    }
+    if (['.jpg', '.jpeg', '.png'].includes(ext)) {
       const data = await extractDNIData(dniPath);
-      allData = { ...data, texts: [data.text] };
+      return { ...data, texts: [data.text] };
     }
   } catch (err) {
     console.error(`  ❌ Error procesando ${dniFile}:`, err.message);
   }
   
-  return allData;
+  return { dni: null, apellido: null, nombre: null, texts: [] };
 }
 
 async function main() {
@@ -202,7 +204,7 @@ async function main() {
     if (!row || !row[0]) continue;
     
     const id = row[0].toString(); // ID1, ID2, etc.
-    const nombrePlanilla = row[7]; // Nombre completo de la planilla
+    // row[7] contiene el nombre completo de la planilla (usado para referencia)
     
     // Buscar carpeta correspondiente
     const folder = folders.find(f => f.startsWith(id + ' '));

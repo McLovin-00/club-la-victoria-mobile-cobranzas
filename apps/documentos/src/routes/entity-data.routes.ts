@@ -3,7 +3,7 @@ import { authenticate, authorize } from '../middlewares/auth.middleware';
 import { UserRole } from '../types/roles';
 import { EntityDataController } from '../controllers/entity-data.controller';
 
-const router = Router();
+const router: ReturnType<typeof Router> = Router();
 
 // Solo SUPERADMIN y ADMIN_INTERNO pueden ver datos extraídos
 const ADMIN_ROLES = [UserRole.SUPERADMIN, UserRole.ADMIN_INTERNO];

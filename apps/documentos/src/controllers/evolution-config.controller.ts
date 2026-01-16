@@ -23,7 +23,7 @@ async function tryEndpoint(url: string, headers: Record<string, string>, signal:
     
     const data = await resp.json().catch(() => ({}));
     if (data && typeof data === 'object' && 'message' in data) {
-      return { ok: true, message: (data as any).message, version: (data as any).version };
+      return { ok: true, message: data.message, version: data.version };
     }
     return { ok: true, status: resp.status };
   } catch (e: any) {

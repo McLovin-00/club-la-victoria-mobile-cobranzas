@@ -54,17 +54,8 @@ export const getInstances = async (req: AuthRequest, res: Response) => {
         limit: parseInt(limit as string),
         offset: parseInt(offset as string),
       });
-    } else if (user.role === 'ADMIN' && user.empresaId) {
-      // Admin solo puede ver instancias de su empresa
-      instances = await instanceService.findManyByEmpresa(user.empresaId, {
-        search: search as string,
-        serviceId: serviceId ? parseInt(serviceId as string) : undefined,
-        estado: estado as any,
-        limit: parseInt(limit as string),
-        offset: parseInt(offset as string),
-      });
-    } else if (user.role === 'OPERATOR' && user.empresaId) {
-      // Usuario normal solo puede ver instancias de su empresa
+    } else if ((user.role === 'ADMIN' || user.role === 'OPERATOR') && user.empresaId) {
+      // Admin y Operator solo pueden ver instancias de su empresa
       instances = await instanceService.findManyByEmpresa(user.empresaId, {
         search: search as string,
         serviceId: serviceId ? parseInt(serviceId as string) : undefined,

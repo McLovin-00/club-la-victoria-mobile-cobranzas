@@ -6,7 +6,7 @@ import { approveDocumentSchema, rejectDocumentSchema, pendingDocumentsQuerySchem
 import { approvalRateLimit } from '../middlewares/rateLimiter.middleware';
 import { prisma } from '../config/database';
 
-const router = Router();
+const router: ReturnType<typeof Router> = Router();
 
 router.use(authenticate);
 
@@ -21,7 +21,7 @@ router.post('/pending/:id/approve', authorize([UserRole.ADMIN, UserRole.SUPERADM
     }
     // DADOR_DE_CARGA solo si tiene flag habilitado
     if (req.user?.role === UserRole.DADOR_DE_CARGA) {
-      const userDadorId = (req.user.metadata as any)?.dadorCargaId ? Number((req.user.metadata as any).dadorCargaId) : undefined;
+      const userDadorId = req.user.metadata?.dadorCargaId ? Number(req.user.metadata.dadorCargaId) : undefined;
       if (!userDadorId) return res.status(403).json({ success: false, message: 'Dador no especificado en usuario', code: 'DADOR_REQUIRED' });
       const cfg = await prisma.systemConfig.findFirst({ where: { key: `dador:${userDadorId}:aprobacion.enabled` } });
       const enabled = cfg?.value === 'true';

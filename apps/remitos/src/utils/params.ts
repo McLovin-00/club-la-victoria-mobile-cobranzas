@@ -1,4 +1,5 @@
-import { ParamsDictionary } from 'express-serve-static-core';
+// Tipo genérico para params de Express compatible con múltiples versiones
+type GenericParams = Record<string, string | string[] | undefined>;
 
 /**
  * Parsea un parámetro de ruta a número entero de forma segura.
@@ -12,7 +13,7 @@ import { ParamsDictionary } from 'express-serve-static-core';
  * @example
  * const id = parseParamId(req.params, 'id');
  */
-export function parseParamId(params: ParamsDictionary, key: string): number {
+export function parseParamId(params: GenericParams, key: string): number {
   const value = params[key];
   
   if (value === undefined || value === null) {
@@ -38,7 +39,7 @@ export function parseParamId(params: ParamsDictionary, key: string): number {
  * @param key - Nombre del parámetro a extraer
  * @returns El valor como string
  */
-export function parseParamString(params: ParamsDictionary, key: string): string {
+export function parseParamString(params: GenericParams, key: string): string {
   const value = params[key];
   
   if (value === undefined || value === null) {

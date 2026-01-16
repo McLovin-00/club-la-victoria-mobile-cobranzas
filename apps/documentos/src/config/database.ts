@@ -15,7 +15,7 @@ class DatabaseService {
 				{ emit: 'event', level: 'warn' },
 			],
 			errorFormat: 'pretty',
-		}) as PrismaClient;
+		});
 
 		// Event listeners para logging elegante
 		(this.prisma as any).$on('query', (e: any) => {

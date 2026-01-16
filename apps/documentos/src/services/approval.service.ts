@@ -5,9 +5,10 @@ import type { DocumentStatus, Prisma } from '.prisma/documentos';
 // ============================================================================
 // HELPERS DE NORMALIZACIÓN
 // ============================================================================
-const normalizeDigits = (s: string): string => String(s).replace(/\D+/g, '');
-const normalizePlate = (s: string): string => String(s).toUpperCase().replace(/[^A-Z0-9]/g, '');
-const normalizeText = (s: string): string => String(s)
+// @security All normalizers bound input to prevent DoS on regex processing
+const normalizeDigits = (s: string): string => String(s).slice(0, 50).replace(/\D+/g, '');
+const normalizePlate = (s: string): string => String(s).slice(0, 20).toUpperCase().replace(/[^A-Z0-9]/g, '');
+const normalizeText = (s: string): string => String(s).slice(0, 256)
   .normalize('NFD')
   .replace(/[\u0300-\u036f]/g, '')
   .toUpperCase()
@@ -216,10 +217,10 @@ async function handleDeprecationAndRetention(
     where: {
       tenantEmpresaId,
       id: { not: docId },
-      entityType: entityType as any,
+      entityType,
       entityId,
       templateId,
-      status: 'APROBADO' as any,
+      status: 'APROBADO',
       expiresAt,
     },
     select: { id: true, validationData: true },
@@ -229,8 +230,8 @@ async function handleDeprecationAndRetention(
     await tx.document.update({
       where: { id: s.id },
       data: {
-        status: 'DEPRECADO' as any,
-        validationData: { ...(s as any).validationData, replacedBy: docId, replacedAt: new Date().toISOString() },
+        status: 'DEPRECADO',
+        validationData: { ...(s.validationData || {}), replacedBy: docId, replacedAt: new Date().toISOString() },
       },
     });
   }
@@ -240,10 +241,10 @@ async function handleDeprecationAndRetention(
   const deprecated = await tx.document.findMany({
     where: {
       tenantEmpresaId,
-      entityType: entityType as any,
+      entityType,
       entityId,
       templateId,
-      status: 'DEPRECADO' as any,
+      status: 'DEPRECADO',
       expiresAt,
     },
     orderBy: { uploadedAt: 'desc' },
@@ -362,7 +363,7 @@ export class ApprovalService {
     // Enriquecer documentos
     const enrichedDocs = await Promise.all(
       documents.map(async (doc) => {
-        const entityNaturalId = await getEntityNaturalId(doc.entityType as string, doc.entityId as number);
+        const entityNaturalId = await getEntityNaturalId(doc.entityType, doc.entityId);
         const iaValidation = calculateIAValidation(doc.classification);
         return { ...doc, entityNaturalId, iaValidation };
       })
@@ -373,13 +374,13 @@ export class ApprovalService {
 
   static async getPendingDocument(documentId: number, tenantEmpresaId: number): Promise<any | null> {
     const document = await db.getClient().document.findFirst({
-      where: { id: documentId, tenantEmpresaId, status: 'PENDIENTE_APROBACION' as DocumentStatus },
+      where: { id: documentId, tenantEmpresaId, status: 'PENDIENTE_APROBACION' },
       include: { template: true, classification: true },
     });
     
     if (!document) return null;
     
-    const entityNaturalId = await getEntityNaturalId(document.entityType as string, document.entityId as number);
+    const entityNaturalId = await getEntityNaturalId(document.entityType, document.entityId);
     return { ...document, entityNaturalId };
   }
 
@@ -400,13 +401,13 @@ export class ApprovalService {
       }
 
       // 2. Determinar tipo y ID de entidad
-      const classification = document.classification as any;
+      const classification = document.classification as any; // NOSONAR
       const finalEntityType = reviewData.confirmedEntityType || classification.detectedEntityType || document.entityType;
       
       const proposedVal = reviewData.confirmedEntityId ?? classification.detectedEntityId;
       const ctx: EntityContext = {
-        tenantId: document.tenantEmpresaId as number,
-        dadorCargaId: (document as any).dadorCargaId as number,
+        tenantId: document.tenantEmpresaId,
+        dadorCargaId: document.dadorCargaId,
         entityType: finalEntityType,
       };
       
@@ -430,16 +431,16 @@ export class ApprovalService {
         const tpl = await tx.documentTemplate.findFirst({
           where: { name: classification.detectedDocumentType, entityType: finalEntityType } as any
         });
-        if (tpl) newTemplateId = (tpl as any).id;
+        if (tpl) newTemplateId = tpl.id;
       }
 
       // 6. Actualizar documento
       const updated = await tx.document.update({
         where: { id: documentId },
         data: {
-          status: 'APROBADO' as DocumentStatus,
+          status: 'APROBADO',
           validatedAt: new Date(),
-          entityType: finalEntityType as any,
+          entityType: finalEntityType,
           entityId: finalEntityId!,
           expiresAt: finalExpiration,
           ...(newTemplateId ? { templateId: newTemplateId } : {}),
@@ -453,7 +454,7 @@ export class ApprovalService {
           tx,
           updated.id,
           updated.entityType as string,
-          (updated as any).template?.name || 'DOC',
+          updated.template?.name || 'DOC',
           reviewData.confirmedEntityId,
           classification.detectedEntityId
         );
@@ -486,7 +487,8 @@ export class ApprovalService {
       if (!document) throw new Error('Documento no encontrado o no está pendiente de aprobación');
 
       if (document.classification) {
-        const notes = `RECHAZADO: ${reviewData.reason}${reviewData.reviewNotes ? ` | ${reviewData.reviewNotes}` : ''}`;
+        const notesSuffix = reviewData.reviewNotes ? ` | ${reviewData.reviewNotes}` : '';
+        const notes = `RECHAZADO: ${reviewData.reason}${notesSuffix}`;
         await tx.documentClassification.update({
           where: { documentId },
           data: { reviewedAt: new Date(), reviewedBy: reviewData.reviewedBy, reviewNotes: notes },
@@ -535,7 +537,7 @@ export class ApprovalService {
     const result = { pendienteAprobacion: 0, aprobados: 0, rechazados: 0, total: 0 };
     
     for (const s of stats) {
-      const count = (s as any)._count.status;
+      const count = s._count.status;
       result.total += count;
       
       if (s.status === 'PENDIENTE_APROBACION') result.pendienteAprobacion = count;

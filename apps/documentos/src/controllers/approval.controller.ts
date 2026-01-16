@@ -149,8 +149,8 @@ export class ApprovalController {
         return;
       }
       
-      const id = Number((req.params as any).id);
-      const { confirmedEntityType, confirmedEntityId, confirmedExpiration, confirmedTemplateId, reviewNotes } = (req.body || {}) as any;
+      const id = Number(req.params.id);
+      const { confirmedEntityType, confirmedEntityId, confirmedExpiration, confirmedTemplateId, reviewNotes } = req.body || {};
       
       const doc = await ApprovalService.approveDocument(id, user.tenantEmpresaId, {
         reviewedBy: user.userId!,
@@ -194,8 +194,8 @@ export class ApprovalController {
       const tenantEmpresaId = (req as any).tenantId as number;
       const userId = ((req as any).user?.id ?? (req as any).user?.userId) as number | undefined;
       const userRole = ((req as any).user?.role) as string | undefined;
-      const id = Number((req.params as any).id);
-      const { reason, reviewNotes } = (req.body || {}) as any;
+      const id = Number(req.params.id);
+      const { reason, reviewNotes } = req.body || {};
       if (!userId) {
         res.status(401).json({ success: false, message: 'Usuario no identificado', code: 'USER_NOT_IDENTIFIED' });
         return;

@@ -57,7 +57,7 @@ async function extractDNIData(imagePath) {
   
   // Buscar patrones típicos del DNI argentino
   const apellidoMatch = text.match(/APELLIDO[:\s]*([A-ZÁÉÍÓÚÑ\s]+)/i);
-  const nombreMatch = text.match(/NOMBRE[S]?[:\s]*([A-ZÁÉÍÓÚÑ\s]+)/i);
+  const nombreMatch = text.match(/NOMBRES?[:\s]*([A-ZÁÉÍÓÚÑ\s]+)/i);
   
   console.log('\n=== DATOS EXTRAÍDOS ===');
   console.log('Posibles DNIs:', dniMatches);

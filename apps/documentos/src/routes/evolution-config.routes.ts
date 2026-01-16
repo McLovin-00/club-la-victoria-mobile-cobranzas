@@ -2,7 +2,7 @@ import { Router } from 'express';
 import { authenticate, authorize } from '../middlewares/auth.middleware';
 import { EvolutionConfigController } from '../controllers/evolution-config.controller';
 
-const router = Router();
+const router: ReturnType<typeof Router> = Router();
 
 // =================================
 // RUTAS DE CONFIGURACIÓN EVOLUTION API - Solo SUPERADMIN

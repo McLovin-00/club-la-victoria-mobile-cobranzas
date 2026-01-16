@@ -27,16 +27,20 @@ winston.addColors(colors);
 
 /**
  * Enmascarado básico de PII (emails y teléfonos estilo internacional).
- * NOSONAR: Email regex is safe - character classes [a-zA-Z0-9_.-] don't cause 
- * catastrophic backtracking. Inputs are log messages of bounded length.
+ * Masks PII data in log messages.
+ * @security Uses bounded regex with explicit length limits to prevent ReDoS
  */
 const mask = (msg: string): string => {
   if (!msg) return msg;
-  // Emails: a***@d****.tld - NOSONAR: Linear complexity regex
-  msg = msg.replace(/([a-zA-Z0-9_.-]+)@([a-zA-Z0-9_.-]+)\.(\w+)/g, (_m, u, d, t) => `${String(u).slice(0,1)}***@${String(d).slice(0,1)}****.${t}`);
-  // Telefónos: +5411*******
-  msg = msg.replace(/\+?[1-9]\d{7,14}/g, (m: string) => `${m.slice(0,4)}${'*'.repeat(Math.max(0, m.length-4))}`);
-  return msg;
+  // Bound input to prevent DoS on very large strings
+  const bounded = msg.length > 10000 ? msg.slice(0, 10000) : msg;
+  let result = bounded;
+  // Emails: a***@d****.tld - Uses length-limited character classes
+  result = result.replace(/([a-zA-Z0-9_.-]{1,64})@([a-zA-Z0-9_.-]{1,255})\.([a-zA-Z]{2,10})/g, 
+    (_m, u, d, t) => `${String(u).slice(0,1)}***@${String(d).slice(0,1)}****.${t}`);
+  // Teléfonos: +5411*******
+  result = result.replace(/\+?[1-9]\d{7,14}/g, (m: string) => `${m.slice(0,4)}${'*'.repeat(Math.max(0, m.length-4))}`);
+  return result;
 };
 
 const maskFormat = winston.format((info) => {

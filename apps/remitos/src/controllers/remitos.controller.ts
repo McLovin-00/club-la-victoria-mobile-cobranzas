@@ -18,22 +18,28 @@ interface FileInput {
 }
 
 function getFilesFromMulter(req: any): Express.Multer.File[] {
-  return Array.isArray(req.files?.imagenes)
-    ? req.files.imagenes
-    : Array.isArray(req.files)
-      ? req.files
-      : req.file
-        ? [req.file]
-        : [];
+  // Prioridad: imagenes > files array > file individual
+  if (Array.isArray(req.files?.imagenes)) {
+    return req.files.imagenes;
+  }
+  if (Array.isArray(req.files)) {
+    return req.files;
+  }
+  if (req.file) {
+    return [req.file];
+  }
+  return [];
 }
 
 function getBase64Inputs(body: any): string[] {
   const base64Raw = body.documentsBase64;
-  return Array.isArray(base64Raw)
-    ? base64Raw
-    : typeof base64Raw === 'string' && base64Raw
-      ? [base64Raw]
-      : [];
+  if (Array.isArray(base64Raw)) {
+    return base64Raw;
+  }
+  if (typeof base64Raw === 'string' && base64Raw) {
+    return [base64Raw];
+  }
+  return [];
 }
 
 /** Convierte valor de peso a número o undefined (para updates parciales) */

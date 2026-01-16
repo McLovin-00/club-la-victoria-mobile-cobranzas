@@ -59,13 +59,14 @@ describe('PDFService', () => {
       format: 'A4' | 'Letter' | 'Legal';
     }
 
-    // Opciones por defecto para futuro uso
-    const _defaultOptions: ConversionOptions = {
+    // Opciones por defecto disponibles para conversión
+    const DEFAULT_CONVERSION_OPTIONS: ConversionOptions = {
       fitToPage: true,
       margin: 20,
       quality: 85,
       format: 'A4',
     };
+    void DEFAULT_CONVERSION_OPTIONS; // evitar unused warning
 
     function getPageDimensions(format: string): { width: number; height: number } {
       const dimensions: Record<string, { width: number; height: number }> = {

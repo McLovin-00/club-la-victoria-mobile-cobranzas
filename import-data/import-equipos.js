@@ -222,42 +222,45 @@ async function uploadDocument(server, token, entityType, entityId, templateKey, 
   return response.data;
 }
 
+function parseRowData(row) {
+  return {
+    id: row[0],
+    empresaNombre: row[2],
+    cuit: normalizeCuit(row[3]),
+    dni: String(row[33] || '').trim(),
+    nombreChofer: row[34],
+    apellidoChofer: row[35],
+    patenteTractor: normalizePatente(row[16]),
+    patenteSemi: normalizePatente(row[23])
+  };
+}
+
+function validateRowData(data) {
+  const invalidDni = ['', 'PENDIENTE', 'NO_FOLDER'];
+  if (invalidDni.includes(data.dni) || !data.dni.match(/^\d+$/)) {
+    return 'DNI inválido o pendiente';
+  }
+  if (!data.cuit || data.cuit.length !== 11) return 'CUIT inválido';
+  if (!data.patenteTractor) return 'Patente tractor faltante';
+  return null;
+}
+
 async function processRow(server, token, row, docsFolder) {
-  const dadorId = server.dadorId;
-  const clienteIds = server.clienteIds;
-  const id = row[0];
-  const empresaNombre = row[2];
-  const cuit = normalizeCuit(row[3]);
-  const dni = row[33];
-  const nombreChofer = row[34];
-  const apellidoChofer = row[35];
-  const patenteTractor = normalizePatente(row[16]);
-  const patenteSemi = normalizePatente(row[23]);
-  
-  const dniStr = String(dni || '').trim();
-  if (!dniStr || dniStr === 'PENDIENTE' || dniStr === 'NO_FOLDER' || !dniStr.match(/^\d+$/)) {
-    return { success: false, error: 'DNI inválido o pendiente' };
-  }
-  
-  if (!cuit || cuit.length !== 11) {
-    return { success: false, error: 'CUIT inválido' };
-  }
-  
-  if (!patenteTractor) {
-    return { success: false, error: 'Patente tractor faltante' };
-  }
+  const data = parseRowData(row);
+  const validationError = validateRowData(data);
+  if (validationError) return { success: false, error: validationError };
   
   // 1. Crear equipo
   const equipoData = {
-    dadorCargaId: dadorId,
-    empresaTransportistaCuit: cuit,
-    empresaTransportistaNombre: empresaNombre || 'Empresa sin nombre',
-    choferDni: dniStr,
-    choferNombre: nombreChofer || '',
-    choferApellido: apellidoChofer || '',
-    camionPatente: patenteTractor,
-    acopladoPatente: patenteSemi || null,
-    clienteIds: clienteIds,
+    dadorCargaId: server.dadorId,
+    empresaTransportistaCuit: data.cuit,
+    empresaTransportistaNombre: data.empresaNombre || 'Empresa sin nombre',
+    choferDni: data.dni,
+    choferNombre: data.nombreChofer || '',
+    choferApellido: data.apellidoChofer || '',
+    camionPatente: data.patenteTractor,
+    acopladoPatente: data.patenteSemi || null,
+    clienteIds: server.clienteIds,
   };
   
   let equipo;
@@ -268,7 +271,7 @@ async function processRow(server, token, row, docsFolder) {
   }
   
   // 2. Subir documentos
-  const folderName = fs.readdirSync(docsFolder).find(f => f.startsWith(id + ' '));
+  const folderName = fs.readdirSync(docsFolder).find(f => f.startsWith(data.id + ' '));
   if (!folderName) {
     return { success: true, equipo, docsUploaded: 0, warning: 'Carpeta de documentos no encontrada' };
   }
@@ -279,29 +282,20 @@ async function processRow(server, token, row, docsFolder) {
   let docsUploaded = 0;
   const errors = [];
   
+  // Helper para mapear entityType a entityId
+  const entityIdMap = {
+    'EMPRESA_TRANSPORTISTA': equipo.empresaTransportistaId,
+    'CHOFER': equipo.driverId,
+    'CAMION': equipo.truckId,
+    'ACOPLADO': equipo.trailerId
+  };
+
   for (const file of files) {
     const templateConfig = matchTemplate(file);
     if (!templateConfig) continue;
     
     const filePath = path.join(folderPath, file);
-    
-    // Determinar entityId según el tipo
-    let entityId;
-    switch (templateConfig.entityType) {
-      case 'EMPRESA_TRANSPORTISTA':
-        entityId = equipo.empresaTransportistaId;
-        break;
-      case 'CHOFER':
-        entityId = equipo.driverId;
-        break;
-      case 'CAMION':
-        entityId = equipo.truckId;
-        break;
-      case 'ACOPLADO':
-        entityId = equipo.trailerId;
-        if (!entityId) continue; // Skip si no hay acoplado
-        break;
-    }
+    const entityId = entityIdMap[templateConfig.entityType];
     
     if (!entityId) continue;
     

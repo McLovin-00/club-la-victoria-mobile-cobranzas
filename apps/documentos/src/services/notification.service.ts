@@ -20,6 +20,12 @@ interface NotificationTemplates {
 interface WindowConfig { enabled: boolean; unit: Unit; value: number }
 interface WindowsConfig { aviso: WindowConfig; alerta: WindowConfig; alarma: WindowConfig }
 
+interface NotificationContext {
+  meta: { tenantId: number; dadorId: number; documentId: number };
+  dador: { notifyDriverEnabled?: boolean; notifyDadorEnabled?: boolean; phones?: string[] } | null;
+  choferData: { phones: string[] };
+}
+
 // ============================================================================
 // HELPERS PARA REDUCIR COMPLEJIDAD
 // ============================================================================
@@ -190,9 +196,13 @@ export class NotificationService {
     const choferData = await loadChoferData(d.entityType, d.entityId);
 
     const params = this.buildNotificationParams(d, exp, now, dador?.razonSocial, choferData);
-    const meta = { tenantId: d.tenantEmpresaId, dadorId: d.dadorCargaId, documentId: d.id };
+    const ctx: NotificationContext = {
+      meta: { tenantId: d.tenantEmpresaId, dadorId: d.dadorCargaId, documentId: d.id },
+      dador,
+      choferData,
+    };
     
-    return this.sendWindowNotifications(windows, templates, exp, now, params, meta, dador, choferData);
+    return this.sendWindowNotifications(windows, templates, exp, now, params, ctx);
   }
 
   /** Construye parámetros para templates de notificación */
@@ -222,10 +232,9 @@ export class NotificationService {
     exp: Date,
     now: Date,
     params: Record<string, any>,
-    meta: { tenantId: number; dadorId: number; documentId: number },
-    dador: { notifyDriverEnabled?: boolean; notifyDadorEnabled?: boolean; phones?: string[] } | null,
-    choferData: { phones: string[] }
+    ctx: NotificationContext
   ): Promise<number> {
+    const { meta, dador, choferData } = ctx;
     let sent = 0;
     const steps: Array<{key: 'aviso'|'alerta'|'alarma'; win: WindowConfig}> = [
       { key: 'aviso', win: windows.aviso },

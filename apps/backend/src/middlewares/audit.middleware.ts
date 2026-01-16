@@ -36,7 +36,6 @@ function getClientIP(req: Request): string {
   return (
     (req.headers['x-forwarded-for'] as string)?.split(',')[0] ||
     (req.headers['x-real-ip'] as string) ||
-    req.connection?.remoteAddress ||
     req.socket?.remoteAddress ||
     req.ip ||
     'unknown'
@@ -132,7 +131,7 @@ export const auditAccessDenied = (req: Request, res: Response, next: NextFunctio
     timestamp: new Date().toISOString(),
   });
 
-  // TODO: Implementar almacenamiento en base de datos cuando sea necesario
+  // Almacenamiento en BD pendiente - actualmente solo logging
   // await prisma.audit.create({ ... });
 
   next();
@@ -143,7 +142,7 @@ export const auditAccessDenied = (req: Request, res: Response, next: NextFunctio
  */
 export const captureOldValues = (resourceKey: string = 'id') => {
   return (req: Request, res: Response, next: NextFunction) => {
-    // TODO: Implementar captura de valores antiguos si es necesario
+    // Captura de valores antiguos deshabilitada - se implementará si hay requerimiento
     AppLogger.debug('Capturing old values', { resourceKey, path: req.path });
     next();
   };

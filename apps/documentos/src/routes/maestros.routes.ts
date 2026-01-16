@@ -17,7 +17,7 @@ import {
   acopladoListQuerySchema,
 } from '../schemas/validation.schemas';
 
-const router = Router();
+const router: ReturnType<typeof Router> = Router();
 
 router.use(authenticate);
 

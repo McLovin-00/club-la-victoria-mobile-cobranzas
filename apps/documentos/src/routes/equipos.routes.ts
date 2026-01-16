@@ -1,15 +1,14 @@
 import { Router } from 'express';
 import { authenticate, authorize, validate } from '../middlewares/auth.middleware';
 import { ownsEquipo, canModifyEquipo, canTransferEquipo } from '../middlewares/ownership.middleware';
-import { equipoHistoryQuerySchema } from '../schemas/validation.schemas';
+import { equipoHistoryQuerySchema, createEquipoSchema, equipoClienteAssocSchema, equipoListQuerySchema, updateEquipoSchema, equipoAttachSchema, equipoDetachSchema } from '../schemas/validation.schemas';
 import { EquiposController } from '../controllers/equipos.controller';
-import { createEquipoSchema, equipoClienteAssocSchema, equipoListQuerySchema, updateEquipoSchema, equipoAttachSchema, equipoDetachSchema } from '../schemas/validation.schemas';
 import { z } from 'zod';
 import { prisma } from '../config/database';
 import { AppLogger } from '../config/logger';
 import { AuditService } from '../services/audit.service';
 
-const router = Router();
+const router: ReturnType<typeof Router> = Router();
 
 // ============================================================================
 // HELPERS JWT Y ARCHIVER

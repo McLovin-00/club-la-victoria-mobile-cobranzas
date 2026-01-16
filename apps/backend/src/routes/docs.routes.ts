@@ -246,7 +246,7 @@ router.post(
     const clienteId = Number(req.params.clienteId);
     const arr = clientRequirements[clienteId] || (clientRequirements[clienteId] = []);
     const next = { id: Date.now(), ...(req.body || {}), template: { id: (req.body?.templateId || 0), name: 'Template', entityType: req.body?.entityType || '' } };
-    arr.push(next as any);
+    arr.push(next);
     return res.json({ success: true, data: next, timestamp: new Date().toISOString() });
   }
 );

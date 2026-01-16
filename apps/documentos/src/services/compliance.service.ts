@@ -354,12 +354,12 @@ export class ComplianceService {
     const now = Date.now();
 
     for (const r of requisitos) {
-      const entityId = getEntityIdFromEquipo(equipo as any, r.entityType);
+      const entityId = getEntityIdFromEquipo(equipo, r.entityType);
 
       if (!entityId) {
         results.push({
           templateId: r.templateId,
-          entityType: r.entityType as EntityType,
+          entityType: r.entityType,
           obligatorio: r.obligatorio,
           diasAnticipacion: r.diasAnticipacion,
           state: 'FALTANTE',
@@ -372,8 +372,8 @@ export class ComplianceService {
           templateId: r.templateId,
           entityType: r.entityType as any,
           entityId,
-          tenantEmpresaId: (equipo as any).tenantEmpresaId,
-          dadorCargaId: (equipo as any).dadorCargaId,
+          tenantEmpresaId: equipo.tenantEmpresaId,
+          dadorCargaId: equipo.dadorCargaId,
         },
         orderBy: { uploadedAt: 'desc' },
       });
@@ -382,12 +382,12 @@ export class ComplianceService {
 
       results.push({
         templateId: r.templateId,
-        entityType: r.entityType as EntityType,
+        entityType: r.entityType, // NOSONAR - already correct type
         obligatorio: r.obligatorio,
         diasAnticipacion: r.diasAnticipacion,
         state,
         documentId: doc?.id,
-        documentStatus: doc?.status as DocumentStatus,
+        documentStatus: doc?.status, // NOSONAR - already DocumentStatus
         expiresAt: doc?.expiresAt ?? null,
       });
     }

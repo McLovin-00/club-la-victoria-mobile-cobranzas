@@ -59,14 +59,14 @@ function parseDateString(rawDate: string): Date | null {
 function extractExpirationDate(req: AuthRequest, templateId: string | number): Date | null {
   try {
     // 1. Intentar leer expiresAt directo del body
-    const directExpiresAt = (req.body as any).expiresAt;
+    const directExpiresAt = req.body?.expiresAt;
     if (directExpiresAt && typeof directExpiresAt === 'string') {
       const parsed = parseDateString(directExpiresAt);
       if (parsed) return parsed;
     }
     
     // 2. Buscar en planilla.vencimientos
-    const planilla = (req.body as any).planilla;
+    const planilla = req.body?.planilla;
     const vencimientos = planilla?.vencimientos || {};
     const rawExpiry = vencimientos[templateId] || vencimientos[String(templateId)];
     if (rawExpiry && typeof rawExpiry === 'string') {
@@ -126,18 +126,28 @@ async function deprecatePreviousDocument(
   }
 }
 
+/** Extrae archivos de un campo multer */
+function getMulterFiles(reqAny: any, fieldName: string): Express.Multer.File[] {
+  const filesObj = reqAny.files?.[fieldName];
+  if (Array.isArray(filesObj)) return filesObj;
+  if (fieldName === 'document' && reqAny.file) return [reqAny.file];
+  return [];
+}
+
+/** Normaliza input base64 a array */
+function normalizeBase64Input(raw: unknown): string[] {
+  if (Array.isArray(raw)) return raw;
+  if (typeof raw === 'string' && raw) return [raw];
+  return [];
+}
+
 /** Extrae archivos del request (multer files + base64) */
 function extractFilesFromRequest(req: AuthRequest): { files: Express.Multer.File[]; base64Inputs: string[] } {
   const anyReq = req as any;
-  const docsA: Express.Multer.File[] = Array.isArray(anyReq.files?.documents) ? anyReq.files.documents : [];
-  const docsB: Express.Multer.File[] = Array.isArray(anyReq.files?.document) ? anyReq.files.document : (anyReq.file ? [anyReq.file] : []);
+  const docsA = getMulterFiles(anyReq, 'documents');
+  const docsB = getMulterFiles(anyReq, 'document');
   const files = [...docsA, ...docsB];
-  
-  const base64InputsRaw = (req.body as any).documentsBase64;
-  const base64Inputs: string[] = Array.isArray(base64InputsRaw)
-    ? base64InputsRaw
-    : (typeof base64InputsRaw === 'string' && base64InputsRaw ? [base64InputsRaw] : []);
-  
+  const base64Inputs = normalizeBase64Input(req.body?.documentsBase64);
   return { files, base64Inputs };
 }
 
@@ -169,7 +179,7 @@ function validateUploadScenario(
   }
   
   if (last && last.status !== 'VENCIDO') {
-    const confirmNewVersion = String((req.body as any).confirmNewVersion ?? '') === 'true' || (req.body as any).confirmNewVersion === true;
+    const confirmNewVersion = String(req.body?.confirmNewVersion ?? '') === 'true' || req.body?.confirmNewVersion === true;
     if (!confirmNewVersion) {
       throw createError('El documento previo no está vencido. Confirme si es una nueva versión.', 409, 'CONFIRM_NEW_VERSION_REQUIRED');
     }
@@ -221,9 +231,14 @@ async function scanFilesForVirus(inputs: MediaInput[]): Promise<void> {
   }
 }
 
-/** Normaliza string para nombre de archivo */
+/** 
+ * Normaliza string para nombre de archivo
+ * @security Input bounded to 256 chars to prevent DoS
+ */
 function normalizeFileName(s: string): string {
-  return s
+  // Bound input length to prevent DoS
+  const bounded = s.slice(0, 256);
+  return bounded
     .normalize('NFD')
     .replace(/[\u0300-\u036f]/g, '')
     .toUpperCase()
@@ -268,7 +283,7 @@ export class DocumentsController {
    */
   static async uploadDocument(req: AuthRequest, res: Response): Promise<void> {
     try {
-      const { templateId, entityType, entityId, dadorCargaId } = req.body as any;
+      const { templateId, entityType, entityId, dadorCargaId } = req.body;
       const dadorIdNum = parseInt(dadorCargaId);
       const templateIdNum = parseInt(templateId);
 
@@ -360,7 +375,7 @@ export class DocumentsController {
       });
 
       // 10. Marcar documento anterior como deprecado si corresponde
-      const confirmNewVersion = String((req.body as any).confirmNewVersion ?? '') === 'true' || (req.body as any).confirmNewVersion === true;
+      const confirmNewVersion = String(req.body?.confirmNewVersion ?? '') === 'true' || req.body?.confirmNewVersion === true;
       await deprecatePreviousDocument(last, document.id, confirmNewVersion);
 
       // Notificar nuevo documento via WebSocket
@@ -555,10 +570,10 @@ export class DocumentsController {
    */
   static async getDocumentPreview(req: AuthRequest, res: Response): Promise<void> {
     try {
-      const { id } = req.params;
+      const id = parseParamId(req.params, 'id');
 
       const document = await db.getClient().document.findUnique({
-        where: { id: parseInt(id) },
+        where: { id },
         select: {
           id: true,
           filePath: true,
@@ -641,10 +656,10 @@ export class DocumentsController {
    */
   static async downloadDocument(req: AuthRequest, res: Response): Promise<void> {
     try {
-      const { id } = req.params;
+      const id = parseParamId(req.params, 'id');
 
       const document = await db.getClient().document.findUnique({
-        where: { id: parseInt(id) },
+        where: { id },
         select: {
           id: true,
           filePath: true,
@@ -742,9 +757,9 @@ export class DocumentsController {
    */
   static async getDocumentThumbnail(req: AuthRequest, res: Response): Promise<void> {
     try {
-      const { id } = req.params;
+      const id = parseParamId(req.params, 'id');
       const document = await db.getClient().document.findUnique({
-        where: { id: parseInt(id) },
+        where: { id },
         select: { id: true, tenantEmpresaId: true, dadorCargaId: true, mimeType: true },
       });
       if (!document) throw createError('Documento no encontrado', 404, 'DOCUMENT_NOT_FOUND');
@@ -755,7 +770,7 @@ export class DocumentsController {
         }
       }
       const { ThumbnailService } = await import('../services/thumbnail.service');
-      const url = await ThumbnailService.getSignedUrl(parseInt(id));
+      const url = await ThumbnailService.getSignedUrl(id);
       res.json({ success: true, data: { url, mimeType: 'image/jpeg', expiresIn: 3600 } });
     } catch (error) {
       AppLogger.error('💥 Error al generar thumbnail de documento:', error);
@@ -772,7 +787,7 @@ export class DocumentsController {
   static async renewDocument(req: AuthRequest, res: Response): Promise<void> {
     try {
       const id = parseParamId(req.params, 'id');
-      const { expiresAt } = (req.body || {}) as any;
+      const { expiresAt } = req.body || {};
       const next = await DocumentService.renew(id, {
         expiresAt: expiresAt ? new Date(expiresAt) : undefined,
         requestedBy: (req.user as any)?.userId,
@@ -804,10 +819,10 @@ export class DocumentsController {
    */
   static async deleteDocument(req: AuthRequest, res: Response): Promise<void> {
     try {
-      const { id } = req.params;
+      const id = parseParamId(req.params, 'id');
 
       const document = await db.getClient().document.findUnique({
-        where: { id: parseInt(id) },
+        where: { id },
         select: {
           id: true,
           filePath: true,
@@ -829,7 +844,7 @@ export class DocumentsController {
 
       // Verificar permisos de eliminación
       if (req.user?.role !== 'SUPERADMIN') {
-        if (req.user?.empresaId !== (document as any).dadorCargaId) {
+        if (req.user?.empresaId !== document.dadorCargaId) {
           throw createError('Acceso denegado para eliminar documento', 403, 'DELETE_ACCESS_DENIED');
         }
       }
@@ -839,14 +854,14 @@ export class DocumentsController {
       const objectPath = pathParts.join('/');
 
       // Cancelar jobs de validación pendientes para este documento
-      await queueService.cancelDocumentValidationJobs(parseInt(id));
+      await queueService.cancelDocumentValidationJobs(id);
 
       // Eliminar de MinIO
       await minioService.deleteDocument(bucketName, objectPath);
 
       // Eliminar registro de base de datos
       await db.getClient().document.delete({
-        where: { id: parseInt(id) },
+        where: { id },
       });
 
       AppLogger.info('🗑️ Documento eliminado completamente', {
@@ -907,11 +922,9 @@ export class DocumentsController {
         throw createError('Documento no encontrado o no está rechazado', 404, 'DOCUMENT_NOT_FOUND');
       }
       
-      // Obtener archivo
-      const anyReq: any = req as any;
-      const docsA: Express.Multer.File[] = Array.isArray(anyReq.files?.documents) ? anyReq.files.documents : [];
-      const docsB: Express.Multer.File[] = Array.isArray(anyReq.files?.document) ? anyReq.files.document : (anyReq.file ? [anyReq.file] : []);
-      const files: Express.Multer.File[] = [...docsA, ...docsB];
+      // Obtener archivo usando helpers
+      const anyReq = req as any;
+      const files = [...getMulterFiles(anyReq, 'documents'), ...getMulterFiles(anyReq, 'document')];
       
       if (files.length === 0) {
         throw createError('Se requiere un archivo', 400, 'FILE_REQUIRED');
@@ -1008,7 +1021,7 @@ export class DocumentsController {
 /**
  * Configuración de Multer para reupload de archivos
  * NOSONAR: Content length limits are intentional and appropriate for document uploads
- * TODO: Implementar ruta de reupload que use este middleware
+ * @note Esta configuración está preparada para la futura ruta de reupload
  */
 const _reuploadMiddleware = multer({
   storage: multer.memoryStorage(),

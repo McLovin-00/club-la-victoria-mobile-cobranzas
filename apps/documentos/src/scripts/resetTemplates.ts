@@ -64,7 +64,7 @@ async function resetTemplates(): Promise<void> {
     }
   }
 
-  // Desactivar todo lo que no esté en la lista
+  // Desactivar los templates que no estén en la lista
   const all = await prisma.documentTemplate.findMany({});
   const toDeactivate = all.filter((t: any): boolean => !desiredKeys.has(`${t.entityType}::${t.name}`) && t.active);
 

@@ -90,7 +90,7 @@ class DocumentAIValidationWorker {
       'document-ai-validation',
       this.processValidation.bind(this),
       {
-        connection: this.redis,
+        connection: this.redis as never,
         concurrency,
         removeOnComplete: { count: 50 },
         removeOnFail: { count: 100 },

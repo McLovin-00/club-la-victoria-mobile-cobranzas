@@ -15,7 +15,7 @@ const EMPTY_ENTIDADES_RESPONSE = {
   },
 };
 
-// Roles que ven todo el tenant
+// Roles que tienen acceso completo al tenant
 const ADMIN_ROLES = ['ADMIN', 'SUPERADMIN', 'ADMIN_INTERNO'];
 
 // Helper: construir filtro de equipos según rol
@@ -98,7 +98,7 @@ export class PortalTransportistaController {
   private static buildEmpresasFilter(tenantId: number, user: any): { where: any; isEmpty: boolean } {
     const where: any = { tenantEmpresaId: tenantId };
 
-    // Admins ven todo
+    // Admins tienen acceso completo
     if (ADMIN_ROLES.includes(user.role)) {
       return { where, isEmpty: false };
     }
@@ -163,7 +163,7 @@ export class PortalTransportistaController {
         // Filtrar por dador de carga
         baseWhereEntidades.dadorCargaId = { in: dadorIds };
       } else {
-        // Admin ve todo del tenant (filtrar por dadores de las empresas encontradas)
+        // Admin tiene acceso completo al tenant (filtrar por dadores de las empresas encontradas)
         baseWhereEntidades.dadorCargaId = { in: dadorIds };
       }
       
@@ -320,7 +320,7 @@ export class PortalTransportistaController {
         }
         if (dadorCargaId) whereDocumentos.dadorCargaId = dadorCargaId;
       }
-      // Admin/Superadmin ven todo
+      // Admin/Superadmin tienen acceso completo
       
       const documentos = await prisma.document.findMany({
         where: whereDocumentos,
@@ -388,7 +388,7 @@ export class PortalTransportistaController {
           whereDocumentos.dadorCargaId = user.dadorCargaId;
         }
       }
-      // Admin/Superadmin ven todo
+      // Admin/Superadmin tienen acceso completo
       
       const documentos = await prisma.document.findMany({
         where: whereDocumentos,

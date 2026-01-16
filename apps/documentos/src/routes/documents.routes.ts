@@ -1,8 +1,7 @@
 import { Router } from 'express';
 import { UserRole } from '../types/roles';
 import { DocumentsController, uploadMiddleware } from '../controllers/documents.controller';
-import { authenticate, authorize } from '../middlewares/auth.middleware';
-import { validate } from '../middlewares/auth.middleware';
+import { authenticate, authorize, validate } from '../middlewares/auth.middleware';
 import { uploadRateLimit } from '../middlewares/rateLimiter.middleware';
 import { db } from '../config/database';
 import {
@@ -13,7 +12,7 @@ import {
   deleteDocumentSchema,
 } from '../schemas/validation.schemas';
 
-const router = Router();
+const router: ReturnType<typeof Router> = Router();
 
 // Normalizar expiración a +100 años para documentos sin fecha (ADMIN/SUPERADMIN)
 router.post('/normalize-expirations', authenticate, authorize([UserRole.ADMIN, UserRole.SUPERADMIN]), async (req, res) => {

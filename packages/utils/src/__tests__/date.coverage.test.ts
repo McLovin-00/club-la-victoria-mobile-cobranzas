@@ -16,7 +16,7 @@ describe('Date Utilities Coverage', () => {
       const date = new Date('2024-06-15');
       const result = formatDate(date);
       expect(result).toContain('15');
-      expect(result).toContain('junio') || expect(result).toContain('June');
+      expect(result.toLowerCase()).toMatch(/junio|june/);
     });
 
     it('should format date string', () => {

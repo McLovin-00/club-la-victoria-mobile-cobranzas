@@ -42,8 +42,8 @@ export class ThumbnailService {
       select: { id: true, tenantEmpresaId: true, filePath: true, mimeType: true },
     });
     if (!document) throw createError('Documento no encontrado', 404, 'DOCUMENT_NOT_FOUND');
-    const tenantId = document.tenantEmpresaId as number;
-    const [bucketName, ...pathParts] = (document.filePath as string).split('/');
+    const tenantId = document.tenantEmpresaId;
+    const [bucketName, ...pathParts] = document.filePath.split('/');
     const objectPath = pathParts.join('/');
 
     // Solo soportamos imágenes por ahora (KISS). PDFs quedarán para próximo PR.

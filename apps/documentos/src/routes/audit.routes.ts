@@ -1,11 +1,10 @@
 import { Router, Response } from 'express';
-import { authenticate, authorize, tenantResolver, validate } from '../middlewares/auth.middleware';
+import { authenticate, authorize, tenantResolver, validate, AuthRequest } from '../middlewares/auth.middleware';
 import { UserRole } from '../types/roles';
 import { auditLogsQuerySchema } from '../schemas/audit.schemas';
 import { db } from '../config/database';
-import { AuthRequest } from '../middlewares/auth.middleware';
 
-const router = Router();
+const router: ReturnType<typeof Router> = Router();
 
 router.use(authenticate, tenantResolver);
 

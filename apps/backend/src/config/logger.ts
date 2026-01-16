@@ -177,7 +177,8 @@ export class Logger {
 
   public logAuthAttempt(email: string, success: boolean, ip?: string): void {
     const status = success ? 'SUCCESS' : 'FAILED';
-    const message = `Auth attempt: ${email} - ${status}${ip ? ` from ${ip}` : ''}`;
+    const ipPart = ip ? ` from ${ip}` : '';
+    const message = `Auth attempt: ${email} - ${status}${ipPart}`;
     this.info(message);
   }
 

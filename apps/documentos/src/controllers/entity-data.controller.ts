@@ -173,7 +173,7 @@ export class EntityDataController {
         return sendError(res, 404, 'No hay documentos clasificados para esta entidad', 'NOT_FOUND');
       }
 
-      const existingAiResponse = (lastDoc.classification as any).aiResponse || {};
+      const existingAiResponse: any = (lastDoc.classification as any).aiResponse || {}; // NOSONAR - cast needed for JSON type
       const updatedAiResponse = {
         ...existingAiResponse,
         datosExtraidos: { ...(existingAiResponse.datosExtraidos || {}), ...newData },
@@ -184,7 +184,7 @@ export class EntityDataController {
 
       await prisma.documentClassification.update({
         where: { id: lastDoc.classification.id },
-        data: { aiResponse: updatedAiResponse as any },
+        data: { aiResponse: updatedAiResponse },
       });
 
       AppLogger.info(`✏️ Datos IA actualizados para ${entityType} ${entityId}`, { tenantEmpresaId, userId: req.user?.userId });

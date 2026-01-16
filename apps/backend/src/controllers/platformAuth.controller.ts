@@ -201,7 +201,7 @@ export class PlatformAuthController {
         return;
       }
 
-      const { email, nombre, apellido, empresaId, clienteId } = req.body as any;
+      const { email, nombre, apellido, empresaId, clienteId } = req.body;
 
       const result = await PlatformAuthService.registerClientWithTempPassword(
         { email, nombre, apellido, empresaId: empresaId ?? null, clienteId: Number(clienteId) },
@@ -247,7 +247,7 @@ export class PlatformAuthController {
         return;
       }
 
-      const { email, nombre, apellido, empresaId, dadorCargaId } = req.body as any;
+      const { email, nombre, apellido, empresaId, dadorCargaId } = req.body;
 
       const result = await PlatformAuthService.registerDadorWithTempPassword(
         { email, nombre, apellido, empresaId: empresaId ?? null, dadorCargaId: Number(dadorCargaId) },
@@ -292,7 +292,7 @@ export class PlatformAuthController {
         return;
       }
 
-      const { email, nombre, apellido, empresaId, empresaTransportistaId } = req.body as any;
+      const { email, nombre, apellido, empresaId, empresaTransportistaId } = req.body;
 
       const result = await PlatformAuthService.registerTransportistaWithTempPassword(
         { email, nombre, apellido, empresaId: empresaId ?? null, empresaTransportistaId: Number(empresaTransportistaId) },
@@ -337,7 +337,7 @@ export class PlatformAuthController {
         return;
       }
 
-      const { email, nombre, apellido, empresaId, choferId } = req.body as any;
+      const { email, nombre, apellido, empresaId, choferId } = req.body;
 
       const result = await PlatformAuthService.registerChoferWithTempPassword(
         { email, nombre, apellido, empresaId: empresaId ?? null, choferId: Number(choferId) },

@@ -77,7 +77,7 @@ function parseFilePath(filePath: string, tenantId: number): { bucketName: string
   return { bucketName: `docs-t${tenantId}`, objectPath: filePath };
 }
 
-const router = Router();
+const router: ReturnType<typeof Router> = Router();
 
 router.use(authenticate);
 router.get('/', authorize([UserRole.ADMIN, UserRole.SUPERADMIN, UserRole.ADMIN_INTERNO, UserRole.DADOR_DE_CARGA, UserRole.TRANSPORTISTA]), validate(clienteListQuerySchema), ClientsController.list);
@@ -92,7 +92,7 @@ const consolidatedTemplatesSchema = z.object({
   }),
 });
 router.get('/templates/consolidated', authorize([UserRole.ADMIN, UserRole.SUPERADMIN, UserRole.ADMIN_INTERNO, UserRole.DADOR_DE_CARGA, UserRole.TRANSPORTISTA]), validate(consolidatedTemplatesSchema), async (req: any, res) => {
-  const clienteIds = (req.query as any).clienteIds as number[];
+  const clienteIds = req.query.clienteIds as number[];
   const { ClientsService } = await import('../services/clients.service');
   const data = await ClientsService.getConsolidatedTemplates(req.tenantId!, clienteIds);
   res.json({ success: true, data });
@@ -111,7 +111,7 @@ const missingDocsSchema = z.object({
 router.get('/equipos/:equipoId/check-client/:clienteId', authorize([UserRole.ADMIN, UserRole.SUPERADMIN, UserRole.ADMIN_INTERNO, UserRole.DADOR_DE_CARGA, UserRole.TRANSPORTISTA]), validate(missingDocsSchema), async (req: any, res) => {
   const equipoId = Number(req.params.equipoId);
   const newClienteId = Number(req.params.clienteId);
-  const existingClienteIds = (req.query as any).existingClienteIds as number[];
+  const existingClienteIds = req.query.existingClienteIds as number[];
   const { ClientsService } = await import('../services/clients.service');
   const data = await ClientsService.getMissingDocumentsForNewClient(req.tenantId!, equipoId, newClienteId, existingClienteIds);
   res.json({ success: true, data });

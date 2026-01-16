@@ -241,6 +241,71 @@ function buildFolderNames(ctx: FolderContext): Record<string, string> {
   };
 }
 
+interface EquipoClienteData {
+  equipo: any;
+  chofer: any;
+  camion: any;
+  acoplado: any;
+  compliance: any;
+}
+
+interface EquipoConEstado {
+  id: number;
+  identificador: string;
+  camion: { patente: string; marca: string | null; modelo: string | null } | null;
+  acoplado: { patente: string } | null;
+  chofer: { nombre: string | null; apellido: string | null; dni: string } | null;
+  empresaTransportista: { razonSocial: string; cuit: string | null } | null;
+  estadoCompliance: string;
+  proximoVencimiento: string | null;
+  asignadoDesde: Date;
+  _tieneVencidos: boolean;
+  _tieneFaltantes: boolean;
+  _tieneProximos: boolean;
+}
+
+/**
+ * Mapea un equipo cliente a su formato con estado de compliance
+ */
+function mapEquipoConEstado(data: EquipoClienteData, asignadoDesde: Date): EquipoConEstado {
+  const { equipo, chofer, camion, acoplado, compliance } = data;
+  const complianceState = compliance 
+    ? determineComplianceState(compliance) 
+    : { estadoCompliance: 'INCOMPLETO', proximoVencimiento: null, tieneVencidos: false, tieneFaltantes: true, tieneProximos: false };
+  
+  const { estadoCompliance, proximoVencimiento, tieneVencidos, tieneFaltantes, tieneProximos } = complianceState;
+
+  return {
+    id: equipo.id,
+    identificador: `${camion?.patente || equipo.truckPlateNorm}-${chofer?.dni || equipo.driverDniNorm}`,
+    camion: camion ? { patente: camion.patente, marca: camion.marca, modelo: camion.modelo } : null,
+    acoplado: acoplado ? { patente: acoplado.patente } : null,
+    chofer: chofer ? { nombre: chofer.nombre, apellido: chofer.apellido, dni: chofer.dni } : null,
+    empresaTransportista: equipo.empresaTransportista 
+      ? { razonSocial: equipo.empresaTransportista.razonSocial, cuit: equipo.empresaTransportista.cuit } 
+      : null,
+    estadoCompliance,
+    proximoVencimiento: proximoVencimiento?.toISOString() || null,
+    asignadoDesde,
+    _tieneVencidos: tieneVencidos,
+    _tieneFaltantes: tieneFaltantes,
+    _tieneProximos: tieneProximos,
+  };
+}
+
+/**
+ * Calcula resumen de estados de equipos
+ */
+function calcularResumenEquipos(equipos: EquipoConEstado[]): Record<string, number> {
+  return {
+    total: equipos.length,
+    vigentes: equipos.filter(e => e.estadoCompliance === 'VIGENTE').length,
+    proximosVencer: equipos.filter(e => e._tieneProximos).length,
+    vencidos: equipos.filter(e => e._tieneVencidos).length,
+    incompletos: equipos.filter(e => e._tieneFaltantes).length,
+  };
+}
+
 /**
  * Carga entidades relacionadas de un equipo (chofer, camion, acoplado)
  */
@@ -309,11 +374,11 @@ async function appendDocumentsToArchive(
       const { bucketName, objectPath } = parseFilePath(doc.filePath, tenantId);
       const subFolder = folderNames[doc.entityType] || 'otros';
       const stream = await minioService.getObject(bucketName, objectPath);
-      const safeTemplateName = doc.template.name.replace(/[^a-zA-Z0-9\s_.-]/gi, '_').trim();
+      const safeTemplateName = doc.template.name.replace(/[^a-zA-Z0-9\s_.-]/g, '_').trim();
       const extension = doc.fileName.split('.').pop() || 'pdf';
       const fileName = `${safeTemplateName}.${extension}`;
       const fullPath = `${patenteCamion}/${subFolder}/${fileName}`;
-      archive.append(stream as any, { name: fullPath });
+      archive.append(stream, { name: fullPath });
     } catch (err) {
       AppLogger.warn(`No se pudo agregar doc ${doc.id} al ZIP: ${err}`);
     }
@@ -405,6 +470,65 @@ async function getEquiposClienteParaDescarga(
   return equiposFiltrados.map(e => e.id).sort((a, b) => a - b);
 }
 
+interface DocFormateado {
+  id: number;
+  templateName: string;
+  entityType: string;
+  entityName: string;
+  status: string;
+  expiresAt: string | null;
+  estado: 'VIGENTE' | 'PROXIMO_VENCER' | 'VENCIDO';
+  descargable: boolean;
+  uploadedAt: string;
+}
+
+/**
+ * Formatea documentos para respuesta del portal cliente
+ */
+function formatearDocumentosPortal(
+  documentos: any[],
+  entidadesCtx: EntidadesContext
+): DocFormateado[] {
+  const now = new Date();
+  const docsPorTemplate = new Map<string, any>();
+  
+  // Agrupar por template (quedarse con el más reciente)
+  for (const doc of documentos) {
+    const key = `${doc.entityType}-${doc.entityId}-${doc.templateId}`;
+    if (!docsPorTemplate.has(key)) {
+      docsPorTemplate.set(key, doc);
+    }
+  }
+  
+  return Array.from(docsPorTemplate.values()).map(doc => {
+    const { estado, descargable } = calcularEstadoDocumento(doc, now);
+    const entityName = getEntityName(doc.entityType, doc.entityId, entidadesCtx);
+    return {
+      id: doc.id,
+      templateName: doc.template.name,
+      entityType: doc.entityType,
+      entityName,
+      status: doc.status,
+      expiresAt: doc.expiresAt?.toISOString() || null,
+      estado,
+      descargable,
+      uploadedAt: doc.uploadedAt.toISOString(),
+    };
+  });
+}
+
+/**
+ * Calcula resumen de estados de documentos
+ */
+function calcularResumenDocs(docs: DocFormateado[]): Record<string, number> {
+  return {
+    total: docs.length,
+    vigentes: docs.filter(d => d.estado === 'VIGENTE').length,
+    proximosVencer: docs.filter(d => d.estado === 'PROXIMO_VENCER').length,
+    vencidos: docs.filter(d => d.estado === 'VENCIDO').length,
+  };
+}
+
 // ============================================================================
 
 /**
@@ -485,55 +609,17 @@ export class PortalClienteController {
 
       const complianceResults = await ComplianceService.evaluateBatchEquiposCliente(equiposInfo, clienteId);
 
-      // Construir lista de equipos con estado (todo en memoria)
-      const todosEquiposConEstado = todosEquiposCliente.map(ec => {
-        const equipo = ec.equipo;
-        const chofer = choferMap.get(equipo.driverId);
-        const camion = camionMap.get(equipo.truckId);
-        const acoplado = equipo.trailerId ? acopladoMap.get(equipo.trailerId) : null;
-        
-        // Estado de compliance (extraído a helper)
-        const compliance = complianceResults.get(equipo.id);
-        const complianceState = compliance ? determineComplianceState(compliance) : { estadoCompliance: 'INCOMPLETO', proximoVencimiento: null, tieneVencidos: false, tieneFaltantes: true, tieneProximos: false };
-        const { estadoCompliance, proximoVencimiento, tieneVencidos, tieneFaltantes, tieneProximos } = complianceState;
-
-        return {
-          id: equipo.id,
-          identificador: `${camion?.patente || equipo.truckPlateNorm}-${chofer?.dni || equipo.driverDniNorm}`,
-          camion: camion ? { 
-            patente: camion.patente,
-            marca: camion.marca,
-            modelo: camion.modelo,
-          } : null,
-          acoplado: acoplado ? {
-            patente: acoplado.patente,
-          } : null,
-          chofer: chofer ? {
-            nombre: chofer.nombre,
-            apellido: chofer.apellido,
-            dni: chofer.dni,
-          } : null,
-          empresaTransportista: equipo.empresaTransportista ? {
-            razonSocial: equipo.empresaTransportista.razonSocial,
-            cuit: equipo.empresaTransportista.cuit,
-          } : null,
-          estadoCompliance,
-          proximoVencimiento: proximoVencimiento?.toISOString() || null,
-          asignadoDesde: ec.asignadoDesde,
-          _tieneVencidos: tieneVencidos,
-          _tieneFaltantes: tieneFaltantes,
-          _tieneProximos: tieneProximos,
-        };
-      });
+      // Construir lista de equipos con estado usando helper
+      const todosEquiposConEstado = todosEquiposCliente.map(ec => mapEquipoConEstado({
+        equipo: ec.equipo,
+        chofer: choferMap.get(ec.equipo.driverId),
+        camion: camionMap.get(ec.equipo.truckId),
+        acoplado: ec.equipo.trailerId ? acopladoMap.get(ec.equipo.trailerId) : null,
+        compliance: complianceResults.get(ec.equipo.id),
+      }, ec.asignadoDesde));
       
-      // Calcular resumen con conteos independientes
-      const resumen = {
-        total: todosEquiposConEstado.length,
-        vigentes: todosEquiposConEstado.filter(e => e.estadoCompliance === 'VIGENTE').length,
-        proximosVencer: todosEquiposConEstado.filter(e => e._tieneProximos).length,
-        vencidos: todosEquiposConEstado.filter(e => e._tieneVencidos).length,
-        incompletos: todosEquiposConEstado.filter(e => e._tieneFaltantes).length,
-      };
+      // Calcular resumen usando helper
+      const resumen = calcularResumenEquipos(todosEquiposConEstado);
       
       // Aplicar filtros de búsqueda y estado (usando helpers)
       let equiposFiltrados = todosEquiposConEstado;
@@ -629,109 +715,43 @@ export class PortalClienteController {
           : null,
       ]);
       
-      // Obtener TODOS los documentos aprobados y vencidos
-      const entityConditions: Array<{ entityType: 'CHOFER' | 'CAMION' | 'ACOPLADO' | 'EMPRESA_TRANSPORTISTA'; entityId: number }> = [
-        { entityType: 'CHOFER', entityId: equipo.driverId },
-        { entityType: 'CAMION', entityId: equipo.truckId },
-      ];
-      
-      if (equipo.trailerId) {
-        entityConditions.push({ entityType: 'ACOPLADO', entityId: equipo.trailerId });
-      }
-      
-      if (equipo.empresaTransportistaId) {
-        entityConditions.push({ 
-          entityType: 'EMPRESA_TRANSPORTISTA', 
-          entityId: equipo.empresaTransportistaId 
-        });
-      }
+      // Obtener TODOS los documentos aprobados y vencidos usando helper
+      const entityConditions = buildEntityConditions(equipo);
       
       const documentos = await prisma.document.findMany({
         where: {
           tenantEmpresaId: tenantId,
-          status: { in: ['APROBADO', 'VENCIDO'] }, // Incluir vencidos para mostrarlos
+          status: { in: ['APROBADO', 'VENCIDO'] },
           archived: false,
           OR: entityConditions,
         },
-        include: {
-          template: true,
-        },
-        orderBy: [
-          { entityType: 'asc' },
-          { templateId: 'asc' },
-          { uploadedAt: 'desc' },
-        ],
+        include: { template: true },
+        orderBy: [{ entityType: 'asc' }, { templateId: 'asc' }, { uploadedAt: 'desc' }],
       });
       
-      // Agrupar por template (quedarse con el más reciente)
-      const docsPorTemplate = new Map<string, typeof documentos[0]>();
-      for (const doc of documentos) {
-        const key = `${doc.entityType}-${doc.entityId}-${doc.templateId}`;
-        if (!docsPorTemplate.has(key)) {
-          docsPorTemplate.set(key, doc);
-        }
-      }
-      
-      // Formatear documentos para respuesta
-      const now = new Date();
+      // Formatear documentos usando helper
       const entidadesCtx: EntidadesContext = {
         chofer: chofer ? { nombre: chofer.nombre, apellido: chofer.apellido, dni: chofer.dni } : null,
         camion: camion ? { patente: camion.patente } : null,
         acoplado: acoplado ? { patente: acoplado.patente } : null,
         empresaTransportista: equipo.empresaTransportista ? { razonSocial: equipo.empresaTransportista.razonSocial } : null,
       };
-
-      const documentosFormateados = Array.from(docsPorTemplate.values()).map(doc => {
-        const { estado, descargable } = calcularEstadoDocumento(doc, now);
-        const entityName = getEntityName(doc.entityType, doc.entityId, entidadesCtx);
-        
-        return {
-          id: doc.id,
-          templateName: doc.template.name,
-          entityType: doc.entityType,
-          entityName,
-          status: doc.status,
-          expiresAt: doc.expiresAt?.toISOString() || null,
-          estado,
-          descargable,
-          uploadedAt: doc.uploadedAt.toISOString(),
-        };
-      });
       
-      // Calcular resumen de estados
-      const resumenDocs = {
-        total: documentosFormateados.length,
-        vigentes: documentosFormateados.filter(d => d.estado === 'VIGENTE').length,
-        proximosVencer: documentosFormateados.filter(d => d.estado === 'PROXIMO_VENCER').length,
-        vencidos: documentosFormateados.filter(d => d.estado === 'VENCIDO').length,
-      };
-      
-      // Verificar si hay documentos descargables para el botón de descarga masiva
+      const documentosFormateados = formatearDocumentosPortal(documentos, entidadesCtx);
+      const resumenDocs = calcularResumenDocs(documentosFormateados);
       const hayDocumentosDescargables = documentosFormateados.some(d => d.descargable);
       
-      res.json({
+      return res.json({
         success: true,
         data: {
           equipo: {
             id: equipo.id,
-            camion: camion ? {
-              patente: camion.patente,
-              marca: camion.marca,
-              modelo: camion.modelo,
-            } : null,
-            acoplado: acoplado ? {
-              patente: acoplado.patente,
-              tipo: acoplado.tipo,
-            } : null,
-            chofer: chofer ? {
-              nombre: chofer.nombre,
-              apellido: chofer.apellido,
-              dni: chofer.dni,
-            } : null,
-            empresaTransportista: equipo.empresaTransportista ? {
-              razonSocial: equipo.empresaTransportista.razonSocial,
-              cuit: equipo.empresaTransportista.cuit,
-            } : null,
+            camion: camion ? { patente: camion.patente, marca: camion.marca, modelo: camion.modelo } : null,
+            acoplado: acoplado ? { patente: acoplado.patente, tipo: acoplado.tipo } : null,
+            chofer: chofer ? { nombre: chofer.nombre, apellido: chofer.apellido, dni: chofer.dni } : null,
+            empresaTransportista: equipo.empresaTransportista 
+              ? { razonSocial: equipo.empresaTransportista.razonSocial, cuit: equipo.empresaTransportista.cuit } 
+              : null,
             asignadoDesde: asignacion.asignadoDesde,
           },
           documentos: documentosFormateados,

@@ -1,9 +1,9 @@
-import { Router } from 'express';
+import { Router, IRouter } from 'express';
 import multer from 'multer';
 import { RemitosController } from '../controllers/remitos.controller';
 import { authenticate, authorize, ROLES_UPLOAD, ROLES_APPROVE } from '../middlewares/auth.middleware';
 
-const router = Router();
+const router: IRouter = Router();
 
 // Configurar multer para archivos en memoria
 // Acepta imágenes (múltiples) y PDFs (único)

@@ -39,7 +39,7 @@ class QueueService {
     this.documentValidationQueue = new Queue<DocumentValidationJobData>(
       'document-validation',
       {
-        connection: this.redis,
+        connection: this.redis as never,
         defaultJobOptions: {
           removeOnComplete: 10,
           removeOnFail: 50,
@@ -64,7 +64,7 @@ class QueueService {
     this.documentAIValidationQueue = new Queue<DocumentAIValidationJobData>(
       'document-ai-validation',
       {
-        connection: this.redis,
+        connection: this.redis as never,
         defaultJobOptions: {
           removeOnComplete: 50,
           removeOnFail: 50,
@@ -81,7 +81,7 @@ class QueueService {
     this.complianceQueue = new Queue<{ type: 'verify-missing-equipo'; tenantId: number; equipoId: number }>(
       'compliance-checks',
       {
-        connection: this.redis,
+        connection: this.redis as never,
         defaultJobOptions: {
           removeOnComplete: 50,
           removeOnFail: 50,

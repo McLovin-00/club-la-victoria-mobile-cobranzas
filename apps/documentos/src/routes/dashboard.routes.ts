@@ -4,7 +4,7 @@ import { DashboardController } from '../controllers/dashboard.controller';
 import { authenticate, authorize } from '../middlewares/auth.middleware';
 import { generalRateLimit } from '../middlewares/rateLimiter.middleware';
 
-const router = Router();
+const router: ReturnType<typeof Router> = Router();
 
 // =================================
 // RUTAS DASHBOARD - Frontend Integration

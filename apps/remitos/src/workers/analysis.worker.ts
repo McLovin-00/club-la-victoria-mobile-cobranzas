@@ -177,7 +177,7 @@ export function startAnalysisWorker(): Worker<RemitoAnalysisJobData> {
   if (worker) return worker;
 
   worker = new Worker(QUEUE_NAME, processJob, {
-    connection,
+    connection: connection as never,
     concurrency: 2,
     limiter: { max: 10, duration: 60000 },
     settings: {

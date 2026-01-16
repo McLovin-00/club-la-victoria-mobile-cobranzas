@@ -259,9 +259,14 @@ ${JSON.stringify(request.datosEntidad, null, 2)}
         return null;
       }
 
-      // NOSONAR: Regex for JSON extraction - [\s\S]* is intentional to match 
-      // multiline JSON. Input is bounded AI response, not user-provided text.
-      const jsonMatch = rawText.match(/\{[\s\S]*\}/);
+      // Extract JSON object - use bounded search to prevent catastrophic backtracking
+      // Limit search to first 50KB of response (AI responses are typically < 10KB)
+      const boundedText = rawText.slice(0, 50000);
+      const startIdx = boundedText.indexOf('{');
+      if (startIdx === -1) return null;
+      const endIdx = boundedText.lastIndexOf('}');
+      if (endIdx === -1 || endIdx < startIdx) return null;
+      const jsonMatch = [boundedText.slice(startIdx, endIdx + 1)];
       if (!jsonMatch) {
         return null;
       }

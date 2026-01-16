@@ -7,13 +7,17 @@ import { FlowiseRemitoResponse } from '../types';
 // HELPERS
 // ============================================================================
 
-/** Extrae el primer objeto JSON de un string */
+/** Extrae el primer objeto JSON de un string usando búsqueda lineal (sin regex vulnerable) */
 function extractJsonFromString(text: string): any | null {
-  // NOSONAR: JSON extraction regex - input is bounded Flowise API response
-  const jsonMatch = text.match(/\{[\s\S]*\}/);
-  if (!jsonMatch) return null;
+  // Bounded extraction: limit input to prevent DoS
+  const boundedText = text.slice(0, 50000);
+  const startIdx = boundedText.indexOf('{');
+  if (startIdx === -1) return null;
+  const endIdx = boundedText.lastIndexOf('}');
+  if (endIdx === -1 || endIdx < startIdx) return null;
+  
   try {
-    return JSON.parse(jsonMatch[0]);
+    return JSON.parse(boundedText.slice(startIdx, endIdx + 1));
   } catch {
     return null;
   }
@@ -37,35 +41,45 @@ function extractParsedData(data: any): any {
   return {};
 }
 
+/** Extrae un valor con fallback a null */
+const v = <T>(val: T | undefined | null): T | null => val ?? null;
+
+/** Construye objeto emisor */
+function buildEmisor(parsed: any): { nombre: string | null; detalle: string | null } {
+  return { nombre: v(parsed.emisor?.nombre), detalle: v(parsed.emisor?.detalle) };
+}
+
+/** Construye objeto chofer */
+function buildChofer(parsed: any): { nombre: string | null; dni: string | null } {
+  return { nombre: v(parsed.chofer?.nombre), dni: v(parsed.chofer?.dni) };
+}
+
+/** Construye objeto patentes */
+function buildPatentes(parsed: any): { chasis: string | null; acoplado: string | null } {
+  return { chasis: v(parsed.patentes?.chasis), acoplado: v(parsed.patentes?.acoplado) };
+}
+
+/** Construye objeto pesosOrigen */
+function buildPesosOrigen(parsed: any): { bruto: number | null; tara: number | null; neto: number | null } {
+  return { bruto: v(parsed.pesosOrigen?.bruto), tara: v(parsed.pesosOrigen?.tara), neto: v(parsed.pesosOrigen?.neto) };
+}
+
 /** Construye la respuesta estructurada a partir de datos parseados */
 function buildFlowiseResponse(parsed: any): FlowiseRemitoResponse {
   return {
-    numeroRemito: parsed.numeroRemito || null,
-    fechaOperacion: parsed.fechaOperacion || null,
-    emisor: {
-      nombre: parsed.emisor?.nombre || null,
-      detalle: parsed.emisor?.detalle || null,
-    },
-    cliente: parsed.cliente || null,
-    producto: parsed.producto || null,
-    transportista: parsed.transportista || null,
-    chofer: {
-      nombre: parsed.chofer?.nombre || null,
-      dni: parsed.chofer?.dni || null,
-    },
-    patentes: {
-      chasis: parsed.patentes?.chasis || null,
-      acoplado: parsed.patentes?.acoplado || null,
-    },
-    pesosOrigen: {
-      bruto: parsed.pesosOrigen?.bruto || null,
-      tara: parsed.pesosOrigen?.tara || null,
-      neto: parsed.pesosOrigen?.neto || null,
-    },
-    pesosDestino: parsed.pesosDestino || null,
-    confianza: parsed.confianza || 0,
-    camposDetectados: parsed.camposDetectados || [],
-    errores: parsed.errores || [],
+    numeroRemito: v(parsed.numeroRemito),
+    fechaOperacion: v(parsed.fechaOperacion),
+    emisor: buildEmisor(parsed),
+    cliente: v(parsed.cliente),
+    producto: v(parsed.producto),
+    transportista: v(parsed.transportista),
+    chofer: buildChofer(parsed),
+    patentes: buildPatentes(parsed),
+    pesosOrigen: buildPesosOrigen(parsed),
+    pesosDestino: v(parsed.pesosDestino),
+    confianza: parsed.confianza ?? 0,
+    camposDetectados: parsed.camposDetectados ?? [],
+    errores: parsed.errores ?? [],
   };
 }
 
