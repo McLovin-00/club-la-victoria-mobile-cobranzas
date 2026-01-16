@@ -511,7 +511,6 @@ describe('ApprovalDetailPage - Coverage Completo', () => {
         throw new Error('No se encontraron las disparidades después de 100 intentos');
       }
     });
-  });
 
     it('debería mostrar severidad CRITICA correctamente', async () => {
       mockState.documentData = mockDocumentWithDisparidades;

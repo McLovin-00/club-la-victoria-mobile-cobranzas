@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<coverage generated="1768530984408" clover="3.2.0">
-  <project timestamp="1768530984408" name="All files">
+<coverage generated="1768602943864" clover="3.2.0">
+  <project timestamp="1768602943864" name="All files">
     <metrics statements="161" coveredstatements="158" conditionals="89" coveredconditionals="82" methods="52" coveredmethods="52" elements="302" coveredelements="292" complexity="0" loc="161" ncloc="161" packages="1" files="1" classes="1"/>
     <file name="index.ts" path="C:\Users\agust\Desktop\solucion-de-compromiso-testing-playwright\monorepo-bca\packages\utils\src\index.ts">
       <metrics statements="161" coveredstatements="158" conditionals="89" coveredconditionals="82" methods="52" coveredmethods="52"/>

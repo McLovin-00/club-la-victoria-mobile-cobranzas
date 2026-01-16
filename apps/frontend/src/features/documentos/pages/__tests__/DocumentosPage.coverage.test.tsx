@@ -24,14 +24,24 @@ describe('DocumentosPage - Coverage', () => {
     }));
 
     await jest.unstable_mockModule('../../api/documentosApiSlice', () => ({
-      useGetDocumentsQuery: () => ({
-        data: { documentos: [], pagination: { total: 0, page: 1 } },
+      useGetDocumentsByEmpresaQuery: () => ({
+        data: { data: [], pagination: { total: 0, page: 1 } },
+        isLoading: false,
+        error: null,
+        refetch: jest.fn(),
+      }),
+      useGetTemplatesQuery: () => ({
+        data: [],
         isLoading: false,
       }),
-      useGetDashboardDataQuery: () => ({
-        data: { summary: { total: 0, pending: 0 } },
-        isLoading: false,
-      }),
+      useUploadDocumentMutation: () => [
+        jest.fn(),
+        { isLoading: false, error: null, reset: jest.fn() },
+      ],
+      useDeleteDocumentMutation: () => [
+        jest.fn(),
+        { isLoading: false, reset: jest.fn() },
+      ],
     }));
 
     await jest.unstable_mockModule('../../../../components/ui/button', () => ({
@@ -56,6 +66,38 @@ describe('DocumentosPage - Coverage', () => {
       XMarkIcon: ({ className }: any) => <span>✕</span>,
       CloudArrowUpIcon: ({ className }: any) => <span>☁️</span>,
       DocumentTextIcon: ({ className }: any) => <span>📄</span>,
+      ArrowLeftIcon: ({ className }: any) => <span>←</span>,
+    }));
+
+    await jest.unstable_mockModule('../../../../hooks/useToast', () => ({
+      useToast: () => ({ show: jest.fn() }),
+    }));
+
+    await jest.unstable_mockModule('../../../../hooks/useConfirmDialog', () => ({
+      useConfirmDialog: () => ({ confirm: jest.fn() }),
+    }));
+
+    await jest.unstable_mockModule('../../../../components/ui/Pagination', () => ({
+      Pagination: ({ children }: any) => <div>{children}</div>,
+    }));
+
+    await jest.unstable_mockModule('../../components/DocumentsSemaforo', () => ({
+      DocumentsSemaforo: ({ empresaId }: { empresaId: number }) => (
+        <div data-testid="semaforo">Semaforo {empresaId}</div>
+      ),
+    }));
+
+    await jest.unstable_mockModule('../../components/DocumentUploadModal', () => ({
+      DocumentUploadModal: ({ isOpen, onClose }: { isOpen: boolean; onClose: () => void }) =>
+        isOpen ? <div data-testid="upload-modal">Upload Modal</div> : null,
+    }));
+
+    await jest.unstable_mockModule('../../components/DocumentsList', () => ({
+      DocumentsList: ({ documents, isLoading, onDelete }: any) => (
+        <div data-testid="documents-list">
+          {isLoading ? 'Loading...' : `${documents?.length || 0} documents`}
+        </div>
+      ),
     }));
 
     mockStore = configureStore({

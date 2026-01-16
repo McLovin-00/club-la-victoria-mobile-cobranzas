@@ -5,7 +5,9 @@
       "Bash(npx jest:*)",
       "Bash(npm test:*)",
       "Bash(npm run test:*)",
-      "Bash(npx eslint:*)"
+      "Bash(npx eslint:*)",
+      "Bash(if not exist \".clavix\\\\outputs\\\\documentos-coverage-80\" mkdir:*)",
+      "Bash(npm run test:coverage:*)"
     ]
   }
 }

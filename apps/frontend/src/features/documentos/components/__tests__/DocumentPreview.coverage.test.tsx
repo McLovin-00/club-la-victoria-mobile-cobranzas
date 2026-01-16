@@ -86,6 +86,7 @@ describe('DocumentPreview - coverage', () => {
 
     await jest.unstable_mockModule('../../../../lib/runtimeEnv', () => ({
       getRuntimeEnv: (...args: unknown[]) => mockGetRuntimeEnv(...args),
+      getRuntimeFlag: (...args: unknown[]) => args[0] === 'true',
     }));
 
     const module = await import('../DocumentPreview');
@@ -96,8 +97,17 @@ describe('DocumentPreview - coverage', () => {
     setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64)');
     fetchMock = jest.fn();
     global.fetch = fetchMock as unknown as typeof global.fetch;
-    jest.spyOn(window.URL, 'createObjectURL').mockReturnValue('blob:preview');
-    jest.spyOn(window.URL, 'revokeObjectURL').mockImplementation(() => undefined);
+    // Mock URL.createObjectURL y revokeObjectURL para JSDOM
+    Object.defineProperty(window.URL, 'createObjectURL', {
+      value: jest.fn(() => 'blob:preview'),
+      writable: true,
+      configurable: true,
+    });
+    Object.defineProperty(window.URL, 'revokeObjectURL', {
+      value: jest.fn(() => undefined),
+      writable: true,
+      configurable: true,
+    });
   });
 
   afterEach(() => {
