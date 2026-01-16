@@ -94,7 +94,7 @@ describe('authorizeTransportista middleware', () => {
       authorizeTransportista(mockReq as AuthRequest, mockRes as Response, mockNext);
 
       expect(mockNext).toHaveBeenCalled();
-      expect(mockReq.query?.empresaTransportistaId).toBe(5);
+      expect(mockReq.query?.empresaTransportistaId).toBe('5');
     });
 
     it('should reject if trying to access different empresaTransportistaId', () => {
@@ -128,7 +128,7 @@ describe('authorizeTransportista middleware', () => {
       authorizeTransportista(mockReq as AuthRequest, mockRes as Response, mockNext);
 
       expect(mockNext).toHaveBeenCalled();
-      expect(mockReq.query?.choferId).toBe(10);
+      expect(mockReq.query?.choferId).toBe('10');
     });
   });
 

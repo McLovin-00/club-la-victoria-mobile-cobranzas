@@ -19,18 +19,30 @@ jest.mock('../../src/config/logger', () => ({
   },
 }));
 
+jest.mock('../../src/services/compliance.service', () => ({
+  ComplianceService: {
+    evaluateEquipoCliente: jest.fn().mockResolvedValue({ estadoCompliance: 'VIGENTE' }),
+  },
+}));
+
 import { SearchController } from '../../src/controllers/search.controller';
-import { AuthRequest } from '../../src/types/auth.types';
+import type { AuthRequest } from '../../src/middlewares/auth.middleware';
+
 
 describe('SearchController', () => {
   let mockReq: Partial<AuthRequest>;
   let mockRes: Partial<Response>;
   let jsonMock: jest.Mock;
   let statusMock: jest.Mock;
+  const superadminUser = { userId: 1, role: 'SUPERADMIN' } as unknown as AuthRequest['user'];
+
 
   beforeEach(() => {
     resetPrismaMock();
     jest.clearAllMocks();
+
+    // Defaults para evitar errores al mapear resultados en el controller.
+    prismaMock.equipoCliente.findMany.mockResolvedValue([]);
 
     jsonMock = jest.fn();
     statusMock = jest.fn().mockReturnValue({ json: jsonMock });
@@ -45,12 +57,8 @@ describe('SearchController', () => {
     it('should search equipos by dni', async () => {
       mockReq = {
         tenantId: 1,
-        user: {
-          userId: 1,
-          role: 'SUPERADMIN',
-          empresaId: 1,
-          tenantEmpresaId: 1,
-        },
+        user: superadminUser,
+
         query: {
           dni: '12345678',
         },
@@ -68,7 +76,10 @@ describe('SearchController', () => {
         expect.objectContaining({
           success: true,
           data: expect.arrayContaining([
-            expect.objectContaining({ driverDniNorm: '12345678' }),
+            expect.objectContaining({
+              equipo: expect.objectContaining({ driverDniNorm: '12345678' }),
+              clientes: expect.any(Array),
+            }),
           ]),
         })
       );
@@ -77,12 +88,8 @@ describe('SearchController', () => {
     it('should search equipos by truck plate', async () => {
       mockReq = {
         tenantId: 1,
-        user: {
-          userId: 1,
-          role: 'SUPERADMIN',
-          empresaId: 1,
-          tenantEmpresaId: 1,
-        },
+        user: superadminUser,
+
         query: {
           truckPlate: 'ABC123',
         },
@@ -108,12 +115,8 @@ describe('SearchController', () => {
     it('should filter by dadorCargaId', async () => {
       mockReq = {
         tenantId: 1,
-        user: {
-          userId: 1,
-          role: 'SUPERADMIN',
-          empresaId: 1,
-          tenantEmpresaId: 1,
-        },
+        user: superadminUser,
+
         query: {
           dadorCargaId: '5',
         },
@@ -135,12 +138,7 @@ describe('SearchController', () => {
     it('should limit results', async () => {
       mockReq = {
         tenantId: 1,
-        user: {
-          userId: 1,
-          role: 'SUPERADMIN',
-          empresaId: 1,
-          tenantEmpresaId: 1,
-        },
+        user: superadminUser,
         query: {
           limit: '10',
         },
@@ -157,23 +155,57 @@ describe('SearchController', () => {
       );
     });
 
+    it('caps limit at 100', async () => {
+      mockReq = {
+        tenantId: 1,
+        user: superadminUser,
+        query: {
+          limit: '999',
+        },
+      };
+
+      prismaMock.equipo.findMany.mockResolvedValue([]);
+
+      await SearchController.search(mockReq as AuthRequest, mockRes as Response);
+
+      expect(prismaMock.equipo.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          take: 100,
+        })
+      );
+    });
+
+    it('returns empty when clienteId has no equipos', async () => {
+      mockReq = {
+        tenantId: 1,
+        user: superadminUser,
+        query: {
+          clienteId: '7',
+        },
+      };
+
+      prismaMock.equipoCliente.findMany.mockResolvedValueOnce([]);
+
+      await SearchController.search(mockReq as AuthRequest, mockRes as Response);
+
+      expect(prismaMock.equipo.findMany).not.toHaveBeenCalled();
+      expect(jsonMock).toHaveBeenCalledWith(
+        expect.objectContaining({ success: true, data: [] })
+      );
+    });
+
+
     it('should handle errors gracefully', async () => {
       mockReq = {
         tenantId: 1,
-        user: {
-          userId: 1,
-          role: 'SUPERADMIN',
-          empresaId: 1,
-          tenantEmpresaId: 1,
-        },
+        user: superadminUser,
+
         query: {},
       };
 
       prismaMock.equipo.findMany.mockRejectedValue(new Error('Database error'));
 
-      await SearchController.search(mockReq as AuthRequest, mockRes as Response);
-
-      expect(statusMock).toHaveBeenCalledWith(500);
+      await expect(SearchController.search(mockReq as AuthRequest, mockRes as Response)).rejects.toThrow('Database error');
     });
   });
 });

@@ -4,9 +4,8 @@ import path from 'path';
 
 dotenv.config({ path: path.resolve(__dirname, '../../../../.env') });
 
-const prisma = new PrismaClient();
-
-async function checkStatus() {
+export async function checkStatus() {
+  const prisma = new PrismaClient();
   console.log('--- Verificando estado de la base de datos ---');
   try {
     // Verificar la dirección del servidor de la base de datos
@@ -51,4 +50,6 @@ async function checkStatus() {
   }
 }
 
-checkStatus();
+if (require.main === module) {
+  checkStatus();
+}

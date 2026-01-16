@@ -2,6 +2,10 @@ import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
 import path from 'path';
+
+// Configuración de variables de entorno desde la raíz del monorepo
+dotenv.config({ path: path.resolve(__dirname, '../../../.env') });
+
 import { AppLogger } from './config/logger';
 import { getEnvironment } from './config/environment';
 import { httpLogger, errorLogger } from './middlewares/logging.middleware';
@@ -10,9 +14,6 @@ import { backendServiceConfig } from './config/serviceConfig';
 
 // Importar middleware de errores
 import ErrorMiddleware from './middlewares/error.middleware';
-
-// Configuración de variables de entorno desde la raíz del monorepo
-dotenv.config({ path: path.resolve(__dirname, '../../../.env') });
 
 // Crear aplicación Express
 const app = express();
@@ -72,17 +73,17 @@ const setupMiddlewares = (): void => {
   try {
     const helmet = require('helmet');
     app.use(helmet());
-  } catch {}
+  } catch { }
   try {
     const compression = require('compression');
     app.use(compression());
-  } catch {}
+  } catch { }
   try {
     const rateLimit = require('express-rate-limit');
     const windowMs = env.RATE_LIMIT_WINDOW_MS ?? 60_000;
     const max = env.RATE_LIMIT_MAX ?? 300;
     app.use(rateLimit({ windowMs, max, standardHeaders: true, legacyHeaders: false }));
-  } catch {}
+  } catch { }
 
   // Middleware de logging para todas las peticiones
   app.use(httpLogger);
@@ -105,14 +106,14 @@ const setupRoutes = async (): Promise<void> => {
   let docsRouter: any;
   try {
     docsRouter = (await import(('./routes/' + 'openapi.routes') as any)).default as any;
-  } catch {}
+  } catch { }
   // Diferir carga de rutas de dominio a runtime, para no romper el build minimalista
   let empresaRoutes: any, serviceRoutes: any, instanceRoutes: any, permisoRoutes: any, configRoutes: any;
-  try { empresaRoutes = (await import(('./routes/' + 'empresa.routes') as any)).default as any; } catch {}
-  try { serviceRoutes = (await import(('./routes/' + 'service.routes') as any)).default as any; } catch {}
-  try { instanceRoutes = (await import(('./routes/' + 'instance.routes') as any)).default as any; } catch {}
-  try { permisoRoutes = (await import(('./routes/' + 'permiso.routes') as any)).default as any; } catch {}
-  try { configRoutes = (await import(('./routes/' + 'config.routes') as any)).default as any; } catch {}
+  try { empresaRoutes = (await import(('./routes/' + 'empresa.routes') as any)).default as any; } catch { }
+  try { serviceRoutes = (await import(('./routes/' + 'service.routes') as any)).default as any; } catch { }
+  try { instanceRoutes = (await import(('./routes/' + 'instance.routes') as any)).default as any; } catch { }
+  try { permisoRoutes = (await import(('./routes/' + 'permiso.routes') as any)).default as any; } catch { }
+  try { configRoutes = (await import(('./routes/' + 'config.routes') as any)).default as any; } catch { }
   // Rutas para split users (User / EndUser) - siempre habilitadas
   const platformAuthRoutes = (await import('./routes/platformAuth.routes')).default;
   const platformUserRoutes = (await import('./routes/user.routes')).default;
@@ -152,10 +153,10 @@ const setupRoutes = async (): Promise<void> => {
   } else {
     AppLogger.warn('⚠️ Documentos routes disabled (ENABLE_DOCUMENTOS=false)');
     app.use('/api/docs/*', (req, res) => {
-      res.status(404).json({ 
+      res.status(404).json({
         message: 'Documentos service is disabled',
         service: 'documentos',
-        enabled: false 
+        enabled: false
       });
     });
   }

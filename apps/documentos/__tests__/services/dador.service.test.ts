@@ -28,42 +28,16 @@ describe('DadorService', () => {
   describe('list', () => {
     it('should return list of dadores de carga', async () => {
       const mockDadores = [
-        { id: 1, nombre: 'Dador 1', cuit: '20123456789', activo: true },
-        { id: 2, nombre: 'Dador 2', cuit: '20987654321', activo: true },
+        { id: 1, razonSocial: 'Dador 1', cuit: '20123456789', activo: true },
+        { id: 2, razonSocial: 'Dador 2', cuit: '20987654321', activo: true },
       ];
 
       prismaMock.dadorCarga.findMany.mockResolvedValue(mockDadores);
 
-      const result = await DadorService.list(1);
+      const result = await DadorService.list(true, 1);
 
       expect(result).toHaveLength(2);
       expect(prismaMock.dadorCarga.findMany).toHaveBeenCalled();
-    });
-  });
-
-  describe('getById', () => {
-    it('should return dador by id', async () => {
-      const mockDador = {
-        id: 1,
-        nombre: 'Dador 1',
-        cuit: '20123456789',
-        activo: true,
-      };
-
-      prismaMock.dadorCarga.findFirst.mockResolvedValue(mockDador);
-
-      const result = await DadorService.getById(1, 1);
-
-      expect(result).toBeDefined();
-      expect(result?.id).toBe(1);
-    });
-
-    it('should return null if dador not found', async () => {
-      prismaMock.dadorCarga.findFirst.mockResolvedValue(null);
-
-      const result = await DadorService.getById(999, 1);
-
-      expect(result).toBeNull();
     });
   });
 
@@ -71,7 +45,7 @@ describe('DadorService', () => {
     it('should create a new dador de carga', async () => {
       const mockDador = {
         id: 1,
-        nombre: 'New Dador',
+        razonSocial: 'New Dador',
         cuit: '20123456789',
         tenantEmpresaId: 1,
         activo: true,
@@ -80,7 +54,7 @@ describe('DadorService', () => {
       prismaMock.dadorCarga.create.mockResolvedValue(mockDador);
 
       const result = await DadorService.create({
-        nombre: 'New Dador',
+        razonSocial: 'New Dador',
         cuit: '20123456789',
         tenantEmpresaId: 1,
       });
@@ -94,16 +68,16 @@ describe('DadorService', () => {
     it('should update dador de carga', async () => {
       const mockUpdated = {
         id: 1,
-        nombre: 'Updated Dador',
+        razonSocial: 'Updated Dador',
         cuit: '20123456789',
         activo: true,
       };
 
       prismaMock.dadorCarga.update.mockResolvedValue(mockUpdated);
 
-      const result = await DadorService.update(1, 1, { nombre: 'Updated Dador' });
+      const result = await DadorService.update(1, { razonSocial: 'Updated Dador' });
 
-      expect(result.nombre).toBe('Updated Dador');
+      expect(result.razonSocial).toBe('Updated Dador');
     });
   });
 });

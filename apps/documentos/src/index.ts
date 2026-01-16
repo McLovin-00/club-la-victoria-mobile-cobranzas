@@ -14,6 +14,7 @@ import { schedulerService } from './services/scheduler.service';
 import { SystemConfigService } from './services/system-config.service';
 import { webSocketService } from './services/websocket.service';
 import routes from './routes';
+import { tryGetSwaggerUi } from './utils/swaggerUi';
 
 // Cargar variables de entorno desde la raíz del monorepo
 dotenv.config({ path: path.resolve(__dirname, '../../../.env') });
@@ -67,9 +68,9 @@ function setupOpenApiEndpoints(app: express.Application): void {
 
   // Swagger UI
   try {
-    const swaggerUi = require('swagger-ui-express');
+    const swaggerUi = tryGetSwaggerUi();
     const yamlPath = findExistingPath(candidates);
-    if (yamlPath) {
+    if (swaggerUi && yamlPath) {
       app.use('/docs', swaggerUi.serve, swaggerUi.setup(null, { swaggerOptions: { url: '/openapi.yaml' } }));
     } else {
       AppLogger.warn('⚠️ Swagger UI no disponible');

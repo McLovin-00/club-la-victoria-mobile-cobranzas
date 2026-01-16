@@ -18,7 +18,7 @@ dotenv.config({ path: path.resolve(__dirname, '../../../.env') });
 let server: any;
 const appVersion = process.env.APP_VERSION || '1.0.0';
 
-const main = async (): Promise<void> => {
+export const main = async (): Promise<void> => {
   try {
     if (!isServiceEnabled()) {
       AppLogger.warn('⚠️ Microservicio Remitos DESHABILITADO (ENABLE_REMITOS=false)');
@@ -92,7 +92,7 @@ const main = async (): Promise<void> => {
 };
 
 // Graceful shutdown
-const gracefulShutdown = async (signal: string): Promise<void> => {
+export const gracefulShutdown = async (signal: string): Promise<void> => {
   AppLogger.info(`📴 Recibida señal ${signal}, cerrando...`);
   
   try {

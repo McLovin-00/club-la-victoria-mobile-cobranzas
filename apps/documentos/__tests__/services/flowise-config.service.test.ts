@@ -23,22 +23,20 @@ describe('SystemConfigService', () => {
   beforeEach(() => {
     resetPrismaMock();
     jest.clearAllMocks();
+
+    // resetPrismaMock resetea también $transaction, lo volvemos a setear para que ejecute el callback.
+    prismaMock.$transaction.mockImplementation((fn: any) => fn(prismaMock));
   });
 
   describe('getFlowiseConfig', () => {
     it('should return flowise config from database', async () => {
-      const mockConfig = {
-        id: 1,
-        key: 'flowise',
-        value: JSON.stringify({
-          enabled: true,
-          baseUrl: 'http://flowise:3000',
-          flowId: 'test-flow-id',
-          timeout: 30000,
-        }),
-      };
-
-      prismaMock.systemConfig.findUnique.mockResolvedValue(mockConfig);
+      prismaMock.systemConfig.findMany.mockResolvedValue([
+        { key: 'flowise.enabled', value: 'true' },
+        { key: 'flowise.baseUrl', value: 'http://flowise:3000' },
+        { key: 'flowise.apiKey', value: 'secret' },
+        { key: 'flowise.flowId', value: 'test-flow-id' },
+        { key: 'flowise.timeout', value: '30000' },
+      ]);
 
       const result = await SystemConfigService.getFlowiseConfig();
 
@@ -48,7 +46,7 @@ describe('SystemConfigService', () => {
     });
 
     it('should return default config if not found', async () => {
-      prismaMock.systemConfig.findUnique.mockResolvedValue(null);
+      prismaMock.systemConfig.findMany.mockResolvedValue([]);
 
       const result = await SystemConfigService.getFlowiseConfig();
 
@@ -59,26 +57,16 @@ describe('SystemConfigService', () => {
 
   describe('updateFlowiseConfig', () => {
     it('should update flowise config', async () => {
-      const mockUpdated = {
-        id: 1,
-        key: 'flowise',
-        value: JSON.stringify({
-          enabled: true,
-          baseUrl: 'http://new-flowise:3000',
-          flowId: 'new-flow-id',
-          timeout: 60000,
-        }),
-      };
+      prismaMock.systemConfig.upsert.mockResolvedValue({ key: 'flowise.enabled', value: 'true' });
 
-      prismaMock.systemConfig.upsert.mockResolvedValue(mockUpdated);
-
-      const result = await SystemConfigService.updateFlowiseConfig({
+      await SystemConfigService.updateFlowiseConfig({
         enabled: true,
         baseUrl: 'http://new-flowise:3000',
         flowId: 'new-flow-id',
         timeout: 60000,
       });
 
+      expect(prismaMock.$transaction).toHaveBeenCalled();
       expect(prismaMock.systemConfig.upsert).toHaveBeenCalled();
     });
   });
@@ -120,8 +108,8 @@ describe('SystemConfigService', () => {
       expect(prismaMock.systemConfig.upsert).toHaveBeenCalledWith(
         expect.objectContaining({
           where: { key: 'new-key' },
-          update: { value: 'new-value' },
-          create: { key: 'new-key', value: 'new-value' },
+          update: expect.objectContaining({ value: 'new-value', encrypted: false }),
+          create: expect.objectContaining({ key: 'new-key', value: 'new-value', encrypted: false }),
         })
       );
     });

@@ -2,6 +2,7 @@
 module.exports = {
   preset: 'ts-jest',
   testEnvironment: 'node',
+  setupFiles: ['<rootDir>/src/__tests__/jest.setup.ts'],
   roots: ['<rootDir>/src'],
   moduleFileExtensions: ['ts', 'tsx', 'js', 'json'],
   testMatch: [
@@ -19,6 +20,7 @@ module.exports = {
   collectCoverage: false, // Enable via CLI with --coverage
   collectCoverageFrom: [
     'src/**/*.ts',
+    '!src/**/*.d.ts',
     '!src/**/__tests__/**',
     '!src/**/*.test.ts',
     '!src/**/*.spec.ts',

@@ -53,7 +53,14 @@ describe('EntityDataController', () => {
           id: 1,
           entityType: 'CHOFER',
           entityId: 1,
-          classifications: [{ extractedData: { nombre: 'Test' } }],
+          uploadedAt: new Date('2026-01-01T00:00:00.000Z'),
+          template: { name: 'DNI' },
+          classification: {
+            aiResponse: { datosExtraidos: { nombre: 'Test' }, datosNuevos: {} },
+            disparidades: [],
+            validationStatus: 'validated',
+            updatedAt: new Date('2026-01-02T00:00:00.000Z'),
+          },
         },
       ]);
 
@@ -66,16 +73,18 @@ describe('EntityDataController', () => {
       );
     });
 
-    it('should return 400 for invalid entity type', async () => {
+    it('retorna 404 si el entityType no tiene datos extraídos', async () => {
       mockReq = {
         tenantId: 1,
         params: { entityType: 'INVALID', entityId: '1' },
         user: { userId: 1, role: 'SUPERADMIN', empresaId: 1, tenantEmpresaId: 1 },
       };
 
+      prismaMock.document.findMany.mockResolvedValue([]);
+
       await EntityDataController.getExtractedData(mockReq as AuthRequest, mockRes as Response);
 
-      expect(statusMock).toHaveBeenCalledWith(400);
+      expect(statusMock).toHaveBeenCalledWith(404);
     });
 
     it('should return 400 for invalid entity id', async () => {
@@ -99,7 +108,8 @@ describe('EntityDataController', () => {
         user: { userId: 1, role: 'SUPERADMIN', empresaId: 1, tenantEmpresaId: 1 },
       };
 
-      prismaMock.entityExtractedData.deleteMany.mockResolvedValue({ count: 1 });
+      prismaMock.document.findMany.mockResolvedValue([{ id: 1 }]);
+      prismaMock.documentClassification.updateMany.mockResolvedValue({ count: 1 });
 
       await EntityDataController.deleteExtractedData(mockReq as AuthRequest, mockRes as Response);
 

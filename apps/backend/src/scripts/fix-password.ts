@@ -1,27 +1,28 @@
 import { PrismaClient } from '@prisma/client';
 import bcrypt from 'bcrypt';
 
-const prisma = new PrismaClient();
-
-async function fixPassword() {
+export async function fixPassword() {
+  const prisma = new PrismaClient();
   console.log('\n🔧 Actualizando contraseña del superadmin...');
 
-  const hashedPassword = await bcrypt.hash('admin123', 12);
-  
-  const updated = await prisma.user.update({
-    where: { email: 'superadmin@empresa.com' },
-    data: { password: hashedPassword }
-  });
+  try {
+    const hashedPassword = await bcrypt.hash('admin123', 12);
 
-  console.log(`✅ Contraseña actualizada para: ${updated.email}`);
-  console.log('📝 Credenciales: superadmin@empresa.com / admin123');
+    const updated = await prisma.user.update({
+      where: { email: 'superadmin@empresa.com' },
+      data: { password: hashedPassword },
+    });
+
+    console.log(`✅ Contraseña actualizada para: ${updated.email}`);
+    console.log('📝 Credenciales: superadmin@empresa.com / admin123');
+  } finally {
+    await prisma.$disconnect();
+  }
 }
 
-fixPassword()
-  .catch((error) => {
+if (require.main === module) {
+  fixPassword().catch((error) => {
     console.error('❌ Error actualizando contraseña:', error);
     process.exit(1);
-  })
-  .finally(async () => {
-    await prisma.$disconnect();
-  }); 
+  });
+}

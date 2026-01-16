@@ -1,10 +1,23 @@
 import * as dotenv from 'dotenv';
 import * as path from 'path';
+import * as fs from 'fs';
 import { AppLogger } from './logger';
 import { getEnvironment } from './environment';
 
-// Cargar variables de entorno desde la raíz del monorepo
-dotenv.config({ path: path.resolve(__dirname, '../../../.env') });
+// Cargar variables de entorno desde la raíz del monorepo (solo si no estamos en un entorno de tests)
+// Evitamos side-effects automáticos en Jest para que los tests tengan control total sobre process.env
+const isJest = process.env.JEST_WORKER_ID !== undefined;
+
+if (!isJest) {
+  const rootEnvPath = path.resolve(__dirname, '../../../../.env');
+  const backendEnvPath = path.resolve(__dirname, '../../../.env');
+
+  if (fs.existsSync(rootEnvPath)) {
+    dotenv.config({ path: rootEnvPath });
+  } else if (fs.existsSync(backendEnvPath)) {
+    dotenv.config({ path: backendEnvPath });
+  }
+}
 
 interface DatabaseConfig {
   host: string;
@@ -49,7 +62,7 @@ class DatabaseConfigurationService {
     }
 
     // Asegurar carga de env normalizado
-    try { getEnvironment(); } catch {}
+    try { getEnvironment(); } catch { }
 
     const requiredVars = [
       'DB_HOST',
@@ -91,13 +104,13 @@ class DatabaseConfigurationService {
    */
   private buildConfig(): DatabaseConfig {
     return {
-      host: process.env.DB_HOST!,
-      port: parseInt(process.env.DB_PORT!),
-      database: process.env.DB_NAME!,
-      username: process.env.DB_USER!,
-      password: process.env.DB_PASSWORD!,
-      adminDatabase: process.env.DB_ADMIN_DATABASE!,
-      schema: process.env.DB_SCHEMA!,
+      host: process.env.DB_HOST || '127.0.0.1',
+      port: parseInt(process.env.DB_PORT || '5432'),
+      database: process.env.DB_NAME || 'monorepo-bca',
+      username: process.env.DB_USER || 'postgres',
+      password: process.env.DB_PASSWORD || 'postgres',
+      adminDatabase: process.env.DB_ADMIN_DATABASE || 'postgres',
+      schema: process.env.DB_SCHEMA || 'platform',
       connectionTimeout: parseInt(process.env.DB_CONNECTION_TIMEOUT || '10000'),
       commandTimeout: parseInt(process.env.DB_COMMAND_TIMEOUT || '30000'),
       enableLogging: process.env.ENABLE_DATABASE_LOGGING === 'true',
@@ -109,7 +122,9 @@ class DatabaseConfigurationService {
    * Construye las URLs de conexión
    */
   private buildUrls(): DatabaseUrls {
-    const baseUrl = `postgresql://${this.config.username}:${this.config.password}@${this.config.host}:${this.config.port}`;
+    const user = encodeURIComponent(this.config.username);
+    const pass = encodeURIComponent(this.config.password);
+    const baseUrl = `postgresql://${user}:${pass}@${this.config.host}:${this.config.port}`;
 
     return {
       application: `${baseUrl}/${this.config.database}?schema=${this.config.schema}&connect_timeout=${this.config.connectionTimeout}&command_timeout=${this.config.commandTimeout}`,

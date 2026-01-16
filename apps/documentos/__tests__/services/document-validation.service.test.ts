@@ -206,6 +206,10 @@ describe('DocumentValidationService', () => {
 
       const result = await service.validateDocument(mockRequest);
 
+      if (!result.success) {
+        throw new Error(`Resultado inesperado: ${result.error || 'sin error'}`);
+      }
+
       expect(result.success).toBe(true);
       expect(result.data?.esDocumentoCorrecto).toBe(true);
       expect(result.data?.confianza).toBe(0.95);

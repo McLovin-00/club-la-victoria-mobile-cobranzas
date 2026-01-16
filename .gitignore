@@ -37,11 +37,11 @@ pids
 *.pid.lock
 
 # Coverage
-coverage/
-*.lcov
-.nyc_output
-.coverage
-junit.xml
+# coverage/
+# *.lcov
+# .nyc_output
+# .coverage
+# junit.xml
 
 # Caches
 .cache
@@ -148,3 +148,9 @@ keys/
 import-data/dni-images/
 import-data/dni-small/
 import-data/documentos/
+
+# E2E Test Results
+apps/e2e/test-results/
+apps/e2e/playwright-report/
+apps/e2e/coverage/
+apps/e2e/.auth/

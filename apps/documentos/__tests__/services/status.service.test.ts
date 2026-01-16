@@ -6,6 +6,8 @@
 const mockDocument = {
   groupBy: jest.fn(),
   count: jest.fn(),
+  findMany: jest.fn(),
+  findFirst: jest.fn(),
 };
 
 jest.mock('../../src/config/database', () => ({
@@ -96,6 +98,50 @@ describe('StatusService', () => {
       });
       expect(result).toBe('amarillo');
     });
+
+    it('calculates estado rojo con documentos vencidos', () => {
+      const result = StatusService.calculateEntityStatus({
+        total: 5,
+        aprobado: 3,
+        pendiente: 0,
+        rechazado: 0,
+        vencido: 2,
+      });
+      expect(result).toBe('rojo');
+    });
+
+    it('calculates estado rojo cuando rechazados > 50%', () => {
+      const result = StatusService.calculateEntityStatus({
+        total: 10,
+        aprobado: 0,
+        pendiente: 0,
+        rechazado: 6,
+        vencido: 0,
+      });
+      expect(result).toBe('rojo');
+    });
+
+    it('calculates estado amarillo cuando hay documentos pendientes sin vencidos', () => {
+      const result = StatusService.calculateEntityStatus({
+        total: 10,
+        aprobado: 5,
+        pendiente: 3,
+        rechazado: 0,
+        vencido: 0,
+      });
+      expect(result).toBe('amarillo');
+    });
+
+    it('calculates estado rojo cuando no hay documentos', () => {
+      const result = StatusService.calculateEntityStatus({
+        total: 0,
+        aprobado: 0,
+        pendiente: 0,
+        rechazado: 0,
+        vencido: 0,
+      });
+      expect(result).toBe('rojo');
+    });
   });
 
   describe('getEntityStatus', () => {
@@ -132,12 +178,12 @@ describe('StatusService', () => {
       mockDocument.groupBy.mockResolvedValue([
         { status: 'APROBADO', _count: { status: 5 } },
       ]);
-      mockDocument.count.mockResolvedValue(2); // 2 expired by date
+      mockDocument.count.mockResolvedValue(2);
 
       const result = await StatusService.getEntityStatus(100, 50, 'CHOFER' as any, 200);
 
       expect(result?.documentCount.vencido).toBe(2);
-      expect(result?.status).toBe('rojo'); // Has vencidos
+      expect(result?.status).toBe('rojo');
     });
 
     it('should return null on error', async () => {
@@ -147,8 +193,153 @@ describe('StatusService', () => {
 
       expect(result).toBeNull();
     });
+
+    it('maneja error y retorna null', async () => {
+      mockDocument.groupBy.mockRejectedValue(new Error('DB error'));
+      
+      const result = await StatusService.getEntityStatus(1, 1, 'CHOFER' as any, 1);
+      expect(result).toBeNull();
+    });
+  });
+
+  describe('getEmpresaStatusSummary', () => {
+    it('calcula overall status rojo cuando algún entity tiene estado rojo', async () => {
+      mockDocument.findMany.mockResolvedValue([
+        { entityType: 'CHOFER', entityId: 100 },
+        { entityType: 'CHOFER', entityId: 101 },
+      ]);
+      
+      jest.spyOn(StatusService, 'getEntityStatus')
+        .mockResolvedValueOnce({ entityType: 'CHOFER', entityId: 100, status: 'rojo' as any, documentCount: {} as any })
+        .mockResolvedValueOnce({ entityType: 'CHOFER', entityId: 101, status: 'verde' as any, documentCount: {} as any });
+      
+      const result = await StatusService.getEmpresaStatusSummary(1, 1);
+      expect(result.overallStatus).toBe('rojo');
+    });
+
+    it('calcula overall status amarillo cuando todos son amarillo o verde', async () => {
+      mockDocument.findMany.mockResolvedValue([
+        { entityType: 'CHOFER', entityId: 100 },
+      ]);
+      
+      jest.spyOn(StatusService, 'getEntityStatus')
+        .mockResolvedValueOnce({ entityType: 'CHOFER', entityId: 100, status: 'amarillo' as any, documentCount: {} as any });
+      
+      const result = await StatusService.getEmpresaStatusSummary(1, 1);
+      expect(result.overallStatus).toBe('amarillo');
+    });
+
+    it('retorna resumen fallback cuando hay error', async () => {
+      mockDocument.findMany.mockRejectedValue(new Error('DB error'));
+      
+      const result = await StatusService.getEmpresaStatusSummary(1, 1);
+      expect(result.empresaId).toBe(1);
+      expect(result.overallStatus).toBe('rojo');
+    });
+  });
+
+  describe('getGlobalStatusSummary', () => {
+    it('agrega resúmenes de múltiples empresas', async () => {
+      mockDocument.findMany.mockResolvedValue([
+        { dadorCargaId: 1 },
+        { dadorCargaId: 2 },
+      ]);
+      
+      jest.spyOn(StatusService, 'getEmpresaStatusSummary')
+        .mockResolvedValueOnce({ empresaId: 1, overallStatus: 'verde' as any, entities: {} as any })
+        .mockResolvedValueOnce({ empresaId: 2, overallStatus: 'rojo' as any, entities: {} as any });
+      
+      const result = await StatusService.getGlobalStatusSummary(1);
+      expect(result).toHaveLength(2);
+    });
+
+    it('retorna array vacío en error de getGlobalStatusSummary', async () => {
+      mockDocument.findMany.mockRejectedValue(new Error('DB error'));
+      
+      const result = await StatusService.getGlobalStatusSummary(1);
+      expect(result).toEqual([]);
+    });
+  });
+
+  describe('getEntitiesWithAlarms', () => {
+    it('requiere tenant cuando se busca por empresaId específico', async () => {
+      const mockEntity = { status: 'rojo' as any, entityType: 'DADOR' as any, entityId: 1, documentCount: { total: 1, aprobado: 0, pendiente: 0, rechazado: 0, vencido: 1 } };
+      mockDocument.findFirst.mockResolvedValue({ tenantEmpresaId: 1 });
+      
+      jest.spyOn(StatusService, 'getEmpresaStatusSummary').mockResolvedValueOnce({
+        empresaId: 1,
+        overallStatus: 'verde' as any,
+        entities: { empresa: mockEntity, empresasTransportistas: [], choferes: [], camiones: [], acoplados: [] } as any
+      });
+      
+      const result = await StatusService.getEntitiesWithAlarms(1);
+      
+      expect(StatusService.getEmpresaStatusSummary).toHaveBeenCalledWith(1, 1);
+      expect(result).toHaveLength(1);
+      expect(result[0].status).toBe('rojo');
+    });
+
+    it('agrega dador con estado rojo', async () => {
+      const mockEntity = { status: 'rojo' as any, entityType: 'DADOR' as any, entityId: 1, documentCount: { total: 1, aprobado: 0, pendiente: 0, rechazado: 0, vencido: 1 } };
+      mockDocument.findFirst.mockResolvedValue({ tenantEmpresaId: 1 });
+      
+      jest.spyOn(StatusService, 'getEmpresaStatusSummary').mockResolvedValueOnce({
+        empresaId: 1,
+        overallStatus: 'verde' as any,
+        entities: { empresa: mockEntity, empresasTransportistas: [], choferes: [], camiones: [], acoplados: [] } as any
+      });
+      
+      const result = await StatusService.getEntitiesWithAlarms(1);
+      
+      expect(result).toHaveLength(1);
+      expect(result[0].status).toBe('rojo');
+    });
+
+    it('agrega choferes con estado rojo', async () => {
+      const mockEntity = { status: 'rojo' as any, entityType: 'CHOFER' as any, entityId: 1, documentCount: { total: 1, aprobado: 0, pendiente: 0, rechazado: 0, vencido: 1 } };
+      mockDocument.findFirst.mockResolvedValue({ tenantEmpresaId: 1 });
+      
+      jest.spyOn(StatusService, 'getEmpresaStatusSummary').mockResolvedValueOnce({
+        empresaId: 1,
+        overallStatus: 'verde' as any,
+        entities: { empresa: null, empresasTransportistas: [], choferes: [mockEntity], camiones: [], acoplados: [] } as any
+      });
+      
+      const result = await StatusService.getEntitiesWithAlarms(1);
+      
+      expect(result).toHaveLength(1);
+      expect(result[0].status).toBe('rojo');
+    });
+
+    it('agrega solo camiones cuando acoplados no tienen estado rojo', async () => {
+      const mockCamion = { status: 'rojo' as any, entityType: 'CAMION' as any, entityId: 1, documentCount: { total: 1, aprobado: 0, pendiente: 0, rechazado: 0, vencido: 1 } };
+      const mockAcoplado = { status: 'verde' as any, entityType: 'ACOPLADO' as any, entityId: 2, documentCount: { total: 1, aprobado: 1, pendiente: 0, rechazado: 0, vencido: 0 } };
+      mockDocument.findFirst.mockResolvedValue({ tenantEmpresaId: 1 });
+      
+      jest.spyOn(StatusService, 'getEmpresaStatusSummary').mockResolvedValueOnce({
+        empresaId: 1,
+        overallStatus: 'verde' as any,
+        entities: { empresa: null, empresasTransportistas: [], choferes: [], camiones: [mockCamion], acoplados: [mockAcoplado] } as any
+      });
+      
+      const result = await StatusService.getEntitiesWithAlarms(1);
+      
+      expect(result).toHaveLength(1);
+      expect(result[0].status).toBe('rojo');
+    });
+
+    it('retorna array vacío cuando hay error', async () => {
+      mockDocument.findFirst.mockRejectedValue(new Error('DB error'));
+      
+      const result = await StatusService.getEntitiesWithAlarms(1);
+      expect(result).toEqual([]);
+    });
+
+    it('retorna array vacío cuando hay error en getGlobalStatusSummary', async () => {
+      mockDocument.findMany.mockRejectedValue(new Error('DB error'));
+      
+      const result = await StatusService.getEntitiesWithAlarms(undefined);
+      expect(result).toEqual([]);
+    });
   });
 });
-
-
-

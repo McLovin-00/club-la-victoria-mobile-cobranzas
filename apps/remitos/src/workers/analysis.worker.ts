@@ -200,3 +200,21 @@ export async function stopAnalysisWorker(): Promise<void> {
   }
   await connection.quit();
 }
+
+/**
+ * Export interno para tests unitarios (NO usar en runtime de la app).
+ * Permite testear ramas del processor sin levantar BullMQ real.
+ */
+export const __test__ = {
+  // Processor
+  processJob,
+  // Helpers clave
+  prepareImageForAnalysis,
+  rasterizePdf,
+  composeOrSingle,
+  getAdditionalImages,
+  handleSuccessfulAnalysis,
+  handleFailedAnalysis,
+  updateRemitoStatus,
+  logHistory,
+};

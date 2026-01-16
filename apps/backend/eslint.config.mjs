@@ -2,9 +2,14 @@
 import js from '@eslint/js';
 import globals from 'globals';
 import tseslint from 'typescript-eslint';
+import { fileURLToPath } from 'url';
+import { dirname } from 'path';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
 
 export default tseslint.config(
-  { ignores: ['dist/**','coverage/**','node_modules/**','src/services/strategies/**','scripts/**','src/types/**'] },
+  { ignores: ['dist/**', 'coverage/**', 'node_modules/**', 'src/services/strategies/**', 'scripts/**', 'src/types/**', 'src/seed/__tests__/**'] },
   {
     files: ['**/*.ts'],
     languageOptions: {
@@ -14,7 +19,7 @@ export default tseslint.config(
       parser: tseslint.parser,
       parserOptions: {
         project: ['./tsconfig.json'],
-        tsconfigRootDir: new URL('.', import.meta.url).pathname,
+        tsconfigRootDir: __dirname,
       },
     },
     plugins: { '@typescript-eslint': tseslint.plugin },

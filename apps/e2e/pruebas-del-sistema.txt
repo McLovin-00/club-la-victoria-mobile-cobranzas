@@ -1,0 +1,2342 @@
+Lista de Pruebas - Portal Cliente
+1. AUTENTICACIÓN Y ACCESO
+1.1 Login
+• [ ] Ingresar con email y contraseña válidos de usuario CLIENTE
+• [ ] Verificar que redirige correctamente al Dashboard del Cliente
+• [ ] Intentar ingresar con email válido pero contraseña incorrecta → debe mostrar error
+• [ ] Intentar ingresar con email inexistente → debe mostrar error
+• [ ] Verificar que el logo de BCA se muestra correctamente en la pantalla de login
+• [ ] Verificar que el token se almacena en localStorage tras login exitoso
+1.2 Sesión
+• [ ] Verificar que la sesión persiste al refrescar la página (F5)
+• [ ] Verificar que al cerrar sesión se elimina el token y redirige al login
+• [ ] Verificar que al expirar el token se redirige al login automáticamente
+• [ ] Intentar acceder a /cliente/equipos sin sesión → debe redirigir a login
+1.3 Autorización
+• [ ] Verificar que un usuario CLIENTE solo puede ver sus equipos asignados (no los de otros
+clientes)
+• [ ] Verificar que no puede acceder a rutas de admin (/admin/*)
+• [ ] Verificar que no puede acceder a rutas de transportista (/transportista/*)
+• [ ] Verificar que no puede acceder a rutas de dador de carga (/dador/*)
+• [ ] Verificar que no puede acceder a rutas de chofer (/chofer/*)
+2. DASHBOARD PRINCIPAL
+2.1 Interfaz Visual
+• [ ] Verificar que se muestra el logo de Grupo BCA
+• [ ] Verificar que el título dice "Portal Cliente"
+• [ ] Verificar que muestra el mensaje "Consulta el estado documental de tus equipos asignados"
+• [ ] Verificar que existe el botón "Volver"
+• [ ] Verificar que el footer dice "Este portal es de solo lectura"
+
+-- 1 of 73 --
+
+2.2 Estado Inicial (sin búsqueda)
+• [ ] Al ingresar, NO debe cargar equipos automáticamente
+• [ ] Debe mostrar el icono de camión con mensaje "Busca o lista tus equipos asignados"
+• [ ] Debe existir el botón "Listar Todos los Equipos"
+• [ ] Debe existir el campo de búsqueda vacío
+• [ ] El filtro de estado NO debe aparecer hasta que haya datos
+3. BÚSQUEDA DE EQUIPOS
+3.1 Búsqueda Simple
+• [ ] Buscar por patente de camión completa (ej: "AB123CD") → debe encontrar el equipo
+• [ ] Buscar por patente parcial (ej: "AB1") → debe encontrar equipos que coincidan
+• [ ] Buscar por DNI de chofer completo (ej: "34288054") → debe encontrar el equipo
+• [ ] Buscar por DNI parcial (ej: "3428") → debe encontrar equipos que coincidan
+• [ ] Buscar por nombre de chofer (ej: "Juan") → debe encontrar equipos que coincidan
+• [ ] Buscar por apellido de chofer → debe encontrar equipos que coincidan
+• [ ] Buscar por razón social de empresa transportista → debe encontrar equipos
+• [ ] Buscar con texto que no existe → debe mostrar "No se encontraron equipos"
+• [ ] Presionar ENTER en el campo de búsqueda → debe ejecutar la búsqueda
+• [ ] Hacer clic en botón "Buscar" → debe ejecutar la búsqueda
+3.2 Búsqueda Masiva
+• [ ] Hacer clic en "Búsqueda Masiva" → debe abrir el panel de búsqueda masiva
+• [ ] Ingresar lista de DNIs separados por línea → debe buscar todos
+• [ ] Ingresar lista de DNIs separados por comas → debe buscar todos
+• [ ] Ingresar lista de patentes separadas por línea → debe buscar todas
+• [ ] Mezclar DNIs y patentes en la lista → debe encontrar todos
+• [ ] Ingresar más de 50 valores → debe limitar a 50
+• [ ] Ingresar lista vacía y presionar "Buscar Lista" → botón debe estar deshabilitado
+• [ ] Cerrar panel de búsqueda masiva con la X
+3.3 Botón "Listar Todos"
+• [ ] Hacer clic en "Listar Todos" → debe mostrar todos los equipos asignados al cliente
+• [ ] Verificar que se resetea cualquier búsqueda previa
+• [ ] Verificar que el filtro de estado se resetea a "TODOS"
+
+-- 2 of 73 --
+
+3.4 Botón "Limpiar"
+• [ ] Hacer clic en "Limpiar" → debe:
+• Vaciar el campo de búsqueda
+• Ocultar resultados
+• Volver al estado inicial
+• Cerrar panel de búsqueda masiva si estaba abierto
+4. RESUMEN DE EQUIPOS (CONTADORES)
+4.1 Visualización de Contadores
+• [ ] Verificar que aparece el contador "Total" con el número correcto de equipos
+• [ ] Verificar que aparece el contador "Vigentes" con fondo verde
+• [ ] Verificar que aparece el contador "Próx. a vencer" con fondo amarillo
+• [ ] Verificar que aparece el contador "Vencidos" con fondo rojo
+• [ ] Verificar que aparece el contador "Incompletos" con fondo gris
+4.2 Consistencia de Contadores
+• [ ] Sumar los contadores individuales → debe ser igual o menor al Total (un equipo puede tener
+múltiples estados)
+• [ ] Aplicar filtro "Vigentes" → la cantidad de resultados debe coincidir con el contador
+• [ ] Aplicar filtro "Próximos a vencer" → la cantidad debe coincidir con el contador
+• [ ] Aplicar filtro "Vencidos" → la cantidad debe coincidir con el contador
+• [ ] Aplicar filtro "Incompletos" → la cantidad debe coincidir con el contador
+5. FILTRO POR ESTADO
+5.1 Funcionamiento del Filtro
+• [ ] Seleccionar "Todos los estados" → debe mostrar todos los equipos
+• [ ] Seleccionar " Vigentes" → debe mostrar solo	✅ equipos completamente vigentes
+• [ ] Seleccionar " Próximos a vencer" → debe mostrar solo equipos con documentos por vencer
+• [ ] Seleccionar "? Vencidos" → debe mostrar solo equipos con documentos vencidos
+• [ ] Seleccionar " Incompletos" → debe mostrar	⚪ solo equipos con documentos faltantes
+• [ ] Cambiar filtro → debe resetear a página 1
+• [ ] Combinar filtro con búsqueda → debe aplicar ambos criterios
+
+-- 3 of 73 --
+
+6. LISTA DE EQUIPOS
+6.1 Información Mostrada
+• [ ] Cada equipo muestra la patente del camión
+• [ ] Si tiene acoplado, muestra "PATENTE_CAMION / PATENTE_ACOPLADO"
+• [ ] Muestra nombre y apellido del chofer
+• [ ] Muestra DNI del chofer
+• [ ] Muestra razón social de la empresa transportista
+• [ ] Muestra el estado con icono y color correspondiente:
+• Verde	✅ = Vigente
+• Amarillo = Próximo a vencer
+• Rojo	❌ = Vencido
+• Gris = Incompleto	⚪
+• [ ] Si tiene próximo vencimiento, muestra la fecha
+• [ ] Existe botón "Ver docs" en cada equipo
+6.2 Interacción con Equipos
+• [ ] Hacer clic en cualquier parte de la tarjeta del equipo → navega al detalle
+• [ ] Hacer clic en "Ver docs" → navega al detalle
+• [ ] Hover sobre tarjeta → debe mostrar efecto visual (shadow)
+7. PAGINACIÓN
+7.1 Navegación entre Páginas
+• [ ] Con más de 10 equipos → debe mostrar paginación
+• [ ] Verificar texto "Mostrando X - Y de Z equipos"
+• [ ] Verificar texto "Página N de M"
+• [ ] Botón "Anterior" deshabilitado en página 1
+• [ ] Botón "Siguiente" deshabilitado en última página
+• [ ] Hacer clic en "Siguiente" → carga página 2
+• [ ] Hacer clic en "Anterior" → vuelve a página 1
+• [ ] Al cambiar filtro, debe volver a página 1
+• [ ] Al buscar, debe volver a página 1
+
+-- 4 of 73 --
+
+8. DESCARGA ZIP MASIVA
+8.1 Botón de Descarga ZIP
+• [ ] Con equipos cargados, debe aparecer botón "Descargar ZIP (N equipos)"
+• [ ] Hacer clic → debe iniciar descarga de archivo ZIP
+• [ ] Durante descarga, botón debe mostrar "Iniciando descarga..."
+• [ ] El ZIP debe contener documentos de todos los equipos del resultado actual
+• [ ] Si hay filtro aplicado, el ZIP solo contiene equipos filtrados
+• [ ] Verificar que el ZIP se descarga correctamente (no corrupto)
+• [ ] Verificar estructura del ZIP: carpetas por equipo
+9. DETALLE DE EQUIPO
+9.1 Navegación
+• [ ] Hacer clic en un equipo → debe navegar a /cliente/equipos/:id
+• [ ] Botón "Volver" → debe regresar al listado
+• [ ] Con equipo inexistente → debe mostrar error "No se pudo cargar el detalle"
+9.2 Información del Equipo
+• [ ] Muestra título "Equipo {PATENTE}"
+• [ ] Sección "Información del Equipo" con:
+• Camión: patente, marca y modelo
+• Acoplado: patente (o "-" si no tiene)
+• Chofer: nombre, apellido, DNI (o "-" si no tiene)
+• Empresa Transportista: razón social
+9.3 Resumen de Documentos
+• [ ] Contador "Total" de documentos
+• [ ] Contador "Vigentes" en verde
+• [ ] Contador "Próx. vencer" en amarillo
+• [ ] Contador "Vencidos" en rojo
+• [ ] Suma de estados debe ser <= Total
+9.4 Aviso de Documentos Vencidos
+• [ ] Si hay documentos vencidos → mostrar banner rojo con mensaje:
+"Los documentos vencidos se muestran para referencia pero no están disponibles para descarga"
+
+-- 5 of 73 --
+
+• [ ] Si no hay vencidos → no mostrar el banner
+9.5 Documentos Agrupados por Entidad
+• [ ] Documentos del CHOFER agrupados con icono de persona
+• [ ] Documentos del CAMIÓN agrupados con icono de camión
+• [ ] Documentos del ACOPLADO agrupados con icono de camión
+• [ ] Documentos de la EMPRESA TRANSPORTISTA agrupados con icono de edificio
+• [ ] Cada grupo muestra el nombre/identificador de la entidad
+9.6 Lista de Documentos
+• [ ] Cada documento muestra:
+• Nombre del documento (templateName)
+• Fecha de vencimiento o "Sin vencimiento"
+• Estado con icono y color
+• Botón "Ver" (ojo)
+• Botón "Descargar" o icono deshabilitado si vencido
+10. DESCARGA DE DOCUMENTOS
+10.1 Ver Documento (Preview)
+• [ ] Hacer clic en botón "Ver" (ojo) → abre modal con preview del PDF
+• [ ] Preview funciona para documentos VIGENTES
+• [ ] Preview funciona para documentos PRÓXIMOS A VENCER
+• [ ] Preview funciona para documentos VENCIDOS (solo ver, no descargar)
+• [ ] Modal muestra el nombre del documento en el título
+• [ ] Botón X cierra el modal
+• [ ] Hacer clic fuera del modal lo cierra
+10.2 Descargar Documento Individual
+• [ ] Botón descargar habilitado para documentos VIGENTES → descarga PDF
+• [ ] Botón descargar habilitado para documentos PRÓXIMOS A VENCER → descarga PDF
+• [ ] Botón descargar DESHABILITADO para documentos VENCIDOS
+• [ ] Icono de "prohibido" en lugar de descarga para vencidos
+• [ ] Tooltip indica "Documento vencido - no disponible para descarga"
+10.3 Descargar Todo (ZIP del Equipo)
+• [ ] Botón "Descargar todo (ZIP)" visible si hay documentos descargables
+
+-- 6 of 73 --
+
+• [ ] Botón NO visible si todos los documentos están vencidos
+• [ ] Al hacer clic → descarga ZIP con todos los documentos vigentes
+• [ ] ZIP NO incluye documentos vencidos
+• [ ] Nombre del archivo: "{PATENTE}documentacion.zip"
+11. CASOS ESPECIALES
+11.1 Equipo sin Documentos
+• [ ] Equipo sin documentos aprobados → mostrar mensaje "No hay documentos aprobados
+disponibles"
+• [ ] No mostrar contadores vacíos (todos en 0)
+11.2 Equipo sin Acoplado
+• [ ] No mostrar " / " después de la patente del camión
+• [ ] En detalle, mostrar "-" en campo Acoplado
+11.3 Equipo sin Chofer
+• [ ] Mostrar "Sin chofer asignado" en la lista
+• [ ] En detalle, mostrar "-" en campo Chofer
+11.4 Cliente sin Equipos Asignados
+• [ ] Al "Listar Todos" → mostrar "No tienes equipos asignados actualmente"
+• [ ] Contadores no deben aparecer (no hay datos)
+11.5 Documentos sin Fecha de Vencimiento
+• [ ] Mostrar "Sin vencimiento" en lugar de fecha
+• [ ] Estado debe ser VIGENTE (no puede vencer)
+12. RENDIMIENTO Y UX
+12.1 Estados de Carga
+• [ ] Al buscar/listar → mostrar spinner de carga
+• [ ] Mensaje "Cargando equipos..." durante la carga
+• [ ] Al cargar detalle → mostrar spinner centrado
+• [ ] Mensaje "Cargando detalle..." durante la carga
+
+-- 7 of 73 --
+
+12.2 Manejo de Errores
+• [ ] Error de red → mostrar mensaje "Error al cargar datos"
+• [ ] Botón "Reintentar" visible en caso de error
+• [ ] Error 401 (no autorizado) → redirigir a login
+• [ ] Error 403 (prohibido) → mostrar mensaje apropiado
+12.3 Responsividad
+• [ ] Interfaz funciona correctamente en desktop (1920px)
+• [ ] Interfaz funciona correctamente en laptop (1366px)
+• [ ] Interfaz funciona correctamente en tablet (768px)
+• [ ] Interfaz funciona correctamente en móvil (375px)
+• [ ] Botones y campos de búsqueda se apilan correctamente en móvil
+• [ ] Tarjetas de equipos legibles en móvil
+• [ ] Modal de preview ocupa 90% de la pantalla
+12.4 Tema Oscuro (Dark Mode)
+• [ ] Si el sistema está en dark mode, la interfaz se adapta
+• [ ] Colores de fondo correctos en dark mode
+• [ ] Texto legible en dark mode
+• [ ] Contadores visibles con colores correctos en dark mode
+13. FECHAS Y FORMATOS
+13.1 Formato de Fechas
+• [ ] Fechas de vencimiento en formato argentino (DD/MM/YYYY)
+• [ ] "Próx. venc:" en formato correcto
+• [ ] "Asignado desde:" en formato correcto
+• [ ] "Vence:" en documentos en formato correcto
+14. DATOS DE PRUEBA RECOMENDADOS
+Para cubrir todos los casos, verificar que existan:
+• [ ] Al menos 1 equipo 100% VIGENTE (todos los documentos al día)
+• [ ] Al menos 1 equipo con documentos PRÓXIMOS A VENCER (< 30 días)
+• [ ] Al menos 1 equipo con documentos VENCIDOS
+• [ ] Al menos 1 equipo INCOMPLETO (faltan documentos)
+
+-- 8 of 73 --
+
+• [ ] Al menos 1 equipo sin acoplado
+• [ ] Al menos 1 equipo con 10+ documentos para probar scroll
+• [ ] Al menos 11 equipos para probar paginación
+• [ ] Al menos 1 documento sin fecha de vencimiento
+15. SEGURIDAD
+15.1 Acceso a Datos
+• [ ] Usuario CLIENTE A no puede ver equipos de CLIENTE B
+• [ ] No se puede acceder a documentos de equipos no asignados
+• [ ] URLs directas a equipos no asignados retornan error
+• [ ] No se expone información sensible en respuestas de error
+15.2 Descargas
+• [ ] No se pueden descargar documentos sin token válido
+• [ ] No se pueden descargar documentos de equipos no asignados
+• [ ] Descargas masivas solo incluyen equipos del cliente autenticado
+Lista de Pruebas - Portal Chofer
+1. AUTENTICACIÓN Y ACCESO
+1.1 Login
+• [ ] Ingresar con email y contraseña válidos de usuario CHOFER
+• [ ] Verificar que redirige correctamente al Dashboard del Chofer (/chofer)
+• [ ] Intentar ingresar con email válido pero contraseña incorrecta → debe mostrar error
+• [ ] Intentar ingresar con email inexistente → debe mostrar error
+• [ ] Verificar que el logo de BCA se muestra correctamente en la pantalla de login
+• [ ] Verificar que el token se almacena en localStorage tras login exitoso
+• [ ] Si tiene contraseña temporal, debe forzar cambio de contraseña
+1.2 Sesión
+• [ ] Verificar que la sesión persiste al refrescar la página (F5)
+• [ ] Verificar que al cerrar sesión se elimina el token y redirige al login
+
+-- 9 of 73 --
+
+• [ ] Verificar que al expirar el token se redirige al login automáticamente
+• [ ] Intentar acceder a /chofer sin sesión → debe redirigir a login
+1.3 Autorización - Accesos Permitidos
+• [ ] Puede acceder a /chofer (Dashboard Chofer)
+• [ ] Puede acceder a /documentos/consulta (Consulta de Equipos)
+• [ ] Puede acceder a /documentos/equipos/:id/editar (Editar Equipo - solo subir docs)
+• [ ] Puede acceder a /documentos/equipos/:id/estado (Ver Estado)
+• [ ] Puede acceder a /transportista (Portal Transportista)
+• [ ] Puede acceder a /perfil (Mi Perfil)
+1.4 Autorización - Accesos Restringidos
+• [ ] NO puede acceder a /admin/* (rutas de admin)
+• [ ] NO puede acceder a /platform-users (gestión de usuarios)
+• [ ] NO puede acceder a /cliente/* (portal cliente)
+• [ ] NO puede acceder a /dador/* (portal dador de carga)
+• [ ] NO puede acceder a /documentos/equipos/alta-completa → no
+visible en su dashboard
+• [ ] NO puede acceder a /portal/admin-interno (admin interno)
+• [ ] NO puede acceder a /empresas (gestión de empresas)
+2. DASHBOARD PRINCIPAL (/chofer)
+2.1 Interfaz Visual
+• [ ] Verificar que se muestra el logo de Grupo BCA (tamaño correcto h-32 md:h-40)
+• [ ] Verificar que el título dice "Portal Chofer"
+• [ ] Verificar que el subtítulo dice "Gestión de equipos y documentación"
+• [ ] Fondo con gradiente slate-50 a slate-100
+• [ ] Card informativa al final con mensaje de aprobación
+2.2 Tarjetas de Acciones
+• [ ] NO debe aparecer la tarjeta "Alta Completa de Equipo" (solo para otros roles)
+
+-- 10 of 73 --
+
+• [ ] DEBE aparecer la tarjeta "Consulta de Equipos"
+• [ ] Solo debe haber UNA tarjeta de acción principal (layout de 1 columna)
+2.3 Tarjeta "Consulta de Equipos"
+• [ ] Tiene icono de lupa (MagnifyingGlassIcon) en color verde
+• [ ] Título: "Consulta de Equipos"
+• [ ] Descripción: "Buscar equipos existentes y actualizar su documentación"
+• [ ] Lista de características:
+• "Buscar por DNI chofer, patente camión o acoplado"
+• "Ver estado completo de documentación"
+• "Actualizar documentos vencidos o faltantes"
+• [ ] Botón "Ir a Consulta" en verde
+• [ ] Hover: efecto de sombra y escala
+• [ ] Click en tarjeta → navega a /documentos/consulta
+• [ ] Click en botón → navega a /documentos/consulta
+2.4 Nota Informativa
+• [ ] Card oscura (slate-800/900) al final
+• [ ] Mensaje: "? Los documentos que subas quedan pendientes de aprobación por el Dador
+de Carga."
+• [ ] Texto visible y legible
+3. CONSULTA DE EQUIPOS (/documentos/consulta)
+3.1 Navegación y Layout
+• [ ] Botón "Volver" visible en la parte superior
+• [ ] Click en "Volver" → navega a /portal/transportistas (ruta de volver para chofer)
+• [ ] Título de página: "Consulta"
+3.2 Filtros - Visibilidad para Chofer
+• [ ] NO debe aparecer selector de "Dador de Carga" (skip query)
+• [ ] NO debe aparecer selector de "Cliente" (skip query)
+• [ ] NO debe aparecer selector de "Empresa Transportista" (skip query)
+• [ ] NO deben aparecer los botones de tipo de filtro (Todos, Por Dador, Por Cliente, Por
+Empresa)
+• [ ] El backend filtra automáticamente por el choferId del usuario
+
+-- 11 of 73 --
+
+3.3 Filtros Disponibles para Chofer
+• [ ] Campo "DNI Chofer" visible y funcional
+• [ ] Campo "Patente Camión" visible y funcional
+• [ ] Campo "Patente Acoplado" visible y funcional
+• [ ] Filtro "Estado de equipos" (Solo Activos / Solo Inactivos / Todos)
+• [ ] Botón "Buscar" siempre habilitado (no depende de selección de entidad)
+• [ ] Botón "Limpiar" visible
+3.4 Búsqueda
+• [ ] Al hacer clic en "Buscar" → solo muestra equipos del chofer autenticado
+• [ ] Buscar por DNI propio → encuentra sus equipos
+• [ ] Buscar por patente de camión → encuentra sus equipos con esa patente
+• [ ] Buscar por patente de acoplado → encuentra sus equipos con ese acoplado
+• [ ] Buscar con DNI de otro chofer → no debe encontrar nada (filtro por choferId)
+• [ ] Filtrar "Solo Activos" → muestra solo equipos activos
+• [ ] Filtrar "Solo Inactivos" → muestra solo equipos inactivos
+• [ ] Filtrar "Todos" → muestra activos e inactivos
+3.5 Búsqueda Masiva
+• [ ] Botón "? Buscar por DNIs o Patentes" visible
+• [ ] Click → abre modal de búsqueda masiva
+• [ ] Ingresar múltiples patentes → busca todas (filtradas por su choferId)
+• [ ] Separar valores por coma, espacio o salto de línea
+• [ ] Botón "Cancelar" cierra el modal
+• [ ] Click fuera del modal lo cierra
+4. DASHBOARD DE ESTADO DOCUMENTAL
+4.1 Contadores (después de buscar)
+• [ ] Aparece panel con 4 contadores después de ejecutar búsqueda
+• [ ] Contador "Total" (azul) - número total de equipos
+• [ ] Contador "Faltantes" (rojo) - equipos con documentos faltantes
+• [ ] Contador "Vencidos" (naranja) - equipos con documentos vencidos
+• [ ] Contador "Por Vencer" (amarillo) - equipos con documentos por vencer
+4.2 Filtros por Estado Documental
+• [ ] Click en "Total" → filtra por todos (quita filtro)
+
+-- 12 of 73 --
+
+• [ ] Click en "Faltantes" → filtra solo equipos con doc. faltante
+• [ ] Click en "Vencidos" → filtra solo equipos con doc. vencida
+• [ ] Click en "Por Vencer" → filtra solo equipos con doc. por vencer
+• [ ] Click dos veces en mismo contador → quita filtro
+• [ ] Indicador visual del filtro activo (badge con color)
+• [ ] Enlace "Quitar filtro" funcional
+5. LISTA DE EQUIPOS
+5.1 Información de Cada Equipo
+• [ ] Muestra "Equipo #ID"
+• [ ] Muestra estado del equipo (activa/inactiva)
+• [ ] Badge "Activo" (verde) o "Inactivo" (rojo)
+• [ ] Muestra DNI del chofer normalizado
+• [ ] Muestra patente del camión normalizada
+• [ ] Muestra patente del acoplado (o "-" si no tiene)
+• [ ] Muestra clientes asignados (si los hay)
+• [ ] Equipos inactivos aparecen con opacidad reducida (opacity-50)
+5.2 Semáforo de Documentación
+• [ ] Cada equipo muestra el semáforo con 4 indicadores:
+• ? Faltantes (rojo) con cantidad
+• ? Vencidos (naranja) con cantidad
+• ? Por vencer (amarillo) con cantidad
+• ? Vigentes (verde) con cantidad
+• [ ] Los contadores son correctos según el estado real
+5.3 Acciones por Equipo
+• [ ] Botón " Editar" → navega a /documentos/equipos/:id/editar
+• [ ] Botón "Bajar documentación" → descarga ZIP de documentos vigentes
+• [ ] Botón "Ver estado" → navega a /documentos/equipos/:id/estado
+• [ ] Botón " Desactivar"	⏸ (si está activo) → desactiva el equipo
+• [ ] Botón " Activar"	▶ (si está inactivo) → activa el equipo
+• [ ] Botón "Eliminar" (rojo) → solicita confirmación y elimina
+
+-- 13 of 73 --
+
+6. PAGINACIÓN
+6.1 Controles de Paginación
+• [ ] Con más de 10 equipos → muestra paginación
+• [ ] Texto "Mostrando X - Y de Z equipos"
+• [ ] Texto "Página N de M"
+• [ ] Botón "←" (anterior) deshabilitado en página 1
+• [ ] Botón "→" (siguiente) deshabilitado en última página
+• [ ] Navegación entre páginas funciona correctamente
+• [ ] Al aplicar filtro → vuelve a página 1
+7. DESCARGA DE DOCUMENTACIÓN
+7.1 Descarga Individual
+• [ ] Botón "Bajar documentación" en cada equipo
+• [ ] Durante descarga muestra " Preparando..."	⏳
+• [ ] Descarga archivo ZIP con nombre equipo_{ID}.zip
+• [ ] Solo incluye documentos vigentes/aprobados
+• [ ] ZIP no vacío si hay documentos
+7.2 Descarga Masiva
+• [ ] Botón "Bajar documentación vigente (ZIP)" visible después de buscar
+• [ ] Deshabilitado si no hay resultados
+• [ ] Durante descarga muestra " Preparando archivos..."	⏳
+• [ ] Descarga ZIP de TODOS los equipos del resultado
+• [ ] Si hay filtro aplicado, solo incluye equipos filtrados
+8. EDITAR EQUIPO (/documentos/equipos/:id/editar)
+8.1 Acceso y Permisos - Lo que NO puede hacer
+• [ ] NO puede cambiar el chofer asignado (selector deshabilitado o no visible)
+• [ ] NO puede cambiar el camión (selector deshabilitado o no visible)
+• [ ] NO puede cambiar el acoplado (selector deshabilitado o no visible)
+• [ ] NO puede cambiar la empresa transportista
+
+-- 14 of 73 --
+
+• [ ] NO puede crear nuevas entidades (chofer, camión, acoplado, empresa)
+• [ ] NO puede gestionar clientes asignados (sección no visible o deshabilitada)
+• [ ] NO ve botones de "+ Crear" para entidades
+8.2 Acceso y Permisos - Lo que SÍ puede hacer
+• [ ] PUEDE ver información del equipo (solo lectura)
+• [ ] PUEDE subir documentos
+• [ ] PUEDE ver el estado de los documentos
+• [ ] PUEDE reemplazar documentos existentes
+• [ ] PUEDE volver atrás
+8.3 Información del Equipo (Solo Lectura)
+• [ ] Muestra patente del camión (marca/modelo si disponible)
+• [ ] Muestra patente del acoplado
+• [ ] Muestra nombre del chofer y DNI
+• [ ] Muestra empresa transportista
+• [ ] Información no editable
+8.4 Subida de Documentos
+• [ ] Sección de documentos visible
+• [ ] Puede seleccionar tipo de documento a subir
+• [ ] Puede subir archivo PDF/imagen
+• [ ] Puede ingresar fecha de vencimiento (si aplica)
+• [ ] Botón "Subir" funcional
+• [ ] Mensaje de éxito al subir documento
+• [ ] Documento queda en estado "PENDIENTE" (pendiente de aprobación)
+8.5 Tipos de Documentos
+• [ ] Puede subir documentos de CHOFER (propios)
+• [ ] Puede subir documentos de CAMIÓN
+• [ ] Puede subir documentos de ACOPLADO (si tiene)
+• [ ] Puede subir documentos de EMPRESA TRANSPORTISTA
+• [ ] Lista de templates según requerimientos del cliente
+8.6 Estado de Documentos en Edición
+• [ ] Ver documentos vigentes con indicador verde
+• [ ] Ver documentos próximos a vencer con indicador amarillo
+• [ ] Ver documentos vencidos con indicador rojo
+• [ ] Ver documentos faltantes listados
+
+-- 15 of 73 --
+
+• [ ] Ver documentos pendientes de aprobación
+9. VER ESTADO DEL EQUIPO
+(/documentos/equipos/:id/estado)
+9.1 Navegación
+• [ ] Accesible desde botón "Ver estado" en consulta
+• [ ] Botón "Volver" funcional
+• [ ] Título con información del equipo
+9.2 Resumen de Compliance
+• [ ] Muestra resumen por cliente asignado
+• [ ] Para cada cliente:
+• Lista de documentos requeridos
+• Estado de cada documento (OK, VENCIDO, FALTANTE, PRÓXIMO)
+• Fecha de vencimiento si aplica
+9.3 Detalle por Entidad
+• [ ] Sección CHOFER con sus documentos
+• [ ] Sección CAMIÓN con sus documentos
+• [ ] Sección ACOPLADO con sus documentos (si tiene)
+• [ ] Sección EMPRESA TRANSPORTISTA con sus documentos
+9.4 Visualización de Estados
+• [ ] Verde ( ) para	✅ documentos vigentes
+• [ ] Amarillo (⚠️ ) para documentos próximos a vencer
+• [ ] Rojo ( ) para documentos vencidos	❌
+• [ ] Gris para documentos faltantes
+10. ACTIVAR/DESACTIVAR EQUIPO
+10.1 Desactivar Equipo
+• [ ] Botón " Desactivar" visible	⏸ en equipos activos
+• [ ] Click → desactiva el equipo
+• [ ] Toast de confirmación: "Equipo desactivado exitosamente"
+
+-- 16 of 73 --
+
+• [ ] Equipo aparece ahora con badge "Inactivo" y opacidad reducida
+• [ ] Botón cambia a " Activar"	▶
+10.2 Activar Equipo
+• [ ] Botón " Activar" visible en equipos	▶ inactivos
+• [ ] Click → activa el equipo
+• [ ] Toast de confirmación: "Equipo activado exitosamente"
+• [ ] Equipo aparece ahora con badge "Activo" y opacidad normal
+• [ ] Botón cambia a " Desactivar"	⏸
+11. ELIMINAR EQUIPO
+11.1 Confirmación
+• [ ] Botón "Eliminar" (rojo) en cada equipo
+• [ ] Click → abre diálogo de confirmación
+• [ ] Título: "Eliminar equipo"
+• [ ] Mensaje: "¿Eliminar equipo #ID? Esta acción es irreversible."
+• [ ] Botón "Eliminar" (peligro) y "Cancelar"
+11.2 Ejecución
+• [ ] Click "Cancelar" → cierra el diálogo, no elimina
+• [ ] Click "Eliminar" → elimina el equipo
+• [ ] Toast de confirmación: "Equipo eliminado"
+• [ ] Equipo desaparece de la lista
+• [ ] Datos relacionados se manejan apropiadamente
+12. MI PERFIL (/perfil)
+12.1 Información del Usuario
+• [ ] Muestra nombre del usuario
+• [ ] Muestra email
+• [ ] Muestra rol: "CHOFER"
+• [ ] Muestra datos asociados (DNI, empresa, etc.)
+
+-- 17 of 73 --
+
+12.2 Cambiar Contraseña
+• [ ] Formulario para cambiar contraseña
+• [ ] Campo contraseña actual
+• [ ] Campo nueva contraseña
+• [ ] Campo confirmar nueva contraseña
+• [ ] Validaciones de contraseña
+• [ ] Mensaje de éxito al cambiar
+13. FLUJO DE DOCUMENTOS PENDIENTES
+13.1 Subida de Documento
+• [ ] Al subir un documento → estado inicial "PENDIENTE"
+• [ ] Documento aparece en la lista pero con indicador de pendiente
+• [ ] No afecta el compliance hasta ser aprobado
+13.2 Visualización de Pendientes
+• [ ] Documentos pendientes visibles en edición
+• [ ] Indicador visual diferenciado (ej: badge "Pendiente")
+• [ ] Información de que está esperando aprobación
+14. CASOS ESPECIALES
+14.1 Chofer sin Equipos
+• [ ] Al buscar → mensaje "Sin resultados para los criterios de filtro seleccionados"
+• [ ] Dashboard de estados no aparece si no hay resultados
+• [ ] Botón de descarga masiva deshabilitado
+14.2 Equipo sin Acoplado
+• [ ] Patente de acoplado muestra "-"
+• [ ] Sección de documentos de acoplado no aparece o está vacía
+• [ ] No afecta la visualización del resto del equipo
+14.3 Múltiples Clientes Asignados
+• [ ] Lista de clientes visible en cada equipo
+• [ ] En estado de equipo, compliance separado por cliente
+
+-- 18 of 73 --
+
+• [ ] Puede tener diferentes requerimientos por cliente
+14.4 Chofer con Múltiples Equipos
+• [ ] Todos los equipos aparecen en la búsqueda
+• [ ] Paginación si hay más de 10
+• [ ] Puede filtrar entre ellos
+15. RENDIMIENTO Y UX
+15.1 Estados de Carga
+• [ ] Spinner de carga al buscar equipos
+• [ ] Mensaje "Buscando equipos..." durante la carga
+• [ ] Mensaje "Calculando estado de compliance" visible
+• [ ] Spinner al cargar detalle de equipo
+• [ ] Spinner al cargar estado de equipo
+15.2 Manejo de Errores
+• [ ] Error de red → mensaje de error apropiado
+• [ ] Error 401 → redirigir a login
+• [ ] Error 403 → mensaje de acceso denegado
+• [ ] Error al subir documento → mensaje de error
+• [ ] Error al descargar → mensaje de error
+15.3 Feedback Visual
+• [ ] Toast de éxito en operaciones exitosas (activar, desactivar, eliminar, subir)
+• [ ] Toast de error en operaciones fallidas
+• [ ] Hover effects en tarjetas y botones
+• [ ] Transiciones suaves en cambios de estado
+15.4 Responsividad
+• [ ] Dashboard funciona en desktop (1920px)
+• [ ] Dashboard funciona en laptop (1366px)
+• [ ] Dashboard funciona en tablet (768px)
+• [ ] Dashboard funciona en móvil (375px)
+• [ ] Botones se apilan correctamente en móvil
+• [ ] Tablas/listas son scrolleables en móvil
+
+-- 19 of 73 --
+
+15.5 Tema Oscuro
+• [ ] Dashboard soporta dark mode
+• [ ] Colores correctos en dark mode
+• [ ] Texto legible en dark mode
+• [ ] Semáforo visible en dark mode
+16. SEGURIDAD
+16.1 Aislamiento de Datos
+• [ ] Solo ve equipos donde está asignado como chofer
+• [ ] No puede ver equipos de otros choferes
+• [ ] No puede ver documentos de equipos no asignados
+• [ ] No puede descargar documentos de equipos no asignados
+16.2 Permisos de Escritura
+• [ ] Solo puede subir documentos, no eliminarlos directamente
+• [ ] Documentos subidos quedan pendientes de aprobación
+• [ ] No puede aprobar sus propios documentos
+• [ ] No puede modificar entidades (solo documentos)
+16.3 Acciones Protegidas
+• [ ] Eliminar equipo requiere confirmación
+• [ ] Acciones registradas en auditoría (si aplica)
+• [ ] Token requerido para todas las operaciones
+17. DATOS DE PRUEBA RECOMENDADOS
+Para cubrir todos los casos, verificar que existan:
+• [ ] Al menos 1 equipo activo del chofer con todos los documentos vigentes
+• [ ] Al menos 1 equipo activo con documentos próximos a vencer
+• [ ] Al menos 1 equipo activo con documentos vencidos
+• [ ] Al menos 1 equipo activo con documentos faltantes
+• [ ] Al menos 1 equipo inactivo
+• [ ] Al menos 1 equipo sin acoplado
+• [ ] Al menos 1 equipo con múltiples clientes asignados
+• [ ] Al menos 11 equipos para probar paginación (si es posible)
+
+-- 20 of 73 --
+
+• [ ] Documentos con diferentes fechas de vencimiento
+• [ ] Al menos 1 documento pendiente de aprobación
+18. INTEGRACIÓN CON OTROS ROLES
+18.1 Documentos Pendientes → Dador de Carga
+• [ ] Documento subido por chofer aparece en pendientes del dador
+• [ ] Cuando dador aprueba, el documento pasa a "APROBADO"
+• [ ] Cuando dador rechaza, el documento se marca como "RECHAZADO"
+• [ ] Estado de compliance se actualiza al aprobar
+18.2 Visibilidad para Transportista
+• [ ] Transportista puede ver los equipos del chofer
+• [ ] Transportista puede gestionar al chofer
+Lista de Pruebas -
+Portal Empresa Transportista
+1. AUTENTICACIÓN Y ACCESO
+1.1 Login
+• [ ] Ingresar con email y contraseña válidos de usuario TRANSPORTISTA
+• [ ] Verificar que redirige correctamente al Dashboard (/transportista)
+• [ ] Intentar ingresar con email válido pero contraseña incorrecta → debe mostrar error
+• [ ] Intentar ingresar con email inexistente → debe mostrar error
+• [ ] Verificar que el logo de BCA se muestra correctamente en la pantalla de login
+• [ ] Verificar que el token se almacena en localStorage tras login exitoso
+• [ ] Si tiene contraseña temporal, debe forzar cambio de contraseña
+1.2 Sesión
+• [ ] Verificar que la sesión persiste al refrescar la página (F5)
+• [ ] Verificar que al cerrar sesión se elimina el token y redirige al login
+• [ ] Verificar que al expirar el token se redirige al login automáticamente
+• [ ] Intentar acceder a /transportista sin sesión → debe redirigir a login
+
+-- 21 of 73 --
+
+1.3 Autorización - Accesos Permitidos
+• [ ] Puede acceder a /transportista (Dashboard)
+• [ ] Puede acceder a /documentos/consulta (Consulta de Equipos)
+• [ ] Puede acceder a /documentos/equipos/alta-completa (Alta Completa)
+• [ ] Puede acceder a /documentos/equipos/:id/editar (Editar Equipo)
+• [ ] Puede acceder a /documentos/equipos/:id/estado (Ver Estado)
+• [ ] Puede acceder a /platform-users (Gestión de Usuarios - solo choferes)
+• [ ] Puede acceder a /chofer (Portal Chofer)
+• [ ] Puede acceder a /perfil (Mi Perfil)
+1.4 Autorización - Accesos Restringidos
+• [ ] NO puede acceder a /admin/* (rutas de admin)
+• [ ] NO puede acceder a /cliente/* (portal cliente)
+• [ ] NO puede acceder a /dador/* (portal dador de carga)
+• [ ] NO puede acceder a /portal/admin-interno (admin interno)
+• [ ] NO puede acceder a /empresas (gestión de empresas)
+• [ ] NO puede acceder a /end-users (usuarios finales)
+• [ ] NO puede ver/crear usuarios TRANSPORTISTA
+• [ ] NO puede ver/crear usuarios DADOR_DE_CARGA
+• [ ] NO puede ver/crear usuarios ADMIN_INTERNO
+2. DASHBOARD PRINCIPAL (/transportista)
+2.1 Interfaz Visual
+• [ ] Verificar que se muestra el logo de Grupo BCA (tamaño h-32 md:h-40)
+• [ ] Verificar que el título dice "Portal Empresa Transportista"
+• [ ] Verificar que el subtítulo dice "Gestión de equipos y documentación"
+• [ ] Fondo con gradiente slate-50 a slate-100 (light) / slate-900 a slate-800 (dark)
+• [ ] Layout centrado con max-w-6xl
+2.2 Tarjeta "Alta Completa de Equipo"
+• [ ] Visible con icono de camión (TruckIcon) en azul
+
+-- 22 of 73 --
+
+• [ ] Título: "Alta Completa de Equipo"
+• [ ] Descripción: "Registrar nuevo equipo con toda su documentación"
+• [ ] Lista de características:
+• "Carga de chofer"
+• "Registro de camión y acoplado"
+• "Subida de todos los documentos requeridos"
+• [ ] Botón "Iniciar Alta Completa" en azul
+• [ ] Hover: efecto de sombra, escala 1.02, borde azul
+• [ ] Click en tarjeta → navega a /documentos/equipos/alta-completa
+• [ ] Click en botón → navega a /documentos/equipos/alta-completa
+2.3 Tarjeta "Consulta de Equipos"
+• [ ] Visible con icono de lupa (MagnifyingGlassIcon) en verde
+• [ ] Título: "Consulta de Equipos"
+• [ ] Descripción: "Buscar equipos existentes y actualizar su documentación"
+• [ ] Lista de características:
+• "Buscar por DNI chofer, patente camión o acoplado"
+• "Ver estado completo de documentación"
+• "Actualizar documentos vencidos o faltantes"
+• [ ] Botón "Ir a Consulta" en verde
+• [ ] Hover: efecto de sombra, escala 1.02, borde verde
+• [ ] Click en tarjeta → navega a /documentos/consulta
+• [ ] Click en botón → navega a /documentos/consulta
+2.4 Nota Informativa
+• [ ] Card oscura (slate-800/900) al final
+• [ ] Mensaje: "? Los documentos que subas quedan pendientes de aprobación por el Dador de
+Carga."
+• [ ] Texto visible y legible en color slate-300
+3. ALTA COMPLETA DE EQUIPO
+(/documentos/equipos/alta-completa)
+3.1 Navegación
+• [ ] Botón "Volver" visible y funcional
+• [ ] Click en "Volver" → navega al home del rol (/transportista)
+
+-- 23 of 73 --
+
+3.2 Selector de Dador de Carga
+• [ ] Campo "Dador de Carga" visible
+• [ ] Pre-seleccionado automáticamente con el dador asociado al transportista
+• [ ] NO editable si el transportista ya tiene dador asignado
+• [ ] Si tiene selector, solo muestra dadores activos
+3.3 Selector de Clientes
+• [ ] Selector múltiple de clientes visible
+• [ ] Puede seleccionar uno o más clientes
+• [ ] Solo muestra clientes activos
+3.4 Datos de Empresa Transportista
+• [ ] Campo "Razón Social" obligatorio
+• [ ] Campo "CUIT" obligatorio (11 dígitos)
+• [ ] Validación de formato CUIT
+• [ ] Si la empresa ya existe (por CUIT), la asocia; si no, la crea
+3.5 Datos del Chofer
+• [ ] Campo "Nombre" obligatorio
+• [ ] Campo "Apellido" obligatorio
+• [ ] Campo "DNI" obligatorio (mínimo 6 caracteres)
+• [ ] Campo "Teléfonos" opcional
+• [ ] Validación de DNI
+• [ ] Si el chofer ya existe (por DNI), lo asocia; si no, lo crea
+3.6 Datos del Camión (Tractor)
+• [ ] Campo "Patente" obligatorio (mínimo 5 caracteres)
+• [ ] Campo "Marca" opcional
+• [ ] Campo "Modelo" opcional
+• [ ] Validación de formato de patente
+• [ ] Si el camión ya existe (por patente), lo asocia; si no, lo crea
+3.7 Datos del Acoplado (Semi) - Opcional
+• [ ] Campo "Patente" opcional
+• [ ] Campo "Tipo" opcional
+• [ ] Si no se ingresa patente, no se requieren documentos de acoplado
+• [ ] Si se ingresa patente (mínimo 5 chars), se requieren documentos de acoplado
+
+-- 24 of 73 --
+
+3.8 Sección de Documentos - Empresa Transportista
+• [ ] Lista todos los templates de tipo EMPRESA_TRANSPORTISTA
+• [ ] Cada documento tiene:
+• Nombre del documento
+• Botón para seleccionar archivo
+• Campo de fecha de vencimiento
+• [ ] Todos los documentos son obligatorios
+• [ ] Puede seleccionar archivos PDF/imagen
+• [ ] Fecha de vencimiento obligatoria para cada documento
+3.9 Sección de Documentos - Chofer
+• [ ] Lista todos los templates de tipo CHOFER
+• [ ] Cada documento tiene selector de archivo y fecha de vencimiento
+• [ ] Todos los documentos son obligatorios
+• [ ] Puede previsualizar archivos seleccionados
+3.10 Sección de Documentos - Camión
+• [ ] Lista todos los templates de tipo CAMION
+• [ ] Cada documento tiene selector de archivo y fecha de vencimiento
+• [ ] Todos los documentos son obligatorios
+3.11 Sección de Documentos - Acoplado (si tiene patente)
+• [ ] Lista todos los templates de tipo ACOPLADO
+• [ ] Solo aparece si se ingresó patente de acoplado
+• [ ] Cada documento tiene selector de archivo y fecha de vencimiento
+• [ ] Todos los documentos son obligatorios si hay acoplado
+3.12 Barra de Progreso
+• [ ] Muestra porcentaje de documentos seleccionados
+• [ ] Se actualiza en tiempo real al seleccionar archivos
+• [ ] 100% cuando todos los documentos obligatorios tienen archivo Y fecha
+3.13 Validaciones Previas al Envío
+• [ ] Botón "Crear Equipo" deshabilitado si:
+• Faltan datos básicos obligatorios
+• Faltan documentos obligatorios
+• Faltan fechas de vencimiento
+• [ ] Mensaje de error si hay documentos sin fecha de vencimiento
+• [ ] Mensaje de error si hay datos incompletos
+
+-- 25 of 73 --
+
+3.14 Creación del Equipo
+• [ ] Click en "Crear Equipo" → inicia proceso transaccional
+• [ ] Muestra spinner/loading durante la creación
+• [ ] Crea todas las entidades (empresa, chofer, camión, acoplado)
+• [ ] Sube todos los documentos
+• [ ] Si falla algún paso → rollback automático
+• [ ] Si todo OK → mensaje de éxito
+• [ ] Documentos quedan en estado PENDIENTE
+3.15 Manejo de Errores en Alta
+• [ ] Error de validación → mensaje específico
+• [ ] Error de duplicado (DNI, patente existente) → mensaje apropiado
+• [ ] Error de red → mensaje de error y posibilidad de reintentar
+• [ ] Rollback exitoso → mensaje informativo
+4. CONSULTA DE EQUIPOS (/documentos/consulta)
+4.1 Navegación
+• [ ] Botón "Volver" visible
+• [ ] Click en "Volver" → navega a /portal/transportistas
+• [ ] Título de página: "Consulta"
+4.2 Filtros de Entidad
+• [ ] Botones de tipo de filtro visibles:
+• "Todos los equipos"
+• "Por Dador"
+• "Por Cliente"
+• "Por Empresa Transp."
+• [ ] Selector de Dador visible cuando filtro = "Por Dador"
+• [ ] Selector de Cliente visible cuando filtro = "Por Cliente"
+• [ ] Selector de Empresa Transp. visible cuando filtro = "Por Empresa"
+4.3 Filtro por Estado de Equipos
+• [ ] Botones "Solo Activos", "Solo Inactivos", "Todos"
+• [ ] Por defecto: "Todos"
+• [ ] Filtro se aplica correctamente
+
+-- 26 of 73 --
+
+4.4 Filtros Adicionales
+• [ ] Campo "DNI Chofer" funcional
+• [ ] Campo "Patente Camión" funcional
+• [ ] Campo "Patente Acoplado" funcional
+• [ ] Campos son opcionales (pueden estar vacíos)
+4.5 Búsqueda
+• [ ] Botón "Buscar" ejecuta la búsqueda
+• [ ] Botón "Limpiar" resetea todos los filtros
+• [ ] Búsqueda respeta todos los filtros combinados
+• [ ] Resultados paginados (10 por página)
+4.6 Búsqueda Masiva
+• [ ] Botón "? Buscar por DNIs o Patentes" visible
+• [ ] Click → abre modal de búsqueda masiva
+• [ ] Textarea para ingresar múltiples valores
+• [ ] Separadores: coma, espacio, salto de línea
+• [ ] Botón "Buscar" ejecuta búsqueda masiva
+• [ ] Botón "Cancelar" cierra modal
+• [ ] Límite máximo de valores (si aplica)
+5. DASHBOARD DE ESTADO DOCUMENTAL
+5.1 Contadores (después de buscar)
+• [ ] Panel con 4 contadores aparece después de buscar
+• [ ] "Total" (azul) - total de equipos
+• [ ] "Faltantes" (rojo) - equipos con docs faltantes
+• [ ] "Vencidos" (naranja) - equipos con docs vencidos
+• [ ] "Por Vencer" (amarillo) - equipos con docs por vencer
+5.2 Filtros por Estado Documental
+• [ ] Click en contador aplica/quita filtro
+• [ ] Indicador visual del filtro activo
+• [ ] Enlace "Quitar filtro" funcional
+• [ ] Cambio de filtro resetea página a 1
+
+-- 27 of 73 --
+
+6. LISTA DE EQUIPOS
+6.1 Información de Cada Equipo
+• [ ] "Equipo #ID" visible
+• [ ] Estado del equipo (activa/inactiva)
+• [ ] Badge "Activo" (verde) o "Inactivo" (rojo)
+• [ ] DNI del chofer normalizado
+• [ ] Patente del camión normalizada
+• [ ] Patente del acoplado (o "-")
+• [ ] Clientes asignados (si los hay)
+• [ ] Equipos inactivos con opacidad reducida
+6.2 Semáforo de Documentación
+• [ ] ? Faltantes con cantidad
+• [ ] ? Vencidos con cantidad
+• [ ] ? Por vencer con cantidad
+• [ ] ? Vigentes con cantidad
+6.3 Acciones por Equipo
+• [ ] Botón " Editar" → navega a edición
+• [ ] Botón "Bajar documentación" → descarga ZIP
+• [ ] Botón "Ver estado" → navega a estado
+• [ ] Botón " Desactivar"	⏸ / " Activar"	▶
+• [ ] Botón "Eliminar" (rojo) con confirmación
+7. EDITAR EQUIPO (/documentos/equipos/:id/editar)
+7.1 Permisos del Transportista
+• [ ] canEdit = true - PUEDE modificar entidades
+• [ ] canManageClients = false - NO puede gestionar clientes
+• [ ] canUploadDocs = true - PUEDE subir documentos
+7.2 Información del Equipo (Lectura)
+• [ ] Muestra patente camión con marca/modelo
+• [ ] Muestra patente acoplado
+
+-- 28 of 73 --
+
+• [ ] Muestra nombre chofer y DNI
+• [ ] Muestra empresa transportista
+7.3 Modificar Chofer
+• [ ] Selector de choferes visible
+• [ ] Lista choferes de la empresa transportista
+• [ ] Botón "Cambiar" para aplicar cambio
+• [ ] Botón "+" para crear nuevo chofer
+• [ ] Modal de creación de chofer funcional
+• [ ] Opción de crear cuenta de usuario para chofer
+• [ ] Contraseña temporal mostrada al crear usuario
+7.4 Modificar Camión
+• [ ] Selector de camiones visible
+• [ ] Lista camiones disponibles
+• [ ] Botón "Cambiar" para aplicar cambio
+• [ ] Botón "+" para crear nuevo camión
+• [ ] Modal de creación de camión funcional
+7.5 Modificar Acoplado
+• [ ] Selector de acoplados visible
+• [ ] Lista acoplados disponibles
+• [ ] Botón "Cambiar" para aplicar cambio
+• [ ] Botón "+" para crear nuevo acoplado
+• [ ] Modal de creación de acoplado funcional
+• [ ] Opción de "Sin acoplado"
+7.6 Modificar Empresa Transportista
+• [ ] Selector de empresas visible
+• [ ] Lista empresas transportistas
+• [ ] Botón "Cambiar" para aplicar cambio
+• [ ] Botón "+" para crear nueva empresa
+• [ ] Modal de creación de empresa funcional
+• [ ] Opción de crear cuenta de usuario para transportista
+7.7 Gestión de Clientes (Restringido)
+• [ ] Sección de clientes NO visible o deshabilitada
+• [ ] NO puede agregar clientes al equipo
+• [ ] NO puede quitar clientes del equipo
+
+-- 29 of 73 --
+
+• [ ] Solo Admin/Dador pueden gestionar clientes
+7.8 Subida de Documentos
+• [ ] Sección de documentos visible
+• [ ] Documentos agrupados por entidad (Chofer, Camión, Acoplado, Empresa)
+• [ ] Para cada documento requerido:
+• Estado actual (Vigente/Vencido/Faltante/Por vencer)
+• Fecha de vencimiento actual
+• Botón para subir nuevo documento
+• Campo para fecha de vencimiento
+• [ ] Puede subir documentos para cualquier entidad
+• [ ] Puede renovar documentos antes de vencer
+• [ ] Documentos subidos quedan en estado PENDIENTE
+7.9 Validaciones de Subida
+• [ ] Archivos válidos: PDF, imágenes
+• [ ] Tamaño máximo de archivo respetado
+• [ ] Fecha de vencimiento obligatoria (si aplica)
+• [ ] Mensaje de éxito al subir
+• [ ] Mensaje de error si falla
+8. VER ESTADO DEL EQUIPO
+(/documentos/equipos/:id/estado)
+8.1 Navegación
+• [ ] Accesible desde "Ver estado" en consulta
+• [ ] Botón "Volver" funcional
+• [ ] Título con información del equipo
+8.2 Resumen por Cliente
+• [ ] Lista de clientes asignados
+• [ ] Para cada cliente:
+• Nombre/razón social
+• Documentos requeridos
+• Estado de cada documento
+
+-- 30 of 73 --
+
+8.3 Detalle por Entidad
+• [ ] Sección CHOFER con documentos
+• [ ] Sección CAMIÓN con documentos
+• [ ] Sección ACOPLADO con documentos (si tiene)
+• [ ] Sección EMPRESA TRANSPORTISTA con documentos
+8.4 Estados de Documentos
+• [ ] Verde	✅ = Vigente/OK
+• [ ] Amarillo = Próximo a vencer
+• [ ] Rojo	❌ = Vencido
+• [ ] Gris = Faltante	⚪
+9. GESTIÓN DE USUARIOS (/platform-users)
+9.1 Acceso y Permisos
+• [ ] Puede acceder a la página de gestión de usuarios
+• [ ] Solo ve usuarios CHOFER de su empresa transportista
+• [ ] NO ve usuarios de otras empresas transportistas
+• [ ] NO ve usuarios TRANSPORTISTA, DADOR, ADMIN
+9.2 Crear Usuario CHOFER
+• [ ] Botón "Nuevo Usuario" visible
+• [ ] Al seleccionar rol CHOFER:
+• Dador de Carga: automático (no editable)
+• Empresa Transportista: automático (no editable)
+• Selector de chofer existente O crear nuevo
+• [ ] Modo "Chofer Existente":
+• Lista solo choferes de su empresa
+• Puede seleccionar chofer de la lista
+• [ ] Modo "Crear Nuevo Chofer":
+• Campos: DNI, Nombre, Apellido
+• Email obligatorio para crear cuenta
+• Crea entidad chofer + usuario en un paso
+• [ ] Contraseña temporal generada automáticamente
+• [ ] Contraseña mostrada una sola vez
+• [ ] Mensaje de éxito al crear
+
+-- 31 of 73 --
+
+9.3 NO Puede Crear Otros Roles
+• [ ] Rol TRANSPORTISTA: no visible o deshabilitado
+• [ ] Rol DADOR_DE_CARGA: no visible
+• [ ] Rol ADMIN_INTERNO: no visible
+• [ ] Rol CLIENTE: no visible
+9.4 Editar Usuario CHOFER
+• [ ] Puede editar usuarios CHOFER de su empresa
+• [ ] Campos editables:
+• Nombre
+• Apellido
+• Contraseña (generar nueva temporal)
+• [ ] Campos NO editables:
+• Email
+• Rol
+• Dador de Carga
+• Empresa Transportista
+• [ ] NO puede cambiar el chofer asociado a otra empresa
+9.5 Lista de Usuarios
+• [ ] Solo muestra usuarios CHOFER de su empresa
+• [ ] Columnas: Email, Nombre, Rol, Estado
+• [ ] Paginación funcional
+• [ ] Búsqueda por email/nombre funcional
+10. ACTIVAR/DESACTIVAR EQUIPO
+10.1 Desactivar
+• [ ] Botón " Desactivar" en	⏸ equipos activos
+• [ ] Click → desactiva inmediatamente
+• [ ] Toast de confirmación
+• [ ] Badge cambia a "Inactivo"
+• [ ] Opacidad reducida en la tarjeta
+10.2 Activar
+• [ ] Botón " Activar" en equipos	▶ inactivos
+• [ ] Click → activa inmediatamente
+
+-- 32 of 73 --
+
+• [ ] Toast de confirmación
+• [ ] Badge cambia a "Activo"
+• [ ] Opacidad normal en la tarjeta
+11. ELIMINAR EQUIPO
+11.1 Confirmación
+• [ ] Botón "Eliminar" (rojo) en cada equipo
+• [ ] Click → diálogo de confirmación
+• [ ] Mensaje: "¿Eliminar equipo #ID? Esta acción es irreversible."
+• [ ] Botones "Eliminar" y "Cancelar"
+11.2 Ejecución
+• [ ] "Cancelar" → cierra diálogo
+• [ ] "Eliminar" → elimina el equipo
+• [ ] Toast de confirmación
+• [ ] Equipo desaparece de la lista
+12. DESCARGAS
+12.1 Descarga Individual
+• [ ] Botón "Bajar documentación" por equipo
+• [ ] Durante descarga: " Preparando..."	⏳
+• [ ] Descarga ZIP con nombre equipo_{ID}.zip
+• [ ] Solo documentos vigentes/aprobados
+12.2 Descarga Masiva
+• [ ] Botón "Bajar documentación vigente (ZIP)"
+• [ ] Disponible después de buscar
+• [ ] Durante descarga: " Preparando archivos..."	⏳
+• [ ] Incluye todos los equipos del resultado actual
+
+-- 33 of 73 --
+
+13. PAGINACIÓN
+13.1 Controles
+• [ ] Visible con más de 10 equipos
+• [ ] "Mostrando X - Y de Z equipos"
+• [ ] "Página N de M"
+• [ ] Botones anterior/siguiente
+• [ ] Botones deshabilitados en límites
+• [ ] Cambio de filtro → página 1
+14. MI PERFIL (/perfil)
+14.1 Información del Usuario
+• [ ] Nombre del usuario
+• [ ] Email
+• [ ] Rol: "TRANSPORTISTA"
+• [ ] Empresa transportista asociada
+• [ ] Dador de carga asociado
+14.2 Cambiar Contraseña
+• [ ] Formulario de cambio de contraseña
+• [ ] Campo contraseña actual
+• [ ] Campo nueva contraseña
+• [ ] Campo confirmar contraseña
+• [ ] Validaciones de seguridad
+• [ ] Mensaje de éxito
+15. FLUJO DE APROBACIÓN DE DOCUMENTOS
+15.1 Estado PENDIENTE
+• [ ] Documentos subidos → estado PENDIENTE
+• [ ] Visible en la lista de documentos
+• [ ] Indicador visual diferenciado
+• [ ] No afecta compliance hasta aprobación
+
+-- 34 of 73 --
+
+15.2 Notificación al Dador
+• [ ] Dador de carga recibe notificación (si configurado)
+• [ ] Documento aparece en cola de aprobación del dador
+15.3 Post-Aprobación
+• [ ] Cuando dador aprueba → estado APROBADO
+• [ ] Compliance se actualiza
+• [ ] Documento disponible para clientes
+15.4 Rechazo
+• [ ] Cuando dador rechaza → estado RECHAZADO
+• [ ] Transportista debe subir nuevo documento
+16. CASOS ESPECIALES
+16.1 Sin Equipos
+• [ ] Mensaje "Sin resultados" al buscar sin equipos
+• [ ] Dashboard de estados no aparece
+• [ ] Botón de descarga masiva deshabilitado
+16.2 Equipo sin Acoplado
+• [ ] Patente acoplado muestra "-"
+• [ ] Sección documentos acoplado vacía o no aparece
+• [ ] No afecta funcionalidad del resto
+16.3 Múltiples Clientes
+• [ ] Lista de clientes visible en equipo
+• [ ] Estado de compliance por cliente
+• [ ] Requerimientos pueden variar por cliente
+16.4 Crear Entidad que Ya Existe
+• [ ] Al crear chofer con DNI existente → asocia existente
+• [ ] Al crear camión con patente existente → asocia existente
+• [ ] Mensaje informativo apropiado
+
+-- 35 of 73 --
+
+17. RENDIMIENTO Y UX
+17.1 Estados de Carga
+• [ ] Spinner al buscar equipos
+• [ ] Spinner al crear equipo
+• [ ] Spinner al subir documentos
+• [ ] Spinner al cargar detalle
+17.2 Feedback Visual
+• [ ] Toast de éxito en operaciones exitosas
+• [ ] Toast de error en operaciones fallidas
+• [ ] Hover effects en tarjetas y botones
+• [ ] Transiciones suaves
+• [ ] Barra de progreso en alta completa
+17.3 Manejo de Errores
+• [ ] Error de red → mensaje apropiado
+• [ ] Error 401 → redirigir a login
+• [ ] Error 403 → mensaje de acceso denegado
+• [ ] Error de validación → mensaje específico
+17.4 Responsividad
+• [ ] Desktop (1920px) ✓
+• [ ] Laptop (1366px) ✓
+• [ ] Tablet (768px) ✓
+• [ ] Móvil (375px) ✓
+• [ ] Grid 2 columnas → 1 columna en móvil
+• [ ] Modales ocupan pantalla completa en móvil
+17.5 Tema Oscuro
+• [ ] Dashboard soporta dark mode
+• [ ] Colores correctos
+• [ ] Texto legible
+• [ ] Semáforos visibles
+
+-- 36 of 73 --
+
+18. SEGURIDAD
+18.1 Aislamiento de Datos
+• [ ] Solo ve equipos asociados a su dador/empresa
+• [ ] Solo ve choferes de su empresa transportista
+• [ ] No puede ver datos de otras empresas transportistas
+• [ ] No puede ver equipos de otros dadores
+18.2 Permisos de Escritura
+• [ ] Puede crear equipos
+• [ ] Puede modificar entidades (chofer, camión, acoplado)
+• [ ] Puede subir documentos
+• [ ] NO puede aprobar documentos
+• [ ] NO puede gestionar clientes de equipos
+• [ ] Solo puede crear usuarios CHOFER
+18.3 Acciones Protegidas
+• [ ] Eliminar requiere confirmación
+• [ ] Token requerido para operaciones
+• [ ] Acciones registradas en auditoría (si aplica)
+19. INTEGRACIONES
+19.1 Con Dador de Carga
+• [ ] Documentos pendientes van a cola del dador
+• [ ] Dador puede aprobar/rechazar
+• [ ] Notificaciones de aprobación (si configurado)
+19.2 Con Choferes
+• [ ] Choferes creados pueden iniciar sesión
+• [ ] Choferes ven sus propios equipos
+• [ ] Choferes pueden subir documentos
+19.3 Con Clientes
+• [ ] Clientes ven equipos asignados
+• [ ] Compliance calculado por cliente
+
+-- 37 of 73 --
+
+• [ ] Documentos visibles para clientes (solo aprobados)
+20. DATOS DE PRUEBA RECOMENDADOS
+• [ ] Al menos 1 equipo 100% vigente
+• [ ] Al menos 1 equipo con documentos por vencer
+• [ ] Al menos 1 equipo con documentos vencidos
+• [ ] Al menos 1 equipo con documentos faltantes
+• [ ] Al menos 1 equipo inactivo
+• [ ] Al menos 1 equipo sin acoplado
+• [ ] Al menos 1 equipo con múltiples clientes
+• [ ] Al menos 11 equipos para paginación
+• [ ] Al menos 1 chofer con cuenta de usuario
+• [ ] Al menos 1 chofer sin cuenta de usuario
+• [ ] Al menos 1 documento pendiente de aprobación
+• [ ] Al menos 1 documento rechazado
+Lista de Pruebas - Portal Dador de Carga
+1. AUTENTICACIÓN Y ACCESO
+1.1 Login
+• [ ] Ingresar con email y contraseña válidos de usuario DADOR_DE_CARGA
+• [ ] Verificar que redirige correctamente al Dashboard (/dador)
+• [ ] Intentar ingresar con email válido pero contraseña incorrecta → debe mostrar error
+• [ ] Intentar ingresar con email inexistente → debe mostrar error
+• [ ] Verificar que el logo de BCA se muestra correctamente en la pantalla de login
+• [ ] Verificar que el token se almacena en localStorage tras login exitoso
+• [ ] Si tiene contraseña temporal, debe forzar cambio de contraseña
+1.2 Sesión
+• [ ] Verificar que la sesión persiste al refrescar la página (F5)
+• [ ] Verificar que al cerrar sesión se elimina el token y redirige al login
+• [ ] Verificar que al expirar el token se redirige al login automáticamente
+• [ ] Intentar acceder a /dador sin sesión → debe redirigir a login
+
+-- 38 of 73 --
+
+1.3 Autorización - Accesos Permitidos
+• [ ] Puede acceder a /dador (Dashboard)
+• [ ] Puede acceder a /documentos/consulta (Consulta de Equipos)
+• [ ] Puede acceder a /documentos/equipos/alta-completa (Alta Completa)
+• [ ] Puede acceder a /documentos/equipos/:id/editar (Editar Equipo)
+• [ ] Puede acceder a /documentos/equipos/:id/estado (Ver Estado)
+• [ ] Puede acceder a /documentos/aprobacion (Cola de Aprobaciones)
+• [ ] Puede acceder a /documentos/aprobacion/:id (Detalle de Aprobación)
+• [ ] Puede acceder a /platform-users (Gestión de Usuarios)
+• [ ] Puede acceder a /transportista (Portal Transportista)
+• [ ] Puede acceder a /chofer (Portal Chofer)
+• [ ] Puede acceder a /perfil (Mi Perfil)
+1.4 Autorización - Accesos Restringidos
+• [ ] NO puede acceder a /admin/* (rutas de admin)
+• [ ] NO puede acceder a /cliente/* (portal cliente)
+• [ ] NO puede acceder a /portal/admin-interno (admin interno)
+• [ ] NO puede acceder a /empresas (gestión de empresas)
+• [ ] NO puede acceder a /end-users (usuarios finales)
+• [ ] NO puede acceder a /documentos/auditoria (auditoría - solo admin interno)
+• [ ] NO puede crear usuarios DADOR_DE_CARGA
+• [ ] NO puede crear usuarios ADMIN_INTERNO
+• [ ] NO puede crear usuarios SUPERADMIN/ADMIN
+2. DASHBOARD PRINCIPAL (/dador)
+2.1 Interfaz Visual
+• [ ] Verificar que se muestra el logo de Grupo BCA (tamaño h-32 md:h-40)
+• [ ] Verificar que el título dice "Portal Dador de Carga"
+• [ ] Verificar que el subtítulo dice "Gestión completa de equipos y documentación"
+• [ ] Fondo con gradiente slate-50 a slate-100 (light) / slate-900 a slate-800 (dark)
+
+-- 39 of 73 --
+
+• [ ] Layout centrado con max-w-6xl
+2.2 Tarjeta "Alta Completa de Equipo"
+• [ ] Visible con icono de camión (TruckIcon) en azul
+• [ ] Título: "Alta Completa de Equipo"
+• [ ] Descripción: "Registrar nuevo equipo con toda su documentación"
+• [ ] Lista de características:
+• "Carga de empresa transportista y chofer"
+• "Registro de camión y acoplado"
+• "Subida de todos los documentos requeridos"
+• [ ] Botón "Iniciar Alta Completa" en azul
+• [ ] Hover: efecto de sombra, escala 1.02, borde azul
+• [ ] Click en tarjeta → navega a /documentos/equipos/alta-completa
+• [ ] Click en botón → navega a /documentos/equipos/alta-completa
+2.3 Tarjeta "Consulta de Equipos"
+• [ ] Visible con icono de lupa (MagnifyingGlassIcon) en verde
+• [ ] Título: "Consulta de Equipos"
+• [ ] Descripción: "Buscar equipos existentes y actualizar su documentación"
+• [ ] Lista de características:
+• "Buscar por DNI chofer, patente camión o acoplado"
+• "Ver estado completo de documentación"
+• "Actualizar documentos vencidos o faltantes"
+• [ ] Botón "Ir a Consulta" en verde
+• [ ] Hover: efecto de sombra, escala 1.02, borde verde
+• [ ] Click en tarjeta → navega a /documentos/consulta
+• [ ] Click en botón → navega a /documentos/consulta
+2.4 Barra de Acceso Rápido
+• [ ] Card oscura (slate-800/900) al final
+• [ ] Texto "Acceso rápido:"
+• [ ] Botón "Aprobaciones Pendientes" visible
+• [ ] Click en botón → navega a /documentos/aprobacion
+• [ ] Estilo del botón: borde slate-600, hover bg-slate-700
+
+-- 40 of 73 --
+
+3. APROBACIÓN DE DOCUMENTOS
+(/documentos/aprobacion)
+3.1 Navegación y Layout
+• [ ] Botón "Volver" visible → navega a /portal/dadores
+• [ ] Título: "Aprobación de Documentos"
+• [ ] Descripción: "Revisá y aprobá o rechazá documentos clasificados por la IA."
+3.2 KPIs Dashboard
+• [ ] Card "Pendientes" con número de documentos pendientes
+• [ ] Card "Aprobados hoy" con contador
+• [ ] Card "Rechazados hoy" con contador
+• [ ] Card "T. medio revisión (m)" con promedio en minutos
+• [ ] KPIs se actualizan al refrescar
+3.3 Filtros
+• [ ] Selector de tipo de entidad:
+• "Todas las entidades"
+• "Empresa Transportista"
+• "Chofer"
+• "Camión"
+• "Acoplado"
+• [ ] Botón "Filtrar" aplica el filtro
+• [ ] Botón "Refrescar" recarga la lista
+• [ ] Filtro funciona correctamente por tipo de entidad
+3.4 Lista de Documentos Pendientes
+• [ ] Tabla con columnas: ID, Entidad, Identidad, Tipo Doc, Subido, Vence, Acciones
+• [ ] Ordenados por fecha de subida (más reciente primero)
+• [ ] Muestra tipo de entidad detectado
+• [ ] Muestra ID natural de la entidad (DNI, patente, CUIT)
+• [ ] Muestra tipo de documento detectado
+• [ ] Muestra fecha de subida formateada
+• [ ] Muestra fecha de vencimiento (si existe)
+• [ ] Botón "Revisar" por cada documento → navega al detalle
+
+-- 41 of 73 --
+
+3.5 Paginación
+• [ ] Paginación funcional con 20 documentos por página
+• [ ] Navegación entre páginas
+• [ ] Indicador de página actual
+4. DETALLE DE APROBACIÓN
+(/documentos/aprobacion/:id)
+4.1 Navegación
+• [ ] Botón "Volver" funcional
+• [ ] Si el documento ya no está pendiente (404) → redirige a la cola
+4.2 Vista Previa del Documento
+• [ ] Muestra preview del documento (PDF/imagen)
+• [ ] Preview cargado con autorización
+• [ ] Loading mientras carga el preview
+• [ ] Manejo de errores si no se puede cargar
+• [ ] Reintentos automáticos (hasta 3 veces)
+4.3 Información del Documento
+• [ ] Tipo de entidad detectado por IA
+• [ ] ID de entidad detectado
+• [ ] Tipo de documento detectado
+• [ ] Fecha de vencimiento detectada (si aplica)
+• [ ] Fecha de subida
+• [ ] Información del template
+4.4 Campos Editables
+• [ ] Selector de tipo de entidad (para corregir IA)
+• [ ] Campo de ID de entidad (para corregir)
+• [ ] Campo de fecha de vencimiento (formato dd/mm/aaaa)
+• [ ] Selector de template (tipo de documento)
+• [ ] Campo de notas de revisión
+4.5 Acción: Aprobar
+• [ ] Botón "Aprobar" visible
+
+-- 42 of 73 --
+
+• [ ] Click → muestra spinner mientras procesa
+• [ ] Validaciones:
+• Tipo de entidad seleccionado
+• ID de entidad ingresado
+• Template seleccionado
+• [ ] Éxito → mensaje de confirmación
+• [ ] Éxito → redirige a la cola de aprobaciones
+• [ ] Error → mensaje de error apropiado
+4.6 Acción: Rechazar
+• [ ] Botón "Rechazar" visible (rojo)
+• [ ] Click → abre modal/formulario de rechazo
+• [ ] Campo "Motivo de rechazo" obligatorio
+• [ ] Botón "Confirmar Rechazo"
+• [ ] Botón "Cancelar"
+• [ ] Éxito → mensaje de confirmación
+• [ ] Éxito → redirige a la cola
+• [ ] Error → mensaje de error
+4.7 Corrección de IA
+• [ ] Puede cambiar el tipo de entidad detectado
+• [ ] Puede cambiar el ID de entidad detectado
+• [ ] Puede cambiar el tipo de documento detectado
+• [ ] Puede ajustar la fecha de vencimiento
+• [ ] Cambios se guardan al aprobar
+5. ALTA COMPLETA DE EQUIPO
+(/documentos/equipos/alta-completa)
+5.1 Navegación
+• [ ] Botón "Volver" visible y funcional
+• [ ] Click en "Volver" → navega al home del rol
+5.2 Selector de Dador de Carga
+• [ ] Campo de Dador pre-seleccionado con su propia empresa
+• [ ] NO editable (es su propio dadorCargaId)
+• [ ] Muestra razón social del dador
+
+-- 43 of 73 --
+
+5.3 Selector de Clientes
+• [ ] Selector múltiple de clientes
+• [ ] Puede seleccionar uno o más clientes
+• [ ] Solo muestra clientes activos
+• [ ] Puede asignar clientes al equipo
+5.4 Datos de Empresa Transportista
+• [ ] Campo "Razón Social" obligatorio
+• [ ] Campo "CUIT" obligatorio (11 dígitos)
+• [ ] Validación de formato CUIT
+• [ ] Si existe → asocia; si no → crea
+5.5 Datos del Chofer
+• [ ] Campo "Nombre" obligatorio
+• [ ] Campo "Apellido" obligatorio
+• [ ] Campo "DNI" obligatorio (mínimo 6 caracteres)
+• [ ] Campo "Teléfonos" opcional
+• [ ] Si existe → asocia; si no → crea
+5.6 Datos del Camión
+• [ ] Campo "Patente" obligatorio (mínimo 5 caracteres)
+• [ ] Campo "Marca" opcional
+• [ ] Campo "Modelo" opcional
+• [ ] Si existe → asocia; si no → crea
+5.7 Datos del Acoplado (Opcional)
+• [ ] Campo "Patente" opcional
+• [ ] Campo "Tipo" opcional
+• [ ] Si vacío → equipo sin acoplado
+• [ ] Si completo → se requieren docs de acoplado
+5.8 Secciones de Documentos
+• [ ] Sección Empresa Transportista con todos sus templates
+• [ ] Sección Chofer con todos sus templates
+• [ ] Sección Camión con todos sus templates
+• [ ] Sección Acoplado (si tiene patente)
+• [ ] Cada documento: selector de archivo + fecha de vencimiento
+
+-- 44 of 73 --
+
+5.9 Barra de Progreso
+• [ ] Muestra porcentaje de documentos completados
+• [ ] 100% cuando todos tienen archivo Y fecha
+5.10 Creación del Equipo
+• [ ] Botón "Crear Equipo" deshabilitado hasta completar todo
+• [ ] Click → proceso transaccional
+• [ ] Crea entidades + sube documentos
+• [ ] Documentos quedan en estado APROBADO (dador los aprueba implícitamente)
+• [ ] Rollback si falla
+• [ ] Mensaje de éxito/error
+6. CONSULTA DE EQUIPOS (/documentos/consulta)
+6.1 Navegación
+• [ ] Botón "Volver" → navega a /portal/dadores
+• [ ] Título: "Consulta"
+6.2 Filtros de Entidad (Completos)
+• [ ] "Todos los equipos" funcional
+• [ ] "Por Dador" - pre-seleccionado con su dador
+• [ ] "Por Cliente" - selector de clientes
+• [ ] "Por Empresa Transp." - selector de empresas transportistas
+• [ ] Filtros combinables con búsqueda
+6.3 Filtros Adicionales
+• [ ] Campo "DNI Chofer"
+• [ ] Campo "Patente Camión"
+• [ ] Campo "Patente Acoplado"
+• [ ] Filtro "Solo Activos" / "Solo Inactivos" / "Todos"
+6.4 Búsqueda
+• [ ] Botón "Buscar" ejecuta búsqueda
+• [ ] Botón "Limpiar" resetea filtros
+• [ ] Resultados paginados
+
+-- 45 of 73 --
+
+6.5 Búsqueda Masiva
+• [ ] Botón "? Buscar por DNIs o Patentes"
+• [ ] Modal con textarea
+• [ ] Separadores: coma, espacio, salto de línea
+• [ ] Ejecuta búsqueda masiva
+7. DASHBOARD DE ESTADO DOCUMENTAL
+7.1 Contadores
+• [ ] "Total" - total de equipos
+• [ ] "Faltantes" - equipos con docs faltantes
+• [ ] "Vencidos" - equipos con docs vencidos
+• [ ] "Por Vencer" - equipos con docs por vencer
+• [ ] Click en contador → filtra
+7.2 Filtros Interactivos
+• [ ] Click en contador aplica/quita filtro
+• [ ] Indicador visual del filtro activo
+• [ ] "Quitar filtro" funcional
+8. LISTA DE EQUIPOS
+8.1 Información por Equipo
+• [ ] "Equipo #ID"
+• [ ] Estado (activa/inactiva)
+• [ ] Badge Activo/Inactivo
+• [ ] DNI del chofer
+• [ ] Patente camión
+• [ ] Patente acoplado
+• [ ] Clientes asignados
+8.2 Semáforo de Documentación
+• [ ] ? Faltantes
+• [ ] ? Vencidos
+• [ ] ? Por vencer
+
+-- 46 of 73 --
+
+• [ ] ? Vigentes
+8.3 Acciones por Equipo
+• [ ] " Editar" → edición
+• [ ] "Bajar documentación" → ZIP
+• [ ] "Ver estado" → estado
+• [ ] " Desactivar"	⏸ / " Activar"	▶
+• [ ] "Eliminar" con confirmación
+9. EDITAR EQUIPO (/documentos/equipos/:id/editar)
+9.1 Permisos del Dador de Carga
+• [ ] canEdit = true - PUEDE modificar entidades
+• [ ] canManageClients = true - PUEDE gestionar clientes
+• [ ] canUploadDocs = true - PUEDE subir documentos
+9.2 Modificar Entidades
+• [ ] Cambiar Chofer (selector + crear nuevo)
+• [ ] Cambiar Camión (selector + crear nuevo)
+• [ ] Cambiar Acoplado (selector + crear nuevo)
+• [ ] Cambiar Empresa Transportista (selector + crear nuevo)
+• [ ] Crear usuario al crear entidad (chofer/transportista)
+9.3 Gestionar Clientes (EXCLUSIVO)
+• [ ] Sección "Clientes Asignados" visible
+• [ ] Lista de clientes actuales con fechas desde/hasta
+• [ ] Botón para agregar cliente
+• [ ] Selector de cliente a agregar
+• [ ] Campo de fecha desde
+• [ ] Campo de fecha hasta (opcional)
+• [ ] Botón para quitar cliente
+• [ ] Confirmación al quitar
+9.4 Subida de Documentos
+• [ ] Puede subir documentos para todas las entidades
+• [ ] Documentos subidos → estado APROBADO (dador aprueba implícitamente)
+
+-- 47 of 73 --
+
+• [ ] Puede renovar documentos antes de vencer
+10. GESTIÓN DE USUARIOS (/platform-users)
+10.1 Permisos de Creación
+• [ ] Puede crear: TRANSPORTISTA, CHOFER
+• [ ] NO puede crear: DADOR_DE_CARGA, ADMIN_INTERNO, ADMIN, SUPERADMIN
+10.2 Crear Usuario TRANSPORTISTA
+• [ ] Rol TRANSPORTISTA seleccionable
+• [ ] Modo "Crear Nueva Empresa Transportista":
+• Campo Razón Social
+• Campo CUIT
+• Campo Email obligatorio
+• [ ] Modo "Empresa Existente":
+• Selector de empresas transportistas
+• Solo empresas de su dador
+• [ ] Dador de Carga: automático (su dadorCargaId)
+• [ ] Contraseña temporal generada
+• [ ] Mensaje de éxito con contraseña
+10.3 Crear Usuario CHOFER
+• [ ] Rol CHOFER seleccionable
+• [ ] Dador de Carga: automático
+• [ ] Selector de Empresa Transportista (sus empresas)
+• [ ] Modo "Chofer Existente":
+• Selector de choferes de la empresa
+• [ ] Modo "Crear Nuevo Chofer":
+• Campos: DNI, Nombre, Apellido
+• Email obligatorio
+• [ ] Contraseña temporal generada
+10.4 Editar Usuarios
+• [ ] Puede editar usuarios TRANSPORTISTA/CHOFER de su dador
+• [ ] Campos editables: Nombre, Apellido, Contraseña
+• [ ] Campos NO editables: Email, Rol, Dador
+
+-- 48 of 73 --
+
+10.5 Lista de Usuarios
+• [ ] Ve usuarios TRANSPORTISTA y CHOFER de su dador
+• [ ] NO ve usuarios de otros dadores
+• [ ] Paginación y búsqueda
+11. ACTIVAR/DESACTIVAR EQUIPO
+11.1 Desactivar
+• [ ] Botón " Desactivar" visible	⏸
+• [ ] Click → desactiva
+• [ ] Toast confirmación
+• [ ] Badge cambia a "Inactivo"
+11.2 Activar
+• [ ] Botón " Activar" visible	▶
+• [ ] Click → activa
+• [ ] Toast confirmación
+• [ ] Badge cambia a "Activo"
+12. ELIMINAR EQUIPO
+• [ ] Botón "Eliminar" (rojo)
+• [ ] Diálogo de confirmación
+• [ ] "Cancelar" cierra diálogo
+• [ ] "Eliminar" elimina equipo
+• [ ] Toast confirmación
+• [ ] Equipo desaparece
+13. DESCARGAS
+13.1 Individual
+• [ ] Botón "Bajar documentación"
+• [ ] Descarga ZIP del equipo
+• [ ] Solo documentos aprobados
+
+-- 49 of 73 --
+
+13.2 Masiva
+• [ ] Botón "Bajar documentación vigente (ZIP)"
+• [ ] Descarga todos los equipos del resultado
+14. PAGINACIÓN
+• [ ] Visible con más de 10 equipos
+• [ ] "Mostrando X - Y de Z"
+• [ ] "Página N de M"
+• [ ] Botones anterior/siguiente
+• [ ] Cambio de filtro → página 1
+15. MI PERFIL (/perfil)
+15.1 Información
+• [ ] Nombre
+• [ ] Email
+• [ ] Rol: "DADOR_DE_CARGA"
+• [ ] Empresa/Dador asociado
+15.2 Cambiar Contraseña
+• [ ] Formulario de cambio
+• [ ] Validaciones
+• [ ] Mensaje de éxito
+16. FLUJO DE APROBACIÓN COMPLETO
+16.1 Documento Subido por Transportista/Chofer
+• [ ] Documento aparece en cola de aprobaciones
+• [ ] Estado: PENDIENTE
+• [ ] Visible en KPIs ("Pendientes")
+16.2 Revisión del Documento
+• [ ] Click en "Revisar"
+
+-- 50 of 73 --
+
+• [ ] Ver preview del documento
+• [ ] Verificar datos detectados por IA
+• [ ] Corregir si es necesario
+16.3 Aprobar
+• [ ] Click "Aprobar"
+• [ ] Documento → estado APROBADO
+• [ ] Afecta compliance del equipo
+• [ ] KPI "Aprobados hoy" incrementa
+• [ ] Documento disponible para clientes
+16.4 Rechazar
+• [ ] Click "Rechazar"
+• [ ] Ingresar motivo
+• [ ] Documento → estado RECHAZADO
+• [ ] KPI "Rechazados hoy" incrementa
+• [ ] Transportista/Chofer debe subir nuevo documento
+16.5 Documentos Subidos por el Dador
+• [ ] Al subir documento → estado APROBADO automáticamente
+• [ ] No aparece en cola de aprobaciones
+• [ ] Disponible inmediatamente
+17. CASOS ESPECIALES
+17.1 Sin Documentos Pendientes
+• [ ] Lista vacía con mensaje apropiado
+• [ ] KPI "Pendientes" = 0
+17.2 Documento con IA Incorrecta
+• [ ] Puede corregir tipo de entidad
+• [ ] Puede corregir ID de entidad
+• [ ] Puede corregir tipo de documento
+• [ ] Cambios se aplican al aprobar
+17.3 Múltiples Transportistas
+• [ ] Ve equipos de todas sus transportistas
+
+-- 51 of 73 --
+
+• [ ] Puede crear usuarios para cualquiera
+• [ ] Filtros funcionan por transportista
+17.4 Múltiples Clientes por Equipo
+• [ ] Puede agregar varios clientes
+• [ ] Cada cliente con su rango de fechas
+• [ ] Compliance calculado por cliente
+18. RENDIMIENTO Y UX
+18.1 Estados de Carga
+• [ ] Spinner al buscar
+• [ ] Spinner al aprobar/rechazar
+• [ ] Spinner al subir documentos
+• [ ] Preview con loading
+18.2 Feedback Visual
+• [ ] Toast de éxito/error
+• [ ] Hover effects
+• [ ] Transiciones suaves
+• [ ] KPIs actualizados
+18.3 Manejo de Errores
+• [ ] Error de red → mensaje
+• [ ] Error 401 → login
+• [ ] Error 403 → acceso denegado
+• [ ] Preview error → mensaje y reintento
+18.4 Responsividad
+• [ ] Desktop (1920px) ✓
+• [ ] Laptop (1366px) ✓
+• [ ] Tablet (768px) ✓
+• [ ] Móvil (375px) ✓
+18.5 Tema Oscuro
+• [ ] Dashboard dark mode
+• [ ] Aprobaciones dark mode
+
+-- 52 of 73 --
+
+• [ ] Colores correctos
+• [ ] Texto legible
+19. SEGURIDAD
+19.1 Aislamiento de Datos
+• [ ] Solo ve equipos de su dador
+• [ ] Solo ve transportistas de su dador
+• [ ] Solo ve choferes de su dador
+• [ ] Solo aprueba documentos de su dador
+19.2 Permisos de Escritura
+• [ ] Puede crear equipos
+• [ ] Puede modificar entidades
+• [ ] Puede subir documentos (aprobados automáticamente)
+• [ ] Puede aprobar/rechazar documentos
+• [ ] Puede gestionar clientes de equipos
+• [ ] Puede crear TRANSPORTISTA y CHOFER
+19.3 Acciones Protegidas
+• [ ] Eliminar requiere confirmación
+• [ ] Rechazar requiere motivo
+• [ ] Token requerido
+• [ ] Acciones en auditoría (si aplica)
+20. INTEGRACIONES
+20.1 Con Transportistas
+• [ ] Transportistas ven sus equipos
+• [ ] Transportistas suben documentos → pendientes
+• [ ] Dador aprueba/rechaza
+20.2 Con Choferes
+• [ ] Choferes ven sus equipos
+• [ ] Choferes suben documentos → pendientes
+
+-- 53 of 73 --
+
+• [ ] Dador aprueba/rechaza
+20.3 Con Clientes
+• [ ] Clientes ven equipos asignados
+• [ ] Solo documentos aprobados visibles
+• [ ] Compliance por cliente
+20.4 Con IA de Clasificación
+• [ ] IA detecta tipo de documento
+• [ ] IA detecta entidad
+• [ ] IA detecta fecha de vencimiento
+• [ ] Dador puede corregir
+21. DATOS DE PRUEBA RECOMENDADOS
+• [ ] Al menos 5 documentos pendientes de aprobación
+• [ ] Documentos de diferentes tipos de entidad
+• [ ] Al menos 1 documento con IA incorrecta (para probar corrección)
+• [ ] Al menos 2 empresas transportistas
+• [ ] Al menos 3 choferes
+• [ ] Al menos 2 clientes
+• [ ] Equipos con múltiples clientes
+• [ ] Equipos activos e inactivos
+• [ ] Documentos vigentes, vencidos, por vencer, faltantes
+• [ ] Al menos 11 equipos para paginación
+Lista de Pruebas - Portal Admin Interno
+1. AUTENTICACIÓN Y ACCESO
+1.1 Login
+• [ ] Ingresar con email y contraseña válidos de usuario ADMIN_INTERNO
+• [ ] Verificar que redirige correctamente al Dashboard (/portal/admin-interno)
+• [ ] Intentar ingresar con email válido pero contraseña incorrecta → debe mostrar error
+
+-- 54 of 73 --
+
+• [ ] Intentar ingresar con email inexistente → debe mostrar error
+• [ ] Verificar que el logo de BCA se muestra correctamente en la pantalla de login
+• [ ] Verificar que el token se almacena en localStorage tras login exitoso
+• [ ] Si tiene contraseña temporal, debe forzar cambio de contraseña
+1.2 Sesión
+• [ ] Verificar que la sesión persiste al refrescar la página (F5)
+• [ ] Verificar que al cerrar sesión se elimina el token y redirige al login
+• [ ] Verificar que al expirar el token se redirige al login automáticamente
+• [ ] Intentar acceder a /portal/admin-interno sin sesión → debe redirigir a login
+1.3 Autorización - Accesos Permitidos (MÁXIMOS)
+• [ ] Puede acceder a /portal/admin-interno (Dashboard)
+• [ ] Puede acceder a /documentos/consulta (Consulta de Equipos)
+• [ ] Puede acceder a /documentos/equipos/alta-completa (Alta Completa)
+• [ ] Puede acceder a /documentos/equipos/:id/editar (Editar Equipo)
+• [ ] Puede acceder a /documentos/equipos/:id/estado (Ver Estado)
+• [ ] Puede acceder a /documentos/aprobacion (Cola de Aprobaciones)
+• [ ] Puede acceder a /documentos/aprobacion/:id (Detalle de Aprobación)
+• [ ] Puede acceder a /documentos/auditoria (Auditoría - EXCLUSIVO)
+• [ ] Puede acceder a /platform-users (Gestión de Usuarios)
+• [ ] Puede acceder a /transportista (Portal Transportista)
+• [ ] Puede acceder a /chofer (Portal Chofer)
+• [ ] Puede acceder a /dador (Portal Dador de Carga)
+• [ ] Puede acceder a /cliente (Portal Cliente)
+• [ ] Puede acceder a /cliente/equipos/:id (Detalle Equipo Cliente)
+• [ ] Puede acceder a /perfil (Mi Perfil)
+1.4 Autorización - Accesos Restringidos
+• [ ] NO puede acceder a /empresas (solo SUPERADMIN)
+• [ ] NO puede acceder a /end-users (solo ADMIN/SUPERADMIN)
+• [ ] NO puede crear usuarios ADMIN_INTERNO (solo ADMIN/SUPERADMIN pueden)
+• [ ] NO puede crear usuarios SUPERADMIN
+
+-- 55 of 73 --
+
+• [ ] NO puede crear usuarios ADMIN
+2. DASHBOARD PRINCIPAL (/portal/admin-interno)
+2.1 Interfaz Visual
+• [ ] Verificar que se muestra el logo de Grupo BCA (tamaño h-32 md:h-40)
+• [ ] Verificar que el título dice "Portal Admin Interno"
+• [ ] Verificar que el subtítulo dice "Gestión completa de equipos y documentación"
+• [ ] Fondo con gradiente slate-50 a slate-100 (light) / slate-900 a slate-800 (dark)
+• [ ] Layout centrado con max-w-6xl
+2.2 Tarjeta "Alta Completa de Equipo"
+• [ ] Visible con icono de camión (TruckIcon) en azul
+• [ ] Título: "Alta Completa de Equipo"
+• [ ] Descripción: "Registrar nuevo equipo con toda su documentación"
+• [ ] Lista de características:
+• "Carga de empresa transportista y chofer"
+• "Registro de camión y acoplado"
+• "Subida de todos los documentos requeridos"
+• [ ] Botón "Iniciar Alta Completa" en azul
+• [ ] Hover: efecto de sombra, escala 1.02, borde azul
+• [ ] Click en tarjeta → navega a /documentos/equipos/alta-completa
+• [ ] Click en botón → navega a /documentos/equipos/alta-completa
+2.3 Tarjeta "Consulta de Equipos"
+• [ ] Visible con icono de lupa (MagnifyingGlassIcon) en verde
+• [ ] Título: "Consulta de Equipos"
+• [ ] Descripción: "Buscar equipos existentes y actualizar su documentación"
+• [ ] Lista de características:
+• "Buscar por DNI chofer, patente camión o acoplado"
+• "Ver estado completo de documentación"
+• "Actualizar documentos vencidos o faltantes"
+• [ ] Botón "Ir a Consulta" en verde
+• [ ] Hover: efecto de sombra, escala 1.02, borde verde
+• [ ] Click en tarjeta → navega a /documentos/consulta
+• [ ] Click en botón → navega a /documentos/consulta
+
+-- 56 of 73 --
+
+2.4 Barra de Acceso Rápido
+• [ ] Card oscura (slate-800/900) al final
+• [ ] Texto "Acceso rápido:"
+• [ ] Botón "Aprobaciones Pendientes" visible → navega a /documentos/aprobacion
+• [ ] Botón "Auditoría" visible (EXCLUSIVO) → navega a /documentos/auditoria
+• [ ] Estilo de botones: borde slate-600, hover bg-slate-700
+3. AUDITORÍA (/documentos/auditoria)
+- EXCLUSIVO ADMIN INTERNO
+3.1 Navegación y Layout
+• [ ] Botón "Volver" visible → navega a /portal/admin-interno
+• [ ] Título visible: "Auditoría" o similar
+• [ ] Solo ADMIN_INTERNO (y SUPERADMIN/ADMIN) tienen acceso
+3.2 Filtros de Auditoría
+• [ ] Campo "Desde" (fecha) - filtro por fecha inicio
+• [ ] Campo "Hasta" (fecha) - filtro por fecha fin
+• [ ] Campo "Email" - filtro por email de usuario
+• [ ] Selector "Rol" - filtro por rol de usuario
+• [ ] Selector "Método" - filtro por método HTTP (GET, POST, PUT, DELETE)
+• [ ] Campo "Status Code" - filtro por código de respuesta
+• [ ] Campo "Acción" - filtro por tipo de acción
+• [ ] Campo "Tipo de Entidad" - filtro por entidad afectada
+• [ ] Campo "ID de Entidad" - filtro por ID específico
+• [ ] Campo "Ruta contiene" - filtro por path de la request
+3.3 Columnas Visibles
+• [ ] Toggle para mostrar/ocultar columnas:
+• Fecha
+• Acción
+• Método
+• Status
+• Usuario
+• Rol
+
+-- 57 of 73 --
+
+• Entidad
+• Ruta
+• [ ] Configuración persiste durante la sesión
+3.4 Lista de Logs
+• [ ] Tabla con registros de auditoría
+• [ ] Ordenados por fecha (más reciente primero)
+• [ ] Muestra información según columnas activas
+• [ ] Paginación funcional (20 registros por página)
+• [ ] Navegación entre páginas
+3.5 Exportación
+• [ ] Botón "Exportar CSV" visible
+• [ ] Click → descarga archivo CSV con los logs filtrados
+• [ ] Botón "Exportar XLSX" visible
+• [ ] Click → descarga archivo Excel con los logs filtrados
+• [ ] Exportación respeta los filtros aplicados
+• [ ] Spinner durante la descarga
+• [ ] Toast de éxito/error
+3.6 Información de Cada Log
+• [ ] Fecha y hora del evento
+• [ ] Usuario que realizó la acción (email)
+• [ ] Rol del usuario
+• [ ] Método HTTP
+• [ ] Código de estado HTTP
+• [ ] Ruta/endpoint afectado
+• [ ] Tipo de entidad afectada
+• [ ] ID de entidad afectada
+• [ ] Acción realizada
+4. APROBACIÓN DE DOCUMENTOS
+(/documentos/aprobacion)
+4.1 Navegación y Layout
+• [ ] Botón "Volver" visible → navega a /portal/admin-interno
+
+-- 58 of 73 --
+
+• [ ] Título: "Aprobación de Documentos"
+• [ ] Descripción: "Revisá y aprobá o rechazá documentos clasificados por la IA."
+4.2 KPIs Dashboard
+• [ ] Card "Pendientes" con número total
+• [ ] Card "Aprobados hoy" con contador
+• [ ] Card "Rechazados hoy" con contador
+• [ ] Card "T. medio revisión (m)" con promedio en minutos
+• [ ] KPIs se actualizan al refrescar
+4.3 Filtros
+• [ ] Selector de tipo de entidad:
+• "Todas las entidades"
+• "Empresa Transportista"
+• "Chofer"
+• "Camión"
+• "Acoplado"
+• [ ] Botón "Filtrar" aplica filtro
+• [ ] Botón "Refrescar" recarga lista
+• [ ] Admin Interno ve documentos de TODOS los dadores
+4.4 Lista de Documentos Pendientes
+• [ ] Tabla con: ID, Entidad, Identidad, Tipo Doc, Subido, Vence, Acciones
+• [ ] Ordenados por fecha de subida (más reciente primero)
+• [ ] Muestra datos detectados por IA
+• [ ] Botón "Revisar" por documento
+4.5 Paginación
+• [ ] 20 documentos por página
+• [ ] Navegación entre páginas
+5. DETALLE DE APROBACIÓN
+(/documentos/aprobacion/:id)
+5.1 Navegación
+• [ ] Botón "Volver" funcional
+
+-- 59 of 73 --
+
+• [ ] Si documento ya no está pendiente → redirige a cola
+5.2 Vista Previa
+• [ ] Preview del documento (PDF/imagen)
+• [ ] Loading mientras carga
+• [ ] Manejo de errores
+• [ ] Reintentos automáticos
+5.3 Información del Documento
+• [ ] Tipo de entidad detectado por IA
+• [ ] ID de entidad detectado
+• [ ] Tipo de documento detectado
+• [ ] Fecha de vencimiento detectada
+• [ ] Fecha de subida
+5.4 Campos Editables
+• [ ] Selector de tipo de entidad
+• [ ] Campo de ID de entidad
+• [ ] Campo de fecha de vencimiento (dd/mm/aaaa)
+• [ ] Selector de template
+• [ ] Campo de notas de revisión
+5.5 Aprobar
+• [ ] Botón "Aprobar" visible
+• [ ] Validaciones (tipo entidad, ID, template)
+• [ ] Éxito → confirmación y redirige
+• [ ] Error → mensaje apropiado
+5.6 Rechazar
+• [ ] Botón "Rechazar" visible (rojo)
+• [ ] Modal con campo "Motivo de rechazo"
+• [ ] Motivo obligatorio
+• [ ] Éxito → confirmación y redirige
+5.7 Corrección de IA
+• [ ] Puede cambiar todos los campos detectados
+• [ ] Cambios se aplican al aprobar
+
+-- 60 of 73 --
+
+6. ALTA COMPLETA DE EQUIPO
+(/documentos/equipos/alta-completa)
+6.1 Navegación
+• [ ] Botón "Volver" → navega al home del rol
+6.2 Selector de Dador de Carga (EXCLUSIVO ADMIN INTERNO)
+• [ ] Sección destacada (fondo púrpura/violeta)
+• [ ] Título: indica que es para seleccionar dador
+• [ ] Selector con lista de TODOS los dadores de carga
+• [ ] Puede seleccionar cualquier dador
+• [ ] Campo obligatorio antes de continuar
+• [ ] Muestra razón social de cada dador
+6.3 Selector de Clientes
+• [ ] Selector múltiple de clientes
+• [ ] Muestra TODOS los clientes del sistema
+• [ ] Puede asignar múltiples clientes
+6.4 Datos de Empresa Transportista
+• [ ] Campo "Razón Social" obligatorio
+• [ ] Campo "CUIT" obligatorio (11 dígitos)
+• [ ] Validación de formato
+• [ ] Crea o asocia según existencia
+6.5 Datos del Chofer
+• [ ] Campo "Nombre" obligatorio
+• [ ] Campo "Apellido" obligatorio
+• [ ] Campo "DNI" obligatorio (mínimo 6 caracteres)
+• [ ] Campo "Teléfonos" opcional
+• [ ] Crea o asocia según existencia
+6.6 Datos del Camión
+• [ ] Campo "Patente" obligatorio (mínimo 5 caracteres)
+• [ ] Campo "Marca" opcional
+• [ ] Campo "Modelo" opcional
+
+-- 61 of 73 --
+
+6.7 Datos del Acoplado (Opcional)
+• [ ] Campo "Patente" opcional
+• [ ] Campo "Tipo" opcional
+• [ ] Si vacío → sin acoplado
+6.8 Secciones de Documentos
+• [ ] Sección Empresa Transportista
+• [ ] Sección Chofer
+• [ ] Sección Camión
+• [ ] Sección Acoplado (condicional)
+• [ ] Cada doc: archivo + fecha de vencimiento
+6.9 Barra de Progreso
+• [ ] Porcentaje de documentos completados
+• [ ] 100% cuando todo completo
+6.10 Creación del Equipo
+• [ ] Botón habilitado solo cuando todo completo
+• [ ] Proceso transaccional
+• [ ] Documentos → estado APROBADO (admin los aprueba)
+• [ ] Rollback si falla
+• [ ] Mensaje de éxito/error
+7. CONSULTA DE EQUIPOS (/documentos/consulta)
+7.1 Navegación
+• [ ] Botón "Volver" → navega a /portal/admin-interno
+• [ ] Título: "Consulta"
+7.2 Filtros de Entidad (COMPLETOS - ve todo)
+• [ ] "Todos los equipos" - muestra todo el sistema
+• [ ] "Por Dador" - selector con TODOS los dadores
+• [ ] "Por Cliente" - selector con TODOS los clientes
+• [ ] "Por Empresa Transp." - selector con TODAS las empresas
+• [ ] Puede ver equipos de cualquier dador
+
+-- 62 of 73 --
+
+7.3 Filtros Adicionales
+• [ ] Campo "DNI Chofer"
+• [ ] Campo "Patente Camión"
+• [ ] Campo "Patente Acoplado"
+• [ ] Filtro "Solo Activos" / "Solo Inactivos" / "Todos"
+7.4 Búsqueda
+• [ ] Botón "Buscar"
+• [ ] Botón "Limpiar"
+• [ ] Resultados paginados
+7.5 Búsqueda Masiva
+• [ ] Botón "? Buscar por DNIs o Patentes"
+• [ ] Modal con textarea
+• [ ] Búsqueda masiva funcional
+8. DASHBOARD DE ESTADO DOCUMENTAL
+8.1 Contadores
+• [ ] "Total" - todos los equipos del resultado
+• [ ] "Faltantes" - con docs faltantes
+• [ ] "Vencidos" - con docs vencidos
+• [ ] "Por Vencer" - con docs por vencer
+• [ ] Click → filtra
+8.2 Filtros Interactivos
+• [ ] Click aplica/quita filtro
+• [ ] Indicador visual
+• [ ] "Quitar filtro" funcional
+9. LISTA DE EQUIPOS
+9.1 Información por Equipo
+• [ ] "Equipo #ID"
+• [ ] Estado (activa/inactiva)
+
+-- 63 of 73 --
+
+• [ ] Badge Activo/Inactivo
+• [ ] DNI del chofer
+• [ ] Patente camión
+• [ ] Patente acoplado
+• [ ] Clientes asignados
+9.2 Semáforo de Documentación
+• [ ] ? Faltantes
+• [ ] ? Vencidos
+• [ ] ? Por vencer
+• [ ] ? Vigentes
+9.3 Acciones por Equipo
+• [ ] " Editar"
+• [ ] "Bajar documentación"
+• [ ] "Ver estado"
+• [ ] " Desactivar"	⏸ / " Activar"	▶
+• [ ] "Eliminar"
+10. EDITAR EQUIPO
+(/documentos/equipos/:id/editar)
+10.1 Permisos del Admin Interno (MÁXIMOS)
+• [ ] isAdmin = true
+• [ ] canEdit = true - PUEDE modificar entidades
+• [ ] canManageClients = true - PUEDE gestionar clientes
+• [ ] canUploadDocs = true - PUEDE subir documentos
+10.2 Modificar Entidades
+• [ ] Cambiar Chofer (selector + crear nuevo)
+• [ ] Cambiar Camión (selector + crear nuevo)
+• [ ] Cambiar Acoplado (selector + crear nuevo)
+• [ ] Cambiar Empresa Transportista (selector + crear nuevo)
+• [ ] Crear usuario al crear entidad
+
+-- 64 of 73 --
+
+10.3 Gestionar Clientes (COMPLETO)
+• [ ] Sección "Clientes Asignados" visible
+• [ ] Lista de clientes actuales
+• [ ] Puede agregar cualquier cliente
+• [ ] Puede quitar clientes
+• [ ] Rangos de fechas editables
+10.4 Subida de Documentos
+• [ ] Puede subir para todas las entidades
+• [ ] Documentos → estado APROBADO automáticamente
+• [ ] Puede renovar documentos
+11. GESTIÓN DE USUARIOS (/platform-users)
+11.1 Permisos de Creación
+• [ ] Puede crear: OPERATOR, OPERADOR_INTERNO, DADOR_DE_CARGA,
+TRANSPORTISTA, CHOFER, CLIENTE
+• [ ] NO puede crear: SUPERADMIN, ADMIN, ADMIN_INTERNO
+11.2 Crear Usuario OPERATOR/OPERADOR_INTERNO
+• [ ] Rol seleccionable
+• [ ] Campos: email, nombre, apellido
+• [ ] Contraseña temporal generada
+11.3 Crear Usuario DADOR_DE_CARGA
+• [ ] Rol seleccionable
+• [ ] Modo "Crear Nuevo Dador":
+• Campo Razón Social
+• Campo CUIT
+• Email obligatorio
+• [ ] Modo "Dador Existente":
+• Selector de dadores
+• [ ] Contraseña temporal generada
+11.4 Crear Usuario TRANSPORTISTA
+• [ ] Rol seleccionable
+• [ ] Selector de Dador de Carga (ve todos)
+
+-- 65 of 73 --
+
+• [ ] Modo "Crear Nueva Transportista":
+• Razón Social, CUIT, Email
+• [ ] Modo "Transportista Existente":
+• Selector filtrado por dador
+• [ ] Contraseña temporal generada
+11.5 Crear Usuario CHOFER
+• [ ] Rol seleccionable
+• [ ] Selector de Dador de Carga
+• [ ] Selector de Empresa Transportista
+• [ ] Modo "Crear Nuevo Chofer":
+• DNI, Nombre, Apellido, Email
+• [ ] Modo "Chofer Existente":
+• Selector filtrado por transportista
+• [ ] Contraseña temporal generada
+11.6 Crear Usuario CLIENTE
+• [ ] Rol seleccionable
+• [ ] Selector de Cliente existente O crear nuevo
+• [ ] Campos según modo
+• [ ] Contraseña temporal generada
+11.7 Editar Usuarios
+• [ ] Puede editar usuarios de los roles que puede crear
+• [ ] Campos editables: Nombre, Apellido, Contraseña
+• [ ] Puede cambiar asociaciones (dador, transportista, etc.)
+11.8 Lista de Usuarios
+• [ ] Ve usuarios de todos los roles que puede gestionar
+• [ ] Filtros por rol, email, nombre
+• [ ] Paginación y búsqueda
+12. ACTIVAR/DESACTIVAR EQUIPO
+12.1 Desactivar
+• [ ] Botón " Desactivar"	⏸
+• [ ] Click → desactiva
+
+-- 66 of 73 --
+
+• [ ] Toast confirmación
+12.2 Activar
+• [ ] Botón " Activar"	▶
+• [ ] Click → activa
+• [ ] Toast confirmación
+13. ELIMINAR EQUIPO
+• [ ] Botón "Eliminar" (rojo)
+• [ ] Diálogo de confirmación
+• [ ] "Cancelar" → cierra
+• [ ] "Eliminar" → elimina
+• [ ] Toast confirmación
+14. DESCARGAS
+14.1 Individual
+• [ ] Botón "Bajar documentación"
+• [ ] Descarga ZIP del equipo
+14.2 Masiva
+• [ ] Botón "Bajar documentación vigente (ZIP)"
+• [ ] Descarga todos los equipos del resultado
+15. PAGINACIÓN
+• [ ] Visible con más de 10 equipos
+• [ ] "Mostrando X - Y de Z"
+• [ ] Navegación funcional
+
+-- 67 of 73 --
+
+16. MI PERFIL (/perfil)
+16.1 Información
+• [ ] Nombre
+• [ ] Email
+• [ ] Rol: "ADMIN_INTERNO"
+16.2 Cambiar Contraseña
+• [ ] Formulario de cambio
+• [ ] Validaciones
+• [ ] Mensaje de éxito
+17. FLUJO DE APROBACIÓN
+17.1 Documentos de Transportistas/Choferes
+• [ ] Aparecen en cola de aprobaciones
+• [ ] Admin puede aprobar/rechazar
+• [ ] KPIs se actualizan
+17.2 Documentos Subidos por Admin Interno
+• [ ] Estado APROBADO automáticamente
+• [ ] No aparecen en cola
+17.3 Revisar y Aprobar
+• [ ] Ver preview
+• [ ] Corregir IA si necesario
+• [ ] Aprobar → estado APROBADO
+• [ ] Rechazar → estado RECHAZADO con motivo
+18. ACCESO A TODOS LOS PORTALES
+18.1 Portal Cliente
+• [ ] Puede acceder a /cliente
+• [ ] Ve equipos como cliente
+
+-- 68 of 73 --
+
+• [ ] Funcionalidad completa del portal cliente
+18.2 Portal Transportista
+• [ ] Puede acceder a /transportista
+• [ ] Ve funcionalidad del transportista
+18.3 Portal Dador de Carga
+• [ ] Puede acceder a /dador
+• [ ] Ve funcionalidad del dador
+18.4 Portal Chofer
+• [ ] Puede acceder a /chofer
+• [ ] Ve funcionalidad del chofer
+19. CASOS ESPECIALES
+19.1 Crear Equipo para Cualquier Dador
+• [ ] Selector de dador funcional
+• [ ] Equipo se asocia al dador seleccionado
+• [ ] Documentos aprobados automáticamente
+19.2 Ver Equipos de Todos los Dadores
+• [ ] Sin filtro → ve todo el sistema
+• [ ] Puede filtrar por dador específico
+19.3 Auditoría - Filtros Combinados
+• [ ] Múltiples filtros al mismo tiempo
+• [ ] Resultados respetan todos los filtros
+• [ ] Exportación con filtros aplicados
+19.4 Auditoría - Grandes Volúmenes
+• [ ] Paginación funciona con miles de registros
+• [ ] Exportación maneja grandes volúmenes
+• [ ] Performance aceptable
+
+-- 69 of 73 --
+
+20. RENDIMIENTO Y UX
+20.1 Estados de Carga
+• [ ] Spinner al buscar
+• [ ] Spinner al aprobar/rechazar
+• [ ] Spinner al cargar auditoría
+• [ ] Spinner al exportar
+20.2 Feedback Visual
+• [ ] Toast de éxito/error
+• [ ] Hover effects
+• [ ] Transiciones suaves
+20.3 Manejo de Errores
+• [ ] Error de red → mensaje
+• [ ] Error 401 → login
+• [ ] Error 403 → acceso denegado
+• [ ] Export error → mensaje
+20.4 Responsividad
+• [ ] Desktop (1920px) ✓
+• [ ] Laptop (1366px) ✓
+• [ ] Tablet (768px) ✓
+• [ ] Móvil (375px) ✓
+20.5 Tema Oscuro
+• [ ] Dashboard dark mode
+• [ ] Auditoría dark mode
+• [ ] Aprobaciones dark mode
+• [ ] Colores correctos
+21. SEGURIDAD
+21.1 Visibilidad Total
+• [ ] Ve equipos de todos los dadores
+• [ ] Ve usuarios de todos los roles permitidos
+
+-- 70 of 73 --
+
+• [ ] Ve documentos de todo el sistema
+• [ ] Ve logs de auditoría completos
+21.2 Permisos de Escritura
+• [ ] Puede crear equipos para cualquier dador
+• [ ] Puede modificar cualquier equipo
+• [ ] Puede subir documentos (aprobados automáticamente)
+• [ ] Puede aprobar/rechazar documentos
+• [ ] Puede gestionar clientes
+• [ ] Puede crear usuarios (roles permitidos)
+21.3 Restricciones
+• [ ] NO puede crear usuarios ADMIN/SUPERADMIN/ADMIN_INTERNO
+• [ ] NO puede acceder a gestión de empresas
+• [ ] Acciones registradas en auditoría
+22. AUDITORÍA - CASOS DE USO
+22.1 Investigar Actividad de Usuario
+• [ ] Filtrar por email específico
+• [ ] Ver todas las acciones del usuario
+• [ ] Identificar patrones sospechosos
+22.2 Investigar Cambios en Entidad
+• [ ] Filtrar por tipo de entidad + ID
+• [ ] Ver historial de cambios
+• [ ] Identificar quién hizo cambios
+22.3 Monitorear Errores
+• [ ] Filtrar por status code >= 400
+• [ ] Identificar endpoints con problemas
+• [ ] Revisar patrones de errores
+22.4 Reporte de Actividad
+• [ ] Filtrar por rango de fechas
+• [ ] Exportar a CSV/Excel
+• [ ] Análisis offline
+
+-- 71 of 73 --
+
+22.5 Filtros por Método HTTP
+• [ ] GET - consultas
+• [ ] POST - creaciones
+• [ ] PUT/PATCH - modificaciones
+• [ ] DELETE - eliminaciones
+23. DATOS DE PRUEBA RECOMENDADOS
+• [ ] Al menos 3 dadores de carga diferentes
+• [ ] Al menos 5 empresas transportistas
+• [ ] Al menos 10 choferes
+• [ ] Al menos 3 clientes
+• [ ] Al menos 20 equipos (distribuidos entre dadores)
+• [ ] Documentos pendientes de aprobación (varios dadores)
+• [ ] Registros de auditoría (varios días, usuarios, acciones)
+• [ ] Usuarios de todos los roles creables
+• [ ] Equipos con múltiples clientes
+• [ ] Equipos activos e inactivos
+• [ ] Documentos en todos los estados
+24. INTEGRACIONES
+24.1 Con Todos los Roles
+• [ ] Ve y gestiona datos de todos los roles
+• [ ] Puede impersonar funcionalidad de cualquier portal
+• [ ] Centraliza la gestión del sistema
+24.2 Con IA de Clasificación
+• [ ] Ve clasificaciones de IA
+• [ ] Puede corregir errores de IA
+• [ ] Aprueba/rechaza documentos clasificados
+24.3 Con Sistema de Auditoría
+• [ ] Todas sus acciones se registran
+• [ ] Puede revisar logs propios y de otros
+• [ ] Exporta reportes de actividad
+
+-- 72 of 73 --
+
+
+
+-- 73 of 73 --
+

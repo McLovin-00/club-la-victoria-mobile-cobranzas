@@ -8,11 +8,12 @@
 
 ## 🎯 Descripción del Proyecto
 
-Sistema integral de gestión empresarial compuesto por 3 servicios principales:
+Sistema integral de gestión empresarial compuesto por 4 servicios principales:
 
 - **Backend** (apps/backend): API REST (Express + Prisma + PostgreSQL + Redis)
 - **Frontend** (apps/frontend): SPA (React 18 + Vite + Tailwind + RTK + Shadcn/UI)
 - **Documentos** (apps/documentos): Microservicio de gestión documental para transportistas (Express + Prisma + MinIO)
+- **Remitos** (apps/remitos): Microservicio de generación y gestión de remitos (Express + Prisma)
 
 **Infraestructura**: PostgreSQL 16, Redis 7, MinIO (S3-compatible), Nginx Proxy Manager como reverse proxy.
 
@@ -45,7 +46,8 @@ cp .env.example .env
 npm run compose:dev:infra:up
 
 # 5. Ejecutar migraciones de Prisma
-npm run prisma:migrate
+cd ./apps/backend
+npm run migrate
 
 # 6. Levantar aplicaciones en desarrollo
 npm run dev
@@ -97,6 +99,20 @@ monorepo-bca/
 │       │       ├── schema.prisma  # Schema de BD (documentos)
 │       │       └── migrations/
 │       └── uploads/          # Almacenamiento temporal
+│
+│   ├── remitos/              # Microservicio de remitos
+│   │   ├── src/
+│   │   │   ├── controllers/
+│   │   │   ├── routes/
+│   │   │   ├── services/
+│   │   │   ├── workers/
+│   │   │   └── prisma/
+│   │   └── __tests__/        # Tests unitarios
+│   │
+│   └── e2e/                  # Tests End-to-End (Playwright)
+│       ├── tests/            # Specs por feature
+│       ├── fixtures/         # Datos de prueba
+│       └── pages/            # Page Objects
 │
 ├── docs/                     # Documentación
 │   ├── MANUAL_OPERATIVO_MICROSYST.md
@@ -412,6 +428,18 @@ npm test -- frontend           # Solo frontend
 ```
 
 **Objetivo de cobertura**: ≥ 80%
+
+### SonarQube (Coverage)
+> En Windows/PowerShell, usar los scripts del repo (evitan `bash`).
+
+```powershell
+cd monorepo-bca
+npm ci
+npm run test:coverage          # Genera lcov por workspace y mergea a coverage/lcov.info
+$env:SONAR_TOKEN = "<token>"   # Si tu servidor requiere auth
+npm run sonar                  # Ejecuta sonar-scanner vía Docker
+Remove-Item Env:SONAR_TOKEN
+```
 
 ### Tests E2E (Playwright)
 ```bash

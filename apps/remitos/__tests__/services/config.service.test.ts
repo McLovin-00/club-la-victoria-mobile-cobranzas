@@ -8,9 +8,11 @@ const mockRemitoSystemConfig = {
   upsert: jest.fn(),
 };
 
+const mockTransaction = jest.fn(async (fn: any) => fn({ remitoSystemConfig: mockRemitoSystemConfig }));
+
 jest.mock('../../src/config/database', () => ({
   db: {
-    getClient: () => ({ remitoSystemConfig: mockRemitoSystemConfig }),
+    getClient: () => ({ remitoSystemConfig: mockRemitoSystemConfig, $transaction: mockTransaction }),
   },
 }));
 
@@ -112,7 +114,7 @@ describe('ConfigService', () => {
         flowId: 'new-flow',
         timeout: 60000,
         systemPrompt: 'New prompt',
-      });
+      }, 1);
 
       expect(mockRemitoSystemConfig.upsert).toHaveBeenCalled();
     });
@@ -128,7 +130,7 @@ describe('ConfigService', () => {
           flowId: '',
           timeout: 0,
           systemPrompt: '',
-        })
+        }, 1)
       ).rejects.toThrow();
     });
   });

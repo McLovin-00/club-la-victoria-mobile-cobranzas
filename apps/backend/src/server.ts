@@ -16,7 +16,7 @@ const env = getEnvironment();
 const PORT = Number(process.env.PORT || env.BACKEND_PORT || 4800);
 
 // Función principal para iniciar el servidor
-const startServer = async () => {
+export const startServer = async () => {
   try {
     const port = PORT;
     const app = await initializeApp();
@@ -59,4 +59,7 @@ const startServer = async () => {
   }
 };
 
-startServer();
+// Solo iniciar el servidor cuando se ejecuta como entrypoint (evita side-effects al importar en tests)
+if (require.main === module) {
+  startServer();
+}

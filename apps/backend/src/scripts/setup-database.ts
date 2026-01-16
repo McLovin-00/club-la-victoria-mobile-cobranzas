@@ -23,7 +23,7 @@ const runCommand = (command: string) => {
   }
 };
 
-const main = async () => {
+export const main = async () => {
   console.log('--- Iniciando configuración de la base de datos ---');
 
   // 1. Sincronizar esquema con la base de datos
@@ -55,7 +55,9 @@ const main = async () => {
   console.log('--- Configuración de la base de datos completada exitosamente ---');
 };
 
-main().catch((_error) => {
-  console.error('Error inesperado durante la configuración de la base de datos:', _error);
-  process.exit(1);
-}); 
+if (require.main === module) {
+  main().catch((_error) => {
+    console.error('Error inesperado durante la configuración de la base de datos:', _error);
+    process.exit(1);
+  });
+}

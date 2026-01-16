@@ -196,7 +196,7 @@ describe('ErrorMiddleware', () => {
   });
 
   describe('Error logging', () => {
-    interface ErrorLogEntry {
+    interface _ErrorLogEntry {
       level: 'error' | 'warn';
       message: string;
       code: string;

@@ -8,6 +8,9 @@ module.exports = {
   moduleFileExtensions: ['ts', 'js', 'json'],
   moduleNameMapper: {
     '^src/(.*)$': '<rootDir>/src/$1',
+    '^@/(.*)$': '<rootDir>/src/$1',
+    '^@tests/(.*)$': '<rootDir>/src/__tests__/$1',
+    '^\\.prisma/documentos$': '<rootDir>/__tests__/mocks/prisma-documentos.client.ts',
   },
   transform: {
     '^.+\\.ts$': ['ts-jest', { isolatedModules: true }],
@@ -24,6 +27,7 @@ module.exports = {
     '!src/**/*.test.ts',
     '!src/**/*.spec.ts',
     '!src/prisma/**',
+    '!src/**/*.d.ts',
   ],
   coverageDirectory: '<rootDir>/coverage',
   coverageReporters: ['lcov', 'text', 'text-summary'],

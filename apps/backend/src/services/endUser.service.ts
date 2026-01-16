@@ -90,7 +90,7 @@ export class EndUserService {
       if (endUser) {
         // Actualizar último acceso
         await this.updateLastAccess(endUser.id);
-        
+
         AppLogger.info('✅ Usuario final identificado exitosamente', {
           userId: endUser.id,
           identifierType,
@@ -174,7 +174,7 @@ export class EndUserService {
     try {
       // Intentar identificar usuario existente
       const existingUser = await this.identifyUser(data.identifierType, data.identifier_value);
-      
+
       if (existingUser) {
         // Si está inactivo, reactivarlo
         if (!existingUser.is_active) {
@@ -335,8 +335,8 @@ export class EndUserService {
         totalInactive,
         byIdentifierType,
       ] = await Promise.all([
-        prisma.endUser.count({ where: { ...where, isActive: true } }),
-        prisma.endUser.count({ where: { ...where, isActive: false } }),
+        prisma.endUser.count({ where: { ...where, is_active: true } }),
+        prisma.endUser.count({ where: { ...where, is_active: false } }),
         prisma.endUser.groupBy({
           where,
           by: ['identifierType'],

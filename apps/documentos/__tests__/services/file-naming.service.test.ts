@@ -1,6 +1,13 @@
 /**
  * Tests unitarios para FileNamingService
  */
+import { prismaMock, resetPrismaMock } from '../mocks/prisma.mock';
+
+jest.mock('../../src/config/database', () => ({
+  prisma: prismaMock,
+  db: { getClient: () => prismaMock },
+}));
+
 import { FileNamingService } from '../../src/services/file-naming.service';
 
 jest.mock('../../src/config/logger', () => ({
@@ -13,137 +20,43 @@ jest.mock('../../src/config/logger', () => ({
 }));
 
 describe('FileNamingService', () => {
-  describe('generateFileName', () => {
-    it('should generate filename with template and entity', () => {
-      const result = FileNamingService.generateFileName({
-        templateName: 'DNI Frente',
-        entityType: 'CHOFER',
-        entityIdentifier: '12345678',
-        extension: 'pdf',
-      });
+  beforeEach(() => {
+    resetPrismaMock();
+    jest.clearAllMocks();
+  });
 
-      expect(result).toContain('dni_frente');
-      expect(result).toContain('chofer');
-      expect(result).toContain('12345678');
-      expect(result).toEndWith('.pdf');
-    });
-
-    it('should sanitize special characters', () => {
-      const result = FileNamingService.generateFileName({
-        templateName: 'Carnet de Conducir (Tipo A)',
-        entityType: 'CHOFER',
-        entityIdentifier: '12.345.678',
-        extension: 'pdf',
-      });
-
-      expect(result).not.toContain('(');
-      expect(result).not.toContain(')');
-      expect(result).not.toContain('.');
-    });
-
-    it('should handle uppercase extension', () => {
-      const result = FileNamingService.generateFileName({
-        templateName: 'Test',
-        entityType: 'CHOFER',
-        entityIdentifier: '123',
-        extension: 'PDF',
-      });
-
-      expect(result).toEndWith('.pdf');
-    });
-
-    it('should generate unique names with timestamp', () => {
-      const result1 = FileNamingService.generateFileName({
-        templateName: 'Test',
-        entityType: 'CHOFER',
-        entityIdentifier: '123',
-        extension: 'pdf',
-      });
-
-      // Wait 1ms to ensure different timestamp
-      jest.advanceTimersByTime(1);
-
-      const result2 = FileNamingService.generateFileName({
-        templateName: 'Test',
-        entityType: 'CHOFER',
-        entityIdentifier: '123',
-        extension: 'pdf',
-      });
-
-      // Names should contain timestamp making them unique
-      expect(result1).toBeDefined();
-      expect(result2).toBeDefined();
+  describe('normalizeTemplateName', () => {
+    it('normaliza nombre de plantilla (tildes, espacios y símbolos)', () => {
+      const result = FileNamingService.normalizeTemplateName('Carnet de Conducir (Tipo A)');
+      expect(result).toBe('carnet_de_conducir_tipo_a');
     });
   });
 
-  describe('sanitizeForPath', () => {
-    it('should remove special characters', () => {
-      const result = FileNamingService.sanitizeForPath('Test (File) / Name');
-
-      expect(result).not.toContain('(');
-      expect(result).not.toContain(')');
-      expect(result).not.toContain('/');
+  describe('getExtension', () => {
+    it('extrae extensión en minúsculas', () => {
+      expect(FileNamingService.getExtension('Documento.PDF')).toBe('.pdf');
     });
 
-    it('should convert to lowercase', () => {
-      const result = FileNamingService.sanitizeForPath('TEST NAME');
-
-      expect(result).toBe(result.toLowerCase());
-    });
-
-    it('should replace spaces with underscores', () => {
-      const result = FileNamingService.sanitizeForPath('test name here');
-
-      expect(result).not.toContain(' ');
-      expect(result).toContain('_');
-    });
-
-    it('should handle empty string', () => {
-      const result = FileNamingService.sanitizeForPath('');
-
-      expect(result).toBe('');
-    });
-
-    it('should trim leading/trailing underscores', () => {
-      const result = FileNamingService.sanitizeForPath('_test_');
-
-      expect(result).not.toMatch(/^_/);
-      expect(result).not.toMatch(/_$/);
+    it('retorna vacío si no hay extensión', () => {
+      expect(FileNamingService.getExtension('archivo')).toBe('');
     });
   });
 
-  describe('generateStoragePath', () => {
-    it('should generate path with tenant and entity', () => {
-      const result = FileNamingService.generateStoragePath({
-        tenantId: 1,
-        entityType: 'CHOFER',
-        entityId: 100,
-        fileName: 'test.pdf',
-      });
+  describe('generateStandardizedName', () => {
+    it('genera nombre estandarizado para CHOFER usando DNI y plantilla normalizada', async () => {
+      prismaMock.chofer.findUnique.mockResolvedValue({ dni: '12.345.678' });
 
-      expect(result).toContain('tenant_1');
-      expect(result).toContain('chofer');
-      expect(result).toContain('100');
-      expect(result).toContain('test.pdf');
+      const result = await FileNamingService.generateStandardizedName('CHOFER' as any, 1, 'DNI Frente', 'pdf');
+
+      expect(result).toBe('12345678_dni_frente.pdf');
     });
 
-    it('should handle different entity types', () => {
-      const choferPath = FileNamingService.generateStoragePath({
-        tenantId: 1,
-        entityType: 'CHOFER',
-        entityId: 1,
-        fileName: 'test.pdf',
-      });
+    it('fallback a prefijo por entidad si no encuentra identificador', async () => {
+      prismaMock.camion.findUnique.mockResolvedValue(null);
 
-      const camionPath = FileNamingService.generateStoragePath({
-        tenantId: 1,
-        entityType: 'CAMION',
-        entityId: 1,
-        fileName: 'test.pdf',
-      });
+      const result = await FileNamingService.generateStandardizedName('CAMION' as any, 99, 'RTO', '.pdf');
 
-      expect(choferPath).toContain('chofer');
-      expect(camionPath).toContain('camion');
+      expect(result).toBe('camion_99_rto.pdf');
     });
   });
 });
