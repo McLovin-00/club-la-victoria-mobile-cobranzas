@@ -62,10 +62,9 @@ services:
     command: redis-server --appendonly yes --maxmemory 512mb --maxmemory-policy allkeys-lru
     volumes:
       - redis_data:/data
-    # No exponer puerto por defecto para evitar conflictos con Redis del host
-    # Descomentar si necesitas acceso desde el host:
-    # ports:
-    #   - "6379:6379"
+    # Exponer puerto para que servicios ejecutándose en el host (no en Docker) puedan conectar.
+    ports:
+      - "6379:6379"
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 10s

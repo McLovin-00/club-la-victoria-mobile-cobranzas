@@ -9,7 +9,7 @@ import { useSelector } from 'react-redux';
 import { RootState } from '../store/store';
 import { useRoleBasedNavigation } from '../hooks/useRoleBasedNavigation';
 import { useNavigate } from 'react-router-dom';
-import { 
+import {
   BuildingOffice2Icon,
   TruckIcon,
   DocumentArrowUpIcon,
@@ -19,6 +19,7 @@ import {
   SparklesIcon,
   UserIcon
 } from '@heroicons/react/24/outline';
+import { getRuntimeEnv } from '../lib/runtimeEnv';
 
 export const DadoresPortalPage: React.FC = () => {
   const navigate = useNavigate();
@@ -36,23 +37,23 @@ export const DadoresPortalPage: React.FC = () => {
   const [batchJobId, setBatchJobId] = useState<string | null>(null);
   const { data: batchJob } = useGetJobStatusQuery({ jobId: batchJobId || '' }, { skip: !batchJobId, pollingInterval: 1500 });
   const [zipVigLoading, setZipVigLoading] = useState(false);
-  
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-purple-50 via-indigo-50 to-blue-50 dark:from-slate-900 dark:via-slate-950 dark:to-black">
       <div className="container mx-auto px-4 py-6 sm:py-8 max-w-6xl">
         {/* Header moderno y amigable */}
         <div className="mb-6 sm:mb-8">
           <div className="flex items-center gap-3 mb-4">
-            <Button 
-              variant='outline' 
-              size='sm' 
-              onClick={goBack} 
+            <Button
+              variant='outline'
+              size='sm'
+              onClick={goBack}
               className='flex items-center gap-2 hover:bg-purple-50 transition-all duration-200 rounded-full px-4'
             >
               ← Volver
             </Button>
           </div>
-          
+
           <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-xl border-0 p-6 sm:p-8 relative overflow-hidden">
             <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-purple-400/20 to-indigo-400/20 rounded-full -translate-y-8 translate-x-8"></div>
             <div className="relative">
@@ -73,12 +74,12 @@ export const DadoresPortalPage: React.FC = () => {
                     variant='outline'
                     size='sm'
                     disabled={zipVigLoading}
-                    onClick={async ()=>{
-                      const ids = Array.isArray(equiposList) ? (equiposList as any[]).map((e: any)=> (e.id ?? e.equipo?.id)).filter(Boolean).slice(0,200) : [];
+                    onClick={async () => {
+                      const ids = Array.isArray(equiposList) ? (equiposList as any[]).map((e: any) => (e.id ?? e.equipo?.id)).filter(Boolean).slice(0, 200) : [];
                       if (!ids.length) return;
                       try {
                         setZipVigLoading(true);
-                        const resp = await fetch(`${import.meta.env.VITE_DOCUMENTOS_API_URL}/api/docs/equipos/download/vigentes`, {
+                        const resp = await fetch(`${getRuntimeEnv('VITE_DOCUMENTOS_API_URL') ?? ''}/api/docs/equipos/download/vigentes`, {
                           method: 'POST',
                           headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${localStorage.getItem('token') || ''}` },
                           body: JSON.stringify({ equipoIds: ids }),
@@ -98,10 +99,10 @@ export const DadoresPortalPage: React.FC = () => {
                   </Button>
                   <Button
                     size='sm'
-                    onClick={()=>{
+                    onClick={() => {
                       // CSV resumen como alternativa liviana de Excel
                       const rows: string[] = ['equipoId'];
-                      (Array.isArray(equiposList) ? equiposList as any[] : []).forEach((e: any)=> rows.push(String(e.id ?? e.equipo?.id)));
+                      (Array.isArray(equiposList) ? equiposList as any[] : []).forEach((e: any) => rows.push(String(e.id ?? e.equipo?.id)));
                       const blob = new Blob([rows.join('\n')], { type: 'text/csv;charset=utf-8;' });
                       const a = document.createElement('a');
                       a.href = URL.createObjectURL(blob);
@@ -133,7 +134,7 @@ export const DadoresPortalPage: React.FC = () => {
                 </div>
               </div>
             </div>
-            
+
             <div className="p-6 space-y-6">
               {/* Datos del Chofer */}
               <div className="space-y-4">
@@ -141,34 +142,34 @@ export const DadoresPortalPage: React.FC = () => {
                   <UserIcon className="h-5 w-5 text-purple-500" />
                   <h3 className="font-semibold">Datos del Chofer</h3>
                 </div>
-                
+
                 <div className="space-y-4">
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">DNI del Chofer</label>
-                    <Input 
-                      placeholder="Ej: 12345678" 
-                      value={dni} 
+                    <Input
+                      placeholder="Ej: 12345678"
+                      value={dni}
                       onChange={(e) => setDni(e.target.value)}
                       className="w-full h-12 text-base rounded-xl border-2 border-gray-200 focus:border-purple-500 focus:ring-0 transition-colors"
                     />
                   </div>
-                  
+
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-2">Patente Tractor</label>
-                      <Input 
-                        placeholder="AA123BB" 
-                        value={tractor} 
+                      <Input
+                        placeholder="AA123BB"
+                        value={tractor}
                         onChange={(e) => setTractor(e.target.value)}
                         className="w-full h-12 text-base rounded-xl border-2 border-gray-200 focus:border-purple-500 focus:ring-0 transition-colors"
                       />
                     </div>
-                    
+
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-2">Patente Acoplado</label>
-                      <Input 
-                        placeholder="AC456CD (opcional)" 
-                        value={acoplado} 
+                      <Input
+                        placeholder="AC456CD (opcional)"
+                        value={acoplado}
                         onChange={(e) => setAcoplado(e.target.value)}
                         className="w-full h-12 text-base rounded-xl border-2 border-gray-200 focus:border-purple-500 focus:ring-0 transition-colors"
                       />
@@ -181,9 +182,9 @@ export const DadoresPortalPage: React.FC = () => {
               <div className="space-y-4 pt-6 border-t border-gray-200">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">Dador de Carga</label>
-                  <select 
-                    className="w-full h-12 text-base rounded-xl border-2 border-gray-200 bg-white text-gray-900 focus:outline-none focus:ring-0 focus:border-purple-500 transition-colors" 
-                    value={resolvedDadorId || ''} 
+                  <select
+                    className="w-full h-12 text-base rounded-xl border-2 border-gray-200 bg-white text-gray-900 focus:outline-none focus:ring-0 focus:border-purple-500 transition-colors"
+                    value={resolvedDadorId || ''}
                     onChange={(e) => setDadorId(Number(e.target.value))}
                   >
                     {dadores.map((d: any) => (
@@ -191,9 +192,9 @@ export const DadoresPortalPage: React.FC = () => {
                     ))}
                   </select>
                 </div>
-                
-                <Button 
-                  disabled={!resolvedDadorId || !dni || !tractor || isLoading} 
+
+                <Button
+                  disabled={!resolvedDadorId || !dni || !tractor || isLoading}
                   onClick={async () => {
                     if (!resolvedDadorId) return;
                     await createMinimal({ dadorCargaId: resolvedDadorId, dniChofer: dni, patenteTractor: tractor, patenteAcoplado: acoplado || undefined });
@@ -230,7 +231,7 @@ export const DadoresPortalPage: React.FC = () => {
                 </div>
               </div>
             </div>
-            
+
             <div className="p-6">
               <div className="text-center py-8">
                 <div className="bg-indigo-100 rounded-full p-4 w-16 h-16 mx-auto mb-4">
@@ -243,56 +244,57 @@ export const DadoresPortalPage: React.FC = () => {
             </div>
           </Card>
 
-        {/* Carga inicial por planilla (multi-documento) */}
-        <Card className="bg-white dark:bg-slate-900 rounded-2xl shadow-xl border-0 overflow-hidden">
-          <div className="bg-gradient-to-r from-emerald-500 to-lime-500 p-6 text-white">
-            <div className="flex items-center gap-3 mb-2">
-              <div className="bg-white/20 p-3 rounded-xl">
-                <DocumentArrowUpIcon className="h-6 w-6" />
-              </div>
-              <div>
-                <h2 className="text-xl font-bold">Carga Inicial por Planilla</h2>
-                <p className="text-emerald-100 text-sm">Subí múltiples documentos (PDF/imagenes) en una sola tanda</p>
+          {/* Carga inicial por planilla (multi-documento) */}
+          <Card className="bg-white dark:bg-slate-900 rounded-2xl shadow-xl border-0 overflow-hidden">
+            <div className="bg-gradient-to-r from-emerald-500 to-lime-500 p-6 text-white">
+              <div className="flex items-center gap-3 mb-2">
+                <div className="bg-white/20 p-3 rounded-xl">
+                  <DocumentArrowUpIcon className="h-6 w-6" />
+                </div>
+                <div>
+                  <h2 className="text-xl font-bold">Carga Inicial por Planilla</h2>
+                  <p className="text-emerald-100 text-sm">Subí múltiples documentos (PDF/imagenes) en una sola tanda</p>
+                </div>
               </div>
             </div>
-          </div>
-          <div className="p-6 space-y-4">
-            <p className="text-sm text-gray-600">
-              Adjuntá todos los archivos requeridos de la planilla (empresa, chofer, tractor, semi). El backend validará consistencia y creará los equipos si corresponde.
-            </p>
-            <div className="flex items-center gap-3">
-              <input
-                id="batchDocs"
-                type="file"
-                multiple
-                accept="application/pdf,image/*"
-                className="text-sm"
-                onChange={async (e) => {
-                  const files = e.currentTarget.files;
-                  if (!files || !resolvedDadorId || files.length === 0) return;
-                  try {
-                    const r = await uploadBatch({ dadorId: Number(resolvedDadorId), files }).unwrap();
-                    setBatchJobId(r.jobId);
-                  } catch {
-                    showToast('No fue posible iniciar la carga batch', 'error');
-                  } finally {
-                    e.currentTarget.value = '';
-                  }
-                }}
-                aria-label="Seleccionar archivos de la planilla"
-              />
-              <Button disabled className="h-10" title="Los archivos se suben automáticamente al seleccionarlos">
-                Subir selección
-              </Button>
-            </div>
-            {uploadingBatch && <div className="text-sm text-gray-600">Subiendo archivos...</div>}
-            {batchJobId && (
-              <div className="text-sm text-gray-700" aria-live="polite">
-                Job #{batchJobId} · Estado: {batchJob?.job?.status || '...'} · Progreso: {Math.round((batchJob?.job?.progress || 0)*100)}%
+            <div className="p-6 space-y-4">
+              <p className="text-sm text-gray-600">
+                Adjuntá todos los archivos requeridos de la planilla (empresa, chofer, tractor, semi). El backend validará consistencia y creará los equipos si corresponde.
+              </p>
+              <div className="flex items-center gap-3">
+                <input
+                  id="batchDocs"
+                  type="file"
+                  multiple
+                  accept="application/pdf,image/*"
+                  className="text-sm"
+                  onChange={async (e) => {
+                    const input = e.currentTarget;
+                    const files = input.files;
+                    if (!files || !resolvedDadorId || files.length === 0) return;
+                    try {
+                      const r = await uploadBatch({ dadorId: Number(resolvedDadorId), files }).unwrap();
+                      setBatchJobId(r.jobId);
+                    } catch {
+                      showToast('No fue posible iniciar la carga batch', 'error');
+                    } finally {
+                      input.value = '';
+                    }
+                  }}
+                  aria-label="Seleccionar archivos de la planilla"
+                />
+                <Button disabled className="h-10" title="Los archivos se suben automáticamente al seleccionarlos">
+                  Subir selección
+                </Button>
               </div>
-            )}
-          </div>
-        </Card>
+              {uploadingBatch && <div className="text-sm text-gray-600">Subiendo archivos...</div>}
+              {batchJobId && (
+                <div className="text-sm text-gray-700" aria-live="polite">
+                  Job #{batchJobId} · Estado: {batchJob?.job?.status || '...'} · Progreso: {Math.round((batchJob?.job?.progress || 0) * 100)}%
+                </div>
+              )}
+            </div>
+          </Card>
         </div>
 
         {/* Aprobación - acceso acotado por flag (validación en backend) */}
@@ -310,7 +312,7 @@ export const DadoresPortalPage: React.FC = () => {
           </div>
           <div className="p-6">
             <div className="flex flex-wrap items-center gap-3">
-              <Button onClick={()=> navigate('/documentos/aprobacion')} className="h-12 rounded-xl bg-gradient-to-r from-fuchsia-500 to-purple-600 hover:from-fuchsia-600 hover:to-purple-700 text-white font-semibold">
+              <Button onClick={() => navigate('/documentos/aprobacion')} className="h-12 rounded-xl bg-gradient-to-r from-fuchsia-500 to-purple-600 hover:from-fuchsia-600 hover:to-purple-700 text-white font-semibold">
                 Ir a Aprobación
               </Button>
               <p className="text-sm text-gray-600 dark:text-slate-300">
@@ -351,7 +353,7 @@ export const DadoresPortalPage: React.FC = () => {
               </div>
             </div>
           </div>
-          
+
           <div className="p-6">
             <div className="text-center py-8">
               <div className="bg-orange-100 rounded-full p-6 w-20 h-20 mx-auto mb-6">
@@ -377,7 +379,7 @@ export const DadoresPortalPage: React.FC = () => {
               </div>
             </div>
           </div>
-          
+
           <div className="p-6">
             <div className="text-center py-8">
               <div className="bg-green-100 rounded-full p-6 w-20 h-20 mx-auto mb-6">
@@ -435,8 +437,8 @@ const MaestrosReadonly: React.FC<{ dadorId?: number }> = ({ dadorId }) => {
           <div className="flex items-center justify-between pt-2">
             <span className="text-xs text-gray-500">Página {pageChoferes}{chPages ? ` / ${chPages}` : ''}</span>
             <div className="flex gap-2">
-              <Button variant="outline" size="sm" disabled={pageChoferes<=1} onClick={()=> setPageChoferes(p => Math.max(1, p-1))}>Anterior</Button>
-              <Button variant="outline" size="sm" disabled={chPages ? pageChoferes>=chPages : choferes.length < limit} onClick={()=> setPageChoferes(p => p+1)}>Siguiente</Button>
+              <Button variant="outline" size="sm" disabled={pageChoferes <= 1} onClick={() => setPageChoferes(p => Math.max(1, p - 1))}>Anterior</Button>
+              <Button variant="outline" size="sm" disabled={chPages ? pageChoferes >= chPages : choferes.length < limit} onClick={() => setPageChoferes(p => p + 1)}>Siguiente</Button>
             </div>
           </div>
         </div>
@@ -454,8 +456,8 @@ const MaestrosReadonly: React.FC<{ dadorId?: number }> = ({ dadorId }) => {
           <div className="flex items-center justify-between pt-2">
             <span className="text-xs text-gray-500">Página {pageCamiones}{caPages ? ` / ${caPages}` : ''}</span>
             <div className="flex gap-2">
-              <Button variant="outline" size="sm" disabled={pageCamiones<=1} onClick={()=> setPageCamiones(p => Math.max(1, p-1))}>Anterior</Button>
-              <Button variant="outline" size="sm" disabled={caPages ? pageCamiones>=caPages : camiones.length < limit} onClick={()=> setPageCamiones(p => p+1)}>Siguiente</Button>
+              <Button variant="outline" size="sm" disabled={pageCamiones <= 1} onClick={() => setPageCamiones(p => Math.max(1, p - 1))}>Anterior</Button>
+              <Button variant="outline" size="sm" disabled={caPages ? pageCamiones >= caPages : camiones.length < limit} onClick={() => setPageCamiones(p => p + 1)}>Siguiente</Button>
             </div>
           </div>
         </div>
@@ -473,8 +475,8 @@ const MaestrosReadonly: React.FC<{ dadorId?: number }> = ({ dadorId }) => {
           <div className="flex items-center justify-between pt-2">
             <span className="text-xs text-gray-500">Página {pageAcoplados}{acPages ? ` / ${acPages}` : ''}</span>
             <div className="flex gap-2">
-              <Button variant="outline" size="sm" disabled={pageAcoplados<=1} onClick={()=> setPageAcoplados(p => Math.max(1, p-1))}>Anterior</Button>
-              <Button variant="outline" size="sm" disabled={acPages ? pageAcoplados>=acPages : acoplados.length < limit} onClick={()=> setPageAcoplados(p => p+1)}>Siguiente</Button>
+              <Button variant="outline" size="sm" disabled={pageAcoplados <= 1} onClick={() => setPageAcoplados(p => Math.max(1, p - 1))}>Anterior</Button>
+              <Button variant="outline" size="sm" disabled={acPages ? pageAcoplados >= acPages : acoplados.length < limit} onClick={() => setPageAcoplados(p => p + 1)}>Siguiente</Button>
             </div>
           </div>
         </div>
@@ -489,7 +491,7 @@ const CsvUploader: React.FC<{ dadorId?: number }> = ({ dadorId }) => {
   return (
     <div>
       <div className="border-dashed border rounded p-6 text-center text-muted-foreground">
-        <input type="file" accept=".csv" onChange={(e)=>setFile(e.target.files?.[0] || null)} />
+        <input type="file" accept=".csv" onChange={(e) => setFile(e.target.files?.[0] || null)} />
       </div>
       <div className="mt-4 flex gap-2 items-center">
         <Button type="button" variant="outline" onClick={() => {
@@ -497,7 +499,7 @@ const CsvUploader: React.FC<{ dadorId?: number }> = ({ dadorId }) => {
           const blob = new Blob([`dni_chofer,patente_tractor,patente_acoplado\n12345678,AA123BB,AC456CD`], { type: 'text/csv' });
           a.href = URL.createObjectURL(blob); a.download = 'plantilla_equipos.csv'; a.click(); URL.revokeObjectURL(a.href);
         }}>Descargar plantilla</Button>
-        <Button disabled={!dadorId || !file || isLoading} onClick={async ()=>{
+        <Button disabled={!dadorId || !file || isLoading} onClick={async () => {
           if (!dadorId || !file) return;
           await importCsv({ dadorId, file });
         }}>Cargar CSV</Button>
@@ -513,14 +515,14 @@ const EquipoActions: React.FC<{ dadorId?: number }> = ({ dadorId }) => {
   const [equipoId, setEquipoId] = useState<number | ''>('' as any);
   const [estado, setEstado] = useState<string | null>(null);
   const [equipos, setEquipos] = useState<any[]>([]);
-  const baseUrl = `${import.meta.env.VITE_DOCUMENTOS_API_URL}/api/docs`;
+  const baseUrl = `${getRuntimeEnv('VITE_DOCUMENTOS_API_URL') ?? ''}/api/docs`;
   const authToken = useSelector((s: RootState) => (s as any)?.auth?.token);
   const empresaId = useSelector((s: RootState) => (s as any)?.auth?.user?.empresaId);
   const headers: HeadersInit = React.useMemo(() => ({
     ...(authToken ? { Authorization: `Bearer ${authToken}` } : {}),
     ...(empresaId ? { 'x-tenant-id': String(empresaId) } : {}),
   }), [authToken, empresaId]);
-  useEffect(()=>{ (async ()=>{ try { if (!dadorId) { setEquipos([]); return; } const res = await fetch(`${baseUrl}/equipos?dadorCargaId=${dadorId}`, { credentials:'include', headers }); const data = await res.json(); const list = Array.isArray(data?.data) ? data.data : []; setEquipos(list); if (list.length && !equipoId) setEquipoId(list[0].id); } catch (e) { console.debug('equipos fetch failed', e); } })(); }, [dadorId, baseUrl, headers, equipoId]);
+  useEffect(() => { (async () => { try { if (!dadorId) { setEquipos([]); return; } const res = await fetch(`${baseUrl}/equipos?dadorCargaId=${dadorId}`, { credentials: 'include', headers }); const data = await res.json(); const list = Array.isArray(data?.data) ? data.data : []; setEquipos(list); if (list.length && !equipoId) setEquipoId(list[0].id); } catch (e) { console.debug('equipos fetch failed', e); } })(); }, [dadorId, baseUrl, headers, equipoId]);
   const run = async (path: string) => {
     setEstado(null);
     if (!equipoId) return;
@@ -530,14 +532,14 @@ const EquipoActions: React.FC<{ dadorId?: number }> = ({ dadorId }) => {
   };
   return (
     <div className='flex flex-wrap items-end gap-2'>
-      <select className='border rounded px-2 py-2' value={equipoId as any} onChange={(e)=> setEquipoId(Number(e.target.value) || '' as any)}>
-        {equipos.map((e:any)=> (
+      <select className='border rounded px-2 py-2' value={equipoId as any} onChange={(e) => setEquipoId(Number(e.target.value) || '' as any)}>
+        {equipos.map((e: any) => (
           <option key={e.id} value={e.id}>#{e.id} · DNI {e.driverDniNorm} · {e.truckPlateNorm}</option>
         ))}
       </select>
-      <Button variant='outline' onClick={()=> run('check-missing-now')}>Revisar faltantes ahora</Button>
-      <Button onClick={()=> run('request-missing')}>Solicitar documentación</Button>
-      <Button variant='outline' onClick={()=> { if (!equipoId) return; window.open(`${baseUrl}/clients/equipos/${equipoId}/zip`, '_blank'); }}>Descargar ZIP</Button>
+      <Button variant='outline' onClick={() => run('check-missing-now')}>Revisar faltantes ahora</Button>
+      <Button onClick={() => run('request-missing')}>Solicitar documentación</Button>
+      <Button variant='outline' onClick={() => { if (!equipoId) return; window.open(`${baseUrl}/clients/equipos/${equipoId}/zip`, '_blank'); }}>Descargar ZIP</Button>
       {estado && <span className='text-xs text-muted-foreground ml-2 break-all'>{estado}</span>}
     </div>
   );
@@ -570,10 +572,10 @@ const BatchUploader: React.FC<{ dadorId?: number }> = ({ dadorId }) => {
   return (
     <div>
       <div className="border-dashed border rounded p-6 text-center text-muted-foreground">
-        <input type="file" multiple onChange={(e)=>setFiles(e.target.files)} />
+        <input type="file" multiple onChange={(e) => setFiles(e.target.files)} />
       </div>
       <div className="mt-4 flex items-center gap-3">
-        <Button disabled={!dadorId || !files || isLoading} onClick={async ()=>{
+        <Button disabled={!dadorId || !files || isLoading} onClick={async () => {
           if (!dadorId || !files) return;
           await start({ dadorId, files });
         }}>Subir documentos</Button>
@@ -602,7 +604,7 @@ const BatchUploader: React.FC<{ dadorId?: number }> = ({ dadorId }) => {
               const rows = (status as any).job.results as any[];
               const filtered = onlyErrors ? rows.filter(r => r.status === 'RECHAZADO') : rows;
               const csv = ['fileName,status,comprobante,vencimiento,documentId']
-                .concat(filtered.map(r => [r.fileName, r.status, r.comprobante || '', r.vencimiento ? new Date(r.vencimiento).toLocaleDateString() : '', r.documentId].map(v => '"'+String(v).replace(/"/g,'""')+'"').join(',')))
+                .concat(filtered.map(r => [r.fileName, r.status, r.comprobante || '', r.vencimiento ? new Date(r.vencimiento).toLocaleDateString() : '', r.documentId].map(v => '"' + String(v).replace(/"/g, '""') + '"').join(',')))
                 .join('\n');
               const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
               const a = document.createElement('a');
@@ -617,22 +619,22 @@ const BatchUploader: React.FC<{ dadorId?: number }> = ({ dadorId }) => {
               <div className="p-2 text-xs text-muted-foreground flex items-center justify-between">
                 <span>Resultados</span>
                 <label className="flex items-center gap-2">
-                  <input type="checkbox" checked={onlyErrors} onChange={(e)=>setOnlyErrors(e.target.checked)} />
+                  <input type="checkbox" checked={onlyErrors} onChange={(e) => setOnlyErrors(e.target.checked)} />
                   <span>Solo errores</span>
                 </label>
-                <Button size="sm" variant="outline" onClick={async ()=>{
+                <Button size="sm" variant="outline" onClick={async () => {
                   // Reintentar fallidos
                   await fetch(`/api/docs/jobs/${jobId}/retry-failed`, { method: 'POST', credentials: 'include' });
                   showToast('Reintentando documentos rechazados', 'default');
                 }}>Reintentar fallidos</Button>
               </div>
               <div className="divide-y">
-                {((status as any).job.results as any[]).filter((r:any)=>!onlyErrors || r.status==='RECHAZADO').map((r: any) => {
+                {((status as any).job.results as any[]).filter((r: any) => !onlyErrors || r.status === 'RECHAZADO').map((r: any) => {
                   const badge = r.status === 'APROBADO'
                     ? 'bg-green-100 text-green-700'
                     : r.status === 'RECHAZADO'
-                    ? 'bg-red-100 text-red-700'
-                    : (r.status === 'CLASIFICANDO' ? 'bg-blue-100 text-blue-700' : r.status === 'PENDIENTE_APROBACION' ? 'bg-yellow-100 text-yellow-700' : 'bg-gray-100 text-gray-600');
+                      ? 'bg-red-100 text-red-700'
+                      : (r.status === 'CLASIFICANDO' ? 'bg-blue-100 text-blue-700' : r.status === 'PENDIENTE_APROBACION' ? 'bg-yellow-100 text-yellow-700' : 'bg-gray-100 text-gray-600');
                   return (
                     <div key={r.documentId} className="p-2 flex items-center justify-between">
                       <div className="text-sm">

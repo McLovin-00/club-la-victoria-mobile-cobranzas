@@ -119,7 +119,11 @@ const ClienteDashboard: React.FC = () => {
     setIsDownloading(true);
     showToast(`Iniciando descarga ZIP de ${pagination.total} equipos...`);
 
-    const baseUrl = import.meta.env.VITE_DOCUMENTOS_API_URL || '';
+    // En Vite `import.meta.env` existe. En tests/Node puede no estar definido: fallback seguro.
+    const baseUrl =
+      (import.meta as any)?.env?.VITE_DOCUMENTOS_API_URL ||
+      (process as any)?.env?.VITE_DOCUMENTOS_API_URL ||
+      '';
     const form = document.createElement('form');
     form.method = 'POST';
     form.action = `${baseUrl}/api/docs/portal-cliente/equipos/bulk-download-form`;

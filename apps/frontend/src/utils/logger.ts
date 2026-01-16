@@ -1,5 +1,7 @@
 type LogLevel = 'debug' | 'info' | 'warn' | 'error' | 'silent';
 
+import { getRuntimeEnv } from '../lib/runtimeEnv';
+
 const levelOrder: Record<Exclude<LogLevel, 'silent'>, number> = {
   debug: 10,
   info: 20,
@@ -8,7 +10,7 @@ const levelOrder: Record<Exclude<LogLevel, 'silent'>, number> = {
 };
 
 function getEnvLevel(): LogLevel {
-  const env = import.meta.env.MODE;
+  const env = getRuntimeEnv('MODE') ?? 'development';
   // Silenciar en test y production por defecto, dejar info+ en dev
   if (env === 'production') return 'info';
   if (env === 'test') return 'silent';

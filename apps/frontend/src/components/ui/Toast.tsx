@@ -1,11 +1,13 @@
-import React, { useEffect } from 'react';
-import { showToast as showToastUtil, ToastVariant } from './Toast.utils';
+// Provee un componente de Toast y un `ToastProvider` para exponer una API consistente vía contexto.
+import React, { useCallback, useEffect, useMemo } from 'react';
+import { ToastContext, ToastVariant as ContextToastVariant } from '../../contexts/toastContext';
+import { showToast as showToastUtil, ToastVariant as UiToastVariant } from './Toast.utils';
 
 // Note: showToast and ToastVariant are available in Toast.utils.ts
 
 interface ToastProps {
   message: string;
-  variant?: ToastVariant;
+  variant?: UiToastVariant;
   duration?: number;
   onClose: () => void;
 }
@@ -142,6 +144,33 @@ export const Toast: React.FC<ToastProps> = ({
       </div>
     </div>
   );
+};
+
+const mapVariantToUiVariant = (variant?: ContextToastVariant): UiToastVariant => {
+  switch (variant) {
+    case 'success':
+      return 'success';
+    case 'error':
+      return 'error';
+    case 'warning':
+      return 'warning';
+    case 'info':
+    default:
+      return 'default';
+  }
+};
+
+export const ToastProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const show = useCallback(
+    (message: string, variant?: ContextToastVariant, durationMs?: number) => {
+      showToastUtil(message, mapVariantToUiVariant(variant), durationMs ?? 5000);
+    },
+    []
+  );
+
+  const value = useMemo(() => ({ show }), [show]);
+
+  return <ToastContext.Provider value={value}>{children}</ToastContext.Provider>;
 };
 
 export default Toast;

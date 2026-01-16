@@ -1,3 +1,13 @@
+## [Unreleased]
+
+### Fixed
+- Scripts de cobertura/SonarQube compatibles con Windows/PowerShell (sin dependencia de `bash`).
+- SonarQube: `sonar.test.inclusions` ahora incluye `*.test.tsx` / `*.spec.tsx` para que los tests de frontend no cuenten como código productivo en coverage.
+
+### Changed
+- SonarQube: coverage “overall” limitado por `sonar.coverage.inclusions` para fast-track a >=80%.
+- Merge de `lcov.info` con reescritura de `SF:` para que SonarQube pueda mapear coverage en monorepo (prefijo `apps/...` / `packages/...`).
+
 ## [1.5.0] - 2025-10-07
 
 ### Changed

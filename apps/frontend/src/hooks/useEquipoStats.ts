@@ -23,7 +23,8 @@ interface UrgentAlert {
 export const useEquipoStats = () => {
   const authToken = useSelector((s: RootState) => (s as any)?.auth?.token);
   const empresaId = useSelector((s: RootState) => (s as any)?.auth?.user?.empresaId);
-  const baseUrl = `${import.meta.env.VITE_DOCUMENTOS_API_URL}/api/docs`;
+  // En Vite `import.meta.env` existe. En tests/Node puede no estar definido: fallback seguro.
+  const baseUrl = `${(import.meta as any)?.env?.VITE_DOCUMENTOS_API_URL || (process as any)?.env?.VITE_DOCUMENTOS_API_URL || ''}/api/docs`;
 
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [alerts, setAlerts] = useState<UrgentAlert[]>([]);

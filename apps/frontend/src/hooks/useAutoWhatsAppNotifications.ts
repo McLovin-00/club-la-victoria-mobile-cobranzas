@@ -2,6 +2,7 @@ import { useEffect, useMemo, useCallback } from 'react';
 import { useSelector } from 'react-redux';
 import { RootState } from '../store/store';
 import { useWhatsAppNotifications } from './useWhatsAppNotifications';
+import { getRuntimeEnv } from '../lib/runtimeEnv';
 import { 
   createWhatsAppNotificationService, 
   WhatsAppNotificationHelpers,
@@ -45,7 +46,8 @@ export const useAutoWhatsAppNotifications = (config: AutoNotificationConfig) => 
     isLoading: isConfigLoading 
   } = useWhatsAppNotifications();
 
-  const baseUrl = `${import.meta.env.VITE_DOCUMENTOS_API_URL}/api/docs`;
+  const apiBase = (getRuntimeEnv('VITE_DOCUMENTOS_API_URL') || '').replace(/\/$/, '');
+  const baseUrl = `${apiBase}/api/docs`;
 
   const authHeaders: HeadersInit = useMemo(() => ({
     ...(authToken ? { Authorization: `Bearer ${authToken}` } : {}),
