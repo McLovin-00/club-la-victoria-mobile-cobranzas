@@ -7,7 +7,7 @@
 */
 
 import 'dotenv/config';
-import { PrismaClient, EntityType } from '../../../node_modules/.prisma/documentos';
+import { PrismaClient, EntityType } from '.prisma/documentos';
 
 const prisma = new PrismaClient();
 

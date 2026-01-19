@@ -1,4 +1,4 @@
-import { PrismaClient } from '../../node_modules/.prisma/remitos';
+import { PrismaClient } from '.prisma/remitos';
 import { AppLogger } from './logger';
 
 class Database {

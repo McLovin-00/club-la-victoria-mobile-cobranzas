@@ -3,23 +3,6 @@ import { AppLogger } from '../config/logger';
 import { UserRole } from '../types/roles';
 
 /**
- * Backend API URL for internal service communication.
- * @security In production, BACKEND_API_URL must be set with HTTPS protocol.
- * The http:// fallback is only for local Docker development where services
- * communicate over an internal network not exposed to the internet.
- */
-const BACKEND_API_URL = (() => {
-  const url = process.env.BACKEND_API_URL;
-  if (url) return url;
-  
-  // Log warning when using insecure fallback (only in development)
-  if (process.env.NODE_ENV === 'production') {
-    AppLogger.warn('⚠️ BACKEND_API_URL not set in production - using insecure HTTP fallback');
-  }
-  return 'http://backend:3000'; // Internal Docker network only
-})();
-
-/**
  * Stakeholder (responsable) en la cadena de un documento
  */
 export interface DocumentStakeholder {
@@ -34,6 +17,7 @@ export interface DocumentStakeholder {
 
 /**
  * Servicio para identificar todos los responsables (stakeholders) de un documento
+ * Consulta directamente la base de datos compartida (schema platform)
  */
 export class DocumentStakeholdersService {
   
@@ -60,7 +44,7 @@ export class DocumentStakeholdersService {
 
       const stakeholders: DocumentStakeholder[] = [];
 
-      // 1. Admins y SuperAdmins de la plataforma (backend)
+      // 1. Admins y SuperAdmins de la plataforma
       const admins = await this.getAdminUsers(document.tenantEmpresaId);
       stakeholders.push(...admins);
 
@@ -81,12 +65,12 @@ export class DocumentStakeholdersService {
       if (document.entityType === 'CHOFER') {
         const choferStakeholders = await this.getChoferStakeholders(
           document.entityId,
-          document.dadorCargaId,
           document.tenantEmpresaId
         );
         stakeholders.push(...choferStakeholders);
       }
 
+      AppLogger.debug(`Stakeholders encontrados para documento ${documentId}: ${stakeholders.length}`);
       return stakeholders;
     } catch (error) {
       AppLogger.error('Error obteniendo stakeholders:', error);
@@ -95,34 +79,27 @@ export class DocumentStakeholdersService {
   }
 
   /**
-   * Obtener admins de la plataforma
+   * Obtener admins de la plataforma consultando directamente la BD
    */
   private static async getAdminUsers(tenantEmpresaId: number): Promise<DocumentStakeholder[]> {
     try {
-      // Consultar al backend principal para obtener admins
-      const backendUrl = BACKEND_API_URL;
-      const response = await fetch(`${backendUrl}/api/users?role=ADMIN,SUPERADMIN,ADMIN_INTERNO&empresaId=${tenantEmpresaId}`, {
-        headers: {
-          'X-Internal-Service': process.env.INTERNAL_SERVICE_TOKEN || '',
-        },
-      });
+      // Consulta directa al schema platform
+      const users = await db.getClient().$queryRaw<Array<{ id: number; email: string; role: string }>>`
+        SELECT id, email, role 
+        FROM platform.users 
+        WHERE empresa_id = ${tenantEmpresaId}
+          AND role IN ('SUPERADMIN', 'ADMIN', 'ADMIN_INTERNO')
+          AND activo = true
+      `;
 
-      if (!response.ok) {
-        AppLogger.warn(`Error fetching admin users: ${response.status}`);
-        return [];
-      }
-
-      const data = (await response.json()) as { data?: any[] };
-      const users = data?.data ?? [];
-
-      return users.map((user: any) => ({
+      return users.map((user) => ({
         role: user.role as UserRole,
         userId: user.id,
         email: user.email,
         tenantEmpresaId: tenantEmpresaId,
       }));
     } catch (error) {
-      AppLogger.error('Error obteniendo admins:', error);
+      AppLogger.error('Error obteniendo admins desde BD:', error);
       return [];
     }
   }
@@ -135,26 +112,17 @@ export class DocumentStakeholdersService {
     tenantEmpresaId: number
   ): Promise<DocumentStakeholder[]> {
     try {
-      // Obtener usuarios del rol DADOR_DE_CARGA asociados a este dador desde el backend principal
-      const backendUrl = BACKEND_API_URL;
-      const response = await fetch(
-        `${backendUrl}/api/users?role=DADOR_DE_CARGA&empresaId=${tenantEmpresaId}&dadorCargaId=${dadorCargaId}`,
-        {
-          headers: {
-            'X-Internal-Service': process.env.INTERNAL_SERVICE_TOKEN || '',
-          },
-        }
-      );
+      // Consulta directa al schema platform
+      const users = await db.getClient().$queryRaw<Array<{ id: number; email: string }>>`
+        SELECT id, email 
+        FROM platform.users 
+        WHERE empresa_id = ${tenantEmpresaId}
+          AND dador_carga_id = ${dadorCargaId}
+          AND role = 'DADOR_DE_CARGA'
+          AND activo = true
+      `;
 
-      if (!response.ok) {
-        AppLogger.warn(`Error fetching dador users: ${response.status}`);
-        return [];
-      }
-
-      const data = (await response.json()) as { data?: any[] };
-      const users = data?.data ?? [];
-
-      return users.map((user: any) => ({
+      return users.map((user) => ({
         role: UserRole.DADOR_DE_CARGA,
         userId: user.id,
         email: user.email,
@@ -162,7 +130,7 @@ export class DocumentStakeholdersService {
         dadorCargaId: dadorCargaId,
       }));
     } catch (error) {
-      AppLogger.error('Error obteniendo stakeholders del dador:', error);
+      AppLogger.error('Error obteniendo stakeholders del dador desde BD:', error);
       return [];
     }
   }
@@ -204,26 +172,17 @@ export class DocumentStakeholdersService {
 
       if (!empresaTransportistaId) return [];
 
-      // Obtener usuarios del rol TRANSPORTISTA asociados a esta empresa desde el backend principal
-      const backendUrl = BACKEND_API_URL;
-      const response = await fetch(
-        `${backendUrl}/api/users?role=TRANSPORTISTA&empresaId=${tenantEmpresaId}&empresaTransportistaId=${empresaTransportistaId}`,
-        {
-          headers: {
-            'X-Internal-Service': process.env.INTERNAL_SERVICE_TOKEN || '',
-          },
-        }
-      );
+      // Consulta directa al schema platform
+      const users = await db.getClient().$queryRaw<Array<{ id: number; email: string }>>`
+        SELECT id, email 
+        FROM platform.users 
+        WHERE empresa_id = ${tenantEmpresaId}
+          AND empresa_transportista_id = ${empresaTransportistaId}
+          AND role = 'TRANSPORTISTA'
+          AND activo = true
+      `;
 
-      if (!response.ok) {
-        AppLogger.warn(`Error fetching transportista users: ${response.status}`);
-        return [];
-      }
-
-      const data = (await response.json()) as { data?: any[] };
-      const users = data?.data ?? [];
-
-      return users.map((user: any) => ({
+      return users.map((user) => ({
         role: UserRole.TRANSPORTISTA,
         userId: user.id,
         email: user.email,
@@ -231,7 +190,7 @@ export class DocumentStakeholdersService {
         empresaTransportistaId: empresaTransportistaId!,
       }));
     } catch (error) {
-      AppLogger.error('Error obteniendo stakeholders del transportista:', error);
+      AppLogger.error('Error obteniendo stakeholders del transportista desde BD:', error);
       return [];
     }
   }
@@ -241,30 +200,20 @@ export class DocumentStakeholdersService {
    */
   private static async getChoferStakeholders(
     choferId: number,
-    dadorCargaId: number,
     tenantEmpresaId: number
   ): Promise<DocumentStakeholder[]> {
     try {
-      // Obtener usuarios del rol CHOFER asociados a este chofer desde el backend principal
-      const backendUrl = BACKEND_API_URL;
-      const response = await fetch(
-        `${backendUrl}/api/users?role=CHOFER&empresaId=${tenantEmpresaId}&choferId=${choferId}`,
-        {
-          headers: {
-            'X-Internal-Service': process.env.INTERNAL_SERVICE_TOKEN || '',
-          },
-        }
-      );
+      // Consulta directa al schema platform
+      const users = await db.getClient().$queryRaw<Array<{ id: number; email: string }>>`
+        SELECT id, email 
+        FROM platform.users 
+        WHERE empresa_id = ${tenantEmpresaId}
+          AND chofer_id = ${choferId}
+          AND role = 'CHOFER'
+          AND activo = true
+      `;
 
-      if (!response.ok) {
-        AppLogger.warn(`Error fetching chofer users: ${response.status}`);
-        return [];
-      }
-
-      const data = (await response.json()) as { data?: any[] };
-      const users = data?.data ?? [];
-
-      return users.map((user: any) => ({
+      return users.map((user) => ({
         role: UserRole.CHOFER,
         userId: user.id,
         email: user.email,
@@ -272,7 +221,7 @@ export class DocumentStakeholdersService {
         choferId: choferId,
       }));
     } catch (error) {
-      AppLogger.error('Error obteniendo stakeholders del chofer:', error);
+      AppLogger.error('Error obteniendo stakeholders del chofer desde BD:', error);
       return [];
     }
   }

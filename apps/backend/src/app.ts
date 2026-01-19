@@ -97,7 +97,7 @@ const setupMiddlewares = (): void => {
   } as any;
   app.use(cors(corsOptions));
   // Ensure preflight requests are handled explicitly
-  app.options('*', cors(corsOptions));
+  app.options('*all', cors(corsOptions));
 
   // Middlewares
   app.use(express.json({ limit: '50mb' }));
@@ -162,7 +162,7 @@ const setupRoutes = async (): Promise<void> => {
   if (serviceConfig.documentos.enabled) {
     await registerDocumentosRoutes();
   } else {
-    app.use('/api/docs/*', (req, res) => res.status(404).json({ message: 'Documentos service is disabled', service: 'documentos', enabled: false }));
+    app.use('/api/docs/*path', (req, res) => res.status(404).json({ message: 'Documentos service is disabled', service: 'documentos', enabled: false }));
   }
 
   // User routes
@@ -187,7 +187,7 @@ const setupRoutes = async (): Promise<void> => {
 
   // Not-found middleware
   AppLogger.debug('Registering not-found middleware...');
-  app.use('*', ErrorMiddleware.notFound);
+  app.use('*path', ErrorMiddleware.notFound);
   AppLogger.debug('-> Not-found middleware registered');
 
   // Global error handling middleware (must be the last)

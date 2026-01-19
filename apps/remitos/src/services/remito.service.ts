@@ -3,7 +3,7 @@ import { AppLogger } from '../config/logger';
 import { minioService } from './minio.service';
 import { queueService } from './queue.service';
 import { FlowiseRemitoResponse } from '../types';
-import type { Remito, RemitoImagen, RemitoHistory, RemitoAction } from '../../node_modules/.prisma/remitos';
+import type { Remito, RemitoImagen, RemitoHistory, RemitoAction } from '.prisma/remitos';
 
 // ============================================================================
 // TYPES

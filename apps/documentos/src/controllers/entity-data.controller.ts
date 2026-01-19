@@ -2,7 +2,7 @@ import { Response } from 'express';
 import { AuthRequest } from '../middlewares/auth.middleware';
 import { prisma } from '../config/database';
 import { AppLogger } from '../config/logger';
-import type { EntityType } from '../../node_modules/.prisma/documentos';
+import type { EntityType } from '.prisma/documentos';
 import { parseParamId, parseParamString } from '../utils/params';
 
 // ============================================================================

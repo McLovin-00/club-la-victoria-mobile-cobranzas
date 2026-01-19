@@ -1,6 +1,6 @@
 import { prisma } from '../config/database';
 import { AppLogger } from '../config/logger';
-import type { EntityType } from '../../node_modules/.prisma/documentos';
+import type { EntityType } from '.prisma/documentos';
 
 /**
  * Servicio para estandarizar nombres de archivos de documentos

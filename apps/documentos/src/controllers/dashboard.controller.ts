@@ -5,6 +5,7 @@ import { DocumentService } from '../services/document.service';
 import { queueService } from '../services/queue.service';
 import { AppLogger } from '../config/logger';
 import { UserRole } from '../types/roles';
+import { minioService } from '../services/minio.service';
 
 // ============================================================================
 // HELPERS para stats por rol
@@ -577,7 +578,19 @@ export class DashboardController {
       const [documents, total] = await Promise.all([
         prisma.document.findMany({
           where: whereBase,
-          include: {
+          select: {
+            id: true,
+            entityType: true,
+            entityId: true,
+            status: true,
+            filePath: true,
+            fileName: true,
+            rejectionReason: true,
+            reviewNotes: true,
+            rejectedAt: true,
+            rejectedBy: true,
+            uploadedAt: true,
+            updatedAt: true,
             template: { select: { id: true, name: true, entityType: true } },
           },
           orderBy: [
@@ -590,13 +603,28 @@ export class DashboardController {
         prisma.document.count({ where: whereBase }),
       ]);
 
-      // Enriquecer con nombres de entidad
+      // Enriquecer con nombres de entidad y URLs firmadas
       const enrichedDocs = await Promise.all(
         documents.map(async (doc) => {
           const entityNaturalId = await getEntityNaturalId(doc.entityType, doc.entityId);
+          
+          // Generar URL firmada para la imagen (válida por 1 hora)
+          let previewUrl: string | null = null;
+          if (doc.filePath) {
+            try {
+              const [bucketName, ...pathParts] = doc.filePath.split('/');
+              if (bucketName && pathParts.length > 0) {
+                previewUrl = await minioService.getSignedUrl(bucketName, pathParts.join('/'), 3600);
+              }
+            } catch (err) {
+              AppLogger.warn(`No se pudo generar URL firmada para documento ${doc.id}:`, err);
+            }
+          }
+          
           return {
             ...doc,
             entityNaturalId,
+            previewUrl,
           };
         })
       );

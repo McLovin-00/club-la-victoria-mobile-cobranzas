@@ -9,7 +9,7 @@ import { FlowiseService } from '../services/flowise.service';
 import { RemitoService } from '../services/remito.service';
 import { PdfService } from '../services/pdf.service';
 import { RemitoAnalysisJobData } from '../types';
-import type { RemitoEstado, RemitoAction } from '../../node_modules/.prisma/remitos';
+import type { RemitoEstado, RemitoAction } from '.prisma/remitos';
 
 const env = getEnvironment();
 

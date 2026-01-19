@@ -188,6 +188,8 @@ services:
       FLOWISE_VALIDATION_TIMEOUT: "60000"
       JWT_PUBLIC_KEY_PATH: /keys/jwt_public.pem
       JWT_PRIVATE_KEY_PATH: /keys/jwt_private.pem
+      # URL del backend para comunicación interna (notificaciones)
+      BACKEND_API_URL: http://backend:4810
     volumes:
       - ./keys:/keys:ro
     ports:

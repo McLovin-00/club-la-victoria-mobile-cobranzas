@@ -7,7 +7,7 @@ import { webSocketService } from '../services/websocket.service';
 import { queueService } from '../services/queue.service';
 import { AppLogger } from '../config/logger';
 import { getEnvironment } from '../config/environment';
-import type { DocumentStatus } from '../../../node_modules/.prisma/documentos';
+import type { DocumentStatus } from '.prisma/documentos';
 
 // ============================================================================
 // TIPOS

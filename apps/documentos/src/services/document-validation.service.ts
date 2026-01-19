@@ -2,7 +2,7 @@ import axios from 'axios';
 import { getEnvironment } from '../config/environment';
 import { AppLogger } from '../config/logger';
 import { prisma } from '../config/database';
-import type { EntityType } from '../../node_modules/.prisma/documentos';
+import type { EntityType } from '.prisma/documentos';
 
 // =================================
 // Interfaces
