@@ -488,4 +488,56 @@ export class RemitoService {
     AppLogger.info('🔄 Remito encolado para reprocesamiento', { id, userId, jobId });
     return { id, estado: 'PENDIENTE_ANALISIS', jobId };
   }
+
+  /**
+   * Obtener sugerencias de autocompletado para filtros
+   */
+  static async getSuggestions(
+    tenantEmpresaId: number,
+    field: 'cliente' | 'transportista' | 'patente',
+    query: string,
+    limit: number = 10
+  ): Promise<string[]> {
+    const prisma = db.getClient();
+    const searchTerm = query.slice(0, 100).trim();
+
+    if (!searchTerm || searchTerm.length < 2) {
+      return [];
+    }
+
+    const fieldMapping: Record<string, string> = {
+      cliente: 'clienteNombre',
+      transportista: 'transportistaNombre',
+      patente: 'patenteChasis',
+    };
+
+    const dbField = fieldMapping[field];
+    if (!dbField) {
+      return [];
+    }
+
+    const results = await prisma.remito.findMany({
+      where: {
+        tenantEmpresaId,
+        [dbField]: {
+          contains: searchTerm,
+          mode: 'insensitive',
+        },
+      },
+      select: {
+        [dbField]: true,
+      },
+      distinct: [dbField as any],
+      take: limit,
+      orderBy: {
+        [dbField]: 'asc',
+      },
+    });
+
+    const values = results
+      .map((r: any) => r[dbField])
+      .filter((v): v is string => typeof v === 'string' && v.length > 0);
+
+    return values;
+  }
 }

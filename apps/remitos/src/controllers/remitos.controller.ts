@@ -1,6 +1,7 @@
 import { Response } from 'express';
 import { AuthRequest } from '../types';
 import { RemitoService } from '../services/remito.service';
+import { ExportService } from '../services/export.service';
 import { minioService } from '../services/minio.service';
 import { MediaService } from '../services/media.service';
 import { createError } from '../middlewares/error.middleware';
@@ -376,6 +377,93 @@ export class RemitosController {
       const id = parseParamId(req.params, 'id');
       const result = await RemitoService.reprocess(id, req.user!.userId);
       res.json({ success: true, message: 'Remito encolado para reprocesamiento', data: result });
+    } catch (error: any) {
+      sendError(res, error);
+    }
+  }
+
+  /**
+   * GET /remitos/export - Exportar remitos a Excel
+   * Query params: fechaDesde, fechaHasta, estado, clienteNombre, transportistaNombre, patenteChasis, numeroRemito
+   */
+  static async exportExcel(req: AuthRequest, res: Response): Promise<void> {
+    try {
+      const user = req.user!;
+      const tenantEmpresaId = req.tenantId!;
+
+      // Parsear filtros
+      const fechaDesde = req.query.fechaDesde 
+        ? new Date(req.query.fechaDesde as string) 
+        : undefined;
+      const fechaHasta = req.query.fechaHasta 
+        ? new Date(req.query.fechaHasta as string) 
+        : undefined;
+      
+      // Ajustar fechaHasta para incluir todo el día
+      if (fechaHasta) {
+        fechaHasta.setHours(23, 59, 59, 999);
+      }
+
+      const filters = {
+        tenantEmpresaId,
+        dadorCargaId: user.role !== 'SUPERADMIN' && user.role !== 'ADMIN_INTERNO' 
+          ? user.empresaId 
+          : undefined,
+        fechaDesde,
+        fechaHasta,
+        estado: req.query.estado as string | undefined,
+        clienteNombre: req.query.clienteNombre as string | undefined,
+        transportistaNombre: req.query.transportistaNombre as string | undefined,
+        patenteChasis: req.query.patenteChasis as string | undefined,
+        numeroRemito: req.query.numeroRemito as string | undefined,
+      };
+
+      AppLogger.info('Exportando remitos a Excel', { userId: user.userId, filters });
+
+      const buffer = await ExportService.exportToExcel(filters);
+
+      // Generar nombre de archivo
+      const timestamp = new Date().toISOString().slice(0, 10);
+      const fileName = `remitos_${timestamp}.xlsx`;
+
+      res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+      res.setHeader('Content-Disposition', `attachment; filename="${fileName}"`);
+      res.setHeader('Content-Length', buffer.length);
+      res.send(buffer);
+    } catch (error: any) {
+      AppLogger.error('Error exportando remitos:', error);
+      sendError(res, error);
+    }
+  }
+
+  /**
+   * GET /remitos/suggestions - Obtener sugerencias de autocompletado
+   * Query params: field (cliente|transportista|patente), q (búsqueda)
+   */
+  static async suggestions(req: AuthRequest, res: Response): Promise<void> {
+    try {
+      const tenantEmpresaId = req.tenantId!;
+      const field = req.query.field as 'cliente' | 'transportista' | 'patente';
+      const query = (req.query.q as string) || '';
+
+      const validFields = ['cliente', 'transportista', 'patente'];
+      if (!field || !validFields.includes(field)) {
+        res.status(400).json({ 
+          success: false, 
+          error: 'BAD_REQUEST', 
+          message: 'Campo inválido. Use: cliente, transportista o patente' 
+        });
+        return;
+      }
+
+      const suggestions = await RemitoService.getSuggestions(
+        tenantEmpresaId,
+        field,
+        query,
+        10
+      );
+
+      res.json({ success: true, data: suggestions });
     } catch (error: any) {
       sendError(res, error);
     }

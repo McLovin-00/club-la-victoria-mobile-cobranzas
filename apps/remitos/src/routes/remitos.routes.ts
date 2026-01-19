@@ -28,6 +28,12 @@ const upload = multer({
 // GET /remitos/stats - Estadísticas (antes que /:id para no confundir)
 router.get('/stats', authenticate, RemitosController.stats);
 
+// GET /remitos/export - Exportar a Excel (antes que /:id para no confundir)
+router.get('/export', authenticate, RemitosController.exportExcel);
+
+// GET /remitos/suggestions - Autocompletado para filtros
+router.get('/suggestions', authenticate, RemitosController.suggestions);
+
 // GET /remitos - Listar remitos
 router.get('/', authenticate, RemitosController.list);
 
