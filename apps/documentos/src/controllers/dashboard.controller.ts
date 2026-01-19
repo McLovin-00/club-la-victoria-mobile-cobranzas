@@ -736,12 +736,16 @@ export class DashboardController {
         }),
       ]);
 
+      // Total de rechazados (sin filtro de fecha)
+      const totalRejected = await prisma.document.count({ where: whereBase });
+
       res.json({
         success: true,
         data: {
+          totalRejected,
           rejectedToday,
           rejectedLast7Days,
-          byEntityType: byEntityType.map((item: any) => ({
+          rejectedByEntityType: byEntityType.map((item: any) => ({
             entityType: item.entityType,
             count: Number(item._count.entityType),
           })),
@@ -750,7 +754,7 @@ export class DashboardController {
             templateName: templates.find((t) => t.id === item.templateId)?.name || `Template #${item.templateId}`,
             count: Number(item._count.templateId),
           })),
-          topReasons,
+          rejectedByReason: topReasons,
         },
       });
     } catch (error) {

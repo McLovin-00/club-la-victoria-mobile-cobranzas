@@ -25,7 +25,6 @@ export const RejectedDocumentsPage = () => {
 
   const getEntityTypeLabel = (entityType: string) => {
     const labels: Record<string, string> = {
-      DADOR: 'Dador de Carga',
       EMPRESA_TRANSPORTISTA: 'Empresa Transportista',
       CHOFER: 'Chofer',
       CAMION: 'Camión',
@@ -123,7 +122,6 @@ export const RejectedDocumentsPage = () => {
               className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
             >
               <option value="">Todos</option>
-              <option value="DADOR">Dador de Carga</option>
               <option value="EMPRESA_TRANSPORTISTA">Empresa Transportista</option>
               <option value="CHOFER">Chofer</option>
               <option value="CAMION">Camión</option>

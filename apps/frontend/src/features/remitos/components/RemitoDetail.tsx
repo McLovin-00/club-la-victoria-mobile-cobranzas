@@ -12,6 +12,7 @@ import {
   PencilIcon,
   CheckIcon,
   XMarkIcon,
+  CalculatorIcon,
 } from '@heroicons/react/24/outline';
 import { Remito, ESTADO_LABELS, ESTADO_COLORS } from '../types';
 import { 
@@ -211,6 +212,55 @@ export function RemitoDetail({ remito: initialRemito, onBack, canApprove = false
   
   const handleFieldChange = (field: keyof EditableData, value: string) => {
     setEditData(prev => ({ ...prev, [field]: value }));
+  };
+
+  // Funciones para calcular peso faltante (Bruto - Tara = Neto)
+  const calcularPesoOrigen = () => {
+    const bruto = parseFloat(editData.pesoOrigenBruto) || 0;
+    const tara = parseFloat(editData.pesoOrigenTara) || 0;
+    const neto = parseFloat(editData.pesoOrigenNeto) || 0;
+    
+    const hasBruto = editData.pesoOrigenBruto !== '';
+    const hasTara = editData.pesoOrigenTara !== '';
+    const hasNeto = editData.pesoOrigenNeto !== '';
+    
+    if (hasBruto && hasTara && !hasNeto) {
+      // Calcular Neto = Bruto - Tara
+      setEditData(prev => ({ ...prev, pesoOrigenNeto: (bruto - tara).toString() }));
+    } else if (hasBruto && hasNeto && !hasTara) {
+      // Calcular Tara = Bruto - Neto
+      setEditData(prev => ({ ...prev, pesoOrigenTara: (bruto - neto).toString() }));
+    } else if (hasTara && hasNeto && !hasBruto) {
+      // Calcular Bruto = Tara + Neto
+      setEditData(prev => ({ ...prev, pesoOrigenBruto: (tara + neto).toString() }));
+    } else if (hasBruto && hasTara) {
+      // Si ya tiene bruto y tara, recalcular neto
+      setEditData(prev => ({ ...prev, pesoOrigenNeto: (bruto - tara).toString() }));
+    }
+  };
+
+  const calcularPesoDestino = () => {
+    const bruto = parseFloat(editData.pesoDestinoBruto) || 0;
+    const tara = parseFloat(editData.pesoDestinoTara) || 0;
+    const neto = parseFloat(editData.pesoDestinoNeto) || 0;
+    
+    const hasBruto = editData.pesoDestinoBruto !== '';
+    const hasTara = editData.pesoDestinoTara !== '';
+    const hasNeto = editData.pesoDestinoNeto !== '';
+    
+    if (hasBruto && hasTara && !hasNeto) {
+      // Calcular Neto = Bruto - Tara
+      setEditData(prev => ({ ...prev, pesoDestinoNeto: (bruto - tara).toString() }));
+    } else if (hasBruto && hasNeto && !hasTara) {
+      // Calcular Tara = Bruto - Neto
+      setEditData(prev => ({ ...prev, pesoDestinoTara: (bruto - neto).toString() }));
+    } else if (hasTara && hasNeto && !hasBruto) {
+      // Calcular Bruto = Tara + Neto
+      setEditData(prev => ({ ...prev, pesoDestinoBruto: (tara + neto).toString() }));
+    } else if (hasBruto && hasTara) {
+      // Si ya tiene bruto y tara, recalcular neto
+      setEditData(prev => ({ ...prev, pesoDestinoNeto: (bruto - tara).toString() }));
+    }
   };
   
   const isPendingApproval = remito.estado === 'PENDIENTE_APROBACION';
@@ -545,6 +595,17 @@ export function RemitoDetail({ remito: initialRemito, onBack, canApprove = false
                     highlight
                   />
                 </dl>
+                {isEditing && (
+                  <button
+                    type="button"
+                    onClick={calcularPesoOrigen}
+                    className="mt-3 flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-blue-600 hover:text-blue-700 bg-blue-50 hover:bg-blue-100 rounded-md transition-colors"
+                    title="Calcular peso faltante (Bruto - Tara = Neto)"
+                  >
+                    <CalculatorIcon className="h-4 w-4" />
+                    Recalcular
+                  </button>
+                )}
               </div>
               
               {/* Pesos Destino - siempre visible */}
@@ -586,6 +647,17 @@ export function RemitoDetail({ remito: initialRemito, onBack, canApprove = false
                     highlight
                   />
                 </dl>
+                {isEditing && (
+                  <button
+                    type="button"
+                    onClick={calcularPesoDestino}
+                    className="mt-3 flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-blue-600 hover:text-blue-700 bg-blue-50 hover:bg-blue-100 rounded-md transition-colors"
+                    title="Calcular peso faltante (Bruto - Tara = Neto)"
+                  >
+                    <CalculatorIcon className="h-4 w-4" />
+                    Recalcular
+                  </button>
+                )}
               </div>
             </div>
           </div>
