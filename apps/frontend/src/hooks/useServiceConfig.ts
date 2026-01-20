@@ -1,5 +1,7 @@
 import { apiSlice } from '../store/apiSlice';
 import { Logger } from '../lib/utils';
+import { useSelector } from 'react-redux';
+import { selectCurrentToken } from '../features/auth/authSlice';
 
 /**
  * Interfaz para configuración de un servicio individual
@@ -57,6 +59,10 @@ export const { useGetServiceConfigQuery } = configApiSlice;
  * Con protección contra errores de contexto
  */
 export const useServiceConfig = () => {
+  // Verificar si hay token antes de hacer la petición
+  const token = useSelector(selectCurrentToken);
+  const shouldSkip = !token;
+  
   try {
     const { 
       data: response, 
@@ -66,8 +72,8 @@ export const useServiceConfig = () => {
       isSuccess,
       isFetching 
     } = useGetServiceConfigQuery(undefined, {
-      // Configuración adicional para prevenir errores
-      skip: false,
+      // Saltear la petición si no hay token (evita loop en login)
+      skip: shouldSkip,
       pollingInterval: 0,
       refetchOnFocus: false,
       refetchOnReconnect: false,

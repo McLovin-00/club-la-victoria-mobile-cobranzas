@@ -1,0 +1,195 @@
+# Reglas de Codificación - Estándares SonarQube para Monorepo BCA
+
+## Stack Técnico
+- Frontend: React 18 + TypeScript, function components, hooks
+- Backend: Node ≥ 20, Express, TypeScript strict mode
+- ORM: Prisma
+- Monorepo: npm workspaces, Turborepo
+
+---
+
+## 1. Complejidad Cognitiva (S3776) - CRÍTICO
+- Mantener complejidad cognitiva ≤15 por función
+- Extraer helpers privados cuando una función supere el límite
+- Preferir early returns sobre if/else anidados
+- Máximo 3 niveles de anidación en bloques de control
+- Separar validación, lógica de negocio y formateo en funciones distintas
+
+## 2. Seguridad
+
+### 2.1 Inyección de Comandos (S4721, S2076)
+- NUNCA pasar input de usuario a execSync/spawn/exec
+- Usar whitelist de comandos permitidos cuando sea necesario ejecutar comandos del sistema
+- Validar y sanitizar cualquier dato antes de interpolarlo en comandos
+
+### 2.2 Regex DoS (S5852, S5857)
+- Limitar longitud de input ANTES de aplicar regex:
+  ```typescript
+  const bounded = str.slice(0, MAX_LENGTH);
+  ```
+- Evitar patrones con backtracking catastrófico: `(a+)+`, `(a|a)+`, `(a*)*`
+- Usar clases de caracteres con límites: `[a-z]{1,64}` en vez de `[a-z]+`
+- Preferir métodos de string (indexOf, includes, slice) sobre regex cuando sea posible
+- Para extraer JSON, usar indexOf/lastIndexOf en vez de `/\{[\s\S]*\}/`
+
+### 2.3 Límites de Contenido (S5693)
+- Documentar explícitamente cualquier límite de tamaño de archivo/request
+- Agregar comentario explicando por qué el límite es apropiado para el caso de uso
+
+### 2.4 Protocolo HTTP (S5332)
+- Usar variables de entorno para URLs de servicios
+- Si hay fallback HTTP, agregar warning en producción
+- Preferir HTTPS siempre que sea posible
+
+### 2.5 Credenciales
+- NUNCA hardcodear secretos, tokens, passwords o API keys
+- Usar variables de entorno para toda configuración sensible
+- No loggear datos sensibles (PII, tokens, passwords)
+- Usar bcrypt ≥12 rounds para hashes de passwords
+- JWT firmado con RS256
+
+## 3. Mantenibilidad
+
+### 3.1 Imports (S3863)
+- No duplicar imports del mismo módulo
+- Un solo import statement por módulo fuente
+- Ordenar imports: externos primero, internos después, relativos al final
+
+### 3.2 Type Assertions TypeScript (S4325)
+- Evitar `as any` - usar tipos genéricos o interfaces
+- Si es inevitable, agregar comentario `// NOSONAR` con justificación breve
+- Preferir type guards sobre assertions
+- Para Prisma JSON fields, usar generics: `$queryRawUnsafe<T[]>(...)`
+
+### 3.3 Variables y Asignaciones (S1854, S1481)
+- No declarar variables que no se usan
+- No asignar valores que se sobrescriben inmediatamente
+- Prefijar variables intencionalmente no usadas con `_`
+
+### 3.4 Código Vacío (S1186)
+- No dejar funciones/métodos/constructores vacíos
+- Si es intencional (ej: mock en tests), agregar comentario explicativo
+
+### 3.5 APIs Deprecadas (S1874)
+- No usar APIs marcadas como deprecated
+- Usar `req.socket?.remoteAddress` en vez de `req.connection.remoteAddress`
+- Verificar última versión estable de dependencias antes de agregar
+
+### 3.6 Comentarios TODO (S1135)
+- Evitar la palabra "TODO" en comentarios de código productivo
+- Usar "PENDIENTE:", "FUTURO:" o crear issue en GitHub
+
+## 4. Convenciones de Código
+
+### 4.1 Regex
+- Usar `\d` en vez de `[0-9]`
+- Usar `\s` en vez de `[\s\n\r\t]` (son equivalentes)
+- No usar clases de un solo carácter: `S` en vez de `[S]`
+
+### 4.2 Loops (S4138)
+- Preferir `for-of` sobre `for` tradicional cuando sea posible
+- Usar métodos de array (map, filter, reduce) cuando mejore legibilidad
+
+### 4.3 Tipos TypeScript (S4323)
+- Extraer union types repetidos a type aliases:
+  ```typescript
+  type Status = 'pending' | 'approved' | 'rejected';
+  ```
+
+### 4.4 Funciones
+- Una función = una responsabilidad
+- Nombres descriptivos que indiquen qué hace, no cómo
+- Parámetros: máximo 4, usar objeto de opciones si hay más
+
+## 5. Patrones Obligatorios
+
+### 5.1 Validación de Input con Límites
+```typescript
+function processText(input: string): string {
+  // Siempre limitar antes de procesar
+  const bounded = input.slice(0, 256);
+  return bounded.replace(/[^a-z0-9]/gi, '_');
+}
+```
+
+### 5.2 Extracción de JSON sin Regex Vulnerable
+```typescript
+function extractJson(text: string): object | null {
+  const bounded = text.slice(0, 50000);
+  const start = bounded.indexOf('{');
+  const end = bounded.lastIndexOf('}');
+  if (start === -1 || end <= start) return null;
+  try {
+    return JSON.parse(bounded.slice(start, end + 1));
+  } catch {
+    return null;
+  }
+}
+```
+
+### 5.3 Controller con Complejidad Controlada
+```typescript
+async function handleRequest(req: Request, res: Response): Promise<void> {
+  try {
+    const input = validateInput(req.body);
+    if (!input.valid) {
+      res.status(400).json({ error: input.error });
+      return;
+    }
+    
+    const result = await executeLogic(input.data);
+    res.json(formatResponse(result));
+  } catch (error) {
+    handleError(res, error);
+  }
+}
+```
+
+### 5.4 Normalización Segura
+```typescript
+function normalizeText(s: string): string {
+  return s.slice(0, 256)  // Bound input
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toUpperCase()
+    .replace(/[^A-Z0-9]+/g, '_')
+    .replace(/^_+|_+$/g, '');
+}
+```
+
+## 6. Estructura de Archivos
+- Controllers: solo manejar request/response
+- Services: lógica de negocio
+- Utils: funciones puras reutilizables
+- Middlewares: validación, auth, logging
+- Types: interfaces y type aliases
+
+## 7. Testing
+- Tests obligatorios para lógica no trivial
+- Mocks deben tener comentarios si están vacíos
+- No usar `any` en tests sin justificación
+
+## 8. Antes de Entregar Código
+- [ ] Complejidad cognitiva ≤15 por función
+- [ ] No hay imports duplicados
+- [ ] No hay variables sin usar
+- [ ] Regex tienen inputs limitados
+- [ ] No hay credenciales hardcodeadas
+- [ ] No hay `as any` sin justificación
+- [ ] Funciones vacías tienen comentario
+- [ ] No se usa la palabra "TODO"
+
+## 9. Reglas ESLint Activas
+```javascript
+{
+  '@typescript-eslint/no-unused-vars': ['error', { argsIgnorePattern: '^_' }],
+  '@typescript-eslint/no-explicit-any': 'off',
+  'no-empty': ['error', { allowEmptyCatch: true }],
+  'no-console': 'warn'
+}
+```
+
+## 10. Commits
+- Usar Conventional Commits: feat, fix, refactor, docs, test, chore
+- Un commit = un cambio lógico
+- Describir qué y por qué, no cómo

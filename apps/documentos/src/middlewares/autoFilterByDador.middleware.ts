@@ -21,10 +21,13 @@ export function autoFilterByDador(req: AuthRequest, res: Response, next: NextFun
       return;
     }
 
-    const userDadorId: number | undefined =
-      typeof user?.metadata?.dadorCargaId === 'number' ? user.metadata.dadorCargaId :
-      typeof (user as any).dadorCargaId === 'number' ? (user as any).dadorCargaId :
-      undefined;
+    // Extraer dadorCargaId de metadata o directamente del user
+    let userDadorId: number | undefined;
+    if (typeof user?.metadata?.dadorCargaId === 'number') {
+      userDadorId = user.metadata.dadorCargaId;
+    } else if (typeof user?.dadorCargaId === 'number') {
+      userDadorId = user.dadorCargaId;
+    }
 
     if (!userDadorId) {
       AppLogger.warn('Dador sin dadorCargaId en token/metadata');
@@ -32,7 +35,7 @@ export function autoFilterByDador(req: AuthRequest, res: Response, next: NextFun
       return;
     }
 
-    const incoming = (req.query as any).dadorCargaId ?? (req.body as any)?.dadorCargaId ?? (req.params as any)?.dadorId;
+    const incoming = req.query?.dadorCargaId ?? req.body?.dadorCargaId ?? req.params?.dadorId;
     if (incoming !== undefined && Number(incoming) !== userDadorId) {
       AppLogger.warn('Intento de acceso a dador ajeno', { userDadorId, incoming });
       res.status(403).json({ success: false, message: 'Acceso denegado a dador indicado', code: 'DADOR_ACCESS_DENIED' });

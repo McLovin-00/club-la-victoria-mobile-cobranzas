@@ -239,12 +239,12 @@ export class DocumentService {
     // Crear nueva versión con misma referencia de archivo (opción simple); el flujo de upload puede reemplazar el archivo luego
     const created = await db.getClient().document.create({
       data: {
-        tenantEmpresaId: existing.tenantEmpresaId as number,
-        dadorCargaId: existing.dadorCargaId as number,
-        templateId: existing.templateId as number,
-        entityType: existing.entityType as any,
-        entityId: existing.entityId as number,
-        status: 'PENDIENTE_APROBACION' as DocumentStatus,
+        tenantEmpresaId: existing.tenantEmpresaId,
+        dadorCargaId: existing.dadorCargaId,
+        templateId: existing.templateId,
+        entityType: existing.entityType,
+        entityId: existing.entityId,
+        status: 'PENDIENTE_APROBACION',
         uploadedAt: now,
         fileName: existing.fileName,
         filePath: existing.filePath,
@@ -252,11 +252,11 @@ export class DocumentService {
         mimeType: existing.mimeType,
         expiresAt: opts.expiresAt || null,
         validationData: {
-          ...(existing as any).validationData,
+          ...((existing as any).validationData || {}), // NOSONAR - cast needed for JSON type
           renewOf: existing.id,
           renewedAt: now.toISOString(),
           requestedBy: opts.requestedBy ?? null,
-        } as any,
+        },
       },
       include: { template: true },
     });
@@ -265,12 +265,12 @@ export class DocumentService {
     await db.getClient().document.update({
       where: { id: existing.id },
       data: {
-        status: 'DEPRECADO' as DocumentStatus,
+        status: 'DEPRECADO',
         validationData: {
-          ...(existing as any).validationData,
+          ...((existing as any).validationData || {}), // NOSONAR - cast needed for JSON type
           replacedBy: created.id,
           replacedAt: now.toISOString(),
-        } as any,
+        },
       },
     });
 
@@ -289,10 +289,10 @@ export class DocumentService {
     if (!base) throw new Error('Documento no encontrado');
     return db.getClient().document.findMany({
       where: {
-        tenantEmpresaId: base.tenantEmpresaId as number,
-        entityType: base.entityType as any,
-        entityId: base.entityId as number,
-        templateId: base.templateId as number,
+        tenantEmpresaId: base.tenantEmpresaId,
+        entityType: base.entityType,
+        entityId: base.entityId,
+        templateId: base.templateId,
       },
       select: {
         id: true,

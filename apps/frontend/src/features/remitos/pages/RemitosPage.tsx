@@ -3,19 +3,23 @@ import {
   DocumentPlusIcon,
   MagnifyingGlassIcon,
   ArrowPathIcon,
+  ArrowDownTrayIcon,
+  XMarkIcon,
 } from '@heroicons/react/24/outline';
 import { useSelector } from 'react-redux';
-import { selectCurrentUser } from '../../auth/authSlice';
+import { selectCurrentUser, selectCurrentToken } from '../../auth/authSlice';
 import { useGetRemitosQuery } from '../api/remitosApiSlice';
 import { RemitoCard } from '../components/RemitoCard';
 import { RemitoUploader } from '../components/RemitoUploader';
 import { RemitoDetail } from '../components/RemitoDetail';
+import { AutocompleteInput } from '../../../components/common/AutocompleteInput';
 import type { Remito, RemitoEstado } from '../types';
 
 type FilterType = 'todos' | 'PENDIENTE_APROBACION' | 'APROBADO' | 'RECHAZADO';
 
 export function RemitosPage() {
   const user = useSelector(selectCurrentUser);
+  const token = useSelector(selectCurrentToken);
   const canApprove = user?.role === 'SUPERADMIN' || user?.role === 'ADMIN_INTERNO' || user?.role === 'DADOR_CARGA';
   
   // Por defecto mostrar pendientes
@@ -24,6 +28,18 @@ export function RemitosPage() {
   const [showUploader, setShowUploader] = useState(false);
   const [selectedRemito, setSelectedRemito] = useState<Remito | null>(null);
   const [page, setPage] = useState(1);
+  
+  // Estados para exportación
+  const [showExportModal, setShowExportModal] = useState(false);
+  const [exporting, setExporting] = useState(false);
+  const [exportFilters, setExportFilters] = useState({
+    fechaDesde: '',
+    fechaHasta: '',
+    estado: '',
+    clienteNombre: '',
+    transportistaNombre: '',
+    patenteChasis: '',
+  });
   
   // Query params
   const queryParams = {
@@ -49,6 +65,46 @@ export function RemitosPage() {
   const handleFilterClick = (filter: FilterType) => {
     setActiveFilter(filter);
     setPage(1);
+  };
+
+  const handleExport = async () => {
+    setExporting(true);
+    try {
+      const params = new URLSearchParams();
+      if (exportFilters.fechaDesde) params.append('fechaDesde', exportFilters.fechaDesde);
+      if (exportFilters.fechaHasta) params.append('fechaHasta', exportFilters.fechaHasta);
+      if (exportFilters.estado) params.append('estado', exportFilters.estado);
+      if (exportFilters.clienteNombre) params.append('clienteNombre', exportFilters.clienteNombre);
+      if (exportFilters.transportistaNombre) params.append('transportistaNombre', exportFilters.transportistaNombre);
+      if (exportFilters.patenteChasis) params.append('patenteChasis', exportFilters.patenteChasis);
+
+      const baseUrl = import.meta.env.VITE_REMITOS_API_URL || '/api/remitos';
+      const response = await fetch(`${baseUrl}/export?${params.toString()}`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error('Error al exportar');
+      }
+
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `remitos_${new Date().toISOString().slice(0, 10)}.xlsx`;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+      setShowExportModal(false);
+    } catch (error) {
+      console.error('Error exportando:', error);
+      alert('Error al exportar los remitos');
+    } finally {
+      setExporting(false);
+    }
   };
   
   // Si hay un remito seleccionado, mostrar el detalle
@@ -82,8 +138,17 @@ export function RemitosPage() {
             onClick={() => refetch()}
             disabled={isFetching}
             className="p-2 border border-slate-300 dark:border-slate-600 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-700"
+            title="Actualizar"
           >
             <ArrowPathIcon className={`h-5 w-5 text-slate-600 dark:text-slate-300 ${isFetching ? 'animate-spin' : ''}`} />
+          </button>
+          <button
+            onClick={() => setShowExportModal(true)}
+            className="flex items-center gap-2 px-4 py-2 border border-green-600 text-green-600 rounded-lg hover:bg-green-50 dark:hover:bg-green-900/20 transition-colors"
+            title="Exportar a Excel"
+          >
+            <ArrowDownTrayIcon className="h-5 w-5" />
+            <span className="hidden sm:inline">Exportar</span>
           </button>
           <button
             onClick={() => setShowUploader(!showUploader)}
@@ -211,6 +276,139 @@ export function RemitosPage() {
             </div>
           )}
         </>
+      )}
+
+      {/* Modal de Exportación */}
+      {showExportModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white dark:bg-slate-800 rounded-xl shadow-xl max-w-md w-full">
+            <div className="flex items-center justify-between p-4 border-b border-slate-200 dark:border-slate-700">
+              <h3 className="text-lg font-semibold text-slate-900 dark:text-white flex items-center gap-2">
+                <ArrowDownTrayIcon className="h-5 w-5 text-green-600" />
+                Exportar Remitos a Excel
+              </h3>
+              <button 
+                onClick={() => setShowExportModal(false)}
+                className="text-slate-400 hover:text-slate-600"
+              >
+                <XMarkIcon className="h-5 w-5" />
+              </button>
+            </div>
+            
+            <div className="p-4 space-y-4">
+              <p className="text-sm text-slate-500 dark:text-slate-400">
+                Seleccioná los filtros para la exportación. Dejá en blanco para exportar todos.
+              </p>
+              
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
+                    Fecha Desde
+                  </label>
+                  <input
+                    type="date"
+                    value={exportFilters.fechaDesde}
+                    onChange={(e) => setExportFilters(f => ({ ...f, fechaDesde: e.target.value }))}
+                    className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-slate-900 dark:text-white"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
+                    Fecha Hasta
+                  </label>
+                  <input
+                    type="date"
+                    value={exportFilters.fechaHasta}
+                    onChange={(e) => setExportFilters(f => ({ ...f, fechaHasta: e.target.value }))}
+                    className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-slate-900 dark:text-white"
+                  />
+                </div>
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
+                  Estado
+                </label>
+                <select
+                  value={exportFilters.estado}
+                  onChange={(e) => setExportFilters(f => ({ ...f, estado: e.target.value }))}
+                  className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-slate-900 dark:text-white"
+                >
+                  <option value="">Todos</option>
+                  <option value="PENDIENTE_APROBACION">Pendiente Aprobación</option>
+                  <option value="APROBADO">Aprobado</option>
+                  <option value="RECHAZADO">Rechazado</option>
+                  <option value="PENDIENTE_ANALISIS">Pendiente Análisis</option>
+                </select>
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
+                  Cliente
+                </label>
+                <AutocompleteInput
+                  value={exportFilters.clienteNombre}
+                  onChange={(value) => setExportFilters(f => ({ ...f, clienteNombre: value }))}
+                  field="cliente"
+                  placeholder="Buscar por nombre de cliente..."
+                  className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-slate-900 dark:text-white"
+                />
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
+                  Transportista
+                </label>
+                <AutocompleteInput
+                  value={exportFilters.transportistaNombre}
+                  onChange={(value) => setExportFilters(f => ({ ...f, transportistaNombre: value }))}
+                  field="transportista"
+                  placeholder="Buscar por transportista..."
+                  className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-slate-900 dark:text-white"
+                />
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
+                  Patente Chasis
+                </label>
+                <AutocompleteInput
+                  value={exportFilters.patenteChasis}
+                  onChange={(value) => setExportFilters(f => ({ ...f, patenteChasis: value }))}
+                  field="patente"
+                  placeholder="Buscar por patente..."
+                  className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-slate-900 dark:text-white"
+                />
+              </div>
+            </div>
+            
+            <div className="flex gap-3 p-4 border-t border-slate-200 dark:border-slate-700">
+              <button
+                onClick={() => setShowExportModal(false)}
+                className="flex-1 px-4 py-2 border border-slate-300 dark:border-slate-600 rounded-lg text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={handleExport}
+                disabled={exporting}
+                className="flex-1 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 flex items-center justify-center gap-2"
+              >
+                {exporting ? (
+                  <>
+                    <ArrowPathIcon className="h-4 w-4 animate-spin" />
+                    Exportando...
+                  </>
+                ) : (
+                  <>
+                    <ArrowDownTrayIcon className="h-4 w-4" />
+                    Exportar Excel
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

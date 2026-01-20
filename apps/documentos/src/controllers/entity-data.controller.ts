@@ -2,7 +2,8 @@ import { Response } from 'express';
 import { AuthRequest } from '../middlewares/auth.middleware';
 import { prisma } from '../config/database';
 import { AppLogger } from '../config/logger';
-import type { EntityType } from '../../node_modules/.prisma/documentos';
+import type { EntityType } from '.prisma/documentos';
+import { parseParamId, parseParamString } from '../utils/params';
 
 // ============================================================================
 // HELPERS
@@ -84,8 +85,8 @@ export class EntityDataController {
   static async getExtractedData(req: AuthRequest, res: Response): Promise<void> {
     try {
       const tenantEmpresaId = req.tenantId as number;
-      const entityType = req.params.entityType as EntityType;
-      const entityId = parseInt(req.params.entityId, 10);
+      const entityType = parseParamString(req.params, 'entityType') as EntityType;
+      const entityId = parseParamId(req.params, 'entityId');
 
       if (!validateParams(entityType, entityId)) {
         return sendError(res, 400, 'Parámetros inválidos', 'INVALID_PARAMS');
@@ -119,8 +120,8 @@ export class EntityDataController {
   static async deleteExtractedData(req: AuthRequest, res: Response): Promise<void> {
     try {
       const tenantEmpresaId = req.tenantId as number;
-      const entityType = req.params.entityType as EntityType;
-      const entityId = parseInt(req.params.entityId, 10);
+      const entityType = parseParamString(req.params, 'entityType') as EntityType;
+      const entityId = parseParamId(req.params, 'entityId');
 
       if (!validateParams(entityType, entityId)) {
         return sendError(res, 400, 'Parámetros inválidos', 'INVALID_PARAMS');
@@ -136,7 +137,7 @@ export class EntityDataController {
       if (docIds.length > 0) {
         await prisma.documentClassification.updateMany({
           where: { documentId: { in: docIds } },
-          data: { disparidades: null, validationStatus: null },
+          data: { disparidades: undefined, validationStatus: undefined },
         });
       }
 
@@ -154,8 +155,8 @@ export class EntityDataController {
   static async updateExtractedData(req: AuthRequest, res: Response): Promise<void> {
     try {
       const tenantEmpresaId = req.tenantId as number;
-      const entityType = req.params.entityType as EntityType;
-      const entityId = parseInt(req.params.entityId, 10);
+      const entityType = parseParamString(req.params, 'entityType') as EntityType;
+      const entityId = parseParamId(req.params, 'entityId');
       const { data: newData } = req.body;
 
       if (!validateParams(entityType, entityId) || !newData) {
@@ -172,21 +173,21 @@ export class EntityDataController {
         return sendError(res, 404, 'No hay documentos clasificados para esta entidad', 'NOT_FOUND');
       }
 
-      const existingAiResponse = (lastDoc.classification as any).aiResponse || {};
+      const existingAiResponse: any = (lastDoc.classification as any).aiResponse || {}; // NOSONAR - cast needed for JSON type
       const updatedAiResponse = {
         ...existingAiResponse,
         datosExtraidos: { ...(existingAiResponse.datosExtraidos || {}), ...newData },
         manuallyEdited: true,
         editedAt: new Date().toISOString(),
-        editedBy: req.user?.id || req.user?.userId,
+        editedBy: req.user?.userId,
       };
 
       await prisma.documentClassification.update({
         where: { id: lastDoc.classification.id },
-        data: { aiResponse: updatedAiResponse as any },
+        data: { aiResponse: updatedAiResponse },
       });
 
-      AppLogger.info(`✏️ Datos IA actualizados para ${entityType} ${entityId}`, { tenantEmpresaId, userId: req.user?.id || req.user?.userId });
+      AppLogger.info(`✏️ Datos IA actualizados para ${entityType} ${entityId}`, { tenantEmpresaId, userId: req.user?.userId });
       res.json({ success: true, message: 'Datos actualizados correctamente' });
     } catch (error) {
       AppLogger.error('EntityDataController.updateExtractedData error:', error);
@@ -200,8 +201,8 @@ export class EntityDataController {
   static async getExtractionHistory(req: AuthRequest, res: Response): Promise<void> {
     try {
       const tenantEmpresaId = req.tenantId as number;
-      const entityType = req.params.entityType as EntityType;
-      const entityId = parseInt(req.params.entityId, 10);
+      const entityType = parseParamString(req.params, 'entityType') as EntityType;
+      const entityId = parseParamId(req.params, 'entityId');
       const page = parseInt(req.query.page as string, 10) || 1;
       const limit = Math.min(parseInt(req.query.limit as string, 10) || 20, 100);
 

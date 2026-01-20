@@ -42,7 +42,6 @@ export class ConfigController {
       const { enabled, baseUrl, apiKey, flowId, timeout, systemPrompt } = req.body;
       
       // Si el apiKey viene con máscara, mantener el anterior
-      const _currentConfig = await ConfigService.getFlowiseConfig();
       const finalApiKey = apiKey?.startsWith('***') ? undefined : apiKey;
       
       await ConfigService.updateFlowiseConfig({

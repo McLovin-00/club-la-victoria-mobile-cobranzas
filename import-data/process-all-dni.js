@@ -98,76 +98,77 @@ async function processFolder(folderName) {
   return data || { dni: null, apellido: null, nombre: null, error: 'API error' };
 }
 
-async function main() {
-  console.log('='.repeat(60));
-  console.log('EXTRACCIÓN DE DNI CON FLOWISE AI');
-  console.log('='.repeat(60));
-  
-  // Leer planilla
-  const wb = XLSX.readFile(EXCEL_PATH);
-  const sheet = wb.Sheets[wb.SheetNames[0]];
-  const data = XLSX.utils.sheet_to_json(sheet, { header: 1 });
-  
-  // Agregar columnas nuevas
-  data[0].push('DNI_CHOFER', 'NOMBRE_CHOFER', 'APELLIDO_CHOFER');
-  
-  // Obtener carpetas
-  const folders = fs.readdirSync(DOCS_DIR)
+function parseNameFromFolder(folderName) {
+  const namePart = folderName.replace(/^ID\d+\s*-\s*/, '');
+  const parts = namePart.split(' ');
+  const isUpper = namePart === namePart.toUpperCase();
+  return {
+    apellido: isUpper ? parts[0] : parts[parts.length - 1],
+    nombre: isUpper ? parts.slice(1).join(' ') : parts.slice(0, -1).join(' ')
+  };
+}
+
+function getSortedFolders() {
+  return fs.readdirSync(DOCS_DIR)
     .filter(f => fs.statSync(path.join(DOCS_DIR, f)).isDirectory() && f.startsWith('ID'))
     .sort((a, b) => {
       const numA = parseInt(a.match(/ID(\d+)/)?.[1] || '0');
       const numB = parseInt(b.match(/ID(\d+)/)?.[1] || '0');
       return numA - numB;
     });
+}
+
+function handleExtractedResult(row, id, result, results) {
+  row.push(result.dni, result.nombre || '', result.apellido || '');
+  results.push({ id, ...result, status: 'OK' });
+  console.log(`\r✅ ${id}: ${result.dni} - ${result.apellido}, ${result.nombre}                    `);
+  return true;
+}
+
+function handleFallbackResult(row, id, folder, results) {
+  const { nombre, apellido } = parseNameFromFolder(folder);
+  row.push('PENDIENTE', nombre, apellido);
+  results.push({ id, dni: null, nombre, apellido, status: 'FALLBACK' });
+  console.log(`\r⚠️ ${id}: Usando carpeta - ${apellido}, ${nombre}                    `);
+  return false;
+}
+
+async function main() {
+  console.log('='.repeat(60));
+  console.log('EXTRACCIÓN DE DNI CON FLOWISE AI');
+  console.log('='.repeat(60));
   
+  const wb = XLSX.readFile(EXCEL_PATH);
+  const data = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { header: 1 });
+  data[0].push('DNI_CHOFER', 'NOMBRE_CHOFER', 'APELLIDO_CHOFER');
+  
+  const folders = getSortedFolders();
   console.log(`\nCarpetas: ${folders.length}`);
-  console.log(`Filas en planilla: ${data.length - 1}`);
-  console.log('');
+  console.log(`Filas en planilla: ${data.length - 1}\n`);
   
   let success = 0, failed = 0;
   const results = [];
   
-  // Procesar cada fila
   for (let i = 1; i < data.length; i++) {
     const row = data[i];
-    if (!row || !row[0]) {
-      row.push('', '', '');
-      continue;
-    }
+    if (!row || !row[0]) { row.push('', '', ''); continue; }
     
     const id = row[0].toString();
     const folder = folders.find(f => f.startsWith(id + ' '));
     
-    if (!folder) {
-      row.push('NO_FOLDER', '', '');
-      failed++;
-      continue;
-    }
+    if (!folder) { row.push('NO_FOLDER', '', ''); failed++; continue; }
     
     process.stdout.write(`\r🔄 ${id} (${i}/${data.length - 1})...                    `);
     
     const result = await processFolder(folder);
     
     if (result && result.dni) {
-      row.push(result.dni, result.nombre || '', result.apellido || '');
-      success++;
-      results.push({ id, ...result, status: 'OK' });
-      console.log(`\r✅ ${id}: ${result.dni} - ${result.apellido}, ${result.nombre}                    `);
+      if (handleExtractedResult(row, id, result, results)) success++;
     } else {
-      // Fallback: usar nombre de carpeta
-      const namePart = folder.replace(/^ID\d+\s*-\s*/, '');
-      const parts = namePart.split(' ');
-      const isUpper = namePart === namePart.toUpperCase();
-      const apellido = isUpper ? parts[0] : parts[parts.length - 1];
-      const nombre = isUpper ? parts.slice(1).join(' ') : parts.slice(0, -1).join(' ');
-      
-      row.push('PENDIENTE', nombre, apellido);
+      handleFallbackResult(row, id, folder, results);
       failed++;
-      results.push({ id, dni: null, nombre, apellido, status: 'FALLBACK' });
-      console.log(`\r⚠️ ${id}: Usando carpeta - ${apellido}, ${nombre}                    `);
     }
     
-    // Pausa para no saturar la API
     await new Promise(r => setTimeout(r, 500));
   }
   

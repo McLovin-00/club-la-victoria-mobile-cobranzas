@@ -208,10 +208,12 @@ export const getDashboardSuperAdmin = async (req: Request, res: Response) => {
       totalBots: 0,
       // Usar memoria RSS como % de un límite razonable (500MB para apps Node.js)
       serverUsage: Math.min(Math.round((process.memoryUsage().rss / (500 * 1024 * 1024)) * 100), 100),
-      empresasStats: empresasStats.map((stat: any) => ({
-        month: stat.createdAt.toISOString().substring(0, 7), // YYYY-MM format
-        count: stat._count.id,
-      })),
+      empresasStats: empresasStats.length > 0 
+        ? empresasStats.map((stat: any) => ({
+            month: stat.createdAt.toISOString().substring(0, 7), // YYYY-MM format
+            count: stat._count.id,
+          }))
+        : [{ month: new Date().toISOString().substring(0, 7), count: 0 }],
       empresas: empresas.map((empresa: any) => ({
         id: empresa.id,
         nombre: empresa.nombre,

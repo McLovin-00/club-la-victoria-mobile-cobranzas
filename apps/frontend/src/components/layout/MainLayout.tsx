@@ -14,11 +14,13 @@ import {
   DocumentTextIcon,
   ClipboardDocumentCheckIcon,
   TruckIcon,
+  ExclamationTriangleIcon,
 } from '@heroicons/react/24/outline';
 import { ThemeToggle } from '../ui/theme-toggle';
 import { Logger } from '../../lib/utils';
 import { useServiceFlags } from '../../hooks/useServiceConfig';
 import bcaLogo from '../../assets/logo-bca.jpg';
+import { NotificationBell } from '../notifications/NotificationBell';
 // Tenant selector removido de la UI: el tenant se toma del empresaId del usuario
 
 export const MainLayout = () => {
@@ -51,6 +53,7 @@ export const MainLayout = () => {
 
           {/* Menú Usuario (tenant oculto; se deriva de empresaId) */}
           <div className='flex items-center gap-3'>
+            <NotificationBell />
             <UserMenu />
           </div>
         </div>
@@ -203,6 +206,15 @@ const SidebarContent = ({ closeSidebar }: SidebarContentProps) => {
         <nav className='px-4 py-4 space-y-2'>
           {/* Dashboard - Para todos los usuarios autenticados */}
           <NavItem to='/' icon={HomeIcon} text='Dashboard' closeSidebar={closeSidebar} />
+          {/* Documentos Rechazados - Para todos, filtrado por rol en backend */}
+          {serviceFlags.documentos && (
+            <NavItem
+              to='/documentos/rechazados'
+              icon={ExclamationTriangleIcon}
+              text='Docs Rechazados'
+              closeSidebar={closeSidebar}
+            />
+          )}
         </nav>
 
         {/* Sección de gestión - Para ADMIN_INTERNO, SUPERADMIN, ADMIN */}
@@ -289,12 +301,20 @@ const SidebarContent = ({ closeSidebar }: SidebarContentProps) => {
 
               {/* Gestión de Documentos - Solo si está habilitado */}
               {serviceFlags.documentos && (
-                <NavItem
-                  to='/documentos'
-                  icon={DocumentTextIcon}
-                  text='Documentos'
-                  closeSidebar={closeSidebar}
-                />
+                <>
+                  <NavItem
+                    to='/documentos'
+                    icon={DocumentTextIcon}
+                    text='Documentos'
+                    closeSidebar={closeSidebar}
+                  />
+                  <NavItem
+                    to='/documentos/rechazados'
+                    icon={ExclamationTriangleIcon}
+                    text='Rechazados'
+                    closeSidebar={closeSidebar}
+                  />
+                </>
               )}
 
               {/* Eliminado: Calidad (QMS) */}

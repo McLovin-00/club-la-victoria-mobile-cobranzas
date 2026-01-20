@@ -20,6 +20,12 @@ interface NotificationTemplates {
 interface WindowConfig { enabled: boolean; unit: Unit; value: number }
 interface WindowsConfig { aviso: WindowConfig; alerta: WindowConfig; alarma: WindowConfig }
 
+interface NotificationContext {
+  meta: { tenantId: number; dadorId: number; documentId: number };
+  dador: { notifyDriverEnabled?: boolean; notifyDadorEnabled?: boolean; phones?: string[] } | null;
+  choferData: { phones: string[] };
+}
+
 // ============================================================================
 // HELPERS PARA REDUCIR COMPLEJIDAD
 // ============================================================================
@@ -52,7 +58,7 @@ async function sendToPhones(
   service: typeof NotificationService,
   phones: string[],
   text: string,
-  meta: { tenantId: number; dadorId: number; documentId: number; audience: string; type: string; templateKey: string },
+  meta: { tenantId: number; dadorId: number; documentId: number; audience: 'DADOR' | 'CHOFER'; type: string; templateKey: string },
   maxPhones: number
 ): Promise<number> {
   let sent = 0;
@@ -183,24 +189,52 @@ export class NotificationService {
   ): Promise<number> {
     const exp = d.expiresAt as Date;
     
-    // Cargar datos relacionados
     const dador = await prisma.dadorCarga.findUnique({ 
       where: { id: d.dadorCargaId }, 
       select: { razonSocial: true, phones: true, notifyDadorEnabled: true, notifyDriverEnabled: true } 
     });
     const choferData = await loadChoferData(d.entityType, d.entityId);
 
-    const params = {
+    const params = this.buildNotificationParams(d, exp, now, dador?.razonSocial, choferData);
+    const ctx: NotificationContext = {
+      meta: { tenantId: d.tenantEmpresaId, dadorId: d.dadorCargaId, documentId: d.id },
+      dador,
+      choferData,
+    };
+    
+    return this.sendWindowNotifications(windows, templates, exp, now, params, ctx);
+  }
+
+  /** Construye parámetros para templates de notificación */
+  private static buildNotificationParams(
+    d: { entityType: string; entityId: number; template: { name: string } | null },
+    exp: Date,
+    now: Date,
+    dadorNombre: string | undefined,
+    choferData: { nombre: string; dni: string }
+  ): Record<string, any> {
+    return {
       nombre_chofer: choferData.nombre,
       dni_chofer: choferData.dni || (d.entityType === 'CHOFER' ? String(d.entityId) : ''),
       patente_camion: d.entityType === 'CAMION' ? String(d.entityId) : '',
-      nombre_dador: dador?.razonSocial || '',
+      nombre_dador: dadorNombre || '',
       documento: d.template?.name || 'documento',
       vence_el: exp.toLocaleDateString('es-AR'),
       dias_restantes: Math.max(0, Math.ceil((exp.getTime() - now.getTime()) / (1000*60*60*24))),
       link_portal: '',
     };
+  }
 
+  /** Envía notificaciones para cada ventana de tiempo aplicable */
+  private static async sendWindowNotifications(
+    windows: WindowsConfig,
+    templates: NotificationTemplates,
+    exp: Date,
+    now: Date,
+    params: Record<string, any>,
+    ctx: NotificationContext
+  ): Promise<number> {
+    const { meta, dador, choferData } = ctx;
     let sent = 0;
     const steps: Array<{key: 'aviso'|'alerta'|'alarma'; win: WindowConfig}> = [
       { key: 'aviso', win: windows.aviso },
@@ -214,20 +248,32 @@ export class NotificationService {
       if (now < windowStart) continue;
 
       const tpl = templates[st.key];
-      const meta = { tenantId: d.tenantEmpresaId, dadorId: d.dadorCargaId, documentId: d.id };
-
-      // Notificar chofer
-      if (tpl.chofer.enabled && dador?.notifyDriverEnabled && choferData.phones.length > 0) {
-        const text = this.render(tpl.chofer.text || 'Tu {{documento}} vence el {{vence_el}}', params);
-        sent += await sendToPhones(this, choferData.phones, text, { ...meta, audience: 'CHOFER', type: st.key, templateKey: `templates.${st.key}.chofer` }, 3);
-      }
-
-      // Notificar dador
-      if (tpl.dador.enabled && dador?.notifyDadorEnabled && (dador.phones?.length || 0) > 0) {
-        const text = this.render(tpl.dador.text || '{{documento}} vence el {{vence_el}}', params);
-        sent += await sendToPhones(this, dador.phones || [], text, { ...meta, audience: 'DADOR', type: st.key, templateKey: `templates.${st.key}.dador` }, 5);
-      }
+      sent += await this.sendAudienceNotifications(st.key, tpl, params, meta, dador, choferData);
     }
+    return sent;
+  }
+
+  /** Envía notificaciones a chofer y dador si están habilitadas */
+  private static async sendAudienceNotifications(
+    stepKey: string,
+    tpl: { chofer: AudienceTemplate; dador: AudienceTemplate },
+    params: Record<string, any>,
+    meta: { tenantId: number; dadorId: number; documentId: number },
+    dador: { notifyDriverEnabled?: boolean; notifyDadorEnabled?: boolean; phones?: string[] } | null,
+    choferData: { phones: string[] }
+  ): Promise<number> {
+    let sent = 0;
+    
+    if (tpl.chofer.enabled && dador?.notifyDriverEnabled && choferData.phones.length > 0) {
+      const text = this.render(tpl.chofer.text || 'Tu {{documento}} vence el {{vence_el}}', params);
+      sent += await sendToPhones(this, choferData.phones, text, { ...meta, audience: 'CHOFER', type: stepKey, templateKey: `templates.${stepKey}.chofer` }, 3);
+    }
+    
+    if (tpl.dador.enabled && dador?.notifyDadorEnabled && (dador.phones?.length || 0) > 0) {
+      const text = this.render(tpl.dador.text || '{{documento}} vence el {{vence_el}}', params);
+      sent += await sendToPhones(this, dador.phones || [], text, { ...meta, audience: 'DADOR', type: stepKey, templateKey: `templates.${stepKey}.dador` }, 5);
+    }
+    
     return sent;
   }
 

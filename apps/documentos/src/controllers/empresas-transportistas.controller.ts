@@ -64,7 +64,7 @@ export class EmpresasTransportistasController {
   static async create(req: Request, res: Response): Promise<void> {
     try {
       const tenantEmpresaId = (req as any).tenantId as number;
-      const { dadorCargaId, razonSocial, cuit, activo, notas } = (req.body || {}) as any;
+      const { dadorCargaId, razonSocial, cuit, activo, notas } = req.body || {};
       const empresa = await EmpresaTransportistaService.create({
         dadorCargaId: Number(dadorCargaId),
         tenantEmpresaId,
@@ -83,7 +83,7 @@ export class EmpresasTransportistasController {
     try {
       const tenantEmpresaId = (req as any).tenantId as number;
       const id = Number((req.params as any).id);
-      const { razonSocial, cuit, activo, notas } = (req.body || {}) as any;
+      const { razonSocial, cuit, activo, notas } = req.body || {};
       const empresa = await EmpresaTransportistaService.update(id, tenantEmpresaId, { razonSocial, cuit, activo, notas });
       res.json({ success: true, data: empresa, message: 'Empresa transportista actualizada' });
     } catch (error) {

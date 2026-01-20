@@ -18,6 +18,11 @@ RUN echo '{"compilerOptions":{"target":"ESNext","module":"ESNext","moduleResolut
 # Instalar dependencias (sin workspaces ya que solo tenemos el frontend)
 RUN npm config set legacy-peer-deps true && npm install
 
+# Generar clientes Prisma para todas las apps (requerido por turbo build)
+RUN npx prisma generate --schema=apps/backend/prisma/schema.prisma && \
+    npx prisma generate --schema=apps/documentos/src/prisma/schema.prisma && \
+    npx prisma generate --schema=apps/remitos/src/prisma/schema.prisma
+
 # Variables de build de Vite
 ARG VITE_API_URL
 ARG VITE_API_BASE_URL
@@ -79,7 +84,7 @@ server {
 EOF
 
 # Copiar archivos del build
-COPY --from=build /app/dist /usr/share/nginx/html
+COPY --from=build /app/apps/frontend/dist /usr/share/nginx/html
 
 EXPOSE 8550
 

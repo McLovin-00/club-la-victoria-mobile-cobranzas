@@ -1,6 +1,6 @@
 import { prisma } from '../config/database';
 import { AppLogger } from '../config/logger';
-import type { EntityType } from '../../node_modules/.prisma/documentos';
+import type { EntityType } from '.prisma/documentos';
 
 /**
  * Servicio para estandarizar nombres de archivos de documentos
@@ -110,7 +110,7 @@ export class FileNamingService {
       .replace(/[\u0300-\u036f]/g, '') // Quitar tildes
       .replace(/[^a-z0-9]/g, '_')       // Solo alfanuméricos
       .replace(/_+/g, '_')              // Colapsar guiones múltiples
-      .replace(/(?:^_|_$)/g, '');             // Trim guiones inicio/fin
+      .replace(/^_/, '').replace(/_$/, '');   // Trim guiones inicio/fin
   }
 
   /**

@@ -6,9 +6,50 @@ import { SystemConfigService } from '../services/system-config.service';
 import { EquipoService } from '../services/equipo.service';
 import { JobsService } from '../services/jobs.service';
 
-const router = Router();
+const router: ReturnType<typeof Router> = Router();
 // NOSONAR: Content length 50MB is intentional for batch CSV imports with large datasets
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 50 * 1024 * 1024 } });
+
+type ImportResult = { ok: boolean; error?: string; external_id?: string | null };
+
+// Helper: procesar una fila de CSV
+async function processEquipoCsvRow(
+  r: CsvRowEquipo,
+  tenantId: number,
+  dadorId: number,
+  dryRun: boolean
+): Promise<ImportResult> {
+  try {
+    if (!dryRun) {
+      await EquipoService.createFromIdentifiers({
+        tenantEmpresaId: tenantId,
+        dadorCargaId: dadorId,
+        dniChofer: r.dni_chofer,
+        patenteTractor: r.patente_tractor,
+        patenteAcoplado: r.patente_acoplado || undefined,
+        choferPhones: r.chofer_phones,
+        empresaTransportistaCuit: r.empresa_transportista_cuit || undefined,
+        empresaTransportistaNombre: r.empresa_transportista_nombre || undefined,
+      });
+    }
+    return { ok: true, external_id: r.external_id || null };
+  } catch (e: any) {
+    return { ok: false, error: e?.message || 'Error al crear equipo', external_id: r.external_id || null };
+  }
+}
+
+// Helper: generar CSV de errores
+function generateErrorsCsv(results: ImportResult[], rows: CsvRowEquipo[]): string {
+  const errorRows = results
+    .map((r, idx) => ({ r, src: rows[idx] }))
+    .filter((x) => !x.r.ok)
+    .map(({ r, src }) => [r.external_id || '', src.dni_chofer, src.patente_tractor, src.patente_acoplado || '', r.error || '']
+      .map((v) => String(v).replace(/"/g, '""')));
+  
+  return ['external_id,dni_chofer,patente_tractor,patente_acoplado,error']
+    .concat(errorRows.map((cols) => cols.map((c) => /[",\n]/.test(c) ? `"${c}"` : c).join(',')))
+    .join('\n');
+}
 
 // ============================================================================
 // CSV PARSING HELPERS
@@ -78,39 +119,12 @@ router.post('/dadores/:dadorId/equipos/import-csv', authenticate, authorize([Use
   const dadorId = Number(req.params.dadorId);
   if (!dadorId || !req.file) return res.status(400).json({ success: false, message: 'Parámetros inválidos' });
 
-  const content = req.file.buffer.toString('utf-8');
-  const rows = parseCsv(content);
+  const rows = parseCsv(req.file.buffer.toString('utf-8'));
   const dryRun = String(req.query.dryRun || 'false') === 'true';
-  const results: Array<{ ok: boolean; error?: string; external_id?: string | null }> = [];
-
-  for (const r of rows) {
-    try {
-      if (!dryRun) {
-        await EquipoService.createFromIdentifiers({
-          tenantEmpresaId: req.tenantId!,
-          dadorCargaId: dadorId,
-          dniChofer: r.dni_chofer,
-          patenteTractor: r.patente_tractor,
-          patenteAcoplado: r.patente_acoplado || undefined,
-          choferPhones: r.chofer_phones,
-          empresaTransportistaCuit: r.empresa_transportista_cuit || undefined,
-          empresaTransportistaNombre: r.empresa_transportista_nombre || undefined,
-        });
-      }
-      results.push({ ok: true, external_id: r.external_id || null });
-    } catch (e: any) {
-      results.push({ ok: false, error: e?.message || 'Error al crear equipo', external_id: r.external_id || null });
-    }
-  }
-
-  // CSV de errores (descargable): external_id,dni,tractor,acoplado,error
-  const errorRows = results
-    .map((r, idx) => ({ r, src: rows[idx] }))
-    .filter((x) => !x.r.ok)
-    .map(({ r, src }) => [r.external_id || '', src.dni_chofer, src.patente_tractor, src.patente_acoplado || '', r.error || ''].map((v) => String(v).replace(/"/g, '""')));
-  const errorsCsv = ['external_id,dni_chofer,patente_tractor,patente_acoplado,error']
-    .concat(errorRows.map((cols) => cols.map((c) => /[",\n]/.test(c) ? `"${c}"` : c).join(',')))
-    .join('\n');
+  
+  const results = await Promise.all(
+    rows.map(r => processEquipoCsvRow(r, req.tenantId!, dadorId, dryRun))
+  );
 
   res.json({
     success: true,
@@ -118,7 +132,7 @@ router.post('/dadores/:dadorId/equipos/import-csv', authenticate, authorize([Use
     total: rows.length,
     created: results.filter(r => r.ok).length,
     errors: results.filter(r => !r.ok),
-    errorsCsv,
+    errorsCsv: generateErrorsCsv(results, rows),
   });
 });
 
@@ -174,7 +188,7 @@ router.get('/jobs/:jobId/status', authenticate, async (req, res) => {
         return {
           documentId: it.documentId,
           fileName: it.fileName || d?.fileName || `document-${it.documentId}`,
-          status: (d?.status as any) || 'PENDIENTE',
+          status: d?.status || 'PENDIENTE',
           comprobante: ai?.comprobante,
           vencimiento: d?.expiresAt ? new Date(d.expiresAt).toISOString() : null,
         };

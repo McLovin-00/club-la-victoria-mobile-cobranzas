@@ -4,7 +4,7 @@
  */
 
 // Mock process.exit to prevent test crashes
-const mockExit = jest.spyOn(process, 'exit').mockImplementation((code) => {
+const _mockExit = jest.spyOn(process, 'exit').mockImplementation((code) => {
   throw new Error(`process.exit called with "${code}"`);
 });
 

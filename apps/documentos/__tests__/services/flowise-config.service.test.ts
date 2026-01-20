@@ -59,7 +59,9 @@ describe('SystemConfigService', () => {
     it('should update flowise config', async () => {
       prismaMock.systemConfig.upsert.mockResolvedValue({ key: 'flowise.enabled', value: 'true' });
 
-      await SystemConfigService.updateFlowiseConfig({
+      prismaMock.systemConfig.upsert.mockResolvedValue(mockUpdated);
+
+      const _result = await SystemConfigService.updateFlowiseConfig({
         enabled: true,
         baseUrl: 'http://new-flowise:3000',
         flowId: 'new-flow-id',
@@ -115,5 +117,6 @@ describe('SystemConfigService', () => {
     });
   });
 });
+
 
 

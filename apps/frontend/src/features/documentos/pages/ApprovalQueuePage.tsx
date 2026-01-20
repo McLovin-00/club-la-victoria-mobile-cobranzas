@@ -32,6 +32,12 @@ export default function ApprovalQueuePage() {
   const [limit] = useState<number>(20);
   const [entityType, setEntityType] = useState<EntityType>('');
 
+  // Resetear página cuando cambia el filtro de entidad
+  const handleEntityTypeChange = (newEntityType: EntityType) => {
+    setEntityType(newEntityType);
+    setPage(1); // Resetear a primera página
+  };
+
   const { data: kpis } = useGetApprovalKpisQuery();
   const { data: pendingResp, isFetching, refetch } = useGetApprovalPendingQuery(
     { page, limit, entityType: entityType || undefined },
@@ -81,7 +87,7 @@ export default function ApprovalQueuePage() {
             <select
               className="input input-bordered py-2 px-3 rounded-md bg-background border"
               value={entityType}
-              onChange={(e) => setEntityType(e.target.value as EntityType)}
+              onChange={(e) => handleEntityTypeChange(e.target.value as EntityType)}
             >
               <option value="">Todas las entidades</option>
               <option value="EMPRESA_TRANSPORTISTA">Empresa Transportista</option>
@@ -89,12 +95,6 @@ export default function ApprovalQueuePage() {
               <option value="CAMION">Camión</option>
               <option value="ACOPLADO">Acoplado</option>
             </select>
-            <button 
-              className="bg-gradient-to-r from-indigo-500 to-blue-500 hover:from-indigo-600 hover:to-blue-600 text-white font-medium px-6 py-2 rounded-lg shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105"
-              onClick={() => refetch()}
-            >
-              Filtrar
-            </button>
           </div>
           <div className="flex items-center gap-2">
             <button 

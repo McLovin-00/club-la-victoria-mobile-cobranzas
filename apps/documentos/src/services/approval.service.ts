@@ -1,17 +1,19 @@
 import { db } from '../config/database';
+import { AppLogger } from '../config/logger';
 import type { DocumentStatus, Prisma } from '.prisma/documentos';
 
 // ============================================================================
 // HELPERS DE NORMALIZACIÓN
 // ============================================================================
-const normalizeDigits = (s: string): string => String(s).replace(/\D+/g, '');
-const normalizePlate = (s: string): string => String(s).toUpperCase().replace(/[^A-Z0-9]/g, '');
-const normalizeText = (s: string): string => String(s)
+// @security All normalizers bound input to prevent DoS on regex processing
+const normalizeDigits = (s: string): string => String(s).slice(0, 50).replace(/\D+/g, '');
+const normalizePlate = (s: string): string => String(s).slice(0, 20).toUpperCase().replace(/[^A-Z0-9]/g, '');
+const normalizeText = (s: string): string => String(s).slice(0, 256)
   .normalize('NFD')
   .replace(/[\u0300-\u036f]/g, '')
   .toUpperCase()
   .replace(/[^A-Z0-9]+/g, '_')
-  .replace(/(?:^_+|_+$)/g, '');
+  .replace(/^_+/, '').replace(/_+$/, '');
 const isInt32 = (n: number): boolean => Number.isInteger(n) && n >= -2147483648 && n <= 2147483647;
 
 // ============================================================================
@@ -30,6 +32,19 @@ interface EntityContext {
   tenantId: number;
   dadorCargaId: number;
   entityType: string;
+}
+
+// Helper: validar datos requeridos para aprobación
+function validateApprovalData(params: {
+  finalEntityType: string | null;
+  finalEntityId: number | null;
+  tplIdCandidate: number | null;
+  finalExpiration: Date | null;
+}): void {
+  if (!params.finalEntityType) throw new Error('Debe seleccionar la entidad');
+  if (!params.finalEntityId) throw new Error('Debe confirmarse la identidad de la entidad antes de aprobar');
+  if (!params.tplIdCandidate) throw new Error('Debe seleccionar el tipo de documento');
+  if (!params.finalExpiration) throw new Error('Debe especificar la fecha de vencimiento');
 }
 
 // ============================================================================
@@ -202,10 +217,10 @@ async function handleDeprecationAndRetention(
     where: {
       tenantEmpresaId,
       id: { not: docId },
-      entityType: entityType as any,
+      entityType,
       entityId,
       templateId,
-      status: 'APROBADO' as any,
+      status: 'APROBADO',
       expiresAt,
     },
     select: { id: true, validationData: true },
@@ -215,8 +230,8 @@ async function handleDeprecationAndRetention(
     await tx.document.update({
       where: { id: s.id },
       data: {
-        status: 'DEPRECADO' as any,
-        validationData: { ...(s as any).validationData, replacedBy: docId, replacedAt: new Date().toISOString() },
+        status: 'DEPRECADO',
+        validationData: { ...(s.validationData || {}), replacedBy: docId, replacedAt: new Date().toISOString() },
       },
     });
   }
@@ -226,10 +241,10 @@ async function handleDeprecationAndRetention(
   const deprecated = await tx.document.findMany({
     where: {
       tenantEmpresaId,
-      entityType: entityType as any,
+      entityType,
       entityId,
       templateId,
-      status: 'DEPRECADO' as any,
+      status: 'DEPRECADO',
       expiresAt,
     },
     orderBy: { uploadedAt: 'desc' },
@@ -351,7 +366,7 @@ export class ApprovalService {
     // Enriquecer documentos
     const enrichedDocs = await Promise.all(
       documents.map(async (doc) => {
-        const entityNaturalId = await getEntityNaturalId(doc.entityType as string, doc.entityId as number);
+        const entityNaturalId = await getEntityNaturalId(doc.entityType, doc.entityId);
         const iaValidation = calculateIAValidation(doc.classification);
         return { ...doc, entityNaturalId, iaValidation };
       })
@@ -362,13 +377,13 @@ export class ApprovalService {
 
   static async getPendingDocument(documentId: number, tenantEmpresaId: number): Promise<any | null> {
     const document = await db.getClient().document.findFirst({
-      where: { id: documentId, tenantEmpresaId, status: 'PENDIENTE_APROBACION' as DocumentStatus },
+      where: { id: documentId, tenantEmpresaId, status: 'PENDIENTE_APROBACION' },
       include: { template: true, classification: true },
     });
 
     if (!document) return null;
 
-    const entityNaturalId = await getEntityNaturalId(document.entityType as string, document.entityId as number);
+    const entityNaturalId = await getEntityNaturalId(document.entityType, document.entityId);
     return { ...document, entityNaturalId };
   }
 
@@ -389,13 +404,13 @@ export class ApprovalService {
       }
 
       // 2. Determinar tipo y ID de entidad
-      const classification = document.classification as any;
+      const classification = document.classification as any; // NOSONAR
       const finalEntityType = reviewData.confirmedEntityType || classification.detectedEntityType || document.entityType;
 
       const proposedVal = reviewData.confirmedEntityId ?? classification.detectedEntityId;
       const ctx: EntityContext = {
-        tenantId: document.tenantEmpresaId as number,
-        dadorCargaId: (document as any).dadorCargaId as number,
+        tenantId: document.tenantEmpresaId,
+        dadorCargaId: document.dadorCargaId,
         entityType: finalEntityType,
       };
 
@@ -405,10 +420,7 @@ export class ApprovalService {
       const finalExpiration = reviewData.confirmedExpiration || classification.detectedExpiration;
       const tplIdCandidate = reviewData.confirmedTemplateId ?? document.templateId;
 
-      if (!finalEntityType) throw new Error('Debe seleccionar la entidad');
-      if (!finalEntityId) throw new Error('Debe confirmarse la identidad de la entidad antes de aprobar');
-      if (!tplIdCandidate) throw new Error('Debe seleccionar el tipo de documento');
-      if (!finalExpiration) throw new Error('Debe especificar la fecha de vencimiento');
+      validateApprovalData({ finalEntityType, finalEntityId, tplIdCandidate, finalExpiration });
 
       // 4. Actualizar clasificación
       await tx.documentClassification.update({
@@ -422,17 +434,17 @@ export class ApprovalService {
         const tpl = await tx.documentTemplate.findFirst({
           where: { name: classification.detectedDocumentType, entityType: finalEntityType } as any
         });
-        if (tpl) newTemplateId = (tpl as any).id;
+        if (tpl) newTemplateId = tpl.id;
       }
 
       // 6. Actualizar documento
       const updated = await tx.document.update({
         where: { id: documentId },
         data: {
-          status: 'APROBADO' as DocumentStatus,
+          status: 'APROBADO',
           validatedAt: new Date(),
-          entityType: finalEntityType as any,
-          entityId: finalEntityId,
+          entityType: finalEntityType,
+          entityId: finalEntityId!,
           expiresAt: finalExpiration,
           ...(newTemplateId ? { templateId: newTemplateId } : {}),
         },
@@ -469,7 +481,7 @@ export class ApprovalService {
       throw new Error('Debe especificar un motivo de rechazo');
     }
 
-    return db.getClient().$transaction(async (tx) => {
+    const updatedDocument = await db.getClient().$transaction(async (tx) => {
       const document = await tx.document.findFirst({
         where: { id: documentId, tenantEmpresaId, status: 'PENDIENTE_APROBACION' as DocumentStatus },
         include: { classification: true },
@@ -478,7 +490,8 @@ export class ApprovalService {
       if (!document) throw new Error('Documento no encontrado o no está pendiente de aprobación');
 
       if (document.classification) {
-        const notes = `RECHAZADO: ${reviewData.reason}${reviewData.reviewNotes ? ` | ${reviewData.reviewNotes}` : ''}`;
+        const notesSuffix = reviewData.reviewNotes ? ` | ${reviewData.reviewNotes}` : '';
+        const notes = `RECHAZADO: ${reviewData.reason}${notesSuffix}`;
         await tx.documentClassification.update({
           where: { documentId },
           data: { reviewedAt: new Date(), reviewedBy: reviewData.reviewedBy, reviewNotes: notes },
@@ -500,6 +513,21 @@ export class ApprovalService {
         },
       });
     });
+
+    // Enviar notificaciones de rechazo (best-effort, no bloquea la transacción)
+    setImmediate(async () => {
+      try {
+        const { RejectionNotificationService } = await import('./rejection-notification.service');
+        await RejectionNotificationService.notifyDocumentRejection(
+          documentId,
+          reviewData.reason
+        );
+      } catch (error) {
+        AppLogger.error('Error enviando notificaciones de rechazo:', error);
+      }
+    });
+
+    return updatedDocument;
   }
 
   static async getApprovalStats(tenantEmpresaId: number) {
@@ -512,7 +540,7 @@ export class ApprovalService {
     const result = { pendienteAprobacion: 0, aprobados: 0, rechazados: 0, total: 0 };
 
     for (const s of stats) {
-      const count = (s as any)._count.status;
+      const count = s._count.status;
       result.total += count;
 
       if (s.status === 'PENDIENTE_APROBACION') result.pendienteAprobacion = count;

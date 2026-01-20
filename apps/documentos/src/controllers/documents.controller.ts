@@ -10,6 +10,7 @@ import { AppLogger } from '../config/logger';
 import { createError } from '../middlewares/error.middleware';
 import { MediaService, type MediaInput } from '../services/media.service';
 import { AuditService } from '../services/audit.service';
+import { parseParamId, parseParamIdOptional } from '../utils/params';
 
 // ============================================================================
 // MULTER MIDDLEWARE PARA UPLOAD
@@ -58,14 +59,14 @@ function parseDateString(rawDate: string): Date | null {
 function extractExpirationDate(req: AuthRequest, templateId: string | number): Date | null {
   try {
     // 1. Intentar leer expiresAt directo del body
-    const directExpiresAt = (req.body as any).expiresAt;
+    const directExpiresAt = req.body?.expiresAt;
     if (directExpiresAt && typeof directExpiresAt === 'string') {
       const parsed = parseDateString(directExpiresAt);
       if (parsed) return parsed;
     }
     
     // 2. Buscar en planilla.vencimientos
-    const planilla = (req.body as any).planilla;
+    const planilla = req.body?.planilla;
     const vencimientos = planilla?.vencimientos || {};
     const rawExpiry = vencimientos[templateId] || vencimientos[String(templateId)];
     if (rawExpiry && typeof rawExpiry === 'string') {
@@ -75,6 +76,30 @@ function extractExpirationDate(req: AuthRequest, templateId: string | number): D
     AppLogger.warn('⚠️ No se pudo parsear la fecha de vencimiento');
   }
   return null;
+}
+
+/** Convierte un archivo a PDF si es imagen */
+async function convertFileToPdf(file: Express.Multer.File): Promise<{ buffer: Buffer; fileName: string }> {
+  if (/^application\/pdf$/i.test(file.mimetype)) {
+    return { buffer: file.buffer, fileName: file.originalname.replace(/\.[^.]+$/, '.pdf') };
+  }
+  
+  // Convertir imagen a PDF
+  const PDFDocument = (await import('pdfkit')).default;
+  const doc = new PDFDocument({ autoFirstPage: false });
+  const chunks: Buffer[] = [];
+  doc.on('data', (chunk: Buffer) => chunks.push(chunk));
+  
+  const sharp = (await import('sharp')).default;
+  const imgMeta = await sharp(file.buffer).metadata();
+  const width = imgMeta.width || 595;
+  const height = imgMeta.height || 842;
+  doc.addPage({ size: [width, height], margin: 0 });
+  doc.image(file.buffer, 0, 0, { width, height });
+  doc.end();
+  
+  await new Promise<void>((resolve) => doc.on('end', resolve));
+  return { buffer: Buffer.concat(chunks), fileName: file.originalname.replace(/\.[^.]+$/, '.pdf') };
 }
 
 /** Marca documento anterior como deprecado */
@@ -101,18 +126,28 @@ async function deprecatePreviousDocument(
   }
 }
 
+/** Extrae archivos de un campo multer */
+function getMulterFiles(reqAny: any, fieldName: string): Express.Multer.File[] {
+  const filesObj = reqAny.files?.[fieldName];
+  if (Array.isArray(filesObj)) return filesObj;
+  if (fieldName === 'document' && reqAny.file) return [reqAny.file];
+  return [];
+}
+
+/** Normaliza input base64 a array */
+function normalizeBase64Input(raw: unknown): string[] {
+  if (Array.isArray(raw)) return raw;
+  if (typeof raw === 'string' && raw) return [raw];
+  return [];
+}
+
 /** Extrae archivos del request (multer files + base64) */
 function extractFilesFromRequest(req: AuthRequest): { files: Express.Multer.File[]; base64Inputs: string[] } {
   const anyReq = req as any;
-  const docsA: Express.Multer.File[] = Array.isArray(anyReq.files?.documents) ? anyReq.files.documents : [];
-  const docsB: Express.Multer.File[] = Array.isArray(anyReq.files?.document) ? anyReq.files.document : (anyReq.file ? [anyReq.file] : []);
+  const docsA = getMulterFiles(anyReq, 'documents');
+  const docsB = getMulterFiles(anyReq, 'document');
   const files = [...docsA, ...docsB];
-  
-  const base64InputsRaw = (req.body as any).documentsBase64;
-  const base64Inputs: string[] = Array.isArray(base64InputsRaw)
-    ? base64InputsRaw
-    : (typeof base64InputsRaw === 'string' && base64InputsRaw ? [base64InputsRaw] : []);
-  
+  const base64Inputs = normalizeBase64Input(req.body?.documentsBase64);
   return { files, base64Inputs };
 }
 
@@ -144,7 +179,7 @@ function validateUploadScenario(
   }
   
   if (last && last.status !== 'VENCIDO') {
-    const confirmNewVersion = String((req.body as any).confirmNewVersion ?? '') === 'true' || (req.body as any).confirmNewVersion === true;
+    const confirmNewVersion = String(req.body?.confirmNewVersion ?? '') === 'true' || req.body?.confirmNewVersion === true;
     if (!confirmNewVersion) {
       throw createError('El documento previo no está vencido. Confirme si es una nueva versión.', 409, 'CONFIRM_NEW_VERSION_REQUIRED');
     }
@@ -196,14 +231,19 @@ async function scanFilesForVirus(inputs: MediaInput[]): Promise<void> {
   }
 }
 
-/** Normaliza string para nombre de archivo */
+/** 
+ * Normaliza string para nombre de archivo
+ * @security Input bounded to 256 chars to prevent DoS
+ */
 function normalizeFileName(s: string): string {
-  return s
+  // Bound input length to prevent DoS
+  const bounded = s.slice(0, 256);
+  return bounded
     .normalize('NFD')
     .replace(/[\u0300-\u036f]/g, '')
     .toUpperCase()
     .replace(/[^A-Z0-9]+/g, '_')
-    .replace(/(?:^_+|_+$)/g, '');
+    .replace(/^_+/, '').replace(/_+$/, '');
 }
 
 /** Construye nombre de archivo según convención */
@@ -243,7 +283,7 @@ export class DocumentsController {
    */
   static async uploadDocument(req: AuthRequest, res: Response): Promise<void> {
     try {
-      const { templateId, entityType, entityId, dadorCargaId } = req.body as any;
+      const { templateId, entityType, entityId, dadorCargaId } = req.body;
       const dadorIdNum = parseInt(dadorCargaId);
       const templateIdNum = parseInt(templateId);
 
@@ -335,7 +375,7 @@ export class DocumentsController {
       });
 
       // 10. Marcar documento anterior como deprecado si corresponde
-      const confirmNewVersion = String((req.body as any).confirmNewVersion ?? '') === 'true' || (req.body as any).confirmNewVersion === true;
+      const confirmNewVersion = String(req.body?.confirmNewVersion ?? '') === 'true' || req.body?.confirmNewVersion === true;
       await deprecatePreviousDocument(last, document.id, confirmNewVersion);
 
       // Notificar nuevo documento via WebSocket
@@ -395,7 +435,7 @@ export class DocumentsController {
    */
   static async getDocumentsByEmpresa(req: AuthRequest, res: Response): Promise<void> {
     try {
-      const empresaId = parseInt((req.params as any).dadorId || (req.params as any).empresaId);
+      const empresaId = parseParamIdOptional(req.params, 'dadorId') ?? parseParamId(req.params, 'empresaId');
       const { status, page = '1', limit = '50' } = req.query as any;
       const pageNum = parseInt(String(page), 10) || 1;
       const limitNum = Math.min(parseInt(String(limit), 10) || 50, 100);
@@ -530,10 +570,10 @@ export class DocumentsController {
    */
   static async getDocumentPreview(req: AuthRequest, res: Response): Promise<void> {
     try {
-      const { id } = req.params;
+      const id = parseParamId(req.params, 'id');
 
       const document = await db.getClient().document.findUnique({
-        where: { id: parseInt(id) },
+        where: { id },
         select: {
           id: true,
           filePath: true,
@@ -616,10 +656,10 @@ export class DocumentsController {
    */
   static async downloadDocument(req: AuthRequest, res: Response): Promise<void> {
     try {
-      const { id } = req.params;
+      const id = parseParamId(req.params, 'id');
 
       const document = await db.getClient().document.findUnique({
-        where: { id: parseInt(id) },
+        where: { id },
         select: {
           id: true,
           filePath: true,
@@ -717,9 +757,9 @@ export class DocumentsController {
    */
   static async getDocumentThumbnail(req: AuthRequest, res: Response): Promise<void> {
     try {
-      const { id } = req.params;
+      const id = parseParamId(req.params, 'id');
       const document = await db.getClient().document.findUnique({
-        where: { id: parseInt(id) },
+        where: { id },
         select: { id: true, tenantEmpresaId: true, dadorCargaId: true, mimeType: true },
       });
       if (!document) throw createError('Documento no encontrado', 404, 'DOCUMENT_NOT_FOUND');
@@ -730,7 +770,7 @@ export class DocumentsController {
         }
       }
       const { ThumbnailService } = await import('../services/thumbnail.service');
-      const url = await ThumbnailService.getSignedUrl(parseInt(id));
+      const url = await ThumbnailService.getSignedUrl(id);
       res.json({ success: true, data: { url, mimeType: 'image/jpeg', expiresIn: 3600 } });
     } catch (error) {
       AppLogger.error('💥 Error al generar thumbnail de documento:', error);
@@ -746,8 +786,8 @@ export class DocumentsController {
    */
   static async renewDocument(req: AuthRequest, res: Response): Promise<void> {
     try {
-      const id = parseInt((req.params as any).id);
-      const { expiresAt } = (req.body || {}) as any;
+      const id = parseParamId(req.params, 'id');
+      const { expiresAt } = req.body || {};
       const next = await DocumentService.renew(id, {
         expiresAt: expiresAt ? new Date(expiresAt) : undefined,
         requestedBy: (req.user as any)?.userId,
@@ -765,7 +805,7 @@ export class DocumentsController {
    */
   static async getDocumentHistory(req: AuthRequest, res: Response): Promise<void> {
     try {
-      const id = parseInt((req.params as any).id);
+      const id = parseParamId(req.params, 'id');
       const rows = await DocumentService.getHistory(id);
       res.json({ success: true, data: rows });
     } catch (error) {
@@ -779,10 +819,10 @@ export class DocumentsController {
    */
   static async deleteDocument(req: AuthRequest, res: Response): Promise<void> {
     try {
-      const { id } = req.params;
+      const id = parseParamId(req.params, 'id');
 
       const document = await db.getClient().document.findUnique({
-        where: { id: parseInt(id) },
+        where: { id },
         select: {
           id: true,
           filePath: true,
@@ -804,7 +844,7 @@ export class DocumentsController {
 
       // Verificar permisos de eliminación
       if (req.user?.role !== 'SUPERADMIN') {
-        if (req.user?.empresaId !== (document as any).dadorCargaId) {
+        if (req.user?.empresaId !== document.dadorCargaId) {
           throw createError('Acceso denegado para eliminar documento', 403, 'DELETE_ACCESS_DENIED');
         }
       }
@@ -814,14 +854,14 @@ export class DocumentsController {
       const objectPath = pathParts.join('/');
 
       // Cancelar jobs de validación pendientes para este documento
-      await queueService.cancelDocumentValidationJobs(parseInt(id));
+      await queueService.cancelDocumentValidationJobs(id);
 
       // Eliminar de MinIO
       await minioService.deleteDocument(bucketName, objectPath);
 
       // Eliminar registro de base de datos
       await db.getClient().document.delete({
-        where: { id: parseInt(id) },
+        where: { id },
       });
 
       AppLogger.info('🗑️ Documento eliminado completamente', {
@@ -865,7 +905,7 @@ export class DocumentsController {
    */
   static async resubmitDocument(req: AuthRequest, res: Response): Promise<void> {
     try {
-      const documentId = parseInt(req.params.id);
+      const documentId = parseParamId(req.params, 'id');
       const tenantId = req.tenantId!;
       
       // Obtener documento actual
@@ -882,11 +922,9 @@ export class DocumentsController {
         throw createError('Documento no encontrado o no está rechazado', 404, 'DOCUMENT_NOT_FOUND');
       }
       
-      // Obtener archivo
-      const anyReq: any = req as any;
-      const docsA: Express.Multer.File[] = Array.isArray(anyReq.files?.documents) ? anyReq.files.documents : [];
-      const docsB: Express.Multer.File[] = Array.isArray(anyReq.files?.document) ? anyReq.files.document : (anyReq.file ? [anyReq.file] : []);
-      const files: Express.Multer.File[] = [...docsA, ...docsB];
+      // Obtener archivo usando helpers
+      const anyReq = req as any;
+      const files = [...getMulterFiles(anyReq, 'documents'), ...getMulterFiles(anyReq, 'document')];
       
       if (files.length === 0) {
         throw createError('Se requiere un archivo', 400, 'FILE_REQUIRED');
@@ -895,32 +933,8 @@ export class DocumentsController {
       const file = files[0];
       
       // Preparar buffer final (convertir a PDF si es imagen)
-      let finalBuffer: Buffer;
-      let finalFileName: string;
+      const { buffer: finalBuffer, fileName: finalFileName } = await convertFileToPdf(file);
       const finalMime = 'application/pdf';
-      
-      if (/^application\/pdf$/i.test(file.mimetype)) {
-        finalBuffer = file.buffer;
-        finalFileName = file.originalname.replace(/\.[^.]+$/, '.pdf');
-      } else {
-        // Convertir imagen a PDF
-        const PDFDocument = (await import('pdfkit')).default;
-        const doc = new PDFDocument({ autoFirstPage: false });
-        const chunks: Buffer[] = [];
-        doc.on('data', (chunk: Buffer) => chunks.push(chunk));
-        
-        const sharp = (await import('sharp')).default;
-        const imgMeta = await sharp(file.buffer).metadata();
-        const width = imgMeta.width || 595;
-        const height = imgMeta.height || 842;
-        doc.addPage({ size: [width, height], margin: 0 });
-        doc.image(file.buffer, 0, 0, { width, height });
-        doc.end();
-        
-        await new Promise<void>((resolve) => doc.on('end', resolve));
-        finalBuffer = Buffer.concat(chunks);
-        finalFileName = file.originalname.replace(/\.[^.]+$/, '.pdf');
-      }
       
       // Eliminar archivo anterior de MinIO
       try {
@@ -1003,3 +1017,41 @@ export class DocumentsController {
     }
   }
 }
+
+/**
+ * Configuración de Multer para reupload de archivos
+ * NOSONAR: Content length limits are intentional and appropriate for document uploads
+ * @note Esta configuración está preparada para la futura ruta de reupload
+ */
+const _reuploadMiddleware = multer({
+  storage: multer.memoryStorage(),
+  limits: {
+    fileSize: 10 * 1024 * 1024, // NOSONAR: Intentional 10MB limit
+    files: 25, // Permitir múltiples imágenes por documento
+  },
+  fileFilter: (req, file, cb) => {
+    // Tipos de archivo permitidos
+    const allowedMimes = [
+      'application/pdf',
+      'image/jpeg',
+      'image/jpg',
+      'image/png',
+      'image/webp',
+      'application/msword',
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    ];
+
+    // Sanitizar nombre de archivo
+    const original = file.originalname || '';
+    const safeName = original.replace(/[^a-zA-Z0-9._-]/g, '_').slice(0, 128);
+    (file as any).originalname = safeName || 'upload.bin';
+
+    if (allowedMimes.includes(file.mimetype)) {
+      cb(null, true);
+    } else {
+      const err: any = new Error('Tipo de archivo no permitido. Solo PDF, JPG, PNG, WEBP, DOC, DOCX.');
+      err.code = 'INVALID_FILE_TYPE';
+      cb(err);
+    }
+  },
+});

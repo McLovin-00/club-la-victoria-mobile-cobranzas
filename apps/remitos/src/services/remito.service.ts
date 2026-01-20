@@ -3,7 +3,7 @@ import { AppLogger } from '../config/logger';
 import { minioService } from './minio.service';
 import { queueService } from './queue.service';
 import { FlowiseRemitoResponse } from '../types';
-import type { Remito, RemitoImagen, RemitoHistory, RemitoAction } from '../../node_modules/.prisma/remitos';
+import type { Remito, RemitoImagen, RemitoHistory, RemitoAction } from '.prisma/remitos';
 
 // ============================================================================
 // TYPES
@@ -360,11 +360,16 @@ export class RemitoService {
 
     // Solo incluir campos que fueron enviados (incluyendo null para borrar)
     const updateData: any = {};
+    
+    // Parsear fecha evitando ternario anidado
+    let fechaOperacionValue: Date | null | undefined = undefined;
+    if (data.fechaOperacion !== undefined) {
+      fechaOperacionValue = data.fechaOperacion ? parseDate(data.fechaOperacion) : null;
+    }
+    
     assignDefined(updateData, {
       numeroRemito: data.numeroRemito,
-      fechaOperacion: data.fechaOperacion !== undefined 
-        ? (data.fechaOperacion ? parseDate(data.fechaOperacion) : null) 
-        : undefined,
+      fechaOperacion: fechaOperacionValue,
       emisorNombre: data.emisorNombre,
       emisorDetalle: data.emisorDetalle,
       clienteNombre: data.clienteNombre,
@@ -482,5 +487,57 @@ export class RemitoService {
 
     AppLogger.info('🔄 Remito encolado para reprocesamiento', { id, userId, jobId });
     return { id, estado: 'PENDIENTE_ANALISIS', jobId };
+  }
+
+  /**
+   * Obtener sugerencias de autocompletado para filtros
+   */
+  static async getSuggestions(
+    tenantEmpresaId: number,
+    field: 'cliente' | 'transportista' | 'patente',
+    query: string,
+    limit: number = 10
+  ): Promise<string[]> {
+    const prisma = db.getClient();
+    const searchTerm = query.slice(0, 100).trim();
+
+    if (!searchTerm || searchTerm.length < 2) {
+      return [];
+    }
+
+    const fieldMapping: Record<string, string> = {
+      cliente: 'clienteNombre',
+      transportista: 'transportistaNombre',
+      patente: 'patenteChasis',
+    };
+
+    const dbField = fieldMapping[field];
+    if (!dbField) {
+      return [];
+    }
+
+    const results = await prisma.remito.findMany({
+      where: {
+        tenantEmpresaId,
+        [dbField]: {
+          contains: searchTerm,
+          mode: 'insensitive',
+        },
+      },
+      select: {
+        [dbField]: true,
+      },
+      distinct: [dbField as any],
+      take: limit,
+      orderBy: {
+        [dbField]: 'asc',
+      },
+    });
+
+    const values = results
+      .map((r: any) => r[dbField])
+      .filter((v): v is string => typeof v === 'string' && v.length > 0);
+
+    return values;
   }
 }

@@ -156,7 +156,7 @@ export class PlatformAuthService {
     const isLikelyBcryptHash = (value: string | null | undefined): boolean => {
       if (!value) return false;
       // Longitud típica 60 y prefijo $2a/$2b/$2y
-      return value.length === 60 && /^\$2[aby]\$[0-9]{2}\$/.test(value);
+      return value.length === 60 && /^\$2[aby]\$\d{2}\$/.test(value);
     };
     const SEED_EMAILS = new Set([
       'admin@bca.com',
@@ -261,7 +261,7 @@ export class PlatformAuthService {
 
     return {
       success: true,
-      platformUser: this.formatUserProfile(newUser as PlatformUserWithRelations),
+      platformUser: this.formatUserProfile(newUser),
     };
   }
 
@@ -429,7 +429,7 @@ export class PlatformAuthService {
 
     return {
       success: true,
-      platformUser: this.formatUserProfile(newUser as PlatformUserWithRelations),
+      platformUser: this.formatUserProfile(newUser),
       tempPassword,
       message: 'Usuario CLIENTE creado con contraseña temporal',
     };
@@ -475,7 +475,7 @@ export class PlatformAuthService {
 
     return {
       success: true,
-      platformUser: this.formatUserProfile(newUser as PlatformUserWithRelations),
+      platformUser: this.formatUserProfile(newUser),
       tempPassword,
       message: 'Usuario DADOR_DE_CARGA creado con contraseña temporal',
     };
@@ -521,7 +521,7 @@ export class PlatformAuthService {
 
     return {
       success: true,
-      platformUser: this.formatUserProfile(newUser as PlatformUserWithRelations),
+      platformUser: this.formatUserProfile(newUser),
       tempPassword,
       message: 'Usuario TRANSPORTISTA creado con contraseña temporal',
     };
@@ -567,7 +567,7 @@ export class PlatformAuthService {
 
     return {
       success: true,
-      platformUser: this.formatUserProfile(newUser as PlatformUserWithRelations),
+      platformUser: this.formatUserProfile(newUser),
       tempPassword,
       message: 'Usuario CHOFER creado con contraseña temporal',
     };

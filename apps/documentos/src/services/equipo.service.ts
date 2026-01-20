@@ -13,6 +13,172 @@ function normalizePlate(plate: string): string {
   return (plate || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
 }
 
+// ============================================================================
+// HELPERS PARA CREACIÓN DE EQUIPOS - Reducción de complejidad cognitiva
+// ============================================================================
+
+/**
+ * Valida que la empresa transportista pertenezca al dador
+ */
+async function validateEmpresaTransportista(
+  empresaTransportistaId: number | null | undefined,
+  tenantEmpresaId: number,
+  dadorCargaId: number
+): Promise<void> {
+  if (!empresaTransportistaId) return;
+  
+  const empresa = await prisma.empresaTransportista.findFirst({
+    where: { id: empresaTransportistaId, tenantEmpresaId },
+    select: { dadorCargaId: true }
+  });
+  
+  if (!empresa || empresa.dadorCargaId !== dadorCargaId) {
+    throw createError('La empresa transportista no pertenece al dador del equipo', 409, 'EMPRESA_MISMATCH');
+  }
+}
+
+/**
+ * Valida empresa transportista para un equipo existente (por ID de equipo)
+ */
+async function validateEmpresaTransportistaForEquipo(equipoId: number, empresaTransportistaId: number): Promise<void> {
+  const equipo = await prisma.equipo.findUnique({ 
+    where: { id: equipoId }, 
+    select: { dadorCargaId: true, tenantEmpresaId: true } 
+  });
+  if (!equipo) throw createError('Equipo no encontrado', 404, 'EQUIPO_NOT_FOUND');
+  await validateEmpresaTransportista(empresaTransportistaId, equipo.tenantEmpresaId, equipo.dadorCargaId);
+}
+
+/**
+ * Busca conflictos de componentes en equipos activos
+ */
+async function findComponentConflicts(
+  tenantEmpresaId: number,
+  dniNorm: string,
+  truckNorm: string,
+  trailerNorm: string | null
+): Promise<{ conflicts: string[]; driverEquipoId: number | null; truckEquipoId: number | null; trailerEquipoId: number | null }> {
+  const conflicts: string[] = [];
+  let driverEquipoId: number | null = null;
+  let truckEquipoId: number | null = null;
+  let trailerEquipoId: number | null = null;
+
+  const driverInUse = await prisma.equipo.findFirst({
+    where: { tenantEmpresaId, driverDniNorm: dniNorm, validTo: null }
+  });
+  if (driverInUse) {
+    conflicts.push(`Chofer en equipo #${driverInUse.id}`);
+    driverEquipoId = driverInUse.id;
+  }
+
+  const truckInUse = await prisma.equipo.findFirst({
+    where: { tenantEmpresaId, truckPlateNorm: truckNorm, validTo: null }
+  });
+  if (truckInUse) {
+    conflicts.push(`Camión en equipo #${truckInUse.id}`);
+    truckEquipoId = truckInUse.id;
+  }
+
+  if (trailerNorm) {
+    const trailerInUse = await prisma.equipo.findFirst({
+      where: { tenantEmpresaId, trailerPlateNorm: trailerNorm, validTo: null }
+    });
+    if (trailerInUse) {
+      conflicts.push(`Acoplado en equipo #${trailerInUse.id}`);
+      trailerEquipoId = trailerInUse.id;
+    }
+  }
+
+  return { conflicts, driverEquipoId, truckEquipoId, trailerEquipoId };
+}
+
+/**
+ * Resuelve conflictos de componentes cerrando/desasociando equipos existentes
+ */
+async function resolveComponentConflicts(
+  tenantEmpresaId: number,
+  dniNorm: string,
+  truckNorm: string,
+  trailerNorm: string | null
+): Promise<void> {
+  // Cerrar equipo del chofer
+  const driverInUse = await prisma.equipo.findFirst({
+    where: { tenantEmpresaId, driverDniNorm: dniNorm, validTo: null }
+  });
+  if (driverInUse) {
+    await prisma.$transaction([
+      prisma.equipo.update({ where: { id: driverInUse.id }, data: { validTo: new Date(), estado: 'finalizada' as any } }),
+      prisma.equipoHistory.create({ data: { equipoId: driverInUse.id, action: 'close', component: 'driver', originEquipoId: undefined as any, payload: { reason: 'forceMove' } as any } })
+    ]);
+  }
+
+  // Cerrar equipo del camión
+  const truckInUse = await prisma.equipo.findFirst({
+    where: { tenantEmpresaId, truckPlateNorm: truckNorm, validTo: null }
+  });
+  if (truckInUse) {
+    await prisma.$transaction([
+      prisma.equipo.update({ where: { id: truckInUse.id }, data: { validTo: new Date(), estado: 'finalizada' as any } }),
+      prisma.equipoHistory.create({ data: { equipoId: truckInUse.id, action: 'close', component: 'truck', originEquipoId: undefined as any, payload: { reason: 'forceMove' } as any } })
+    ]);
+  }
+
+  // Desasociar acoplado
+  if (trailerNorm) {
+    const trailerInUse = await prisma.equipo.findFirst({
+      where: { tenantEmpresaId, trailerPlateNorm: trailerNorm, validTo: null }
+    });
+    if (trailerInUse) {
+      await prisma.$transaction([
+        prisma.equipo.update({ where: { id: trailerInUse.id }, data: { trailerId: null, trailerPlateNorm: null } }),
+        prisma.equipoHistory.create({ data: { equipoId: trailerInUse.id, action: 'detach', component: 'trailer', originEquipoId: undefined as any, payload: { reason: 'forceMove' } as any } })
+      ]);
+    }
+  }
+}
+
+/**
+ * Ejecuta acciones post-creación de equipo
+ */
+async function onEquipoCreated(
+  equipo: { id: number },
+  tenantEmpresaId: number,
+  dniNorm: string,
+  truckNorm: string,
+  trailerNorm: string | null
+): Promise<void> {
+  // Registrar en historial
+  try {
+    await prisma.equipoHistory.create({
+      data: {
+        equipoId: equipo.id,
+        action: 'create',
+        component: 'system',
+        originEquipoId: null,
+        payload: { driverDni: dniNorm, truckPlate: truckNorm, trailerPlate: trailerNorm } as any
+      }
+    });
+  } catch { /* noop */ }
+
+  // Encolar chequeo de faltantes
+  try {
+    const { queueService } = await import('./queue.service');
+    await queueService.addMissingCheckForEquipo(tenantEmpresaId, equipo.id, 15 * 60 * 1000);
+  } catch { /* noop */ }
+
+  // Asociar cliente por defecto
+  try {
+    const { SystemConfigService } = await import('./system-config.service');
+    const defIdStr = await SystemConfigService.getConfig(`tenant:${tenantEmpresaId}:defaults.defaultClienteId`);
+    const defId = defIdStr ? Number(defIdStr) : NaN;
+    if (!Number.isNaN(defId)) {
+      await EquipoService.associateCliente(tenantEmpresaId, equipo.id, defId, new Date());
+    }
+  } catch { /* noop */ }
+}
+
+// ============================================================================
+
 interface EquipoEntityIds {
   driverId: number;
   truckId: number;
@@ -144,8 +310,13 @@ async function getOrCreateEmpresaTransportista(
   return empresa;
 }
 
-/** Valida DNI y crea chofer (error si existe) */
-async function createChoferNoDuplicado(
+/** 
+ * Valida DNI y obtiene o crea chofer.
+ * - Si existe y está huérfano (sin equipo activo): lo reutiliza
+ * - Si existe y está en uso por otro equipo activo: error
+ * - Si no existe: lo crea
+ */
+async function getOrCreateChofer(
   tx: any, ctx: AltaCompletaContext, dniRaw: string, nombre?: string, apellido?: string, phones?: string[]
 ): Promise<any> {
   const dni = normalizeDni(dniRaw);
@@ -156,8 +327,31 @@ async function createChoferNoDuplicado(
   const existe = await tx.chofer.findFirst({
     where: { tenantEmpresaId: ctx.tenantEmpresaId, dadorCargaId: ctx.dadorCargaId, dniNorm: dni },
   });
+
   if (existe) {
-    throw createError(`El chofer con DNI ${dniRaw} ya existe en el sistema. No se puede duplicar.`, 409, 'CHOFER_DUPLICADO');
+    // Verificar si está en uso por algún equipo activo
+    const enUso = await tx.equipo.findFirst({
+      where: { driverId: existe.id, validTo: null },
+    });
+
+    if (enUso) {
+      throw createError(
+        `El chofer con DNI ${dniRaw} ya está asignado al equipo #${enUso.id}. No se puede duplicar.`,
+        409,
+        'CHOFER_EN_USO'
+      );
+    }
+
+    // Chofer existe pero está huérfano, reutilizarlo (actualizar datos si se proporcionaron)
+    return tx.chofer.update({
+      where: { id: existe.id },
+      data: {
+        nombre: nombre?.trim() || existe.nombre,
+        apellido: apellido?.trim() || existe.apellido,
+        phones: phones ?? existe.phones,
+        activo: true,
+      },
+    });
   }
 
   return tx.chofer.create({
@@ -169,8 +363,13 @@ async function createChoferNoDuplicado(
   });
 }
 
-/** Valida patente y crea camión (error si existe) */
-async function createCamionNoDuplicado(
+/** 
+ * Valida patente y obtiene o crea camión.
+ * - Si existe y está huérfano (sin equipo activo): lo reutiliza
+ * - Si existe y está en uso por otro equipo activo: error
+ * - Si no existe: lo crea
+ */
+async function getOrCreateCamion(
   tx: any, ctx: AltaCompletaContext, patenteRaw: string, marca?: string, modelo?: string
 ): Promise<any> {
   const patente = normalizePlate(patenteRaw);
@@ -181,8 +380,30 @@ async function createCamionNoDuplicado(
   const existe = await tx.camion.findFirst({
     where: { tenantEmpresaId: ctx.tenantEmpresaId, dadorCargaId: ctx.dadorCargaId, patenteNorm: patente },
   });
+
   if (existe) {
-    throw createError(`El camión con patente ${patenteRaw} ya existe en el sistema. No se puede duplicar.`, 409, 'CAMION_DUPLICADO');
+    // Verificar si está en uso por algún equipo activo
+    const enUso = await tx.equipo.findFirst({
+      where: { truckId: existe.id, validTo: null },
+    });
+
+    if (enUso) {
+      throw createError(
+        `El camión con patente ${patenteRaw} ya está asignado al equipo #${enUso.id}. No se puede duplicar.`,
+        409,
+        'CAMION_EN_USO'
+      );
+    }
+
+    // Camión existe pero está huérfano, reutilizarlo (actualizar datos si se proporcionaron)
+    return tx.camion.update({
+      where: { id: existe.id },
+      data: {
+        marca: marca?.trim() || existe.marca,
+        modelo: modelo?.trim() || existe.modelo,
+        activo: true,
+      },
+    });
   }
 
   return tx.camion.create({
@@ -193,8 +414,14 @@ async function createCamionNoDuplicado(
   });
 }
 
-/** Valida patente y crea acoplado (error si existe). Retorna null si no hay patente */
-async function createAcopladoNoDuplicado(
+/** 
+ * Valida patente y obtiene o crea acoplado.
+ * - Si existe y está huérfano (sin equipo activo): lo reutiliza
+ * - Si existe y está en uso por otro equipo activo: error
+ * - Si no existe: lo crea
+ * Retorna null si no hay patente
+ */
+async function getOrCreateAcoplado(
   tx: any, ctx: AltaCompletaContext, patenteRaw: string | null | undefined, tipo?: string
 ): Promise<any | null> {
   if (!patenteRaw?.trim()) return null;
@@ -207,8 +434,29 @@ async function createAcopladoNoDuplicado(
   const existe = await tx.acoplado.findFirst({
     where: { tenantEmpresaId: ctx.tenantEmpresaId, dadorCargaId: ctx.dadorCargaId, patenteNorm: patente },
   });
+
   if (existe) {
-    throw createError(`El acoplado con patente ${patenteRaw} ya existe en el sistema. No se puede duplicar.`, 409, 'ACOPLADO_DUPLICADO');
+    // Verificar si está en uso por algún equipo activo
+    const enUso = await tx.equipo.findFirst({
+      where: { trailerId: existe.id, validTo: null },
+    });
+
+    if (enUso) {
+      throw createError(
+        `El acoplado con patente ${patenteRaw} ya está asignado al equipo #${enUso.id}. No se puede duplicar.`,
+        409,
+        'ACOPLADO_EN_USO'
+      );
+    }
+
+    // Acoplado existe pero está huérfano, reutilizarlo (actualizar datos si se proporcionaron)
+    return tx.acoplado.update({
+      where: { id: existe.id },
+      data: {
+        tipo: tipo?.trim() || existe.tipo,
+        activo: true,
+      },
+    });
   }
 
   return tx.acoplado.create({
@@ -341,6 +589,51 @@ async function detachTrailerFromOrigin(
 }
 
 // ============================================================================
+// HELPERS PARA COMPLIANCE FILTER
+// ============================================================================
+
+type ComplianceState = { tieneFaltantes?: boolean; tieneVencidos?: boolean; tieneProximos?: boolean };
+
+function filterByComplianceState(
+  equipoIds: number[],
+  complianceMap: Map<number, ComplianceState>,
+  filter: 'faltantes' | 'vencidos' | 'por_vencer'
+): number[] {
+  return equipoIds.filter(eqId => {
+    const state = complianceMap.get(eqId);
+    if (!state) return false;
+    if (filter === 'faltantes') return state.tieneFaltantes;
+    if (filter === 'vencidos') return state.tieneVencidos;
+    if (filter === 'por_vencer') return state.tieneProximos;
+    return false;
+  });
+}
+
+async function buildPaginatedResult(
+  filteredIds: number[],
+  page: number,
+  limit: number,
+  stats: { total: number; conFaltantes: number; conVencidos: number; conPorVencer: number }
+) {
+  const take = Math.min(Math.max(limit, 1), 100);
+  const skip = Math.max((page - 1) * take, 0);
+  
+  if (filteredIds.length === 0) {
+    return { equipos: [], total: 0, page, limit: take, totalPages: 0, hasNext: false, hasPrev: false, stats };
+  }
+  
+  const paginatedIds = filteredIds.slice(skip, skip + take);
+  const equipos = await prisma.equipo.findMany({
+    where: { id: { in: paginatedIds } },
+    orderBy: { id: 'asc' },
+    include: { clientes: { where: { asignadoHasta: null }, include: { cliente: true } }, dador: true, empresaTransportista: true }
+  });
+  
+  const totalPages = Math.ceil(filteredIds.length / take);
+  return { equipos, total: filteredIds.length, page, limit: take, totalPages, hasNext: page < totalPages, hasPrev: page > 1, stats };
+}
+
+// ============================================================================
 // HELPERS PARA UPDATE EQUIPO
 // ============================================================================
 
@@ -378,11 +671,52 @@ async function validateAcopladoChange(newAcopladoId: number | null, equipo: any)
 
 async function validateEmpresaChange(newEmpresaId: number, equipo: any): Promise<EntityUpdate | null> {
   if (newEmpresaId === equipo.empresaTransportistaId) return null;
-  const empresa = await prisma.empresaTransportista.findUnique({ where: { id: newEmpresaId } });
-  if (!empresa || empresa.dadorCargaId !== equipo.dadorCargaId) {
-    throw createError('Empresa transportista no válida para este dador de carga', 400, 'EMPRESA_INVALIDA');
-  }
+  const empresa = await prisma.empresaTransportista.findFirst({ where: { id: newEmpresaId, dadorCargaId: equipo.dadorCargaId } });
+  if (!empresa) throw createError('Empresa transportista no válida', 400, 'EMPRESA_INVALIDA');
   return { field: 'empresaTransportista', id: newEmpresaId };
+}
+
+type EntityChangeInput = {
+  choferId?: number;
+  camionId?: number;
+  acopladoId?: number | null;
+  empresaTransportistaId?: number;
+};
+
+async function collectEntityChanges(input: EntityChangeInput, equipo: any): Promise<{ updates: any; cambios: Array<{ campo: string; anterior: any; nuevo: any }> }> {
+  const updates: any = {};
+  const cambios: Array<{ campo: string; anterior: any; nuevo: any }> = [];
+  
+  const validators: Array<{ key: keyof EntityChangeInput; validate: () => Promise<EntityUpdate | null>; applyUpdate: (r: EntityUpdate) => void; getPrev: () => any }> = [
+    { key: 'choferId', validate: () => validateChoferChange(input.choferId!, equipo), applyUpdate: (r) => { updates.driverId = r.id; updates.driverDniNorm = r.norm; }, getPrev: () => equipo.driverId },
+    { key: 'camionId', validate: () => validateCamionChange(input.camionId!, equipo), applyUpdate: (r) => { updates.truckId = r.id; updates.truckPlateNorm = r.norm; }, getPrev: () => equipo.truckId },
+    { key: 'acopladoId', validate: () => validateAcopladoChange(input.acopladoId!, equipo), applyUpdate: (r) => { updates.trailerId = r.id; updates.trailerPlateNorm = r.norm ?? null; }, getPrev: () => equipo.trailerId },
+    { key: 'empresaTransportistaId', validate: () => validateEmpresaChange(input.empresaTransportistaId!, equipo), applyUpdate: (r) => { updates.empresaTransportistaId = r.id; }, getPrev: () => equipo.empresaTransportistaId },
+  ];
+  
+  for (const v of validators) {
+    if (input[v.key] !== undefined) {
+      const r = await v.validate();
+      if (r) {
+        v.applyUpdate(r);
+        cambios.push({ campo: r.field, anterior: v.getPrev(), nuevo: r.id });
+      }
+    }
+  }
+  
+  return { updates, cambios };
+}
+
+async function logEquipoChanges(equipoId: number, usuarioId: number, cambios: Array<{ campo: string; anterior: any; nuevo: any }>) {
+  if (cambios.length === 0) return;
+  
+  await Promise.all(cambios.map(c => AuditService.logEquipoChange({
+    equipoId, usuarioId, accion: 'EDITAR', campoModificado: c.campo, valorAnterior: c.anterior, valorNuevo: c.nuevo,
+  })));
+  
+  await prisma.equipoHistory.create({
+    data: { equipoId, action: 'edit', component: cambios.map(c => c.campo).join(','), payload: { cambios } as any },
+  });
 }
 
 // ============================================================================
@@ -684,66 +1018,13 @@ export class EquipoService {
     page: number = 1,
     limit: number = 10
   ) {
-    // Obtener stats (incluye _complianceMap precalculado)
     const stats = await this.getComplianceStats(tenantEmpresaId, filters);
+    const statsResumen = { total: stats.total, conFaltantes: stats.conFaltantes, conVencidos: stats.conVencidos, conPorVencer: stats.conPorVencer };
     
-    // Si hay filtro de compliance, filtrar usando el mapa precalculado
+    // Aplicar filtro de compliance si existe
     if (filters.complianceFilter && stats._complianceMap) {
-      const filteredIds: number[] = [];
-      
-      for (const eqId of stats.equipoIds) {
-        const state = stats._complianceMap.get(eqId);
-        if (!state) continue;
-        
-        const matches = 
-          (filters.complianceFilter === 'faltantes' && state.tieneFaltantes) ||
-          (filters.complianceFilter === 'vencidos' && state.tieneVencidos) ||
-          (filters.complianceFilter === 'por_vencer' && state.tieneProximos);
-        
-        if (matches) filteredIds.push(eqId);
-      }
-      
-      if (filteredIds.length === 0) {
-        return {
-          equipos: [],
-          total: 0,
-          page,
-          limit,
-          totalPages: 0,
-          hasNext: false,
-          hasPrev: false,
-          stats: { total: stats.total, conFaltantes: stats.conFaltantes, conVencidos: stats.conVencidos, conPorVencer: stats.conPorVencer }
-        };
-      }
-      
-      // Paginar sobre los IDs filtrados
-      const take = Math.min(Math.max(limit, 1), 100);
-      const skip = Math.max((page - 1) * take, 0);
-      const paginatedIds = filteredIds.slice(skip, skip + take);
-      
-      const equipos = await prisma.equipo.findMany({
-        where: { id: { in: paginatedIds } },
-        orderBy: { id: 'asc' },
-        include: { 
-          clientes: { where: { asignadoHasta: null }, include: { cliente: true } }, 
-          dador: true,
-          empresaTransportista: true
-        }
-      });
-      
-      const totalFiltered = filteredIds.length;
-      const totalPages = Math.ceil(totalFiltered / take);
-      
-      return {
-        equipos,
-        total: totalFiltered,
-        page,
-        limit: take,
-        totalPages,
-        hasNext: page < totalPages,
-        hasPrev: page > 1,
-        stats: { total: stats.total, conFaltantes: stats.conFaltantes, conVencidos: stats.conVencidos, conPorVencer: stats.conPorVencer }
-      };
+      const filteredIds = filterByComplianceState(stats.equipoIds, stats._complianceMap, filters.complianceFilter);
+      return buildPaginatedResult(filteredIds, page, limit, statsResumen);
     }
     
     // Sin filtro de compliance, usar búsqueda normal + stats ya calculados
@@ -849,7 +1130,7 @@ export class EquipoService {
 
     try {
       await prisma.equipoHistory.create({
-        data: { equipoId, action: 'attach', component: getComponent(), originEquipoId: null, payload: updates as any },
+        data: { equipoId, action: 'attach', component: getComponent(), originEquipoId: null, payload: updates },
       });
 
       if (driverResult?.originEquipoId) {
@@ -1062,18 +1343,15 @@ export class EquipoService {
     validTo?: Date | null;
     forceMove?: boolean;
   }) {
-    // Validar coherencia empresa transportista ↔ dador
-    if (input.empresaTransportistaId) {
-      const empresa = await prisma.empresaTransportista.findFirst({ where: { id: input.empresaTransportistaId, tenantEmpresaId: input.tenantEmpresaId }, select: { dadorCargaId: true } });
-      if (!empresa || empresa.dadorCargaId !== input.dadorCargaId) {
-        throw createError('La empresa transportista no pertenece al dador del equipo', 409, 'EMPRESA_MISMATCH');
-      }
-    }
-    // Prevenir duplicados: mismo DNI + patente camión + (patente acoplado opcional) activos/solapados
+    // Validar empresa transportista
+    await validateEmpresaTransportista(input.empresaTransportistaId, input.tenantEmpresaId, input.dadorCargaId);
+
+    // Normalizar identificadores
     const dniNorm = normalizeDni(input.driverDni);
     const truckNorm = normalizePlate(input.truckPlate);
     const trailerNorm = input.trailerPlate ? normalizePlate(input.trailerPlate) : null;
 
+    // Verificar duplicados
     const existing = await prisma.equipo.findFirst({
       where: {
         tenantEmpresaId: input.tenantEmpresaId,
@@ -1081,61 +1359,26 @@ export class EquipoService {
         driverDniNorm: dniNorm,
         truckPlateNorm: truckNorm,
         trailerPlateNorm: trailerNorm,
-        OR: [
-          { validTo: null },
-          { validTo: { gte: input.validFrom } },
-        ],
+        OR: [{ validTo: null }, { validTo: { gte: input.validFrom } }],
       },
     });
-
     if (existing) {
       throw createError('Equipo ya existe para este DNI/patentes en vigencia', 409, 'EQUIPO_DUPLICATE');
     }
 
-    // Validar que los componentes no estén en otros equipos activos
-    const conflicts: Array<string> = [];
-    const driverInUse = await prisma.equipo.findFirst({ where: { tenantEmpresaId: input.tenantEmpresaId, driverDniNorm: dniNorm, validTo: null } });
-    if (driverInUse) conflicts.push(`Chofer en equipo #${driverInUse.id}`);
-    const truckInUse = await prisma.equipo.findFirst({ where: { tenantEmpresaId: input.tenantEmpresaId, truckPlateNorm: truckNorm, validTo: null } });
-    if (truckInUse) conflicts.push(`Camión en equipo #${truckInUse.id}`);
-    if (trailerNorm) {
-      const trailerInUse = await prisma.equipo.findFirst({ where: { tenantEmpresaId: input.tenantEmpresaId, trailerPlateNorm: trailerNorm, validTo: null } });
-      if (trailerInUse) conflicts.push(`Acoplado en equipo #${trailerInUse.id}`);
-    }
+    // Buscar conflictos de componentes
+    const { conflicts } = await findComponentConflicts(input.tenantEmpresaId, dniNorm, truckNorm, trailerNorm);
+    
     if (conflicts.length && !input.forceMove) {
       throw createError(`Componentes ya en uso: ${conflicts.join(', ')}`, 409, 'COMPONENT_IN_USE');
     }
 
-    // Si forceMove, aplicamos la misma política de swap que en attachComponents
+    // Resolver conflictos si forceMove
     if (conflicts.length && input.forceMove) {
-      // Cerrar equipo origen del chofer
-      const driverInUse = await prisma.equipo.findFirst({ where: { tenantEmpresaId: input.tenantEmpresaId, driverDniNorm: dniNorm, validTo: null } });
-      if (driverInUse) {
-        await prisma.$transaction([
-          prisma.equipo.update({ where: { id: driverInUse.id }, data: { validTo: new Date(), estado: 'finalizada' as any } }),
-          prisma.equipoHistory.create({ data: { equipoId: driverInUse.id, action: 'close', component: 'driver', originEquipoId: undefined as any, payload: { reason: 'forceMove' } as any } })
-        ]);
-      }
-      // Cerrar equipo origen del camión
-      const truckInUse = await prisma.equipo.findFirst({ where: { tenantEmpresaId: input.tenantEmpresaId, truckPlateNorm: truckNorm, validTo: null } });
-      if (truckInUse) {
-        await prisma.$transaction([
-          prisma.equipo.update({ where: { id: truckInUse.id }, data: { validTo: new Date(), estado: 'finalizada' as any } }),
-          prisma.equipoHistory.create({ data: { equipoId: truckInUse.id, action: 'close', component: 'truck', originEquipoId: undefined as any, payload: { reason: 'forceMove' } as any } })
-        ]);
-      }
-      // Desasociar acoplado de su equipo origen
-      if (trailerNorm) {
-        const trailerInUse = await prisma.equipo.findFirst({ where: { tenantEmpresaId: input.tenantEmpresaId, trailerPlateNorm: trailerNorm, validTo: null } });
-        if (trailerInUse) {
-          await prisma.$transaction([
-            prisma.equipo.update({ where: { id: trailerInUse.id }, data: { trailerId: null, trailerPlateNorm: null } }),
-            prisma.equipoHistory.create({ data: { equipoId: trailerInUse.id, action: 'detach', component: 'trailer', originEquipoId: undefined as any, payload: { reason: 'forceMove' } as any } })
-          ]);
-        }
-      }
+      await resolveComponentConflicts(input.tenantEmpresaId, dniNorm, truckNorm, trailerNorm);
     }
 
+    // Crear equipo
     const equipo = await prisma.equipo.create({
       data: {
         tenantEmpresaId: input.tenantEmpresaId,
@@ -1151,22 +1394,9 @@ export class EquipoService {
         validTo: input.validTo ?? null,
       },
     });
-    // Registrar creación
-    try { await prisma.equipoHistory.create({ data: { equipoId: equipo.id, action: 'create', component: 'system', originEquipoId: null, payload: { driverDni: dniNorm, truckPlate: truckNorm, trailerPlate: trailerNorm } as any } }); } catch {}
-    // Encolar chequeo de faltantes en 15 minutos
-    try {
-      const { queueService } = await import('./queue.service');
-      await queueService.addMissingCheckForEquipo(input.tenantEmpresaId, equipo.id, 15 * 60 * 1000);
-    } catch { /* noop */ }
-    // Asociar cliente por defecto si existe
-    try {
-      const { SystemConfigService } = await import('./system-config.service');
-      const defIdStr = await SystemConfigService.getConfig(`tenant:${input.tenantEmpresaId}:defaults.defaultClienteId`);
-      const defId = defIdStr ? Number(defIdStr) : NaN;
-      if (!Number.isNaN(defId)) {
-        await this.associateCliente(input.tenantEmpresaId, equipo.id, defId, new Date());
-      }
-    } catch { /* noop */ }
+    // Ejecutar acciones post-creación
+    await onEquipoCreated(equipo, input.tenantEmpresaId, dniNorm, truckNorm, trailerNorm);
+    
     return equipo;
   }
 
@@ -1177,39 +1407,29 @@ export class EquipoService {
     estado?: 'activa' | 'finalizada';
     empresaTransportistaId?: number;
   }) {
-    // Validar coherencia empresa transportista ↔ dador
-    if (data.empresaTransportistaId !== undefined) {
-      const equipo = await prisma.equipo.findUnique({ where: { id }, select: { dadorCargaId: true, tenantEmpresaId: true } });
-      if (!equipo) throw createError('Equipo no encontrado', 404, 'EQUIPO_NOT_FOUND');
-      if (data.empresaTransportistaId && data.empresaTransportistaId !== 0) {
-        const empresa = await prisma.empresaTransportista.findFirst({ where: { id: data.empresaTransportistaId, tenantEmpresaId: equipo.tenantEmpresaId }, select: { dadorCargaId: true } });
-        if (!empresa || empresa.dadorCargaId !== equipo.dadorCargaId) {
-          throw createError('La empresa transportista no pertenece al dador del equipo', 409, 'EMPRESA_MISMATCH');
-        }
-      }
+    // Validar empresa transportista si se proporciona
+    if (data.empresaTransportistaId !== undefined && data.empresaTransportistaId !== 0) {
+      await validateEmpresaTransportistaForEquipo(id, data.empresaTransportistaId);
     }
-    // Normalizar trailerPlateNorm
-    let trailerPlateNorm: string | null | undefined = undefined;
+
+    // Construir datos de actualización evitando ternarios anidados
+    const updateData: any = {
+      trailerId: data.trailerId,
+      validTo: data.validTo ?? undefined,
+      estado: data.estado as any,
+    };
+    
+    // Normalizar trailerPlateNorm si se proporciona
     if (data.trailerPlate !== undefined) {
-      trailerPlateNorm = data.trailerPlate ? normalizePlate(data.trailerPlate) : null;
+      updateData.trailerPlateNorm = data.trailerPlate ? normalizePlate(data.trailerPlate) : null;
     }
-
+    
     // Normalizar empresaTransportistaId (0 significa null)
-    let empresaTransportistaIdNorm: number | null | undefined = undefined;
     if (data.empresaTransportistaId !== undefined) {
-      empresaTransportistaIdNorm = data.empresaTransportistaId === 0 ? null : data.empresaTransportistaId;
+      updateData.empresaTransportistaId = data.empresaTransportistaId === 0 ? null : data.empresaTransportistaId;
     }
-
-    return prisma.equipo.update({
-      where: { id },
-      data: {
-        trailerId: data.trailerId,
-        trailerPlateNorm,
-        validTo: data.validTo ?? undefined,
-        estado: data.estado as any,
-        empresaTransportistaId: empresaTransportistaIdNorm,
-      },
-    });
+    
+    return prisma.equipo.update({ where: { id }, data: updateData });
   }
 
   static async associateCliente(tenantEmpresaId: number, equipoId: number, clienteId: number, asignadoDesde: Date, asignadoHasta?: Date | null) {
@@ -1278,9 +1498,12 @@ export class EquipoService {
    * 
    * Flujo:
    * 1. EMPRESA (CUIT): Si existe, usar. Si no, crear.
-   * 2. CHOFER (DNI): Si existe, ERROR + ROLLBACK. Si no, crear.
-   * 3. CAMIÓN (Patente): Si existe, ERROR + ROLLBACK. Si no, crear.
-   * 4. ACOPLADO (Patente): Si existe, ERROR + ROLLBACK. Si no, crear.
+   * 2. CHOFER (DNI): Si existe y está huérfano (sin equipo activo), reutilizar. 
+   *                  Si está en uso por otro equipo, ERROR. Si no existe, crear.
+   * 3. CAMIÓN (Patente): Si existe y está huérfano, reutilizar. 
+   *                      Si está en uso, ERROR. Si no existe, crear.
+   * 4. ACOPLADO (Patente): Si existe y está huérfano, reutilizar. 
+   *                        Si está en uso, ERROR. Si no existe, crear.
    * 5. Crear EQUIPO con las 4 entidades.
    * 6. Asociar clientes al equipo.
    * 
@@ -1320,18 +1543,18 @@ export class EquipoService {
         tx, ctx, input.empresaTransportistaCuit, input.empresaTransportistaNombre
       );
 
-      // 2. CHOFER: Si existe (por DNI), ERROR. Si no, crear.
-      const chofer = await createChoferNoDuplicado(
+      // 2. CHOFER: Si existe y está huérfano, reutilizar. Si está en uso, error. Si no existe, crear.
+      const chofer = await getOrCreateChofer(
         tx, ctx, input.choferDni, input.choferNombre, input.choferApellido, input.choferPhones
       );
 
-      // 3. CAMIÓN: Si existe (por Patente), ERROR. Si no, crear.
-      const camion = await createCamionNoDuplicado(
+      // 3. CAMIÓN: Si existe y está huérfano, reutilizar. Si está en uso, error. Si no existe, crear.
+      const camion = await getOrCreateCamion(
         tx, ctx, input.camionPatente, input.camionMarca, input.camionModelo
       );
 
-      // 4. ACOPLADO (Opcional): Si existe (por Patente), ERROR. Si no, crear.
-      const acoplado = await createAcopladoNoDuplicado(tx, ctx, input.acopladoPatente, input.acopladoTipo);
+      // 4. ACOPLADO (Opcional): Si existe y está huérfano, reutilizar. Si está en uso, error. Si no existe, crear.
+      const acoplado = await getOrCreateAcoplado(tx, ctx, input.acopladoPatente, input.acopladoTipo);
       const acopladoId = acoplado?.id || null;
 
       // 5. CREAR EQUIPO con las 4 entidades
@@ -1535,59 +1758,14 @@ export class EquipoService {
       throw createError('Equipo no encontrado', 404, 'EQUIPO_NOT_FOUND');
     }
 
-    const updates: any = {};
-    const cambios: Array<{ campo: string; anterior: any; nuevo: any }> = [];
+    // Validar y acumular cambios
+    const { updates, cambios } = await collectEntityChanges(input, equipo);
+    if (Object.keys(updates).length === 0) return equipo;
 
-    // Validar y acumular cambios de entidades
-    if (input.choferId !== undefined) {
-      const r = await validateChoferChange(input.choferId, equipo);
-      if (r) { updates.driverId = r.id; updates.driverDniNorm = r.norm; cambios.push({ campo: r.field, anterior: equipo.driverId, nuevo: r.id }); }
-    }
-    if (input.camionId !== undefined) {
-      const r = await validateCamionChange(input.camionId, equipo);
-      if (r) { updates.truckId = r.id; updates.truckPlateNorm = r.norm; cambios.push({ campo: r.field, anterior: equipo.truckId, nuevo: r.id }); }
-    }
-    if (input.acopladoId !== undefined) {
-      const r = await validateAcopladoChange(input.acopladoId, equipo);
-      if (r) { updates.trailerId = r.id; updates.trailerPlateNorm = r.norm ?? null; cambios.push({ campo: r.field, anterior: equipo.trailerId, nuevo: r.id }); }
-    }
-    if (input.empresaTransportistaId !== undefined) {
-      const r = await validateEmpresaChange(input.empresaTransportistaId, equipo);
-      if (r) { updates.empresaTransportistaId = r.id; cambios.push({ campo: r.field, anterior: equipo.empresaTransportistaId, nuevo: r.id }); }
-    }
-
-    if (Object.keys(updates).length === 0) {
-      return equipo;
-    }
-
-    // Actualizar equipo
-    const updated = await prisma.equipo.update({
-      where: { id: input.equipoId },
-      data: updates,
-    });
-
-    // Registrar auditoría
-    for (const cambio of cambios) {
-      await AuditService.logEquipoChange({
-        equipoId: input.equipoId,
-        usuarioId: input.usuarioId,
-        accion: 'EDITAR',
-        campoModificado: cambio.campo,
-        valorAnterior: cambio.anterior,
-        valorNuevo: cambio.nuevo,
-      });
-    }
-
-    // Registrar en historial
-    await prisma.equipoHistory.create({
-      data: {
-        equipoId: input.equipoId,
-        action: 'edit',
-        component: cambios.map(c => c.campo).join(','),
-        payload: { cambios } as any,
-      },
-    });
-
+    // Actualizar y registrar
+    const updated = await prisma.equipo.update({ where: { id: input.equipoId }, data: updates });
+    await logEquipoChanges(input.equipoId, input.usuarioId, cambios);
+    
     return updated;
   }
 

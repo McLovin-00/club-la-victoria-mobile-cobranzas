@@ -87,4 +87,13 @@ describe('MinioService', () => {
       await expect(minioService.healthCheck()).resolves.toBe(true);
     });
   });
+
+  describe('fileExists', () => {
+    it('should check if file exists', async () => {
+      const minioService = getService();
+      const fileExists = await minioService.fileExists('test-path/file.pdf');
+
+      expect(typeof fileExists).toBe('boolean');
+    });
+  });
 });

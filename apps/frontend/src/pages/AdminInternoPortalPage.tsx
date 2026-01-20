@@ -121,14 +121,14 @@ export const AdminInternoPortalPage: React.FC = () => {
         </div>
 
         {/* Acceso Rápido Adicional */}
-        <Card className='bg-slate-800 dark:bg-slate-900 border-slate-700'>
+        <Card className='bg-white dark:bg-slate-800 border-gray-200 dark:border-slate-700'>
           <CardContent className='p-6'>
             <div className='flex flex-wrap items-center justify-center gap-4'>
-              <span className='text-slate-300 font-medium'>Acceso rápido:</span>
+              <span className='text-gray-700 dark:text-slate-300 font-medium'>Acceso rápido:</span>
               <Button 
                 variant='outline' 
                 size='sm'
-                className='border-slate-600 hover:bg-slate-700'
+                className='border-gray-300 dark:border-slate-600 hover:bg-gray-100 dark:hover:bg-slate-700 text-gray-700 dark:text-slate-200'
                 onClick={() => navigate('/documentos/aprobacion')}
               >
                 Aprobaciones Pendientes
@@ -136,7 +136,7 @@ export const AdminInternoPortalPage: React.FC = () => {
               <Button 
                 variant='outline' 
                 size='sm'
-                className='border-slate-600 hover:bg-slate-700'
+                className='border-gray-300 dark:border-slate-600 hover:bg-gray-100 dark:hover:bg-slate-700 text-gray-700 dark:text-slate-200'
                 onClick={() => navigate('/documentos/auditoria')}
               >
                 Auditoría

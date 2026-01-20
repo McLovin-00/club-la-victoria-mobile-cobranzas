@@ -7,10 +7,12 @@ import type { DocumentStatus, EntityType } from '.prisma/documentos';
  * Verde/Amarillo/Rojo para entidades
  */
 
+export type SemaforoStatus = 'verde' | 'amarillo' | 'rojo';
+
 export interface EntityStatus {
   entityType: EntityType;
   entityId: number;
-  status: 'verde' | 'amarillo' | 'rojo';
+  status: SemaforoStatus;
   documentCount: {
     total: number;
     aprobado: number;
@@ -22,7 +24,7 @@ export interface EntityStatus {
 
 export interface EmpresaStatusSummary {
   empresaId: number; // reutilizado como dadorId
-  overallStatus: 'verde' | 'amarillo' | 'rojo';
+  overallStatus: SemaforoStatus;
   entities: {
     empresa: EntityStatus | null; // dador
     empresasTransportistas: EntityStatus[];
@@ -43,7 +45,7 @@ export class StatusService {
     pendiente: number;
     rechazado: number;
     vencido: number;
-  }): 'verde' | 'amarillo' | 'rojo' {
+  }): SemaforoStatus {
     
     const { total, aprobado, pendiente: _pendingCount, rechazado, vencido } = documentCount;
     

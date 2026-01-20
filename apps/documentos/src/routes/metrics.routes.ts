@@ -3,7 +3,7 @@ import { performanceService } from '../services/performance.service';
 import { queueService } from '../services/queue.service';
 import { AppLogger } from '../config/logger';
 
-const router = Router();
+const router: ReturnType<typeof Router> = Router();
 
 /**
  * GET /metrics - Métricas para Prometheus
@@ -41,7 +41,7 @@ router.get('/', async (req: Request, res: Response): Promise<void> => {
       const { db } = await import('../config/database');
       pendingApproval = await db.getClient().document.count({ where: { status: 'PENDIENTE_APROBACION' as any } });
       const paByType = await db.getClient().document.groupBy({ by: ['entityType'], where: { status: 'PENDIENTE_APROBACION' as any }, _count: { entityType: true } });
-      pendingApprovalByTypeLines = paByType.map(r => `documentos_pending_approval_by_type{entity_type="${(r as any).entityType}"} ${(r as any)._count.entityType}`).join('\n');
+      pendingApprovalByTypeLines = paByType.map(r => `documentos_pending_approval_by_type{entity_type="${r.entityType}"} ${r._count.entityType}`).join('\n');
     } catch {}
 
     // KPIs de equipos últimos 7 días (global y por tenant)

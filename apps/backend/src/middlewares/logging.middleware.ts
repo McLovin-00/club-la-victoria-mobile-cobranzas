@@ -12,7 +12,7 @@ export const httpLogger = (req: TimedRequest, res: Response, next: NextFunction)
   req.startTime = Date.now();
 
   // Obtener IP del cliente
-  const clientIp = req.ip || req.connection.remoteAddress || 'unknown';
+  const clientIp = req.ip || req.socket?.remoteAddress || 'unknown';
 
   // Log del inicio de la request
   AppLogger.debug(`Incoming ${req.method} ${req.originalUrl} from ${clientIp}`);
@@ -44,7 +44,7 @@ export const httpLogger = (req: TimedRequest, res: Response, next: NextFunction)
 
 // Middleware para logging de errores
 export const errorLogger = (error: any, req: Request, res: Response, next: NextFunction): void => {
-  const clientIp = req.ip || req.connection.remoteAddress || 'unknown';
+  const clientIp = req.ip || req.socket?.remoteAddress || 'unknown';
 
   AppLogger.error(`HTTP Error - ${req.method} ${req.originalUrl}: ${error.message}`, {
     ip: clientIp,

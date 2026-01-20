@@ -23,7 +23,7 @@ export function getNotificationsWorker(): Worker<NotificationsJob> {
       AppLogger.error('💥 Error procesando job de verificación de cumplimiento:', e);
       throw e;
     }
-  }, { connection });
+  }, { connection: connection as never });
 
   AppLogger.info('🔔 Compliance Checks Worker inicializado');
   return workerInstance;

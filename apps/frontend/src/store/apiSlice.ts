@@ -1,5 +1,5 @@
-import { createApi, fetchBaseQuery } from '@reduxjs/toolkit/query/react';
-import type { RootState } from './store';
+import { createApi, fetchBaseQuery, BaseQueryFn, FetchArgs, FetchBaseQueryError } from '@reduxjs/toolkit/query/react';
+import { RootState } from './store';
 import { Logger as AppLogger } from '../lib/utils';
 import { getRuntimeEnv, getRuntimeFlag } from '../lib/runtimeEnv';
 
@@ -8,34 +8,71 @@ const API_BASE_URL = getRuntimeFlag('DEV')
   ? '/api'  // Proxy de Vite en desarrollo
   : `${getRuntimeEnv('VITE_API_BASE_URL') || getRuntimeEnv('VITE_API_URL') || ''}/api`;
 
+// Base query con configuración estándar
+const baseQuery = fetchBaseQuery({
+  baseUrl: API_BASE_URL,
+  credentials: 'include',
+  prepareHeaders: (headers, { getState }) => {
+    try {
+      const state = getState() as RootState;
+      const token = state?.auth?.token;
+      if (token) {
+        headers.set('authorization', `Bearer ${token}`);
+      }
+    } catch (error) {
+      AppLogger.error('Error accessing auth state in prepareHeaders:', error);
+    }
+    return headers;
+  },
+  fetchFn: async (...args) => {
+    try {
+      return await fetch(...args);
+    } catch (error) {
+      AppLogger.error('Network fetch error:', error);
+      throw error;
+    }
+  },
+});
+
+// Variable para evitar múltiples redirecciones simultáneas
+let isRedirecting = false;
+
+// Base query con manejo automático de token expirado
+const baseQueryWithReauth: BaseQueryFn<string | FetchArgs, unknown, FetchBaseQueryError> = async (
+  args,
+  api,
+  extraOptions
+) => {
+  const result = await baseQuery(args, api, extraOptions);
+  
+  // Si recibimos 401 (Unauthorized), el token expiró o es inválido
+  if (result.error && result.error.status === 401) {
+    // Evitar múltiples redirecciones
+    if (!isRedirecting) {
+      isRedirecting = true;
+      
+      AppLogger.warn('Sesión expirada - redirigiendo al login');
+      
+      // Limpiar localStorage
+      localStorage.removeItem('token');
+      localStorage.removeItem('user');
+      
+      // Redirigir al login después de un pequeño delay para mostrar mensaje
+      setTimeout(() => {
+        window.location.href = '/login?expired=true';
+        // Reset después de la redirección
+        setTimeout(() => { isRedirecting = false; }, 2000);
+      }, 100);
+    }
+  }
+  
+  return result;
+};
+
 // Configuración mejorada con manejo de errores
 export const apiSlice = createApi({
   reducerPath: 'api',
-  baseQuery: fetchBaseQuery({
-    baseUrl: API_BASE_URL,
-    credentials: 'include', // Enviar cookies de autenticación
-    prepareHeaders: (headers, { getState }) => {
-      try {
-        const state = getState() as RootState;
-        const token = state?.auth?.token;
-        if (token) {
-          headers.set('authorization', `Bearer ${token}`);
-        }
-      } catch (error) {
-        AppLogger.error('Error accessing auth state in prepareHeaders:', error);
-      }
-      return headers;
-    },
-    // Manejo global de errores de red
-    fetchFn: async (...args) => {
-      try {
-        return await fetch(...args);
-      } catch (error) {
-        AppLogger.error('Network fetch error:', error);
-        throw error;
-      }
-    },
-  }),
+  baseQuery: baseQueryWithReauth,
   tagTypes: [
     'User',
     'Dashboard',

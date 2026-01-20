@@ -5,6 +5,7 @@ import { DocumentService } from '../services/document.service';
 import { queueService } from '../services/queue.service';
 import { AppLogger } from '../config/logger';
 import { UserRole } from '../types/roles';
+import { minioService } from '../services/minio.service';
 
 // ============================================================================
 // HELPERS para stats por rol
@@ -50,7 +51,7 @@ async function getClienteStats(prisma: any, clienteId: number | undefined) {
   
   let vigentes = 0, proximosVencer = 0, vencidos = 0;
   for (const ec of equipos) {
-    const estado = (ec as any).equipo?.estado?.toUpperCase();
+    const estado = ec.equipo?.estado?.toUpperCase();
     if (estado === 'VIGENTE' || estado === 'OK') vigentes++;
     else if (estado === 'PROXIMO_VENCER' || estado === 'WARNING') proximosVencer++;
     else if (estado === 'VENCIDO' || estado === 'EXPIRED') vencidos++;
@@ -298,7 +299,7 @@ export class DashboardController {
           };
           
           // Sumar estadísticas de todas las empresas
-          const globalSummaries = await StatusService.getGlobalStatusSummary(req.tenantId!);
+          const globalSummaries = await StatusService.getGlobalStatusSummary(req.tenantId);
           for (const summary of globalSummaries) {
             const empresaStats = await DocumentService.getDocumentStats(req.tenantId!, summary.empresaId);
             stats.total += empresaStats.total;
@@ -468,15 +469,42 @@ export class DashboardController {
 
   /**
    * GET /api/docs/dashboard/approval-kpis - KPIs de aprobación
+   * Calcula pending, approvedToday, rejectedToday y avgReviewMinutes en una sola query eficiente
    */
   static async getApprovalKpis(req: AuthRequest, res: Response): Promise<void> {
     try {
       const tenantEmpresaId = req.tenantId!;
       const { db } = await import('../config/database');
-      const pending = await db.getClient().document.count({ where: { tenantEmpresaId, status: 'PENDIENTE_APROBACION' as any } });
       const startOfDay = new Date(new Date().toDateString());
-      const approvedToday = await db.getClient().document.count({ where: { tenantEmpresaId, status: 'APROBADO' as any, validatedAt: { gte: startOfDay } } });
-      res.json({ success: true, data: { pending, approvedToday, asOf: new Date().toISOString() } });
+
+      // Query única y eficiente que calcula todos los KPIs
+      const [kpis] = await db.getClient().$queryRaw<Array<{
+        pending: bigint;
+        approvedToday: bigint;
+        rejectedToday: bigint;
+        avgReviewMinutes: number | null;
+      }>>`
+        SELECT
+          COUNT(*) FILTER (WHERE status = 'PENDIENTE_APROBACION') AS "pending",
+          COUNT(*) FILTER (WHERE status = 'APROBADO' AND validated_at >= ${startOfDay}) AS "approvedToday",
+          COUNT(*) FILTER (WHERE status = 'RECHAZADO' AND validated_at >= ${startOfDay}) AS "rejectedToday",
+          ROUND(AVG(EXTRACT(EPOCH FROM (validated_at - uploaded_at)) / 60) FILTER (
+            WHERE status IN ('APROBADO', 'RECHAZADO') AND validated_at >= ${startOfDay}
+          ))::integer AS "avgReviewMinutes"
+        FROM documents
+        WHERE tenant_empresa_id = ${tenantEmpresaId}
+      `;
+
+      res.json({
+        success: true,
+        data: {
+          pending: Number(kpis?.pending ?? 0),
+          approvedToday: Number(kpis?.approvedToday ?? 0),
+          rejectedToday: Number(kpis?.rejectedToday ?? 0),
+          avgReviewMinutes: kpis?.avgReviewMinutes ?? 0,
+          asOf: new Date().toISOString(),
+        },
+      });
     } catch (error) {
       AppLogger.error('💥 Error obteniendo KPIs de aprobación:', error);
       res.status(500).json({ success: false, message: 'Error obteniendo KPIs de aprobación', code: 'KPIS_ERROR' });
@@ -515,5 +543,263 @@ export class DashboardController {
       AppLogger.error('💥 Error obteniendo stats por rol:', error);
       res.status(500).json({ success: false, message: 'Error obteniendo estadísticas', code: 'STATS_ERROR' });
     }
+  }
+
+  /**
+   * GET /api/docs/dashboard/rejected - Lista de documentos rechazados
+   */
+  static async getRejectedDocuments(req: AuthRequest, res: Response): Promise<void> {
+    try {
+      const prisma = (await import('../config/database')).db.getClient();
+      const user = req.user!;
+      const page = parseInt(req.query.page as string) || 1;
+      const limit = parseInt(req.query.limit as string) || 20;
+      const entityType = req.query.entityType as string | undefined;
+      const skip = (page - 1) * limit;
+
+      // Filtros base
+      const whereBase: any = {
+        tenantEmpresaId: req.tenantId!,
+        status: 'RECHAZADO' as any,
+        archived: false,
+      };
+
+      // Filtro por tipo de entidad
+      if (entityType) {
+        whereBase.entityType = entityType;
+      }
+
+      // Filtro por empresa según rol
+      if (user.role !== UserRole.SUPERADMIN && user.role !== UserRole.ADMIN_INTERNO) {
+        whereBase.dadorCargaId = user.empresaId!;
+      }
+
+      // Consultar documentos rechazados con paginación
+      const [documents, total] = await Promise.all([
+        prisma.document.findMany({
+          where: whereBase,
+          select: {
+            id: true,
+            entityType: true,
+            entityId: true,
+            status: true,
+            filePath: true,
+            fileName: true,
+            rejectionReason: true,
+            reviewNotes: true,
+            rejectedAt: true,
+            rejectedBy: true,
+            uploadedAt: true,
+            updatedAt: true,
+            template: { select: { id: true, name: true, entityType: true } },
+          },
+          orderBy: [
+            { rejectedAt: 'desc' },
+            { id: 'desc' },
+          ],
+          skip,
+          take: limit,
+        }),
+        prisma.document.count({ where: whereBase }),
+      ]);
+
+      // Enriquecer con nombres de entidad y URLs firmadas
+      const enrichedDocs = await Promise.all(
+        documents.map(async (doc) => {
+          const entityNaturalId = await getEntityNaturalId(doc.entityType, doc.entityId);
+          
+          // Generar URL firmada para la imagen (válida por 1 hora)
+          let previewUrl: string | null = null;
+          if (doc.filePath) {
+            try {
+              const [bucketName, ...pathParts] = doc.filePath.split('/');
+              if (bucketName && pathParts.length > 0) {
+                previewUrl = await minioService.getSignedUrl(bucketName, pathParts.join('/'), 3600);
+              }
+            } catch (err) {
+              AppLogger.warn(`No se pudo generar URL firmada para documento ${doc.id}:`, err);
+            }
+          }
+          
+          return {
+            ...doc,
+            entityNaturalId,
+            previewUrl,
+          };
+        })
+      );
+
+      res.json({
+        success: true,
+        data: enrichedDocs,
+        pagination: {
+          page,
+          limit,
+          total,
+          pages: Math.ceil(total / limit),
+        },
+      });
+    } catch (error) {
+      AppLogger.error('💥 Error obteniendo documentos rechazados:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Error interno',
+        code: 'REJECTED_DOCUMENTS_ERROR',
+      });
+    }
+  }
+
+  /**
+   * GET /api/docs/dashboard/rejected/stats - Estadísticas de documentos rechazados
+   */
+  static async getRejectedStats(req: AuthRequest, res: Response): Promise<void> {
+    try {
+      const prisma = (await import('../config/database')).db.getClient();
+      const user = req.user!;
+      const tenantEmpresaId = req.tenantId!;
+
+      // Filtros base
+      const whereBase: any = {
+        tenantEmpresaId,
+        status: 'RECHAZADO' as any,
+        archived: false,
+      };
+
+      // Filtro por empresa según rol
+      if (user.role !== UserRole.SUPERADMIN && user.role !== UserRole.ADMIN_INTERNO) {
+        whereBase.dadorCargaId = user.empresaId!;
+      }
+
+      // Estadísticas por tipo de entidad
+      const byEntityType = await prisma.document.groupBy({
+        by: ['entityType'],
+        where: whereBase,
+        _count: { entityType: true },
+      });
+
+      // Estadísticas por template
+      const byTemplate = await prisma.document.groupBy({
+        by: ['templateId'],
+        where: whereBase,
+        _count: { templateId: true },
+        orderBy: { _count: { templateId: 'desc' } },
+        take: 10,
+      });
+
+      // Obtener nombres de templates
+      const templateIds = byTemplate.map((t: any) => t.templateId);
+      const templates = templateIds.length
+        ? await prisma.documentTemplate.findMany({
+            where: { id: { in: templateIds } },
+            select: { id: true, name: true },
+          })
+        : [];
+
+      // Top motivos de rechazo
+      const rejectedDocs = await prisma.document.findMany({
+        where: whereBase,
+        select: { rejectionReason: true },
+        take: 100,
+      });
+
+      const reasonCounts: Record<string, number> = {};
+      rejectedDocs.forEach((doc) => {
+        if (doc.rejectionReason) {
+          const key = doc.rejectionReason.substring(0, 100); // Truncar para agrupar
+          reasonCounts[key] = (reasonCounts[key] || 0) + 1;
+        }
+      });
+
+      const topReasons = Object.entries(reasonCounts)
+        .map(([reason, count]) => ({ reason, count }))
+        .sort((a, b) => b.count - a.count)
+        .slice(0, 5);
+
+      // Rechazados hoy y últimos 7 días
+      const now = new Date();
+      const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+      const sevenDaysAgo = new Date(startOfDay);
+      sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+
+      const [rejectedToday, rejectedLast7Days] = await Promise.all([
+        prisma.document.count({
+          where: {
+            ...whereBase,
+            rejectedAt: { gte: startOfDay },
+          },
+        }),
+        prisma.document.count({
+          where: {
+            ...whereBase,
+            rejectedAt: { gte: sevenDaysAgo },
+          },
+        }),
+      ]);
+
+      // Total de rechazados (sin filtro de fecha)
+      const totalRejected = await prisma.document.count({ where: whereBase });
+
+      res.json({
+        success: true,
+        data: {
+          totalRejected,
+          rejectedToday,
+          rejectedLast7Days,
+          rejectedByEntityType: byEntityType.map((item: any) => ({
+            entityType: item.entityType,
+            count: Number(item._count.entityType),
+          })),
+          byTemplate: byTemplate.map((item: any) => ({
+            templateId: item.templateId,
+            templateName: templates.find((t) => t.id === item.templateId)?.name || `Template #${item.templateId}`,
+            count: Number(item._count.templateId),
+          })),
+          rejectedByReason: topReasons,
+        },
+      });
+    } catch (error) {
+      AppLogger.error('💥 Error obteniendo estadísticas de rechazados:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Error interno',
+        code: 'REJECTED_STATS_ERROR',
+      });
+    }
+  }
+}
+
+// ============================================================================
+// HELPER para obtener nombre natural de entidad
+// ============================================================================
+async function getEntityNaturalId(entityType: string, entityId: number): Promise<string | null> {
+  try {
+    const prisma = (await import('../config/database')).db.getClient();
+    
+    switch (entityType) {
+      case 'EMPRESA_TRANSPORTISTA': {
+        const emp = await prisma.empresaTransportista.findUnique({ where: { id: entityId }, select: { cuit: true, razonSocial: true } });
+        return emp ? `${emp.razonSocial} (${emp.cuit})` : null;
+      }
+      case 'CHOFER': {
+        const ch = await prisma.chofer.findUnique({ where: { id: entityId }, select: { dni: true, nombre: true, apellido: true } });
+        return ch ? `${ch.nombre} ${ch.apellido} (DNI: ${ch.dni})` : null;
+      }
+      case 'CAMION': {
+        const cm = await prisma.camion.findUnique({ where: { id: entityId }, select: { patente: true } });
+        return cm ? `Camión ${cm.patente}` : null;
+      }
+      case 'ACOPLADO': {
+        const ac = await prisma.acoplado.findUnique({ where: { id: entityId }, select: { patente: true } });
+        return ac ? `Acoplado ${ac.patente}` : null;
+      }
+      case 'DADOR': {
+        const dador = await prisma.dadorCarga.findUnique({ where: { id: entityId }, select: { razonSocial: true, cuit: true } });
+        return dador ? `${dador.razonSocial} (${dador.cuit})` : null;
+      }
+      default:
+        return null;
+    }
+  } catch {
+    return null;
   }
 }

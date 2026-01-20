@@ -15,8 +15,36 @@ const EMPTY_ENTIDADES_RESPONSE = {
   },
 };
 
-// Roles que ven todo el tenant
+// Roles que tienen acceso completo al tenant
 const ADMIN_ROLES = ['ADMIN', 'SUPERADMIN', 'ADMIN_INTERNO'];
+
+// Helper: construir filtro de equipos según rol
+function buildEquipoFilter(tenantId: number, user: any): { where: any; isEmpty: boolean } {
+  const where: any = { tenantEmpresaId: tenantId };
+  
+  if (user.role === 'TRANSPORTISTA' || user.role === 'EMPRESA_TRANSPORTISTA' || user.role === 'CHOFER') {
+    if (!user.empresaTransportistaId) return { where, isEmpty: true };
+    where.empresaTransportistaId = user.empresaTransportistaId;
+  } else if (user.role === 'DADOR_DE_CARGA' && user.dadorCargaId) {
+    where.dadorCargaId = user.dadorCargaId;
+  }
+  
+  return { where, isEmpty: false };
+}
+
+// Helper: transformar equipo a formato de respuesta
+function transformEquipoResponse(equipo: any, chofer: any, camion: any, acoplado: any) {
+  return {
+    id: equipo.id,
+    chofer: chofer ? { nombre: chofer.nombre, apellido: chofer.apellido, dni: chofer.dni } : null,
+    camion: camion ? { patente: camion.patente, marca: camion.marca, modelo: camion.modelo } : null,
+    acoplado: acoplado ? { patente: acoplado.patente } : null,
+    empresaTransportista: equipo.empresaTransportista,
+    dador: equipo.dador,
+    clientes: equipo.clientes.map((c: any) => ({ id: c.cliente.id, nombre: c.cliente.razonSocial })),
+    estado: equipo.estado,
+  };
+}
 
 /**
  * Obtiene el nombre descriptivo de una entidad
@@ -70,7 +98,7 @@ export class PortalTransportistaController {
   private static buildEmpresasFilter(tenantId: number, user: any): { where: any; isEmpty: boolean } {
     const where: any = { tenantEmpresaId: tenantId };
 
-    // Admins ven todo
+    // Admins tienen acceso completo
     if (ADMIN_ROLES.includes(user.role)) {
       return { where, isEmpty: false };
     }
@@ -135,7 +163,7 @@ export class PortalTransportistaController {
         // Filtrar por dador de carga
         baseWhereEntidades.dadorCargaId = { in: dadorIds };
       } else {
-        // Admin ve todo del tenant (filtrar por dadores de las empresas encontradas)
+        // Admin tiene acceso completo al tenant (filtrar por dadores de las empresas encontradas)
         baseWhereEntidades.dadorCargaId = { in: dadorIds };
       }
       
@@ -241,78 +269,31 @@ export class PortalTransportistaController {
     const user = req.user!;
     
     try {
-      // Filtrar según el rol del usuario
-      const whereEquipos: any = {
-        tenantEmpresaId: tenantId,
-      };
-      
-      if (user.role === 'TRANSPORTISTA' || user.role === 'EMPRESA_TRANSPORTISTA' || user.role === 'CHOFER') {
-        if (user.empresaTransportistaId) {
-          whereEquipos.empresaTransportistaId = user.empresaTransportistaId;
-        } else {
-          return res.json({ success: true, data: [] });
-        }
-      } else if (user.role === 'DADOR_DE_CARGA') {
-        if (user.dadorCargaId) {
-          whereEquipos.dadorCargaId = user.dadorCargaId;
-        }
-      }
-      // Admin/Superadmin ven todo
+      const { where, isEmpty } = buildEquipoFilter(tenantId, user);
+      if (isEmpty) return res.json({ success: true, data: [] });
       
       const equipos = await prisma.equipo.findMany({
-        where: whereEquipos,
+        where,
         include: {
           empresaTransportista: true,
           dador: true,
-          clientes: {
-            where: { asignadoHasta: null },
-            include: { cliente: true },
-          },
+          clientes: { where: { asignadoHasta: null }, include: { cliente: true } },
         },
         orderBy: { createdAt: 'desc' },
       });
       
-      // Obtener datos adicionales
       const equiposConDatos = await Promise.all(
         equipos.map(async (equipo) => {
           const [chofer, camion, acoplado] = await Promise.all([
             prisma.chofer.findUnique({ where: { id: equipo.driverId } }),
             prisma.camion.findUnique({ where: { id: equipo.truckId } }),
-            equipo.trailerId 
-              ? prisma.acoplado.findUnique({ where: { id: equipo.trailerId } })
-              : null,
+            equipo.trailerId ? prisma.acoplado.findUnique({ where: { id: equipo.trailerId } }) : null,
           ]);
-          
-          return {
-            id: equipo.id,
-            chofer: chofer ? {
-              nombre: chofer.nombre,
-              apellido: chofer.apellido,
-              dni: chofer.dni,
-            } : null,
-            camion: camion ? {
-              patente: camion.patente,
-              marca: camion.marca,
-              modelo: camion.modelo,
-            } : null,
-            acoplado: acoplado ? {
-              patente: acoplado.patente,
-            } : null,
-            empresaTransportista: equipo.empresaTransportista,
-            dador: equipo.dador,
-            clientes: equipo.clientes.map(c => ({
-              id: c.cliente.id,
-              nombre: c.cliente.razonSocial,
-            })),
-            estado: equipo.estado,
-          };
+          return transformEquipoResponse(equipo, chofer, camion, acoplado);
         })
       );
       
-      res.json({
-        success: true,
-        data: equiposConDatos,
-      });
+      res.json({ success: true, data: equiposConDatos });
     } catch (error) {
       AppLogger.error('Error obteniendo equipos transportista:', error);
       res.status(500).json({ success: false, message: 'Error interno' });
@@ -339,7 +320,7 @@ export class PortalTransportistaController {
         }
         if (dadorCargaId) whereDocumentos.dadorCargaId = dadorCargaId;
       }
-      // Admin/Superadmin ven todo
+      // Admin/Superadmin tienen acceso completo
       
       const documentos = await prisma.document.findMany({
         where: whereDocumentos,
@@ -407,7 +388,7 @@ export class PortalTransportistaController {
           whereDocumentos.dadorCargaId = user.dadorCargaId;
         }
       }
-      // Admin/Superadmin ven todo
+      // Admin/Superadmin tienen acceso completo
       
       const documentos = await prisma.document.findMany({
         where: whereDocumentos,

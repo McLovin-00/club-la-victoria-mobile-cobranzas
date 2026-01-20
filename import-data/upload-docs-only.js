@@ -173,71 +173,67 @@ async function uploadAndApprove(server, token, entityType, entityId, templateKey
   return uploadRes.data;
 }
 
-async function processRow(server, token, row, docsFolder) {
-  const dadorId = server.dadorId;
-  const id = row[0];
-  const cuit = String(row[3] || '').replace(/[-\s]/g, '').padStart(11, '0');
-  const dni = row[33];
-  const patenteTractor = String(row[16] || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
-  const patenteSemi = row[23] ? String(row[23]).toUpperCase().replace(/[^A-Z0-9]/g, '') : null;
-  
-  const dniStr = String(dni || '').trim();
-  if (!dniStr || dniStr === 'PENDIENTE' || !dniStr.match(/^\d+$/)) {
-    return { success: false, error: 'DNI inválido' };
-  }
-  
-  // Buscar equipo existente
-  const equipo = await findEquipoByDni(server, token, dniStr);
-  if (!equipo) {
-    return { success: false, error: 'Equipo no encontrado para DNI ' + dniStr };
-  }
-  
-  // Buscar carpeta de documentos
-  const folderName = fs.readdirSync(docsFolder).find(f => f.startsWith(id + ' '));
-  if (!folderName) {
-    return { success: true, equipo, docsUploaded: 0, warning: 'Sin carpeta' };
-  }
-  
-  const folderPath = path.join(docsFolder, folderName);
+function isValidDni(dniStr) {
+  return dniStr && dniStr !== 'PENDIENTE' && dniStr.match(/^\d+$/);
+}
+
+function buildEntityIdMap(equipo) {
+  return {
+    'EMPRESA_TRANSPORTISTA': equipo.empresaTransportista?.id,
+    'CHOFER': equipo.chofer?.id,
+    'CAMION': equipo.camion?.id,
+    'ACOPLADO': equipo.acoplado?.id
+  };
+}
+
+async function uploadFilesToEquipo(server, token, folderPath, equipo, dadorId) {
   const files = fs.readdirSync(folderPath);
-  
+  const entityIdMap = buildEntityIdMap(equipo);
   let docsUploaded = 0;
   const errors = [];
-  
-  // IDs de entidades
-  const empresaId = equipo.empresaTransportista?.id;
-  const choferId = equipo.chofer?.id;
-  const camionId = equipo.camion?.id;
-  const acopladoId = equipo.acoplado?.id;
   
   for (const file of files) {
     const templateConfig = matchTemplate(file);
     if (!templateConfig) continue;
     
-    const filePath = path.join(folderPath, file);
-    
-    let entityId;
-    switch (templateConfig.entityType) {
-      case 'EMPRESA_TRANSPORTISTA': entityId = empresaId; break;
-      case 'CHOFER': entityId = choferId; break;
-      case 'CAMION': entityId = camionId; break;
-      case 'ACOPLADO': entityId = acopladoId; if (!entityId) continue; break;
-    }
-    
+    const entityId = entityIdMap[templateConfig.entityType];
     if (!entityId) continue;
     
     try {
-      await uploadAndApprove(server, token, templateConfig.entityType, entityId, templateConfig.templateKey, filePath, dadorId);
+      await uploadAndApprove(server, token, templateConfig.entityType, entityId, templateConfig.templateKey, path.join(folderPath, file), dadorId);
       docsUploaded++;
     } catch (err) {
       const errMsg = err.response?.data?.message || err.message;
-      if (!errMsg.includes('ya existe')) {
-        errors.push(`${file}: ${errMsg}`);
-      }
+      if (!errMsg.includes('ya existe')) errors.push(`${file}: ${errMsg}`);
     }
     
     await new Promise(r => setTimeout(r, 100));
   }
+  
+  return { docsUploaded, errors };
+}
+
+async function processRow(server, token, row, docsFolder) {
+  const id = row[0];
+  const dniStr = String(row[33] || '').trim();
+  
+  if (!isValidDni(dniStr)) {
+    return { success: false, error: 'DNI inválido' };
+  }
+  
+  const equipo = await findEquipoByDni(server, token, dniStr);
+  if (!equipo) {
+    return { success: false, error: 'Equipo no encontrado para DNI ' + dniStr };
+  }
+  
+  const folderName = fs.readdirSync(docsFolder).find(f => f.startsWith(id + ' '));
+  if (!folderName) {
+    return { success: true, equipo, docsUploaded: 0, warning: 'Sin carpeta' };
+  }
+  
+  const { docsUploaded, errors } = await uploadFilesToEquipo(
+    server, token, path.join(docsFolder, folderName), equipo, server.dadorId
+  );
   
   return { success: true, equipo, docsUploaded, errors };
 }

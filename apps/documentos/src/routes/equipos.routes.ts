@@ -1,15 +1,14 @@
 import { Router } from 'express';
 import { authenticate, authorize, validate } from '../middlewares/auth.middleware';
 import { ownsEquipo, canModifyEquipo, canTransferEquipo } from '../middlewares/ownership.middleware';
-import { equipoHistoryQuerySchema } from '../schemas/validation.schemas';
+import { equipoHistoryQuerySchema, createEquipoSchema, equipoClienteAssocSchema, equipoListQuerySchema, updateEquipoSchema, equipoAttachSchema, equipoDetachSchema } from '../schemas/validation.schemas';
 import { EquiposController } from '../controllers/equipos.controller';
-import { createEquipoSchema, equipoClienteAssocSchema, equipoListQuerySchema, updateEquipoSchema, equipoAttachSchema, equipoDetachSchema } from '../schemas/validation.schemas';
 import { z } from 'zod';
 import { prisma } from '../config/database';
 import { AppLogger } from '../config/logger';
 import { AuditService } from '../services/audit.service';
 
-const router = Router();
+const router: ReturnType<typeof Router> = Router();
 
 // ============================================================================
 // HELPERS JWT Y ARCHIVER
@@ -139,6 +138,37 @@ async function generateExcelBuffer(rows: any[]): Promise<Buffer> {
   return Buffer.from(await workbook.xlsx.writeBuffer());
 }
 
+// Helper: procesar un equipo para el ZIP
+async function processEquipoForZip(equipoId: number, archive: any, now: Date): Promise<any | null> {
+  const equipo = await prisma.equipo.findUnique({
+    where: { id: equipoId },
+    include: { empresaTransportista: { select: { cuit: true, razonSocial: true } } },
+  });
+  if (!equipo) return null;
+
+  const [chofer, camion, acoplado] = await Promise.all([
+    prisma.chofer.findUnique({ where: { id: equipo.driverId }, select: { dni: true, nombre: true, apellido: true } }),
+    prisma.camion.findUnique({ where: { id: equipo.truckId }, select: { patente: true } }),
+    equipo.trailerId ? prisma.acoplado.findUnique({ where: { id: equipo.trailerId }, select: { patente: true } }) : null,
+  ]);
+
+  const mainFolder = `equipo_${equipo.id}_DNI_${equipo.driverDniNorm || 'SIN_DNI'}_${equipo.truckPlateNorm || 'SIN_PATENTE'}`;
+  const subfolders = buildSubfolders(equipo);
+  const docs = await loadEquipoDocuments(equipo, now);
+  await appendDocsToArchive(equipo, docs, archive, mainFolder, subfolders);
+
+  return {
+    equipoId: equipo.id,
+    empresaCuit: equipo.empresaTransportista?.cuit || '',
+    empresaRazonSocial: equipo.empresaTransportista?.razonSocial || '',
+    choferDni: chofer?.dni || equipo.driverDniNorm || '',
+    choferNombre: chofer?.nombre || '',
+    choferApellido: chofer?.apellido || '',
+    camionPatente: camion?.patente || equipo.truckPlateNorm || '',
+    acopladoPatente: acoplado?.patente || equipo.trailerPlateNorm || '',
+  };
+}
+
 async function streamVigentesZip(equipoIdsInput: number[], res: any) {
   const equipoIds = [...equipoIdsInput].sort((a, b) => a - b);
   const now = new Date();
@@ -152,37 +182,11 @@ async function streamVigentesZip(equipoIdsInput: number[], res: any) {
   archive.on('error', (err: any) => res.status(500).end(String(err)));
   archive.pipe(res);
 
-  const excelRows: any[] = [];
-
   try {
+    const excelRows: any[] = [];
     for (const equipoId of equipoIds) {
-      const equipo = await prisma.equipo.findUnique({
-        where: { id: equipoId },
-        include: { empresaTransportista: { select: { cuit: true, razonSocial: true } } },
-      });
-      if (!equipo) continue;
-
-      const [chofer, camion, acoplado] = await Promise.all([
-        prisma.chofer.findUnique({ where: { id: equipo.driverId }, select: { dni: true, nombre: true, apellido: true } }),
-        prisma.camion.findUnique({ where: { id: equipo.truckId }, select: { patente: true } }),
-        equipo.trailerId ? prisma.acoplado.findUnique({ where: { id: equipo.trailerId }, select: { patente: true } }) : null,
-      ]);
-
-      excelRows.push({
-        equipoId: equipo.id,
-        empresaCuit: equipo.empresaTransportista?.cuit || '',
-        empresaRazonSocial: equipo.empresaTransportista?.razonSocial || '',
-        choferDni: chofer?.dni || equipo.driverDniNorm || '',
-        choferNombre: chofer?.nombre || '',
-        choferApellido: chofer?.apellido || '',
-        camionPatente: camion?.patente || equipo.truckPlateNorm || '',
-        acopladoPatente: acoplado?.patente || equipo.trailerPlateNorm || '',
-      });
-
-      const mainFolder = `equipo_${equipo.id}_DNI_${equipo.driverDniNorm || 'SIN_DNI'}_${equipo.truckPlateNorm || 'SIN_PATENTE'}`;
-      const subfolders = buildSubfolders(equipo);
-      const docs = await loadEquipoDocuments(equipo, now);
-      await appendDocsToArchive(equipo, docs, archive, mainFolder, subfolders);
+      const row = await processEquipoForZip(equipoId, archive, now);
+      if (row) excelRows.push(row);
     }
 
     if (excelRows.length > 0) {

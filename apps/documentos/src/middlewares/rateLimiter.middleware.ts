@@ -1,6 +1,13 @@
 import rateLimit from 'express-rate-limit';
 
 /**
+ * Multiplicador de rate limit configurable por entorno
+ * En testing/desarrollo se puede aumentar para evitar bloqueos durante pruebas
+ * Default: 1 (sin multiplicación)
+ */
+const RATE_LIMIT_MULTIPLIER = parseInt(process.env.RATE_LIMIT_MULTIPLIER || '1', 10);
+
+/**
  * Rate Limiter - Por Usuario Autenticado
  * 
  * Usa el userId del token JWT como clave para el rate limiting.
@@ -24,7 +31,7 @@ const userKeyGenerator = (req: any): string => {
  */
 export const uploadRateLimit: any = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutos
-  limit: 2000, // Máximo 2000 uploads por usuario por ventana
+  limit: 2000 * RATE_LIMIT_MULTIPLIER, // Máximo 2000 uploads por usuario por ventana (x multiplicador)
   message: {
     success: false,
     message: 'Demasiados uploads. Intenta nuevamente en 15 minutos.',
@@ -40,7 +47,7 @@ export const uploadRateLimit: any = rateLimit({
  */
 export const generalRateLimit: any = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutos
-  limit: 5000, // Máximo 5000 requests por usuario por ventana
+  limit: 5000 * RATE_LIMIT_MULTIPLIER, // Máximo 5000 requests por usuario por ventana (x multiplicador)
   message: {
     success: false,
     message: 'Demasiadas peticiones. Intenta nuevamente más tarde.',
@@ -56,7 +63,7 @@ export const generalRateLimit: any = rateLimit({
  */
 export const configRateLimit: any = rateLimit({
   windowMs: 5 * 60 * 1000, // 5 minutos
-  limit: 100, // Máximo 100 cambios de configuración por usuario
+  limit: 100 * RATE_LIMIT_MULTIPLIER, // Máximo 100 cambios de configuración por usuario (x multiplicador)
   message: {
     success: false,
     message: 'Demasiados cambios de configuración. Espera 5 minutos.',
@@ -72,7 +79,7 @@ export const configRateLimit: any = rateLimit({
  */
 export const approvalRateLimit: any = rateLimit({
   windowMs: 60 * 1000, // 1 minuto
-  limit: 500, // 500 acciones de aprobación por minuto por usuario
+  limit: 500 * RATE_LIMIT_MULTIPLIER, // 500 acciones de aprobación por minuto por usuario (x multiplicador)
   message: {
     success: false,
     message: 'Demasiadas acciones de aprobación/rechazo. Intenta nuevamente en breve.',

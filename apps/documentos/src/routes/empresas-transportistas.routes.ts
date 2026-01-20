@@ -1,11 +1,10 @@
 import { Router } from 'express';
-import { authenticate, authorize } from '../middlewares/auth.middleware';
+import { authenticate, authorize, validate } from '../middlewares/auth.middleware';
 import { UserRole } from '../types/roles';
 import { EmpresasTransportistasController } from '../controllers/empresas-transportistas.controller';
-import { validate } from '../middlewares/auth.middleware';
 import { createEmpresaTransportistaSchema, updateEmpresaTransportistaSchema, empresaTransportistaListQuerySchema } from '../schemas/validation.schemas';
 
-const router = Router();
+const router: ReturnType<typeof Router> = Router();
 
 router.use(authenticate);
 

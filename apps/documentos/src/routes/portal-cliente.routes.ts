@@ -2,7 +2,7 @@ import { Router } from 'express';
 import { authenticate, authorize, tenantResolver } from '../middlewares/auth.middleware';
 import { PortalClienteController } from '../controllers/portal-cliente.controller';
 
-const router = Router();
+const router: ReturnType<typeof Router> = Router();
 
 // IMPORTANTE: Ruta de formulario SIN middleware de auth (valida token internamente)
 // Esta ruta debe ir ANTES del router.use(authenticate) para que no pase por él

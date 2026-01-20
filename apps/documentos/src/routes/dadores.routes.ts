@@ -4,7 +4,7 @@ import { UserRole } from '../types/roles';
 import { DadoresController } from '../controllers/dadores.controller';
 import { createDadorSchema, dadorListQuerySchema, updateDadorSchema, updateDadorNotificationsSchema } from '../schemas/validation.schemas';
 
-const router = Router();
+const router: ReturnType<typeof Router> = Router();
 
 router.use(authenticate);
 router.get('/', authorize([UserRole.ADMIN, UserRole.SUPERADMIN, UserRole.ADMIN_INTERNO, UserRole.DADOR_DE_CARGA, UserRole.TRANSPORTISTA]), validate(dadorListQuerySchema), DadoresController.list);

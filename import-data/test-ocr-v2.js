@@ -53,9 +53,9 @@ async function extractDNIData(imagePath) {
     // DNI: 7-8 dígitos
     dni: /\b(\d{2}[\.\s]?\d{3}[\.\s]?\d{3})\b|\b(\d{7,8})\b/g,
     // Apellido después de "APELLIDO" o antes de nombre típico
-    apellido: /APELLIDO[S]?\s*[:\s\/]*\s*([A-ZÁÉÍÓÚÑ\s]+?)(?:\s*NOMBRE|\s*$)/im,
+    apellido: /APELLIDOS?\s*[:\s/]*\s*([A-ZÁÉÍÓÚÑ\s]+?)(?:\s*NOMBRE|\s*$)/im,
     // Nombre después de "NOMBRE" o "NOMBRES"
-    nombre: /NOMBRE[S]?\s*[:\s\/]*\s*([A-ZÁÉÍÓÚÑ\s]+?)(?:\s*SEXO|\s*NACIONALIDAD|\s*$)/im,
+    nombre: /NOMBRES?\s*[:\s/]*\s*([A-ZÁÉÍÓÚÑ\s]+?)(?:\s*SEXO|\s*NACIONALIDAD|\s*$)/im,
     // Alternativa: buscar patrón APELLIDO / NOMBRE en una línea
     apellidoNombre: /([A-ZÁÉÍÓÚÑ]+)\s*\/\s*([A-ZÁÉÍÓÚÑ\s]+)/m
   };

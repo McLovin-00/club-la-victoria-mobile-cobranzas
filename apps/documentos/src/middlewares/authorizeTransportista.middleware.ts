@@ -82,8 +82,8 @@ export function authorizeTransportista(req: AuthRequest, res: Response, next: Ne
       return;
     }
 
-    const q: any = { ...(req.query as any) };
-    const body = req.body as any;
+    const q: any = { ...req.query };
+    const body = req.body;
 
     // Verificar overrides
     if (scope.empresaTransportistaId && checkNumericOverride(q, body, 'empresaTransportistaId', scope.empresaTransportistaId)) {

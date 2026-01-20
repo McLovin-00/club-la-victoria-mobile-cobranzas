@@ -2,14 +2,21 @@ import rateLimit from 'express-rate-limit';
 import { AppLogger } from '../config/logger';
 
 /**
+ * Multiplicador de rate limit configurable por entorno
+ * En testing/desarrollo se puede aumentar para evitar bloqueos durante pruebas
+ * Default: 1 (sin multiplicación)
+ */
+const RATE_LIMIT_MULTIPLIER = parseInt(process.env.RATE_LIMIT_MULTIPLIER || '1', 10);
+
+/**
  * Rate limiter para endpoints de autenticación
  * Previene ataques de fuerza bruta limitando intentos de login
  * 
- * Configuración: 5 intentos por IP cada 15 minutos
+ * Configuración: 5 intentos por IP cada 15 minutos (base)
  */
 export const loginRateLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutos
-  max: 5, // máximo 5 intentos por ventana
+  max: 5 * RATE_LIMIT_MULTIPLIER, // máximo 5 intentos por ventana (x multiplicador)
   message: {
     success: false,
     message: 'Demasiados intentos de inicio de sesión. Intente nuevamente en 15 minutos.',
@@ -52,11 +59,11 @@ export const loginRateLimiter = rateLimit({
 
 /**
  * Rate limiter para cambio de contraseña
- * Más restrictivo: 3 intentos por IP cada 30 minutos
+ * Más restrictivo: 3 intentos por IP cada 30 minutos (base)
  */
 export const passwordChangeRateLimiter = rateLimit({
   windowMs: 30 * 60 * 1000, // 30 minutos
-  max: 3, // máximo 3 intentos
+  max: 3 * RATE_LIMIT_MULTIPLIER, // máximo 3 intentos (x multiplicador)
   message: {
     success: false,
     message: 'Demasiados intentos de cambio de contraseña. Intente más tarde.',
@@ -75,11 +82,11 @@ export const passwordChangeRateLimiter = rateLimit({
 
 /**
  * Rate limiter general para API
- * Menos restrictivo: 100 requests por minuto por IP
+ * Menos restrictivo: 100 requests por minuto por IP (base)
  */
 export const apiRateLimiter = rateLimit({
   windowMs: 60 * 1000, // 1 minuto
-  max: 100, // máximo 100 requests por minuto
+  max: 100 * RATE_LIMIT_MULTIPLIER, // máximo 100 requests por minuto (x multiplicador)
   message: {
     success: false,
     message: 'Demasiadas solicitudes. Intente más tarde.',

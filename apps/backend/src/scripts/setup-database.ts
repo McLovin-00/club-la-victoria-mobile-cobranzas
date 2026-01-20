@@ -9,13 +9,28 @@ dotenv.config({ path: path.resolve(__dirname, '../../../../.env') });
 const backendDir = path.resolve(__dirname, '../../');
 
 /**
- * Ejecuta un comando del sistema de forma segura.
- * NOSONAR: Los comandos son hardcodeados (npx prisma) y no provienen de input del usuario.
- * Esta función solo se usa internamente para setup de BD en desarrollo.
+ * Whitelist de comandos permitidos para setup de base de datos.
+ * Solo estos comandos pueden ser ejecutados por runCommand.
+ * @security Esta lista define explícitamente todos los comandos permitidos
  */
-const runCommand = (command: string) => {
+const ALLOWED_COMMANDS = [
+  'npx dotenv-cli -e ../../.env -- npx prisma db push --schema=./prisma/schema.prisma',
+  'npx dotenv-cli -e ../../.env -- npx ts-node prisma/seed.ts',
+] as const;
+
+/**
+ * Ejecuta un comando del sistema de forma segura.
+ * @security Solo ejecuta comandos de la whitelist ALLOWED_COMMANDS.
+ * Los comandos son constantes compiladas, nunca provienen de input externo.
+ */
+const runCommand = (command: typeof ALLOWED_COMMANDS[number]) => {
+  // Validar que el comando esté en la whitelist
+  if (!ALLOWED_COMMANDS.includes(command)) {
+    console.error(`Comando no autorizado: ${command}`);
+    process.exit(1);
+  }
+  
   try {
-    // NOSONAR: command-injection safe - commands are hardcoded, not from user input
     execSync(command, { stdio: 'inherit', cwd: backendDir });
   } catch (_error) {
     console.error(`Error ejecutando el comando: ${command}`);

@@ -133,8 +133,8 @@ export const MediaService = {
     let totalHeight = 0;
     const composites: sharp.OverlayOptions[] = [];
     
-    for (let i = 0; i < images.length; i++) {
-      const resized = await sharp(images[i])
+    for (const image of images) {
+      const resized = await sharp(image)
         .rotate()
         .resize({ width: maxWidth, fit: 'inside' })
         .jpeg({ quality: 85 })

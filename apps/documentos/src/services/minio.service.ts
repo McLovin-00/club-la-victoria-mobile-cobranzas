@@ -99,9 +99,13 @@ export class MinIOService {
 
     try {
       this.publicBaseUrl = new URL(env.MINIO_PUBLIC_BASE_URL);
-      const pPort = this.publicBaseUrl.port
-        ? parseInt(this.publicBaseUrl.port)
-        : this.publicBaseUrl.protocol === 'https:' ? 443 : 80;
+      // Determinar puerto: usar el explícito, o el default según protocolo
+      let pPort = 80;
+      if (this.publicBaseUrl.port) {
+        pPort = parseInt(this.publicBaseUrl.port);
+      } else if (this.publicBaseUrl.protocol === 'https:') {
+        pPort = 443;
+      }
 
       this.publicSignerClient = new MinIOClient({
         endPoint: this.publicBaseUrl.hostname,

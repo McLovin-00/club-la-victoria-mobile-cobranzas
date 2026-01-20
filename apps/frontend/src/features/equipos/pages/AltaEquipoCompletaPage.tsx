@@ -468,19 +468,19 @@ const AltaEquipoCompletaPage: React.FC = () => {
     <div className='container mx-auto px-4 py-6 max-w-5xl'>
       {/* Header */}
       <div className='flex items-center justify-between mb-6'>
-        <h1 className='text-3xl font-bold text-gray-900'>Alta Completa de Equipo</h1>
+        <h1 className='text-3xl font-bold text-gray-900 dark:text-white'>Alta Completa de Equipo</h1>
         <button
           onClick={goBack}
-          className='px-4 py-2 text-sm border border-gray-300 rounded-md hover:bg-gray-50 transition-colors'
+          className='px-4 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-md hover:bg-gray-50 dark:hover:bg-gray-700 dark:text-gray-200 transition-colors'
         >
           ← Volver
         </button>
       </div>
 
       {/* Progress Bar */}
-      <div className='mb-6 bg-white border border-gray-300 rounded-lg p-4'>
+      <div className='mb-6 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg p-4'>
         <div className='flex items-center justify-between mb-2'>
-          <span className='text-sm font-medium text-gray-700'>Progreso de selección</span>
+          <span className='text-sm font-medium text-gray-700 dark:text-gray-300'>Progreso de selección</span>
           <span className='text-sm text-gray-600'>
             {templateIdsObligatorios.filter((id) => selectedFiles.has(id)).length} /{' '}
             {templateIdsObligatorios.length} documentos ({progreso}%)

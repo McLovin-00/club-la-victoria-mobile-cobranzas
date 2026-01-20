@@ -23,6 +23,26 @@ interface InitializationResult {
   warnings?: string[];
 }
 
+// Helper: construir mensaje de resultado de inicialización
+function buildResultMessage(
+  dbName: string,
+  created: boolean,
+  tablesExist: boolean,
+  hasData: boolean,
+  duration: number
+): string {
+  const actions: string[] = [];
+  
+  if (created) actions.push('creada');
+  if (!tablesExist) actions.push('migraciones ejecutadas');
+  if (!hasData || process.env.FORCE_SEED === 'true') actions.push('seeds ejecutados');
+
+  const baseMsg = `✅ Base de datos '${dbName}' `;
+  return actions.length > 0
+    ? `${baseMsg}inicializada (${actions.join(', ')}) en ${duration}ms`
+    : `${baseMsg}ya está lista y accesible (${duration}ms)`;
+}
+
 export class DatabaseInitializationService {
   private config = databaseConfig.getConfig();
   private connectionRetries = 3;
@@ -37,25 +57,18 @@ export class DatabaseInitializationService {
     AppLogger.info('🚀 Iniciando proceso de inicialización de base de datos...');
 
     try {
-      // 1. Validar configuración
+      // 1-3. Validación inicial
       await this.validateConfiguration();
-
-      // 2. Verificar conectividad administrativa
       await this.verifyAdministrativeConnection();
-
-      // 3. Verificar estado actual de la base de datos
       const status = await this.checkDatabaseStatus();
 
       // 4. Crear base de datos si no existe
-      let created = false;
-      if (!status.exists) {
-        created = await this.createDatabase();
-      }
+      const created = !status.exists ? await this.createDatabase() : false;
 
-      // 5. Verificar permisos del usuario
+      // 5. Verificar permisos
       await this.verifyUserPermissions();
 
-      // 6. Ejecutar migraciones solo si las tablas no existen
+      // 6. Migraciones condicionales
       const tablesExist = await this.checkTablesExist();
       if (!tablesExist) {
         await this.runPrismaMigrations();
@@ -63,58 +76,22 @@ export class DatabaseInitializationService {
         AppLogger.info('⏭️ Migraciones omitidas - las tablas ya existen');
       }
 
-      // 7. Ejecutar seeds solo si no hay datos en las tablas
+      // 7. Seeds condicionales
       const hasData = await this.checkDatabaseHasData();
       if (!hasData || process.env.FORCE_SEED === 'true') {
         await this.executeSeedsProcess();
       } else {
-        AppLogger.info(
-          '⏭️ Seeds omitidos - la base de datos ya tiene datos (usar FORCE_SEED=true para forzar)'
-        );
+        AppLogger.info('⏭️ Seeds omitidos - la base de datos ya tiene datos (usar FORCE_SEED=true para forzar)');
       }
 
-      // 8. Validar estado final
+      // 8. Estado final
       const finalStatus = await this.checkDatabaseStatus();
-
       const duration = Date.now() - startTime;
+      const message = buildResultMessage(this.config.database, created, tablesExist, hasData, duration);
 
-      // Construir mensaje detallado basado en lo que realmente se ejecutó
-      let message = `✅ Base de datos '${this.config.database}' `;
-      const actions = [];
+      AppLogger.info(message, { database: this.config.database, created, duration, status: finalStatus });
 
-      if (created) {
-        actions.push('creada');
-      }
-
-      if (!tablesExist) {
-        actions.push('migraciones ejecutadas');
-      }
-
-      if (!hasData || process.env.FORCE_SEED === 'true') {
-        actions.push('seeds ejecutados');
-      }
-
-      if (actions.length > 0) {
-        message += `inicializada (${actions.join(', ')}) en ${duration}ms`;
-      } else {
-        message += `ya está lista y accesible (${duration}ms)`;
-      }
-
-      const result: InitializationResult = {
-        success: true,
-        created,
-        message,
-        databaseStatus: finalStatus,
-      };
-
-      AppLogger.info(result.message, {
-        database: this.config.database,
-        created,
-        duration,
-        status: finalStatus,
-      });
-
-      return result;
+      return { success: true, created, message, databaseStatus: finalStatus };
     } catch (error) {
       const duration = Date.now() - startTime;
       const errorMessage = error instanceof Error ? error.message : 'Error desconocido';

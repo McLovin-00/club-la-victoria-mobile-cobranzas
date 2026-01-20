@@ -440,9 +440,9 @@ export default function ApprovalDetailPage() {
                 {rejecting ? 'Rechazando...' : 'Rechazar'}
               </button>
             </div>
-            <div className="mt-2 flex gap-2">
+            <div className="mt-2 flex flex-col sm:flex-row gap-2">
               <select 
-                className="input input-bordered py-2 px-3 rounded-md bg-background border flex-1"
+                className="input input-bordered py-2 px-3 rounded-md bg-background border w-full sm:w-1/2"
                 value={rejectReason}
                 onChange={(e) => setRejectReason(e.target.value)}
               >
@@ -455,7 +455,7 @@ export default function ApprovalDetailPage() {
                 <option value="Firma o sello faltante">Firma o sello faltante</option>
               </select>
               <input 
-                className="input input-bordered py-2 px-3 rounded-md bg-background border flex-1" 
+                className="input input-bordered py-2 px-3 rounded-md bg-background border w-full sm:w-1/2" 
                 value={rejectReason} 
                 onChange={(e) => setRejectReason(e.target.value)} 
                 placeholder="O escribir motivo personalizado..." 

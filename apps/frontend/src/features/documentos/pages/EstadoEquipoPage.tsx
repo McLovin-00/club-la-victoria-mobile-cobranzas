@@ -291,7 +291,7 @@ export const EstadoEquipoPage: React.FC = () => {
   const vencidosTotal = Object.values(complianceByEntidad).flat().filter(r => r.state?.toUpperCase() === 'VENCIDO').length;
 
   return (
-    <div className='min-h-screen bg-gradient-to-br from-gray-50 to-blue-50'>
+    <div className='min-h-screen bg-gradient-to-br from-gray-50 to-blue-50 dark:from-gray-900 dark:to-slate-900'>
       <div className='container mx-auto px-3 sm:px-4 py-4 sm:py-8'>
         {/* Header */}
         <div className='flex flex-col gap-4 mb-6 sm:mb-8 sm:flex-row sm:items-center'>
@@ -322,7 +322,7 @@ export const EstadoEquipoPage: React.FC = () => {
               value={textFilter}
               onChange={(e)=> setTextFilter(e.target.value)}
               placeholder='Filtrar por nombre de documento'
-              className='border rounded px-2 py-1 text-sm'
+              className='border rounded px-3 py-2 text-sm w-64 bg-white dark:bg-gray-800 dark:border-gray-600 dark:text-white dark:placeholder-gray-400'
               aria-label='Filtrar por nombre de documento'
             />
           </div>

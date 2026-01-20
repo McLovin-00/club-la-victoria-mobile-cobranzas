@@ -365,7 +365,8 @@ describe('WebSocketService', () => {
   });
 
   describe('Connection stats', () => {
-    interface ConnectionStats {
+    // Interface para documentar estructura de stats de conexión
+    interface _ConnectionStats {
       totalConnections: number;
       activeConnections: number;
       peakConnections: number;
@@ -396,6 +397,7 @@ describe('WebSocketService', () => {
     });
   });
 });
+
 
 
 

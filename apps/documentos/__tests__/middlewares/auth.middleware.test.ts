@@ -286,7 +286,7 @@ describe('auth.middleware', () => {
  * @jest-environment node
  */
 
-import { Request, Response, NextFunction } from 'express';
+import { Response, NextFunction } from 'express';
 
 jest.mock('../../src/config/auth', () => ({
   DocumentosAuthService: {

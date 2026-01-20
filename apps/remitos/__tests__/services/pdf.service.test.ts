@@ -8,7 +8,7 @@ import * as fs from 'fs/promises';
 // Mock child_process
 const mockExecFile = jest.fn();
 jest.mock('child_process', () => ({
-  execFile: (cmd: string, args: string[], opts: any, cb: (...args: any[]) => void) => {
+  execFile: (cmd: string, args: string[], opts: any, cb: (error: Error | null, stdout: string, stderr: string) => void) => {
     return mockExecFile(cmd, args, opts, cb);
   },
 }));
@@ -16,7 +16,7 @@ jest.mock('child_process', () => ({
 // Mock util.promisify to work with our mock
 jest.mock('util', () => ({
   promisify: (_fn: any) => async (cmd: string, _args: string[], _opts?: any) => {
-    return new Promise((resolve, _reject) => {
+    return new Promise((resolve) => {
       if (cmd === 'pdftoppm' && mockExecFile.mock.calls.length === 0) {
         mockExecFile.mockImplementation(() => { });
         resolve({ stdout: '', stderr: '' });
@@ -108,6 +108,7 @@ describe('PdfService', () => {
     });
   });
 });
+
 
 
 

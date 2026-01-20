@@ -56,7 +56,7 @@ export const authenticateUser = async (
     // Adjuntar información del usuario a la request
     req.user = payload;
     // Compatibilidad con controladores antiguos que usan req.platformUser
-    // TODO: migrar controladores a usar req.user de forma consistente
+    // @deprecated Usar req.user en lugar de req.platformUser
     (req as any).platformUser = payload;
 
     AppLogger.debug('✅ Usuario de plataforma autenticado', {

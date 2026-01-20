@@ -570,3 +570,60 @@ model EntityExtractionLog {
   @@index([createdAt])
   @@map("entity_extraction_log")
 }
+
+// =================================
+// NOTIFICACIONES INTERNAS
+// =================================
+
+enum InternalNotificationType {
+  DOCUMENT_REJECTED
+  DOCUMENT_APPROVED
+  DOCUMENT_EXPIRING
+  DOCUMENT_EXPIRED
+  DOCUMENT_UPLOADED
+  EQUIPO_INCOMPLETE
+  EQUIPO_COMPLETE
+  SYSTEM_ALERT
+}
+
+enum NotificationPriority {
+  low
+  normal
+  high
+  urgent
+}
+
+model InternalNotification {
+  id              Int      @id @default(autoincrement())
+  tenantEmpresaId Int      @map("tenant_empresa_id")
+  userId          Int      @map("user_id")
+  
+  type            InternalNotificationType
+  title           String   @db.VarChar(200)
+  message         String   @db.Text
+  link            String?  @db.VarChar(500)
+  priority        NotificationPriority @default(normal)
+  
+  read            Boolean  @default(false)
+  readAt          DateTime? @map("read_at")
+  deleted         Boolean  @default(false)
+  deletedAt       DateTime? @map("deleted_at")
+  
+  // Metadatos adicionales
+  metadata        Json?
+  
+  // Relaciones opcionales
+  documentId      Int?     @map("document_id")
+  equipoId        Int?     @map("equipo_id")
+  remitoId        Int?     @map("remito_id")
+  
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+
+  @@index([userId, read, deleted])
+  @@index([userId, createdAt(sort: Desc)])
+  @@index([tenantEmpresaId])
+  @@index([documentId])
+  @@index([type])
+  @@map("internal_notifications")
+}

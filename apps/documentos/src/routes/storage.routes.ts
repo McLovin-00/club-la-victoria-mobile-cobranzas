@@ -2,7 +2,7 @@ import { Router } from 'express';
 import { authenticate, tenantResolver } from '../middlewares/auth.middleware';
 import { StorageController } from '../controllers/storage.controller';
 
-const router = Router();
+const router: ReturnType<typeof Router> = Router();
 
 router.use(authenticate, tenantResolver);
 

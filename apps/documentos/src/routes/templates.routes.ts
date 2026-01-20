@@ -1,7 +1,6 @@
 import { Router } from 'express';
 import { TemplatesController } from '../controllers/templates.controller';
-import { authenticate, authorize } from '../middlewares/auth.middleware';
-import { validate } from '../middlewares/auth.middleware';
+import { authenticate, authorize, validate } from '../middlewares/auth.middleware';
 import { configRateLimit } from '../middlewares/rateLimiter.middleware';
 import {
   getTemplatesSchema,
@@ -10,7 +9,7 @@ import {
   getTemplateByIdSchema,
 } from '../schemas/validation.schemas';
 
-const router = Router();
+const router: ReturnType<typeof Router> = Router();
 
 // =================================
 // RUTAS DE TEMPLATES - Solo Superadmin

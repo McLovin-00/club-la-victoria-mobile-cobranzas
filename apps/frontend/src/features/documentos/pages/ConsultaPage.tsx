@@ -122,7 +122,8 @@ export const ConsultaPage: React.FC = () => {
   const [trigger] = useLazySearchEquiposQuery();
   const [getCompliance] = useLazyGetEquipoComplianceQuery();
   const [deleteEquipo] = useDeleteEquipoMutation();
-  const [toggleActivo] = useToggleEquipoActivoMutation();
+  const [toggleActivo, { isLoading: isTogglingActivo }] = useToggleEquipoActivoMutation();
+  const [togglingEquipoId, setTogglingEquipoId] = useState<number | null>(null);
   // CSV DNIs search
   const [searchByDnis, { isLoading: loadingCsvSearch }] = useSearchEquiposByDnisMutation();
   const [csvResults, setCsvResults] = useState<Array<any>>([]);
@@ -856,7 +857,8 @@ export const ConsultaPage: React.FC = () => {
         </div>
       </Card>
 
-      {isFetching && (
+      {/* Solo mostrar spinner global en primera carga, no en refetch */}
+      {isFetching && displayResults.length === 0 && (
         <div className='flex flex-col items-center justify-center py-12'>
           <div className='animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mb-4'></div>
           <div className='text-lg font-medium text-gray-600'>Buscando equipos...</div>
@@ -868,8 +870,8 @@ export const ConsultaPage: React.FC = () => {
       )}
       {isError && <div className='text-sm text-red-600'>Error al buscar{(error as any)?.status ? ` (${(error as any).status})` : ''}. Revise los filtros seleccionados.</div>}
       
-      {/* Dashboard de estado documental */}
-      {hasSearched && !isFetching && dashboardStats.total > 0 && (
+      {/* Dashboard de estado documental - siempre visible si hay datos */}
+      {hasSearched && dashboardStats.total > 0 && (
         <div className='grid grid-cols-2 md:grid-cols-4 gap-3 mb-4'>
           <button
             onClick={() => { setComplianceFilter('all'); setPage(1); }}
@@ -940,7 +942,7 @@ export const ConsultaPage: React.FC = () => {
       )}
       
       {/* Barra de paginación (solo para resultados del servidor, no para búsqueda masiva) */}
-      {hasSearched && !isFetching && csvResults.length === 0 && displayResults.length > 0 && (
+      {hasSearched && csvResults.length === 0 && displayResults.length > 0 && (
         <div className='flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4 p-3 bg-gray-50 dark:bg-slate-800 rounded-lg'>
           <div className='text-sm text-gray-600 dark:text-gray-400'>
             Mostrando {((pagination.page - 1) * pagination.limit) + 1} - {Math.min(pagination.page * pagination.limit, pagination.total)} de {pagination.total} equipos
@@ -1118,10 +1120,22 @@ export const ConsultaPage: React.FC = () => {
       )}
 
       <div className='grid gap-3'>
-        {!isFetching && displayResults.map((it: any) => {
+        {displayResults.map((it: any) => {
           const eq = it.equipo || it;
+          const isToggling = togglingEquipoId === eq.id;
           return (
-            <div key={eq.id} className={`rounded-lg border bg-white dark:bg-slate-900 p-3 grid gap-3 md:grid-cols-[1fr,auto,auto] items-center ${eq.activo === false ? 'opacity-50 bg-gray-100' : ''}`}>
+            <div key={eq.id} className={`relative rounded-lg border bg-white dark:bg-slate-900 p-3 grid gap-3 md:grid-cols-[1fr,auto,auto] items-center ${eq.activo === false ? 'opacity-50 bg-gray-100 dark:bg-slate-800/50' : ''} ${isToggling ? 'ring-2 ring-blue-400' : ''}`}>
+              {/* Overlay de carga durante toggle */}
+              {isToggling && (
+                <div className='absolute inset-0 bg-white/70 dark:bg-slate-900/70 rounded-lg flex items-center justify-center z-10'>
+                  <div className='flex items-center gap-3 bg-white dark:bg-slate-800 px-4 py-2 rounded-full shadow-lg border'>
+                    <span className='animate-spin rounded-full h-5 w-5 border-b-2 border-blue-600'></span>
+                    <span className='text-sm font-medium text-gray-700 dark:text-gray-200'>
+                      {eq.activo !== false ? 'Desactivando...' : 'Activando...'}
+                    </span>
+                  </div>
+                </div>
+              )}
               <div className='space-y-1'>
                 <div className='font-medium flex items-center gap-2'>
                   <span>Equipo #{eq.id}</span>
@@ -1204,17 +1218,32 @@ export const ConsultaPage: React.FC = () => {
                 <Button 
                   variant='outline' 
                   size='sm' 
-                  className={eq.activo !== false ? 'text-orange-600 border-orange-300 hover:bg-orange-50' : 'text-green-600 border-green-300 hover:bg-green-50'}
+                  className={eq.activo !== false ? 'text-orange-600 border-orange-300 hover:bg-orange-50 dark:hover:bg-orange-950' : 'text-green-600 border-green-300 hover:bg-green-50 dark:hover:bg-green-950'}
+                  disabled={togglingEquipoId === eq.id}
                   onClick={async ()=>{
                     try {
+                      setTogglingEquipoId(eq.id);
+                      const startTime = Date.now();
                       await toggleActivo({ equipoId: eq.id, activo: eq.activo === false }).unwrap();
+                      // Mantener indicador visible mínimo 600ms para feedback visual
+                      const elapsed = Date.now() - startTime;
+                      if (elapsed < 600) await new Promise(r => setTimeout(r, 600 - elapsed));
                       showToast(`Equipo ${eq.activo === false ? 'activado' : 'desactivado'} exitosamente`, 'success');
                     } catch (e: any) {
                       showToast(e?.data?.message || 'Error al cambiar estado', 'error');
+                    } finally {
+                      setTogglingEquipoId(null);
                     }
                   }}
                 >
-                  {eq.activo !== false ? '⏸ Desactivar' : '▶ Activar'}
+                  {togglingEquipoId === eq.id ? (
+                    <span className='flex items-center gap-1'>
+                      <span className='animate-spin rounded-full h-3 w-3 border-b-2 border-current'></span>
+                      Procesando...
+                    </span>
+                  ) : (
+                    eq.activo !== false ? '⏸ Desactivar' : '▶ Activar'
+                  )}
                 </Button>
                 <Button variant='destructive' size='sm' onClick={async ()=>{
                   const ok = await confirm({ title: 'Eliminar equipo', message: `¿Eliminar equipo #${eq.id}? Esta acción es irreversible.`, confirmText: 'Eliminar', variant: 'danger' });

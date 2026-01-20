@@ -188,8 +188,8 @@ export const tenantResolver = (req: AuthRequest, res: Response, next: NextFuncti
  */
 export const authorizeEmpresa = (req: AuthRequest, res: Response, next: NextFunction): void => {
   try {
-    const user = req.user as any;
-    const targetEmpresaIdRaw = (req.params as any).dadorId ?? (req.body as any).dadorCargaId ?? (req.query as any).dadorCargaId;
+    const user = req.user;
+    const targetEmpresaIdRaw = req.params?.dadorId ?? req.body?.dadorCargaId ?? req.query?.dadorCargaId;
     const targetEmpresaId = Number.parseInt(String(targetEmpresaIdRaw));
 
     if (!user) {

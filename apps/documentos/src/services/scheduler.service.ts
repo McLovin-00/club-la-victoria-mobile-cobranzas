@@ -172,7 +172,7 @@ export class SchedulerService {
       try {
         const tenants = await (await import('../config/database')).db.getClient().dadorCarga.findMany({ distinct: ['tenantEmpresaId'], select: { tenantEmpresaId: true } });
         for (const t of tenants) {
-          const tenantId = t.tenantEmpresaId as number;
+          const tenantId = t.tenantEmpresaId;
           const count = await NotificationService.checkExpirations(tenantId);
           if (count > 0) AppLogger.info(`📨 Notificaciones por vencimiento enviadas (tenant ${tenantId}): ${count}`);
         }
@@ -187,7 +187,7 @@ export class SchedulerService {
       try {
         const tenants = await (await import('../config/database')).db.getClient().dadorCarga.findMany({ distinct: ['tenantEmpresaId'], select: { tenantEmpresaId: true } });
         for (const t of tenants) {
-          const tenantId = t.tenantEmpresaId as number;
+          const tenantId = t.tenantEmpresaId;
           const count = await NotificationService.checkMissingDocs(tenantId);
           if (count > 0) AppLogger.info(`📨 Notificaciones por faltantes enviadas (tenant ${tenantId}): ${count}`);
         }

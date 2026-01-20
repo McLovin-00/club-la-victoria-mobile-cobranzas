@@ -4,7 +4,7 @@ import { DashboardController } from '../controllers/dashboard.controller';
 import { authenticate, authorize } from '../middlewares/auth.middleware';
 import { generalRateLimit } from '../middlewares/rateLimiter.middleware';
 
-const router = Router();
+const router: ReturnType<typeof Router> = Router();
 
 // =================================
 // RUTAS DASHBOARD - Frontend Integration
@@ -79,6 +79,26 @@ router.get(
   '/stats-por-rol',
   authorize([UserRole.SUPERADMIN, UserRole.ADMIN, UserRole.ADMIN_INTERNO, UserRole.DADOR_DE_CARGA, UserRole.TRANSPORTISTA, UserRole.CLIENTE]),
   DashboardController.getStatsPorRol
+);
+
+/**
+ * GET /api/docs/dashboard/rejected - Lista de documentos rechazados
+ * Acceso: Administradores y Dadores de Carga
+ */
+router.get(
+  '/rejected',
+  authorize([UserRole.SUPERADMIN, UserRole.ADMIN, UserRole.ADMIN_INTERNO, UserRole.DADOR_DE_CARGA]),
+  DashboardController.getRejectedDocuments
+);
+
+/**
+ * GET /api/docs/dashboard/rejected/stats - Estadísticas de documentos rechazados
+ * Acceso: Administradores y Dadores de Carga
+ */
+router.get(
+  '/rejected/stats',
+  authorize([UserRole.SUPERADMIN, UserRole.ADMIN, UserRole.ADMIN_INTERNO, UserRole.DADOR_DE_CARGA]),
+  DashboardController.getRejectedStats
 );
 
 export default router;

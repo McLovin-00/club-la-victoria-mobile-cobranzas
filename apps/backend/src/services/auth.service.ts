@@ -134,10 +134,10 @@ class AuthService extends BaseService<User, UserCreateInput, UserUpdateInput> {
         email: user.email,
         role: user.role,
         empresaId: user.empresaId ?? null,
-        dadorCargaId: (user as any).dadorCargaId ?? null,
-        empresaTransportistaId: (user as any).empresaTransportistaId ?? null,
-        choferId: (user as any).choferId ?? null,
-        clienteId: (user as any).clienteId ?? null,
+        dadorCargaId: user.dadorCargaId ?? null,
+        empresaTransportistaId: user.empresaTransportistaId ?? null,
+        choferId: user.choferId ?? null,
+        clienteId: user.clienteId ?? null,
       });
 
       // Formatear respuesta del usuario
@@ -443,10 +443,10 @@ class AuthService extends BaseService<User, UserCreateInput, UserUpdateInput> {
         email: updatedUser.email,
         role: updatedUser.role,
         empresaId: updatedUser.empresaId ?? null,
-        dadorCargaId: (updatedUser as any).dadorCargaId ?? null,
-        empresaTransportistaId: (updatedUser as any).empresaTransportistaId ?? null,
-        choferId: (updatedUser as any).choferId ?? null,
-        clienteId: (updatedUser as any).clienteId ?? null,
+        dadorCargaId: updatedUser.dadorCargaId ?? null,
+        empresaTransportistaId: updatedUser.empresaTransportistaId ?? null,
+        choferId: updatedUser.choferId ?? null,
+        clienteId: updatedUser.clienteId ?? null,
       });
 
       // Formatear respuesta del usuario

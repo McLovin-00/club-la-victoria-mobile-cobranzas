@@ -1,7 +1,6 @@
 import { Router, Request, Response } from 'express';
-import { param } from 'express-validator';
+import { param, validationResult } from 'express-validator';
 import { authenticateUser, authorizeRoles, tenantResolver } from '../middlewares/platformAuth.middleware';
-import { validationResult } from 'express-validator';
 import { AuthPayload } from '../services/auth.service';
 import { AppLogger } from '../config/logger';
 import { prisma } from '../config/prisma';

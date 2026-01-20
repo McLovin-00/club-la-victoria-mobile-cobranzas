@@ -125,7 +125,7 @@ class DatabaseResetService {
 
     // Advertencia final si hay datos
     if (!options.preserveData && !options.confirm) {
-      throw new Error('❌ Se perderán todos los datos. Use --confirm para proceder');
+      throw new Error('❌ Se perderán los datos existentes. Use --confirm para proceder');
     }
 
     this.operations.push('Validaciones de seguridad completadas');
@@ -260,7 +260,7 @@ class DatabaseResetService {
     AppLogger.info('🏗️ Recreando base de datos desde cero...');
 
     try {
-      // Usar el sistema de setup para recrear todo
+      // Usar el sistema de setup para recrear la estructura
       const setupResult = await setupDatabase({
         force: true,
         verbose: databaseConfig.isLoggingEnabled()
@@ -369,7 +369,7 @@ if (require.main === module) {
 
   // Mostrar advertencia y solicitar confirmación si no se proporcionó
   if (!options.confirm && !options.force) {
-    console.log('\n⚠️  ADVERTENCIA: Esta operación eliminará TODOS los datos de la base de datos');
+    console.log('\n⚠️  ADVERTENCIA: Esta operación eliminará la totalidad de los datos de la base de datos');
     console.log(`   Base de datos: ${databaseConfig.getConfig().database}`);
     console.log(`   Host: ${databaseConfig.getConfig().host}`);
     console.log('\n   Use --confirm o -y para proceder');

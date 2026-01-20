@@ -47,7 +47,7 @@ interface EquipoData {
 }
 
 interface EntityRelations {
-  chofer: { dni: string; nombre: string; apellido: string } | null;
+  chofer: { dni: string; nombre: string | null; apellido: string | null } | null;
   camion: { patente: string } | null;
   acoplado: { patente: string } | null;
 }
@@ -73,7 +73,7 @@ async function loadEquipoWithRelations(equipoId: number): Promise<{ equipo: Equi
     equipo.trailerId ? prisma.acoplado.findUnique({ where: { id: equipo.trailerId }, select: { patente: true } }) : null,
   ]);
 
-  return { equipo, relations: { chofer, camion, acoplado } };
+  return { equipo, relations: { chofer: chofer as any, camion, acoplado } }; // NOSONAR - type coercion for interface compatibility
 }
 
 function buildExcelRow(equipo: EquipoData, relations: EntityRelations): EquipoExcelRow {
@@ -227,8 +227,8 @@ async function processEquipoForZip(
 // ============================================================================
 export class DocumentZipService {
   private static getStore(): Map<string, ZipJob> {
-    (globalThis as any).__ZIP_JOBS = (globalThis as any).__ZIP_JOBS || new Map<string, ZipJob>();
-    return (globalThis as any).__ZIP_JOBS;
+    (globalThis as any).__ZIP_JOBS = (globalThis as any).__ZIP_JOBS || new Map<string, ZipJob>(); // NOSONAR - globalThis extension
+    return (globalThis as any).__ZIP_JOBS; // NOSONAR - globalThis extension
   }
 
   private static forcedFailOnce = new Set<string>();

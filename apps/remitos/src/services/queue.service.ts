@@ -18,7 +18,7 @@ class QueueService {
   private queue: Queue<RemitoAnalysisJobData>;
   
   constructor() {
-    this.queue = new Queue(QUEUE_NAME, { connection });
+    this.queue = new Queue(QUEUE_NAME, { connection: connection as never });
   }
   
   async addAnalysisJob(data: RemitoAnalysisJobData): Promise<string> {

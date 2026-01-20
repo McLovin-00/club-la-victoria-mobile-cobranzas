@@ -17,7 +17,7 @@ export const requestContext = (req: Request, res: Response, next: NextFunction):
   const incomingId = req.header('x-request-id') || req.header('X-Request-ID');
   const requestId = incomingId && String(incomingId).trim().length > 0 ? String(incomingId) : randomUUID();
 
-  req.requestId = requestId;
+  (req as Request & { requestId?: string }).requestId = requestId;
   res.setHeader('X-Request-ID', requestId);
 
   next();

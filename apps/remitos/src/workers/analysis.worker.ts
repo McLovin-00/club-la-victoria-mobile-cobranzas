@@ -9,7 +9,7 @@ import { FlowiseService } from '../services/flowise.service';
 import { RemitoService } from '../services/remito.service';
 import { PdfService } from '../services/pdf.service';
 import { RemitoAnalysisJobData } from '../types';
-import type { RemitoEstado, RemitoAction } from '../../node_modules/.prisma/remitos';
+import type { RemitoEstado, RemitoAction } from '.prisma/remitos';
 
 const env = getEnvironment();
 
@@ -177,7 +177,7 @@ export function startAnalysisWorker(): Worker<RemitoAnalysisJobData> {
   if (worker) return worker;
 
   worker = new Worker(QUEUE_NAME, processJob, {
-    connection,
+    connection: connection as never,
     concurrency: 2,
     limiter: { max: 10, duration: 60000 },
     settings: {

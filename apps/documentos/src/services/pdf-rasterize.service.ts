@@ -83,11 +83,7 @@ export class PdfRasterizeService {
     } finally {
       // Limpiar directorio temporal
       try {
-        const files = await fs.readdir(tmpDir);
-        for (const file of files) {
-          await fs.unlink(path.join(tmpDir, file));
-        }
-        await fs.rmdir(tmpDir);
+        await fs.rm(tmpDir, { recursive: true, force: true });
       } catch {
         // Ignorar errores de limpieza
       }

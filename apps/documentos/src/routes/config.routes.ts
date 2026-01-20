@@ -1,15 +1,14 @@
 import { Router } from 'express';
 import { UserRole } from '../types/roles';
 import { ConfigController } from '../controllers/config.controller';
-import { authenticate, authorize, authorizeEmpresa as authorizeDador } from '../middlewares/auth.middleware';
-import { validate } from '../middlewares/auth.middleware';
+import { authenticate, authorize, authorizeEmpresa as authorizeDador, validate } from '../middlewares/auth.middleware';
 import { configRateLimit } from '../middlewares/rateLimiter.middleware';
 import {
   getEmpresaConfigSchema as getDadorConfigSchema,
   updateEmpresaConfigSchema as updateDadorConfigSchema,
 } from '../schemas/validation.schemas';
 
-const router = Router();
+const router: ReturnType<typeof Router> = Router();
 
 // =================================
 // RUTAS DE CONFIGURACIÓN POR DADOR

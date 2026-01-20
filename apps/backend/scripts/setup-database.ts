@@ -2,14 +2,13 @@
 
 // Configurar dotenv para cargar variables desde el .env centralizado
 import dotenv from 'dotenv';
-import path from 'path';
+import path, { join } from 'path';
 
 // Cargar variables desde el .env del root del monorepo
 dotenv.config({ path: path.resolve(__dirname, '../../../.env') });
 
 import { spawn, SpawnOptions } from 'child_process';
 import { existsSync } from 'fs';
-import { join } from 'path';
 import { AppLogger } from '../src/config/logger';
 import { databaseConfig } from '../src/config/database';
 import { DatabaseInitializationService } from '../src/services/database-initialization.service';

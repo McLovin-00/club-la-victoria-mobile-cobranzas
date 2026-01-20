@@ -7,7 +7,7 @@ import { performanceService } from '../services/performance.service';
 import { AppLogger } from '../config/logger';
 import { getEnvironment } from '../config/environment';
 
-const router = Router();
+const router: ReturnType<typeof Router> = Router();
 
 // =================================
 // HEALTH CHECK - Sistema de Salud

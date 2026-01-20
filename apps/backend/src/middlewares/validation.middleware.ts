@@ -140,7 +140,7 @@ export class ValidationMiddleware {
 
         if (errors.length > 0) {
           AppLogger.warn(`Validation failed for ${req.method} ${req.originalUrl}`, {
-            ip: req.ip || req.connection.remoteAddress || 'unknown',
+            ip: req.ip || req.socket?.remoteAddress || 'unknown',
             errors, body: req.body, params: req.params, query: req.query,
           });
           res.status(400).json(ValidationErrorHandler.createErrorResponse(errors));
@@ -164,7 +164,7 @@ export class ValidationMiddleware {
   ): void {
     if (error instanceof ZodError) {
       const validationErrors = ValidationErrorHandler.formatZodErrors(error);
-      const clientIp = req.ip || req.connection.remoteAddress || 'unknown';
+      const clientIp = req.ip || req.socket?.remoteAddress || 'unknown';
 
       // Obtener datos del source para logging
       const sourceData: Record<string, any> = { body: req.body, params: req.params, query: req.query };
@@ -185,7 +185,7 @@ export class ValidationMiddleware {
    * Maneja errores inesperados durante la validación
    */
   private static handleUnexpectedError(error: unknown, req: Request, res: Response): void {
-    const clientIp = req.ip || req.connection.remoteAddress || 'unknown';
+    const clientIp = req.ip || req.socket?.remoteAddress || 'unknown';
 
     AppLogger.error(`Unexpected validation error for ${req.method} ${req.originalUrl}`, {
       ip: clientIp,
