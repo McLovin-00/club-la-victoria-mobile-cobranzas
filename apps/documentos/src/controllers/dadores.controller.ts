@@ -13,8 +13,19 @@ export class DadoresController {
   }
 
   static async create(req: AuthRequest, res: Response) {
-    const data = await DadorService.create({ ...req.body, tenantEmpresaId: req.tenantId! });
-    res.status(201).json({ success: true, data });
+    const result = await DadorService.create({ ...req.body, tenantEmpresaId: req.tenantId! });
+    
+    if (!result.success) {
+      res.status(409).json({
+        success: false,
+        code: result.error.code,
+        message: result.error.message,
+        existingDador: result.error.existingDador,
+      });
+      return;
+    }
+    
+    res.status(201).json({ success: true, data: result.data });
   }
 
   static async update(req: AuthRequest, res: Response) {

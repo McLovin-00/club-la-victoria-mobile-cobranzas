@@ -289,13 +289,31 @@ export const RegisterUserModal: React.FC<RegisterUserModalProps> = ({ isOpen, on
             showToast('Razón social y CUIT del dador son obligatorios', 'error');
             return;
           }
-          const created = await createDador({
-            razonSocial: data.dadorRazonSocial,
-            cuit: data.dadorCuit,
-            notas: data.dadorNotas || undefined,
-            activo: true,
-          }).unwrap();
-          dadorIdFinal = created?.id;
+          try {
+            const created = await createDador({
+              razonSocial: data.dadorRazonSocial,
+              cuit: data.dadorCuit,
+              notas: data.dadorNotas || undefined,
+              activo: true,
+            }).unwrap();
+            dadorIdFinal = created?.id;
+          } catch (err: any) {
+            if (err?.status === 409 && err?.data?.code === 'DUPLICATE_CUIT') {
+              const existing = err.data.existingDador;
+              const useExisting = window.confirm(
+                `El CUIT ${data.dadorCuit} ya está registrado como "${existing.razonSocial}".\n\n` +
+                `¿Desea asociar el nuevo usuario a este dador existente?`
+              );
+              if (useExisting) {
+                dadorIdFinal = existing.id;
+              } else {
+                showToast('Operación cancelada. Corrija el CUIT o seleccione un dador existente.', 'warning');
+                return;
+              }
+            } else {
+              throw err;
+            }
+          }
         } else {
           if (!data.dadorCargaId) {
             showToast('Debe seleccionar un dador de carga', 'error');

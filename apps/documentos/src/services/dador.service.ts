@@ -1,5 +1,15 @@
 import { prisma } from '../config/database';
 
+export interface DuplicateCuitError {
+  code: 'DUPLICATE_CUIT';
+  message: string;
+  existingDador: {
+    id: number;
+    razonSocial: string;
+    cuit: string;
+  };
+}
+
 export class DadorService {
   static async list(activo?: boolean, tenantEmpresaId?: number) {
     return prisma.dadorCarga.findMany({
@@ -8,8 +18,27 @@ export class DadorService {
     });
   }
 
-  static async create(input: { tenantEmpresaId: number; razonSocial: string; cuit: string; activo?: boolean; notas?: string; phones?: string[] }) {
-    return prisma.dadorCarga.create({ data: input });
+  static async findByCuit(tenantEmpresaId: number, cuit: string) {
+    return prisma.dadorCarga.findFirst({
+      where: { tenantEmpresaId, cuit },
+      select: { id: true, razonSocial: true, cuit: true },
+    });
+  }
+
+  static async create(input: { tenantEmpresaId: number; razonSocial: string; cuit: string; activo?: boolean; notas?: string; phones?: string[] }): Promise<{ success: true; data: any } | { success: false; error: DuplicateCuitError }> {
+    const existing = await this.findByCuit(input.tenantEmpresaId, input.cuit);
+    if (existing) {
+      return {
+        success: false,
+        error: {
+          code: 'DUPLICATE_CUIT',
+          message: `Ya existe un dador de carga con CUIT ${input.cuit} (${existing.razonSocial})`,
+          existingDador: existing,
+        },
+      };
+    }
+    const data = await prisma.dadorCarga.create({ data: input });
+    return { success: true, data };
   }
 
   static async update(id: number, data: { razonSocial?: string; cuit?: string; activo?: boolean; notas?: string; phones?: string[] }) {
