@@ -178,7 +178,7 @@ services:
       MINIO_PUBLIC_BASE_URL: http://10.3.0.246:9002
       MINIO_INTERNAL_BASE_URL: http://10.3.0.246:9002
       REDIS_URL: redis://redis:6379
-      SEED: "true"
+      SEED: "false"
       FRONTEND_URLS: "http://10.3.0.246:8560"
       FLOWISE_ENDPOINT: http://10.3.0.246:3006/api/v1/extract
       # Validación de documentos con IA

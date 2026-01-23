@@ -237,7 +237,7 @@ services:
       MINIO_INTERNAL_BASE_URL: http://10.3.0.243:9000
       # Redis
       REDIS_URL: redis://redis:6379
-      SEED: "true"
+      SEED: "false"
       # CORS Configuration
       FRONTEND_URLS: "http://10.3.0.243:8550,http://localhost:8550"
       # Flowise
