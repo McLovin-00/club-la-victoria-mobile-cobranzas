@@ -5,7 +5,7 @@ import { Spinner } from '../../../components/ui/spinner';
 import { showToast } from '../../../components/ui/Toast.utils';
 import { useRegisterClientWizardMutation, useRegisterDadorWizardMutation, useRegisterTransportistaWizardMutation, useRegisterChoferWizardMutation, useRegisterPlatformUserMutation } from '../api/platformUsersApiSlice';
 import { useGetEmpresasQuery } from '../../empresas/api/empresasApiSlice';
-import { useCreateClientMutation, useCreateDadorMutation, useCreateEmpresaTransportistaMutation, useCreateChoferMutation, useGetDadoresQuery, useGetEmpresasTransportistasQuery, useGetEmpresaTransportistaChoferesQuery, useGetClientsQuery } from '../../documentos/api/documentosApiSlice';
+import { useGetDadoresQuery, useGetEmpresasTransportistasQuery, useGetEmpresaTransportistaChoferesQuery, useGetClientsQuery } from '../../documentos/api/documentosApiSlice';
 import { useAppSelector } from '../../../store/hooks';
 import { selectCurrentUser } from '../../auth/authSlice';
 
@@ -136,10 +136,6 @@ export const RegisterUserModal: React.FC<RegisterUserModalProps> = ({ isOpen, on
   const [registerDadorWizard, { isLoading: _isLoadingWizardDador }] = useRegisterDadorWizardMutation();
   const [registerTransportistaWizard, { isLoading: _isLoadingWizardTransportista }] = useRegisterTransportistaWizardMutation();
   const [registerChoferWizard, { isLoading: _isLoadingWizardChofer }] = useRegisterChoferWizardMutation();
-  const [createClient, { isLoading: isCreatingClient }] = useCreateClientMutation();
-  const [createDador, { isLoading: _isCreatingDador }] = useCreateDadorMutation();
-  const [createEmpresaTransportista, { isLoading: _isCreatingTransportista }] = useCreateEmpresaTransportistaMutation();
-  const [createChofer, { isLoading: _isCreatingChofer }] = useCreateChoferMutation();
   const { control, handleSubmit, reset, watch, setValue, formState: { errors } } = useForm<FormData>({
     defaultValues: {
       email: '',
@@ -242,13 +238,19 @@ export const RegisterUserModal: React.FC<RegisterUserModalProps> = ({ isOpen, on
             showToast('Razón social y CUIT del cliente son obligatorios', 'error');
             return;
           }
-          const created = await createClient({
-            razonSocial: data.clienteRazonSocial,
-            cuit: data.clienteCuit,
-            notas: data.clienteNotas || undefined,
-            activo: true,
+          // Usar registerClientWizard directamente para crear cliente y usuario
+          const resp = await registerClientWizard({
+            email: data.email,
+            nombre: data.nombre || undefined,
+            apellido: data.apellido || undefined,
+            empresaId: data.empresaId ? Number(data.empresaId) : undefined,
+            clienteRazonSocial: data.clienteRazonSocial,
+            clienteCuit: data.clienteCuit,
+            clienteNotas: data.clienteNotas || undefined,
           }).unwrap();
-          clienteIdFinal = created?.id;
+          setTempPasswordToShow(resp.tempPassword);
+          showToast('Usuario CLIENTE creado. Copie la contraseña temporal.', 'success');
+          return;
         } else {
           if (!data.clienteId) {
             showToast('Debe seleccionar un cliente', 'error');
@@ -289,13 +291,19 @@ export const RegisterUserModal: React.FC<RegisterUserModalProps> = ({ isOpen, on
             showToast('Razón social y CUIT del dador son obligatorios', 'error');
             return;
           }
-          const created = await createDador({
-            razonSocial: data.dadorRazonSocial,
-            cuit: data.dadorCuit,
-            notas: data.dadorNotas || undefined,
-            activo: true,
+          // Usar registerDadorWizard directamente para crear dador y usuario
+          const resp = await registerDadorWizard({
+            email: data.email,
+            nombre: data.nombre || undefined,
+            apellido: data.apellido || undefined,
+            empresaId: data.empresaId ? Number(data.empresaId) : undefined,
+            dadorRazonSocial: data.dadorRazonSocial,
+            dadorCuit: data.dadorCuit,
+            dadorNotas: data.dadorNotas || undefined,
           }).unwrap();
-          dadorIdFinal = created?.id;
+          setTempPasswordToShow(resp.tempPassword);
+          showToast('Usuario DADOR DE CARGA creado. Copie la contraseña temporal.', 'success');
+          return;
         } else {
           if (!data.dadorCargaId) {
             showToast('Debe seleccionar un dador de carga', 'error');
@@ -331,8 +339,8 @@ export const RegisterUserModal: React.FC<RegisterUserModalProps> = ({ isOpen, on
         }
 
         // Usar dadorCargaId automático si el usuario es DADOR_DE_CARGA
-        const effectiveDadorId = isDadorDeCargeUser && currentUserDadorId 
-          ? currentUserDadorId 
+        const effectiveDadorId = isDadorDeCargeUser && currentUserDadorId
+          ? currentUserDadorId
           : data.transportistaDadorId;
 
         let transportistaIdFinal: number | undefined;
@@ -341,14 +349,20 @@ export const RegisterUserModal: React.FC<RegisterUserModalProps> = ({ isOpen, on
             showToast('Razón social, CUIT y Dador de Carga son obligatorios', 'error');
             return;
           }
-          const created = await createEmpresaTransportista({
-            dadorCargaId: Number(effectiveDadorId),
-            razonSocial: data.transportistaRazonSocial,
-            cuit: data.transportistaCuit,
-            notas: data.transportistaNotas || undefined,
-            activo: true,
+          // Usar registerTransportistaWizard directamente para crear transportista y usuario
+          const resp = await registerTransportistaWizard({
+            email: data.email,
+            nombre: data.nombre || undefined,
+            apellido: data.apellido || undefined,
+            empresaId: data.empresaId ? Number(data.empresaId) : undefined,
+            transportistaRazonSocial: data.transportistaRazonSocial,
+            transportistaCuit: data.transportistaCuit,
+            transportistaDadorId: Number(effectiveDadorId),
+            transportistaNotas: data.transportistaNotas || undefined,
           }).unwrap();
-          transportistaIdFinal = created?.id;
+          setTempPasswordToShow(resp.tempPassword);
+          showToast('Usuario TRANSPORTISTA creado. Copie la contraseña temporal.', 'success');
+          return;
         } else {
           if (!data.empresaTransportistaId) {
             showToast('Debe seleccionar una empresa transportista', 'error');
@@ -384,8 +398,8 @@ export const RegisterUserModal: React.FC<RegisterUserModalProps> = ({ isOpen, on
         }
 
         // Usar dadorCargaId automático si el usuario es DADOR_DE_CARGA o TRANSPORTISTA
-        const effectiveChoferDadorId = (isDadorDeCargeUser || isTransportistaUser) && currentUserDadorId 
-          ? currentUserDadorId 
+        const effectiveChoferDadorId = (isDadorDeCargeUser || isTransportistaUser) && currentUserDadorId
+          ? currentUserDadorId
           : data.choferDadorId;
 
         let choferIdFinal: number | undefined;
@@ -394,15 +408,20 @@ export const RegisterUserModal: React.FC<RegisterUserModalProps> = ({ isOpen, on
             showToast('DNI y Dador de Carga del chofer son obligatorios', 'error');
             return;
           }
-          const created = await createChofer({
-            dadorCargaId: Number(effectiveChoferDadorId),
-            dni: data.choferDni,
-            nombre: data.choferNombre || undefined,
-            apellido: data.choferApellido || undefined,
-            activo: true,
-            phones: [],
+          // Usar registerChoferWizard directamente para crear chofer y usuario
+          const resp = await registerChoferWizard({
+            email: data.email,
+            nombre: data.nombre || undefined,
+            apellido: data.apellido || undefined,
+            empresaId: data.empresaId ? Number(data.empresaId) : undefined,
+            choferDni: data.choferDni,
+            choferNombre: data.choferNombre || undefined,
+            choferApellido: data.choferApellido || undefined,
+            choferDadorId: Number(effectiveChoferDadorId),
           }).unwrap();
-          choferIdFinal = created?.id;
+          setTempPasswordToShow(resp.tempPassword);
+          showToast('Usuario CHOFER creado. Copie la contraseña temporal.', 'success');
+          return;
         } else {
           if (!data.choferId) {
             showToast('Debe seleccionar un chofer', 'error');
@@ -982,8 +1001,8 @@ export const RegisterUserModal: React.FC<RegisterUserModalProps> = ({ isOpen, on
 
             <div className="flex justify-end gap-3 pt-4 border-t">
               <Button variant="outline" onClick={onClose} disabled={isLoading}>Cancelar</Button>
-              <Button type="submit" disabled={isLoading || isLoadingWizardClient || isCreatingClient}>
-                {(isLoading || isLoadingWizardClient || isCreatingClient) ? <Spinner className="w-4 h-4 mr-2" /> : null}
+              <Button type="submit" disabled={isLoading || isLoadingWizardClient || isLoadingWizardClient}>
+                {(isLoading || isLoadingWizardClient || isLoadingWizardClient) ? <Spinner className="w-4 h-4 mr-2" /> : null}
                 Crear Usuario
               </Button>
             </div>

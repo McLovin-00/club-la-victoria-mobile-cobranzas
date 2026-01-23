@@ -14,23 +14,22 @@ const updateEmpresa = jest.fn((_req: Request, res: Response) => res.json({ updat
 const deleteEmpresa = jest.fn((_req: Request, res: Response) => res.json({ deleted: true }));
 const getAllEmpresasSimple = jest.fn((_req: Request, res: Response) => res.json({ simple: [] }));
 
-type ValidatorChain = {
-  optional: () => ValidatorChain;
-  isString: () => ValidatorChain;
-  isLength: (options: { min?: number; max?: number }) => ValidatorChain;
-  withMessage: (_message: string) => ValidatorChain;
-  trim: () => ValidatorChain;
-  isInt: (options?: { min?: number; max?: number }) => ValidatorChain;
+// Función middleware para mocks de express-validator
+const mockValidatorMiddleware = (_req: any, _res: any, next: any) => next();
+
+// Factory para crear cadenas de validación que devuelven siempre la función middleware
+const createValidatorChain = () => {
+  const fn = mockValidatorMiddleware;
+  (fn as any).optional = () => mockValidatorMiddleware;
+  (fn as any).isString = () => mockValidatorMiddleware;
+  (fn as any).isLength = () => mockValidatorMiddleware;
+  (fn as any).withMessage = () => mockValidatorMiddleware;
+  (fn as any).trim = () => mockValidatorMiddleware;
+  (fn as any).isInt = () => mockValidatorMiddleware;
+  return fn;
 };
 
-const chain: ValidatorChain = {
-  optional: () => chain,
-  isString: () => chain,
-  isLength: () => chain,
-  withMessage: () => chain,
-  trim: () => chain,
-  isInt: () => chain,
-};
+const chain = createValidatorChain();
 
 let validationErrors: Array<{ msg: string }> = [];
 

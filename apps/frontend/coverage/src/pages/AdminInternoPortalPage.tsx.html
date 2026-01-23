@@ -23,9 +23,9 @@
         <div class='clearfix'>
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">100% </span>
+                <span class="strong">16.66% </span>
                 <span class="quiet">Statements</span>
-                <span class='fraction'>6/6</span>
+                <span class='fraction'>1/6</span>
             </div>
         
             
@@ -37,16 +37,16 @@
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">100% </span>
+                <span class="strong">0% </span>
                 <span class="quiet">Functions</span>
-                <span class='fraction'>5/5</span>
+                <span class='fraction'>0/5</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">100% </span>
+                <span class="strong">16.66% </span>
                 <span class="quiet">Lines</span>
-                <span class='fraction'>6/6</span>
+                <span class='fraction'>1/6</span>
             </div>
         
             
@@ -61,7 +61,7 @@
             </div>
         </template>
     </div>
-    <div class='status-line high'></div>
+    <div class='status-line low'></div>
     <pre><table class="coverage">
 <tr><td class="line-count quiet"><a name='L1'></a><a href='#L1'>1</a>
 <a name='L2'></a><a href='#L2'>2</a>
@@ -226,8 +226,8 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">3x</span>
-<span class="cline-any cline-yes">39x</span>
+<span class="cline-any cline-yes">4x</span>
+<span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -255,7 +255,7 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">2x</span>
+<span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -297,7 +297,7 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -346,7 +346,7 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -354,7 +354,7 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -378,8 +378,8 @@ import {
 } from '@heroicons/react/24/outline';
 import bcaLogo from '../assets/logo-bca.jpg';
 &nbsp;
-export const AdminInternoPortalPage: React.FC = () =&gt; {
-  const navigate = useNavigate();
+export const AdminInternoPortalPage: React.FC = <span class="fstat-no" title="function not covered" >() =&gt; {</span>
+  const navigate = <span class="cstat-no" title="statement not covered" >useNavigate();</span>
 &nbsp;
   return (
     &lt;div className='min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-900 dark:to-slate-800 flex items-center justify-center p-4'&gt;
@@ -407,7 +407,7 @@ export const AdminInternoPortalPage: React.FC = () =&gt; {
           {/* 1. ALTA COMPLETA DE EQUIPO */}
           &lt;Card 
             className='group hover:shadow-2xl hover:scale-[1.02] transition-all duration-300 cursor-pointer border-2 hover:border-blue-500'
-            onClick={() =&gt; navigate('/documentos/equipos/alta-completa')}
+            onClick={<span class="fstat-no" title="function not covered" >() =&gt; <span class="cstat-no" title="statement not covered" >n</span>avigate('/documentos/equipos/alta-completa')}</span>
           &gt;
             &lt;CardHeader className='space-y-4 pb-4'&gt;
               &lt;div className='flex justify-center'&gt;
@@ -449,7 +449,7 @@ export const AdminInternoPortalPage: React.FC = () =&gt; {
           {/* 2. CONSULTA Y ACTUALIZACIÓN */}
           &lt;Card 
             className='group hover:shadow-2xl hover:scale-[1.02] transition-all duration-300 cursor-pointer border-2 hover:border-green-500'
-            onClick={() =&gt; navigate('/documentos/consulta')}
+            onClick={<span class="fstat-no" title="function not covered" >() =&gt; <span class="cstat-no" title="statement not covered" >n</span>avigate('/documentos/consulta')}</span>
           &gt;
             &lt;CardHeader className='space-y-4 pb-4'&gt;
               &lt;div className='flex justify-center'&gt;
@@ -490,23 +490,23 @@ export const AdminInternoPortalPage: React.FC = () =&gt; {
         &lt;/div&gt;
 &nbsp;
         {/* Acceso Rápido Adicional */}
-        &lt;Card className='bg-slate-800 dark:bg-slate-900 border-slate-700'&gt;
+        &lt;Card className='bg-white dark:bg-slate-800 border-gray-200 dark:border-slate-700'&gt;
           &lt;CardContent className='p-6'&gt;
             &lt;div className='flex flex-wrap items-center justify-center gap-4'&gt;
-              &lt;span className='text-slate-300 font-medium'&gt;Acceso rápido:&lt;/span&gt;
+              &lt;span className='text-gray-700 dark:text-slate-300 font-medium'&gt;Acceso rápido:&lt;/span&gt;
               &lt;Button 
                 variant='outline' 
                 size='sm'
-                className='border-slate-600 hover:bg-slate-700'
-                onClick={() =&gt; navigate('/documentos/aprobacion')}
+                className='border-gray-300 dark:border-slate-600 hover:bg-gray-100 dark:hover:bg-slate-700 text-gray-700 dark:text-slate-200'
+                onClick={<span class="fstat-no" title="function not covered" >() =&gt; <span class="cstat-no" title="statement not covered" >n</span>avigate('/documentos/aprobacion')}</span>
               &gt;
                 Aprobaciones Pendientes
               &lt;/Button&gt;
               &lt;Button 
                 variant='outline' 
                 size='sm'
-                className='border-slate-600 hover:bg-slate-700'
-                onClick={() =&gt; navigate('/documentos/auditoria')}
+                className='border-gray-300 dark:border-slate-600 hover:bg-gray-100 dark:hover:bg-slate-700 text-gray-700 dark:text-slate-200'
+                onClick={<span class="fstat-no" title="function not covered" >() =&gt; <span class="cstat-no" title="statement not covered" >n</span>avigate('/documentos/auditoria')}</span>
               &gt;
                 Auditoría
               &lt;/Button&gt;
@@ -526,7 +526,7 @@ export default AdminInternoPortalPage;
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2026-01-16T22:33:48.744Z
+                at 2026-01-22T22:47:17.727Z
             </div>
         <script src="../../prettify.js"></script>
         <script>

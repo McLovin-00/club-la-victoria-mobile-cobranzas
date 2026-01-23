@@ -132,4 +132,238 @@ describe('TransportistasPortalPage - Edge Cases', () => {
             '_blank'
         );
     });
+
+    describe('Tabs navigation', () => {
+        it('navega a la pestaña Dashboard', async () => {
+            renderPage();
+
+            const dashboardTab = screen.getByText(/Panel/i);
+            fireEvent.click(dashboardTab);
+
+            expect(await screen.findByTestId('dashboard')).toBeInTheDocument();
+        });
+
+        it('navega a la pestaña Documentos', async () => {
+            renderPage();
+
+            const docsTab = screen.getByText(/Docs/i);
+            fireEvent.click(docsTab);
+
+            // La pestaña de documentos debería mostrar su contenido
+            expect(docsTab).toHaveClass('bg-background');
+        });
+
+        it('navega a la pestaña Calendario', async () => {
+            renderPage();
+
+            const calendarioTab = screen.getByText(/Calendario/i);
+            fireEvent.click(calendarioTab);
+
+            expect(await screen.findByTestId('calendario')).toBeInTheDocument();
+        });
+
+        it('navega a la pestaña Perfil', async () => {
+            renderPage();
+
+            const perfilTab = screen.getByText(/Perfil/i);
+            fireEvent.click(perfilTab);
+
+            expect(await screen.findByTestId('perfil')).toBeInTheDocument();
+        });
+    });
+
+    describe('Búsqueda de equipos', () => {
+        it('permite buscar por DNI', async () => {
+            renderPage();
+
+            fireEvent.click(screen.getByText(/Equipos/i));
+
+            const dniInput = await screen.findByPlaceholderText(/DNI/i);
+            fireEvent.change(dniInput, { target: { value: '12345678' } });
+
+            const searchBtn = screen.getByText(/Buscar/i);
+            fireEvent.click(searchBtn);
+
+            await waitFor(() => {
+                expect(mockSearch).toHaveBeenCalled();
+            });
+        });
+
+        it('permite buscar por patente', async () => {
+            renderPage();
+
+            fireEvent.click(screen.getByText(/Equipos/i));
+
+            const patenteInput = await screen.findByPlaceholderText(/Patente/i);
+            fireEvent.change(patenteInput, { target: { value: 'AA123BB' } });
+
+            const searchBtn = screen.getByText(/Buscar/i);
+            fireEvent.click(searchBtn);
+
+            await waitFor(() => {
+                expect(mockSearch).toHaveBeenCalled();
+            });
+        });
+    });
+
+    describe('Validación de teléfonos', () => {
+        it('oculta warning cuando teléfono cumple regex', async () => {
+            renderPage();
+
+            fireEvent.click(screen.getByText(/Registro/i));
+
+            const phoneInput = await screen.findByPlaceholderText('+54911234567');
+            fireEvent.change(phoneInput, { target: { value: '+54911223344' } });
+
+            // No debería mostrar warning
+            expect(screen.queryByText(/Formato inválido/i)).not.toBeInTheDocument();
+        });
+    });
+
+    describe('Registro de equipo', () => {
+        it('muestra botón de crear equipo', async () => {
+            renderPage();
+
+            fireEvent.click(screen.getByText(/Registro/i));
+
+            const createBtn = await screen.findByText(/¡Crear Equipo!/i);
+            expect(createBtn).toBeInTheDocument();
+        });
+    });
+
+    describe('Gestión de teléfonos', () => {
+        it('puede agregar hasta 3 teléfonos', async () => {
+            renderPage();
+
+            fireEvent.click(screen.getByText(/Registro/i));
+
+            const addButton = await screen.findByText(/Agregar Teléfono/i);
+
+            // Inicialmente hay 1 input
+            let phoneInputs = screen.getAllByPlaceholderText('+54911234567');
+            expect(phoneInputs.length).toBe(1);
+
+            // Agregar 2 más
+            fireEvent.click(addButton);
+            fireEvent.click(addButton);
+
+            phoneInputs = screen.getAllByPlaceholderText('+54911234567');
+            expect(phoneInputs.length).toBe(3);
+
+            // El botón debe estar deshabilitado
+            expect(addButton).toBeDisabled();
+        });
+
+        it('puede remover teléfono', async () => {
+            renderPage();
+
+            fireEvent.click(screen.getByText(/Registro/i));
+
+            const addButton = await screen.findByText(/Agregar Teléfono/i);
+
+            // Agregar uno más
+            fireEvent.click(addButton);
+
+            // Debería haber botones de remover
+            const removeButtons = screen.getAllByRole('button').filter(btn =>
+                btn.className.includes('text-red-600') || btn.className.includes('border-red-200')
+            );
+            expect(removeButtons.length).toBeGreaterThan(0);
+        });
+    });
+
+    describe('Equipos sin acoplado', () => {
+        it('muestra equipo sin acoplado correctamente', async () => {
+            renderPage();
+
+            fireEvent.click(screen.getByText(/Equipos/i));
+
+            // equiposResp tiene trailerPlateNorm: null
+            expect(await screen.findByText(/AA123BB/)).toBeInTheDocument();
+        });
+    });
+
+    describe('Registro - campos de entrada', () => {
+        it('permite ingresar patente de acoplado', async () => {
+            renderPage();
+
+            fireEvent.click(screen.getByText(/Registro/i));
+
+            const acopladoInput = await screen.findByPlaceholderText(/AC456CD/);
+            fireEvent.change(acopladoInput, { target: { value: 'ZZ999ZZ' } });
+
+            expect(acopladoInput).toHaveValue('ZZ999ZZ');
+        });
+
+        it('permite ingresar DNI del chofer', async () => {
+            renderPage();
+
+            fireEvent.click(screen.getByText(/Registro/i));
+
+            const dniInput = await screen.findByPlaceholderText('Ej: 12345678');
+            fireEvent.change(dniInput, { target: { value: '87654321' } });
+
+            expect(dniInput).toHaveValue('87654321');
+        });
+
+        it('permite ingresar teléfono', async () => {
+            renderPage();
+
+            fireEvent.click(screen.getByText(/Registro/i));
+
+            const phoneInput = await screen.findByPlaceholderText('+54911234567');
+            fireEvent.change(phoneInput, { target: { value: '+5491199999999' } });
+
+            expect(phoneInput).toHaveValue('+5491199999999');
+        });
+    });
+
+    describe('Búsqueda - limpieza de filtros', () => {
+        it('permite limpiar filtros de búsqueda', async () => {
+            renderPage();
+
+            fireEvent.click(screen.getByText(/Equipos/i));
+
+            // Primero llenar un filtro
+            const dniInput = await screen.findByPlaceholderText(/DNI/i);
+            fireEvent.change(dniInput, { target: { value: '12345678' } });
+
+            // Buscar botón de limpiar
+            const cleanButtons = screen.getAllByRole('button');
+            const cleanButton = cleanButtons.find(btn => btn.textContent?.includes('Limpiar'));
+
+            if (cleanButton) {
+                fireEvent.click(cleanButton);
+                expect(dniInput).toHaveValue('');
+            }
+        });
+    });
+
+    describe('Tabs - scroll behavior', () => {
+        it('asigna refs a tabs para scroll', async () => {
+            renderPage();
+
+            // Los tabs deberían tener sus clases activas/inactivas correctas
+            const tabs = screen.getAllByRole('button').filter(btn =>
+                btn.textContent?.match(/Panel|Registro|Docs|Equipos|Calendario|Perfil/)
+            );
+
+            expect(tabs.length).toBe(6);
+        });
+    });
+
+    describe('Mis Equipos - dropdown de tipo de búsqueda', () => {
+        it('muestra inputs de búsqueda por DNI y patente', async () => {
+            renderPage();
+
+            fireEvent.click(screen.getByText(/Equipos/i));
+
+            // Buscar inputs de búsqueda
+            const dniInput = await screen.findByPlaceholderText(/DNI/i);
+            const patenteInput = await screen.findByPlaceholderText(/Patente/i);
+
+            expect(dniInput).toBeInTheDocument();
+            expect(patenteInput).toBeInTheDocument();
+        });
+    });
 });

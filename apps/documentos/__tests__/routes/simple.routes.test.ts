@@ -38,6 +38,8 @@ jest.mock('../../src/controllers/dashboard.controller', () => ({
     getFrontendConfig: jest.fn(),
     getApprovalKpis: jest.fn(),
     getStatsPorRol: jest.fn(),
+    getRejectedDocuments: jest.fn(),
+    getRejectedStats: jest.fn(),
   },
 }));
 
@@ -79,11 +81,12 @@ jest.mock('../../src/controllers/maestros.controller', () => ({
 
 jest.mock('../../src/controllers/notifications.controller', () => ({
   NotificationsController: {
-    getConfig: jest.fn(),
-    updateConfig: jest.fn(),
-    test: jest.fn(),
-    runExpirations: jest.fn(),
-    runMissing: jest.fn(),
+    getUserNotifications: jest.fn(),
+    getUnreadCount: jest.fn(),
+    markAsRead: jest.fn(),
+    markAllAsRead: jest.fn(),
+    deleteNotification: jest.fn(),
+    deleteAllRead: jest.fn(),
   },
 }));
 
@@ -215,6 +218,8 @@ describe('simple routes wiring', () => {
     expect(hasRoute(dashboardRouter, 'get', '/config')).toBe(true);
     expect(hasRoute(dashboardRouter, 'get', '/approval-kpis')).toBe(true);
     expect(hasRoute(dashboardRouter, 'get', '/stats-por-rol')).toBe(true);
+    expect(hasRoute(dashboardRouter, 'get', '/rejected')).toBe(true);
+    expect(hasRoute(dashboardRouter, 'get', '/rejected/stats')).toBe(true);
   });
 
   it('defaults routes expose endpoints', () => {
@@ -252,10 +257,11 @@ describe('simple routes wiring', () => {
 
   it('notifications routes expose endpoints', () => {
     expect(hasRoute(notificationsRouter, 'get', '/')).toBe(true);
-    expect(hasRoute(notificationsRouter, 'put', '/')).toBe(true);
-    expect(hasRoute(notificationsRouter, 'post', '/test')).toBe(true);
-    expect(hasRoute(notificationsRouter, 'post', '/run-expirations')).toBe(true);
-    expect(hasRoute(notificationsRouter, 'post', '/run-missing')).toBe(true);
+    expect(hasRoute(notificationsRouter, 'get', '/unread-count')).toBe(true);
+    expect(hasRoute(notificationsRouter, 'patch', '/:id/read')).toBe(true);
+    expect(hasRoute(notificationsRouter, 'post', '/mark-all-read')).toBe(true);
+    expect(hasRoute(notificationsRouter, 'delete', '/:id')).toBe(true);
+    expect(hasRoute(notificationsRouter, 'post', '/delete-all-read')).toBe(true);
   });
 
   it('search routes expose endpoints', () => {

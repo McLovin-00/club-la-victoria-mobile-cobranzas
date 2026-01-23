@@ -15,7 +15,7 @@ describe('environment', () => {
   });
 
   it('getEnvironment returns defaults', async () => {
-    const envMod = await import('../../src/config/environment');
+    const envMod = await import('../src/config/environment');
     const env = envMod.getEnvironment();
     expect(env.REMITOS_PORT).toBe(4803);
     expect(env.REDIS_PORT).toBe(6379);
@@ -23,7 +23,7 @@ describe('environment', () => {
 
   it('isServiceEnabled respects ENABLE_REMITOS', async () => {
     process.env.ENABLE_REMITOS = 'false';
-    const envMod = await import('../../src/config/environment');
+    const envMod = await import('../src/config/environment');
     expect(envMod.isServiceEnabled()).toBe(false);
   });
 });

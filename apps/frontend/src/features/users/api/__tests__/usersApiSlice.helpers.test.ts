@@ -8,26 +8,25 @@
  */
 import { describe, it, expect, jest, beforeEach } from '@jest/globals';
 
+// Crear mock functions que podemos referenciar
+const mockLoggerApi = jest.fn();
+const mockLoggerError = jest.fn();
+const mockLoggerWarn = jest.fn();
+const mockLoggerDebug = jest.fn();
+
 // Mock del Logger antes de importar el módulo
 jest.mock('../../../../lib/utils', () => ({
   Logger: {
-    api: jest.fn(),
-    error: jest.fn(),
-    warn: jest.fn(),
-    debug: jest.fn(),
+    api: mockLoggerApi,
+    error: mockLoggerError,
+    warn: mockLoggerWarn,
+    debug: mockLoggerDebug,
   },
 }));
 
 describe('usersApiSlice - handleApiError helper', () => {
-  let Logger: any;
-
-  beforeEach(async () => {
-    jest.resetModules();
+  beforeEach(() => {
     jest.clearAllMocks();
-
-    // Importar Logger mockeado
-    const utils = await import('../../../../lib/utils');
-    Logger = utils.Logger;
   });
 
   it('debería loggear error y retornarlo', () => {
@@ -36,13 +35,13 @@ describe('usersApiSlice - handleApiError helper', () => {
 
     // Simular handleApiError
     const handleApiError = (error: unknown, operation: string) => {
-      Logger.error(`Error en ${operation}:`, error);
+      mockLoggerError(`Error en ${operation}:`, error);
       return error;
     };
 
     const result = handleApiError(error, operation);
 
-    expect(Logger.error).toHaveBeenCalledWith('Error en testOperation:', error);
+    expect(mockLoggerError).toHaveBeenCalledWith('Error en testOperation:', error);
     expect(result).toBe(error);
   });
 
@@ -51,13 +50,13 @@ describe('usersApiSlice - handleApiError helper', () => {
     const operation = 'unknownOperation';
 
     const handleApiError = (error: unknown, operation: string) => {
-      Logger.error(`Error en ${operation}:`, error);
+      mockLoggerError(`Error en ${operation}:`, error);
       return error;
     };
 
     const result = handleApiError(unknownError, operation);
 
-    expect(Logger.error).toHaveBeenCalledWith('Error en unknownOperation:', unknownError);
+    expect(mockLoggerError).toHaveBeenCalledWith('Error en unknownOperation:', unknownError);
     expect(result).toBe(unknownError);
   });
 
@@ -66,13 +65,13 @@ describe('usersApiSlice - handleApiError helper', () => {
     const operations = ['getUsuarios', 'createUser', 'updateUser', 'deleteUser', 'checkEmail'];
 
     const handleApiError = (error: unknown, operation: string) => {
-      Logger.error(`Error en ${operation}:`, error);
+      mockLoggerError(`Error en ${operation}:`, error);
       return error;
     };
 
     operations.forEach(op => {
       handleApiError(error, op);
-      expect(Logger.error).toHaveBeenCalledWith(`Error en ${op}:`, error);
+      expect(mockLoggerError).toHaveBeenCalledWith(`Error en ${op}:`, error);
     });
   });
 
@@ -81,13 +80,13 @@ describe('usersApiSlice - handleApiError helper', () => {
     const operation = 'objectError';
 
     const handleApiError = (error: unknown, operation: string) => {
-      Logger.error(`Error en ${operation}:`, error);
+      mockLoggerError(`Error en ${operation}:`, error);
       return error;
     };
 
     const result = handleApiError(errorObject, operation);
 
-    expect(Logger.error).toHaveBeenCalledWith('Error en objectError:', errorObject);
+    expect(mockLoggerError).toHaveBeenCalledWith('Error en objectError:', errorObject);
     expect(result).toBe(errorObject);
   });
 
@@ -96,26 +95,20 @@ describe('usersApiSlice - handleApiError helper', () => {
     const operation = 'nullError';
 
     const handleApiError = (error: unknown, operation: string) => {
-      Logger.error(`Error en ${operation}:`, error);
+      mockLoggerError(`Error en ${operation}:`, error);
       return error;
     };
 
     const result = handleApiError(error, operation);
 
-    expect(Logger.error).toHaveBeenCalledWith('Error en nullError:', null);
+    expect(mockLoggerError).toHaveBeenCalledWith('Error en nullError:', null);
     expect(result).toBe(null);
   });
 });
 
 describe('usersApiSlice - processUserData helper', () => {
-  let Logger: any;
-
-  beforeEach(async () => {
-    jest.resetModules();
+  beforeEach(() => {
     jest.clearAllMocks();
-
-    const utils = await import('../../../../lib/utils');
-    Logger = utils.Logger;
   });
 
   // Simular la función processUserData del código real
@@ -132,7 +125,7 @@ describe('usersApiSlice - processUserData helper', () => {
       processed.empresaId = null;
     }
 
-    Logger.api('Datos procesados para envío:', processed);
+    mockLoggerApi('Datos procesados para envío:', processed);
     return processed;
   };
 
@@ -142,7 +135,7 @@ describe('usersApiSlice - processUserData helper', () => {
 
     expect(result.empresaId).toBe(123);
     expect(result.email).toBe('test@test.com');
-    expect(Logger.api).toHaveBeenCalledWith('Datos procesados para envío:', { empresaId: 123, email: 'test@test.com' });
+    expect(mockLoggerApi).toHaveBeenCalledWith('Datos procesados para envío:', { empresaId: 123, email: 'test@test.com' });
   });
 
   it('debería mantener empresaId numérico', () => {

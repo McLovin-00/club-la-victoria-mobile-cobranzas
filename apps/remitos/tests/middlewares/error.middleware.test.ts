@@ -13,8 +13,8 @@ describe('src/middlewares/error.middleware.ts', () => {
   beforeEach(() => {
     mockRequest = {
       method: 'GET',
-      path: '/test/path',
-    };
+    } as any; // Usamos 'as any' para evitar error de propiedad readonly de path
+    (mockRequest as any).path = '/test/path';
     mockResponse = {
       status: jest.fn().mockReturnThis(),
       json: jest.fn().mockReturnThis(),
@@ -23,7 +23,7 @@ describe('src/middlewares/error.middleware.ts', () => {
   });
 
   it('U31: createError_customStatus', () => {
-    const { createError } = require('../src/middlewares/error.middleware');
+    const { createError } = require('../../src/middlewares/error.middleware');
     const error = createError('Test error', 400, 'BAD_REQUEST');
     expect(error.message).toBe('Test error');
     expect(error.statusCode).toBe(400);
@@ -31,14 +31,14 @@ describe('src/middlewares/error.middleware.ts', () => {
   });
 
   it('createError_defaultValues', () => {
-    const { createError } = require('../src/middlewares/error.middleware');
+    const { createError } = require('../../src/middlewares/error.middleware');
     const error = createError('Default error');
     expect(error.statusCode).toBe(500);
     expect(error.code).toBe('INTERNAL_ERROR');
   });
 
   it('U30: notFoundHandler_returns404', () => {
-    const { notFoundHandler } = require('../src/middlewares/error.middleware');
+    const { notFoundHandler } = require('../../src/middlewares/error.middleware');
     notFoundHandler(mockRequest as Request, mockResponse as Response);
     expect(mockResponse.status).toHaveBeenCalledWith(404);
     expect(mockResponse.json).toHaveBeenCalledWith(
@@ -53,7 +53,7 @@ describe('src/middlewares/error.middleware.ts', () => {
   it('notFoundHandler_includesMethodAndPath', () => {
     mockRequest.method = 'POST';
     mockRequest.path = '/api/remitos';
-    const { notFoundHandler } = require('../src/middlewares/error.middleware');
+    const { notFoundHandler } = require('../../src/middlewares/error.middleware');
     notFoundHandler(mockRequest as Request, mockResponse as Response);
     expect(mockResponse.json).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -69,7 +69,7 @@ describe('src/middlewares/error.middleware.ts', () => {
       code: 'BAD_REQUEST',
       stack: 'Error stack trace',
     };
-    const { errorHandler } = require('../src/middlewares/error.middleware');
+    const { errorHandler } = require('../../src/middlewares/error.middleware');
     errorHandler(mockError as any, mockRequest as Request, mockResponse as Response, mockNext);
     expect(mockResponse.status).toHaveBeenCalledWith(400);
     expect(mockResponse.json).toHaveBeenCalledWith(
@@ -88,7 +88,7 @@ describe('src/middlewares/error.middleware.ts', () => {
       code: 'INTERNAL_ERROR',
       stack: 'Error stack trace\n    at line 1',
     };
-    const { errorHandler } = require('../src/middlewares/error.middleware');
+    const { errorHandler } = require('../../src/middlewares/error.middleware');
     errorHandler(mockError as any, mockRequest as Request, mockResponse as Response, mockNext);
     expect(mockResponse.status).toHaveBeenCalledWith(500);
   });
@@ -98,7 +98,7 @@ describe('src/middlewares/error.middleware.ts', () => {
       message: 'Unknown error',
       stack: 'stack',
     };
-    const { errorHandler } = require('../src/middlewares/error.middleware');
+    const { errorHandler } = require('../../src/middlewares/error.middleware');
     errorHandler(mockError as any, mockRequest as Request, mockResponse as Response, mockNext);
     expect(mockResponse.status).toHaveBeenCalledWith(500);
     expect(mockResponse.json).toHaveBeenCalledWith(
@@ -114,7 +114,7 @@ describe('src/middlewares/error.middleware.ts', () => {
       statusCode: 404,
       stack: 'stack',
     };
-    const { errorHandler } = require('../src/middlewares/error.middleware');
+    const { errorHandler } = require('../../src/middlewares/error.middleware');
     errorHandler(mockError as any, mockRequest as Request, mockResponse as Response, mockNext);
     expect(mockResponse.json).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -129,7 +129,7 @@ describe('src/middlewares/error.middleware.ts', () => {
       statusCode: 400,
       code: 'TEST',
     };
-    const { errorHandler } = require('../src/middlewares/error.middleware');
+    const { errorHandler } = require('../../src/middlewares/error.middleware');
     errorHandler(mockError as any, mockRequest as Request, mockResponse as Response, mockNext);
     expect(mockResponse.json).toHaveBeenCalledWith(
       expect.objectContaining({

@@ -35,6 +35,8 @@ jest.mock('../../src/controllers/remitos.controller', () => ({
     stats: jest.fn((_req: any, res: any) => res.json({ success: true })),
     getImage: jest.fn((_req: any, res: any) => res.json({ success: true })),
     reprocess: jest.fn((_req: any, res: any) => res.json({ success: true })),
+    exportExcel: jest.fn((_req: any, res: any) => res.json({ success: true })),
+    suggestions: jest.fn((_req: any, res: any) => res.json({ success: true })),
   },
 }));
 

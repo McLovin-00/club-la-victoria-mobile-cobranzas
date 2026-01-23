@@ -1,0 +1,245 @@
+{
+  "project": "Frontend Test Coverage 90%",
+  "branchName": "ralph/testing-coverage-90-percent",
+  "description": "Aumentar la cobertura de tests del frontend de 63.41% a 90% mediante corrección de tests existentes, creación de nuevos tests unitarios y refactorización de testabilidad",
+  "userStories": [
+    {
+      "id": "US-001",
+      "title": "Corregir tests con unstable_mockModule",
+      "description": "Como desarrollador, quiero corregir los tests que usan unstable_mockModule (incompatible con SWC/Jest) para que ejecuten correctamente y aumenten la cobertura",
+      "acceptanceCriteria": [
+        "Reemplazar unstable_mockModule con jest.mock en todos los test files",
+        "Los tests modificados pasan sin errores de sintaxis",
+        "Typecheck pasa",
+        "Tests pasan",
+        "Cobertura aumenta al menos 2%"
+      ],
+      "priority": 1,
+      "passes": false,
+      "notes": "Archivos objetivo: MainLayout.extended.test.tsx, Sidebar.test.tsx, FloatingActionButton.extended.test.tsx, CalendarView.extended.test.tsx, etc."
+    },
+    {
+      "id": "US-002",
+      "title": "Corregir mocks de hooks (useSearchParams, useSelector)",
+      "description": "Como desarrollador, quiero configurar correctamente los mocks de react-router-dom y redux para que los tests de componentes que usan hooks funcionen",
+      "acceptanceCriteria": [
+        "Agregar jest.mock para react-router-dom con useSearchParams y useNavigate",
+        "Configurar mock apropiado para useSelector de redux",
+        "Los tests de componentes con hooks pasan",
+        "Typecheck pasa",
+        "Tests pasan"
+      ],
+      "priority": 2,
+      "passes": false,
+      "notes": "Impacto: LoginPage, TransportistasPortalPage, AdminInternoPortalPage, etc."
+    },
+    {
+      "id": "US-003",
+      "title": "Corregir documentosApiSlice comprehensive tests",
+      "description": "Como desarrollador, quiero corregir los tests comprehensivos de documentosApiSlice para que cubran más endpoints y ramas del API slice",
+      "acceptanceCriteria": [
+        "Corregir mocks de fetch para retornar estructuras válidas",
+        "Asegurar que todos los endpoints importantes tengan tests",
+        "Tests pasan sin errores de fetch",
+        "Typecheck pasa",
+        "Tests pasan",
+        "Cobertura de documentosApiSlice >60%"
+      ],
+      "priority": 3,
+      "passes": false,
+      "notes": "Actualmente 30% cobertura, 210 líneas sin cubrir"
+    },
+    {
+      "id": "US-004",
+      "title": "Corregir ConsultaPage tests",
+      "description": "Como desarrollador, quiero corregir los tests de ConsultaPage que tiene 216 líneas sin cubrir (43% coverage actual)",
+      "acceptanceCriteria": [
+        "Revisar y corregir mocks de componentes y servicios",
+        "Agregar tests para branches no cubiertas",
+        "Tests pasan sin errores",
+        "Typecheck pasa",
+        "Tests pasan",
+        "Cobertura de ConsultaPage >70%"
+      ],
+      "priority": 4,
+      "passes": false,
+      "notes": "216 líneas sin cubrir - alto impacto"
+    },
+    {
+      "id": "US-005",
+      "title": "Corregir EditarEquipoPage tests",
+      "description": "Como desarrollador, quiero corregir los tests de EditarEquipoPage que tiene 167 líneas sin cubrir (51.2% coverage actual)",
+      "acceptanceCriteria": [
+        "Corregir mocks de formularios y servicios",
+        "Agregar tests para validación de formularios",
+        "Tests pasan sin errores",
+        "Typecheck pasa",
+        "Tests pasan",
+        "Cobertura de EditarEquipoPage >70%"
+      ],
+      "priority": 5,
+      "passes": false,
+      "notes": "167 líneas sin cubrir"
+    },
+    {
+      "id": "US-006",
+      "title": "Corregir EquiposPage tests",
+      "description": "Como desarrollador, quiero corregir los tests de EquiposPage que tiene 166 líneas sin cubrir (58.5% coverage actual)",
+      "acceptanceCriteria": [
+        "Corregir mocks de servicios y componentes",
+        "Agregar tests para rutas de equipamiento",
+        "Tests pasan sin errores",
+        "Typecheck pasa",
+        "Tests pasan",
+        "Cobertura de EquiposPage >70%"
+      ],
+      "priority": 6,
+      "passes": false,
+      "notes": "166 líneas sin cubrir"
+    },
+    {
+      "id": "US-007",
+      "title": "Corregir RegisterUserModal tests",
+      "description": "Como desarrollador, quiero corregir los tests de RegisterUserModal que tiene 153 líneas sin cubrir (33.8% coverage actual)",
+      "acceptanceCriteria": [
+        "Configurar mocks de formularios y validaciones",
+        "Agregar tests para permisos y roles",
+        "Tests pasan sin errores",
+        "Typecheck pasa",
+        "Tests pasan",
+        "Cobertura de RegisterUserModal >60%"
+      ],
+      "priority": 7,
+      "passes": false,
+      "notes": "153 líneas sin cubrir"
+    },
+    {
+      "id": "US-008",
+      "title": "Corregir EditPlatformUserModal tests",
+      "description": "Como desarrollador, quiero corregir los tests de EditPlatformUserModal que tiene 109 líneas sin cubrir (41.7% coverage actual)",
+      "acceptanceCriteria": [
+        "Corregir mocks de usuarios y permisos",
+        "Agregar tests para edición de usuarios",
+        "Tests pasan sin errores",
+        "Typecheck pasa",
+        "Tests pasan",
+        "Cobertura de EditPlatformUserModal >60%"
+      ],
+      "priority": 8,
+      "passes": false,
+      "notes": "109 líneas sin cubrir"
+    },
+    {
+      "id": "US-009",
+      "title": "Crear tests para websocket.service.ts",
+      "description": "Como desarrollador, quiero crear tests unitarios para websocket.service.ts que actualmente tiene solo 6.7% coverage (112 líneas sin cubrir)",
+      "acceptanceCriteria": [
+        "Crear test file para websocket.service.ts",
+        "Mockear socket.io-client correctamente",
+        "Cubrir métodos públicos: connect, disconnect, on, off, emit, isConnected",
+        "Typecheck pasa",
+        "Tests pasan",
+        "Cobertura de websocket.service.ts >70%"
+      ],
+      "priority": 9,
+      "passes": false,
+      "notes": "112 líneas sin cubrir - servicio crítico"
+    },
+    {
+      "id": "US-010",
+      "title": "Crear tests para useAutoWhatsAppNotifications hook",
+      "description": "Como desarrollador, quiero crear tests para useAutoWhatsAppNotifications que tiene 81 líneas sin cubrir (20.6% coverage actual)",
+      "acceptanceCriteria": [
+        "Crear test file para el hook",
+        "Mockear dependencias de WhatsApp y fetch",
+        "Cubrir funciones principales: sendDocumentExpiryNotifications, sendUrgentAlert",
+        "Typecheck pasa",
+        "Tests pasan",
+        "Cobertura de useAutoWhatsAppNotifications >50%"
+      ],
+      "priority": 10,
+      "passes": false,
+      "notes": "81 líneas sin cubrir"
+    },
+    {
+      "id": "US-011",
+      "title": "Crear tests para usersApiSlice",
+      "description": "Como desarrollador, quiero crear tests para usersApiSlice que tiene 79 líneas sin cubrir (10.2% coverage actual)",
+      "acceptanceCriteria": [
+        "Crear o expandir test file para usersApiSlice",
+        "Cubrir endpoints: getUsers, updateUser, deleteUser",
+        "Mockear fetch apropiadamente",
+        "Typecheck pasa",
+        "Tests pasan",
+        "Cobertura de usersApiSlice >60%"
+      ],
+      "priority": 11,
+      "passes": false,
+      "notes": "79 líneas sin cubrir"
+    },
+    {
+      "id": "US-012",
+      "title": "Crear tests para useUserAudit hook",
+      "description": "Como desarrollador, quiero crear tests para useUserAudit que tiene 69 líneas sin cubrir (5.5% coverage actual)",
+      "acceptanceCriteria": [
+        "Crear test file para useUserAudit",
+        "Mockear dependencias de API",
+        "Cubrir funciones de auditoría de usuarios",
+        "Typecheck pasa",
+        "Tests pasan",
+        "Cobertura de useUserAudit >70%"
+      ],
+      "priority": 12,
+      "passes": false,
+      "notes": "69 líneas sin cubrir"
+    },
+    {
+      "id": "US-013",
+      "title": "Crear tests para servicesApiSlice",
+      "description": "Como desarrollador, quiero crear tests para servicesApiSlice que tiene 51 líneas sin cubrir (8.9% coverage actual)",
+      "acceptanceCriteria": [
+        "Crear o expandir test file para servicesApiSlice",
+        "Cubrir endpoints de configuración de servicios",
+        "Mockear fetch apropiadamente",
+        "Typecheck pasa",
+        "Tests pasan",
+        "Cobertura de servicesApiSlice >60%"
+      ],
+      "priority": 13,
+      "passes": false,
+      "notes": "51 líneas sin cubrir"
+    },
+    {
+      "id": "US-014",
+      "title": "Crear tests para RemitoDetail y RemitosPage",
+      "description": "Como desarrollador, quiero crear tests para RemitoDetail (105 líneas, 0% coverage) y RemitosPage (75 líneas, 0% coverage)",
+      "acceptanceCriteria": [
+        "Crear test files que ejecuten código real (no solo smoke tests)",
+        "Mockear dependencias de Redux y API",
+        "Renderizar componentes con Testing Library",
+        "Typecheck pasa",
+        "Tests pasan",
+        "Cobertura de RemitoDetail >30%",
+        "Cobertura de RemitosPage >30%"
+      ],
+      "priority": 14,
+      "passes": false,
+      "notes": "Componentes críticos con 0% cobertura"
+    },
+    {
+      "id": "US-015",
+      "title": "Ejecutar tests completos y validar cobertura ≥90%",
+      "description": "Como desarrollador, quiero ejecutar la suite completa de tests y validar que la cobertura promedio alcanza al menos 90%",
+      "acceptanceCriteria": [
+        "Ejecutar npm run test:coverage",
+        "Promedio de cobertura ≥90% (statements, branches, functions, lines)",
+        "Todos los tests críticos pasan",
+        "Typecheck pasa",
+        "Reporte de cobertura generado exitosamente"
+      ],
+      "priority": 15,
+      "passes": false,
+      "notes": "Validación final del objetivo"
+    }
+  ]
+}

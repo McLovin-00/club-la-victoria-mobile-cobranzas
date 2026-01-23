@@ -1,22 +1,17 @@
 /**
- * Smoke test para LoginForm
- * Verifica que el módulo se puede importar correctamente
+ * Smoke Tests para LoginForm
+ * Verifica que el componente se pueda importar y renderizar
  */
 import { describe, it, expect } from '@jest/globals';
 
-describe('LoginForm - Smoke Test', () => {
+describe('LoginForm - Smoke Tests', () => {
   it('should export the component module', async () => {
-    // Dynamic import to verify module loads without syntax errors
     const module = await import('../LoginForm');
-
-    // Verify it has exports
     expect(module).toBeDefined();
   });
 
   it('should export LoginForm component', async () => {
     const module = await import('../LoginForm');
-
-    // Check for named export or default export
     const Component = module.LoginForm || module.default;
     expect(Component).toBeDefined();
     expect(typeof Component).toBe('function');
@@ -25,8 +20,6 @@ describe('LoginForm - Smoke Test', () => {
   it('should have correct component name', async () => {
     const module = await import('../LoginForm');
     const Component = module.LoginForm || module.default;
-
-    // React components typically have a name property
     expect(Component.name).toBeTruthy();
   });
 });

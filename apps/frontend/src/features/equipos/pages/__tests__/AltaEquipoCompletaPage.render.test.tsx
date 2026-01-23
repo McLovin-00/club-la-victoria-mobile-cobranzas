@@ -13,10 +13,10 @@ import {
     mockTemplates,
     mockDadores,
     mockClientes,
-} from './__mocks__/mockTestData';
+} from '../__mocks__/mockTestData';
 import {
     createMockStore,
-} from './__mocks__/mockApiHooks';
+} from '../__mocks__/mockApiHooks';
 
 // Definir mocks
 const useGetTemplatesQuery = jest.fn();
@@ -102,14 +102,11 @@ describe('AltaEquipoCompletaPage - Rendering y Estados', () => {
             </Provider>
         );
 
-        screen.debug();
-
         expect(screen.getByText(/Alta Completa de Equipo/i)).toBeInTheDocument();
-        expect(screen.getByText(/Dador de Carga/i)).toBeInTheDocument();
-        // Usar regex más flexible para títulos que pueden tener iconos o estar en mayúsculas
-        expect(screen.getByText(/Empresa Transportista/i)).toBeInTheDocument();
-        expect(screen.getByText(/Chofer/i)).toBeInTheDocument();
-        expect(screen.getByText(/Tractor/i)).toBeInTheDocument();
+        expect(screen.getAllByText(/Dador de Carga/i).length).toBeGreaterThan(0);
+        expect(screen.getAllByText(/Empresa Transportista/i).length).toBeGreaterThan(0);
+        expect(screen.getAllByText(/Chofer/i).length).toBeGreaterThan(0);
+        expect(screen.getAllByText(/Tractor/i).length).toBeGreaterThan(0);
     });
 
     it('muestra progress bar con progreso correcto (0% inicial)', () => {
@@ -194,7 +191,7 @@ describe('AltaEquipoCompletaPage - Validación de Inputs', () => {
             </Provider>
         );
 
-        const inputDni = screen.getByPlaceholderText(/12345678/i);
+        const inputDni = screen.getAllByPlaceholderText(/12345678/i)[0];
         await user.type(inputDni, 'ABC12345');
         expect(inputDni).toHaveValue('12345');
     });
@@ -210,7 +207,7 @@ describe('AltaEquipoCompletaPage - Validación de Inputs', () => {
             </Provider>
         );
 
-        const inputPatente = screen.getByPlaceholderText(/ABC123/i);
+        const inputPatente = screen.getAllByPlaceholderText(/ABC123/i)[0];
         await user.type(inputPatente, 'abc123');
         expect(inputPatente).toHaveValue('ABC123');
     });

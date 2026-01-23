@@ -149,7 +149,18 @@ export const createDocumentosApiMock = (overrides: Record<string, unknown> = {})
     useRequestClientsBulkZipMutation: emptyMutation,
     useTransportistasSearchMutation: emptyMutation,
     useSearchEquiposByDnisMutation: createMutationMock([]),
-    
+
+    // Notificaciones
+    useGetUserNotificationsQuery: createQueryMock({ data: [], pagination: { page: 1, limit: 20, total: 0, pages: 0 }, unreadCount: 0 }),
+    useGetUnreadNotificationsCountQuery: createQueryMock(0),
+    useMarkNotificationAsReadMutation: createMutationMock({}),
+    useMarkAllNotificationsAsReadMutation: createMutationMock({}),
+    useDeleteNotificationMutation: createMutationMock({}),
+    useDeleteAllReadNotificationsMutation: createMutationMock({}),
+    // Documentos rechazados
+    useGetRejectedDocumentsQuery: createQueryMock({ data: [], pagination: { page: 1, limit: 20, total: 0, pages: 0 } }),
+    useGetRejectedStatsQuery: createQueryMock({}),
+
     // Permitir overrides
     ...overrides,
   };
@@ -194,14 +205,80 @@ export const mockEmpresasApi = createEmpresasApiMock();
 // MOCK DE PLATFORM USERS API SLICE
 // =============================================================================
 
-export const createPlatformUsersApiMock = (overrides: Record<string, unknown> = {}) => ({
-  useRegisterPlatformUserMutation: createMutationMock({}),
-  useRegisterClientWizardMutation: createMutationMock({}),
-  useRegisterDadorWizardMutation: createMutationMock({}),
-  useRegisterTransportistaWizardMutation: createMutationMock({}),
-  useRegisterChoferWizardMutation: createMutationMock({}),
-  ...overrides,
-});
+/**
+ * Crea un mock de mutation con control de error, loading y respuesta personalizada
+ */
+const createControlledMutationMock = <T = unknown>(
+  response: T,
+  options: { isLoading?: boolean; shouldError?: boolean; error?: string } = {}
+) => {
+  const { shouldError, error } = options;
+  const triggerFn = shouldError
+    ? jest.fn().mockRejectedValue({
+        data: { message: error || 'Mock error' },
+      })
+    : jest.fn().mockResolvedValue({ data: response });
+
+  return jest.fn(() => [triggerFn, { isLoading: options.isLoading ?? false, isError: shouldError }] as const);
+};
+
+export const createPlatformUsersApiMock = (overrides: Record<string, unknown> = {}) => {
+  const successUserResponse = { success: true, user: { id: 1, email: 'test@test.com', role: 'ADMIN' } };
+
+  return {
+    platformUsersApiSlice: {
+      reducerPath: 'platformUsersApi',
+      reducer: () => ({}),
+      middleware: () => (next: (action: unknown) => unknown) => (action: unknown) => next(action),
+    },
+
+    // Query principal
+    useListPlatformUsersQuery: jest.fn(() => ({
+      data: { data: [], total: 0, page: 1, limit: 20, totalPages: 0 },
+      isLoading: false,
+      isFetching: false,
+      refetch: jest.fn(),
+    })),
+
+    // Mutations de registro
+    useRegisterPlatformUserMutation: createControlledMutationMock(successUserResponse),
+    useRegisterClientWizardMutation: createControlledMutationMock({
+      success: true,
+      user: { id: 1, email: 'client@test.com', role: 'CLIENTE' },
+      tempPassword: 'TempPass123!',
+    }),
+    useRegisterDadorWizardMutation: createControlledMutationMock({
+      success: true,
+      user: { id: 1, email: 'dador@test.com', role: 'DADOR_DE_CARGA' },
+      tempPassword: 'TempPass123!',
+    }),
+    useRegisterTransportistaWizardMutation: createControlledMutationMock({
+      success: true,
+      user: { id: 1, email: 'transportista@test.com', role: 'TRANSPORTISTA' },
+      tempPassword: 'TempPass123!',
+    }),
+    useRegisterChoferWizardMutation: createControlledMutationMock({
+      success: true,
+      user: { id: 1, email: 'chofer@test.com', role: 'CHOFER' },
+      tempPassword: 'TempPass123!',
+    }),
+
+    // Mutations de actualización
+    useUpdatePlatformUserMutation: createControlledMutationMock({
+      success: true,
+      user: { id: 1, email: 'updated@test.com', role: 'ADMIN' },
+    }),
+    useDeletePlatformUserMutation: createControlledMutationMock({ success: true }),
+    useToggleUserActivoMutation: createControlledMutationMock({
+      success: true,
+      data: { id: 1, activo: false },
+    }),
+    useUpdateUserEmpresaMutation: createControlledMutationMock({ success: true }),
+
+    // Permitir overrides
+    ...overrides,
+  };
+};
 
 export const mockPlatformUsersApi = createPlatformUsersApiMock();
 
@@ -211,7 +288,13 @@ export const mockPlatformUsersApi = createPlatformUsersApiMock();
 
 export const createRemitosApiMock = (overrides: Record<string, unknown> = {}) => ({
   useGetRemitosQuery: createQueryMock({ data: [] }),
-  useGetRemitoQuery: createQueryMock({ data: null }),
+  // Mock por defecto que devuelve el remito pasado por referencia (para tests de RemitoDetail)
+  useGetRemitoQuery: jest.fn(({ id }: { id: number }) => ({
+    data: { data: { id } }, // Será sobrescrito por el initialRemito en el componente
+    isLoading: false,
+    isFetching: false,
+    refetch: jest.fn(),
+  })),
   useUploadRemitoMutation: createMutationMock({}),
   useApproveRemitoMutation: createMutationMock({}),
   useRejectRemitoMutation: createMutationMock({}),

@@ -243,11 +243,20 @@ const mockEnv = {
   VITE_REMITOS_API_URL: 'http://localhost:4803',
 };
 
+// Mock para window.import.meta
 Object.defineProperty(window, 'import', {
   value: { meta: { env: mockEnv } },
+  writable: true,
 });
 
+// Mock para global.import.meta (accesible via globalThis.import)
 global.import = { meta: { env: mockEnv } };
+
+// Mock directo de import.meta como propiedad global (para componentes que acceden directamente)
+Object.defineProperty(globalThis, 'import', {
+  value: { meta: { env: mockEnv } },
+  writable: true,
+});
 
 // Variables de entorno de proceso
 process.env.VITE_API_URL = 'http://localhost:3000';

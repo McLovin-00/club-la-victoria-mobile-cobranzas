@@ -31,6 +31,8 @@ jest.mock('../../src/controllers/remitos.controller', () => ({
     stats: jest.fn(),
     getImage: jest.fn(),
     reprocess: jest.fn(),
+    exportExcel: jest.fn(),
+    suggestions: jest.fn(),
   },
 }));
 

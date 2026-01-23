@@ -4,6 +4,34 @@
 import { Response } from 'express';
 import { prismaMock, resetPrismaMock } from '../mocks/prisma.mock';
 
+// Mock MinIO antes de cualquier import que lo use
+jest.mock('minio', () => ({
+  Client: jest.fn().mockImplementation(() => ({
+    bucketExists: jest.fn().mockResolvedValue(true),
+    makeBucket: jest.fn().mockResolvedValue(undefined),
+    putObject: jest.fn().mockResolvedValue({ etag: 'test-etag' }),
+    getObject: jest.fn().mockResolvedValue({
+      pipe: jest.fn(),
+      on: jest.fn((event: string, cb: any) => {
+        if (event === 'data') cb(Buffer.from('test'));
+        if (event === 'end') cb();
+        return { on: jest.fn() };
+      }),
+    }),
+    statObject: jest.fn().mockResolvedValue({ size: 1 }),
+    removeObject: jest.fn().mockResolvedValue(undefined),
+    presignedGetObject: jest.fn().mockResolvedValue('http://presigned-url'),
+    listBuckets: jest.fn().mockResolvedValue([]),
+    listObjects: jest.fn().mockImplementation(() => ({
+      on: jest.fn((event: string, cb: any) => {
+        if (event === 'end') cb();
+        return undefined;
+      }),
+    })),
+    copyObject: jest.fn().mockResolvedValue(undefined),
+  })),
+}));
+
 // Mock database before importing
 jest.mock('../../src/config/database', () => ({
   prisma: prismaMock,
@@ -41,6 +69,12 @@ jest.mock('../../src/services/queue.service', () => ({
 jest.mock('../../src/config/environment', () => ({
   getEnvironment: () => ({
     DOCS_DUE_SOON_DAYS: 30,
+    // MinIO required vars
+    MINIO_ENDPOINT: 'localhost',
+    MINIO_PORT: 9000,
+    MINIO_ACCESS_KEY: 'test',
+    MINIO_SECRET_KEY: 'test',
+    MINIO_USE_SSL: false,
   }),
 }));
 
@@ -363,7 +397,13 @@ describe('DashboardController', () => {
   describe('getApprovalKpis', () => {
     it('should return pending/approvedToday counts', async () => {
       mockReq = { tenantId: 1 } as any;
-      prismaMock.document.count.mockResolvedValueOnce(5).mockResolvedValueOnce(2);
+      // Mock $queryRaw to return the expected KPIs
+      prismaMock.$queryRaw = jest.fn().mockResolvedValueOnce([{
+        pending: BigInt(5),
+        approvedToday: BigInt(2),
+        rejectedToday: BigInt(0),
+        avgReviewMinutes: 15,
+      }]);
       await DashboardController.getApprovalKpis(mockReq as any, mockRes as Response);
       expect(jsonMock).toHaveBeenCalledWith(expect.objectContaining({ success: true, data: expect.objectContaining({ pending: 5, approvedToday: 2 }) }));
     });

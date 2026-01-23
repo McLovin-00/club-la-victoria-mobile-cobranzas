@@ -3,7 +3,7 @@
  * @jest-environment node
  */
 
-import { createPrismaMock } from '../helpers/prismaMock';
+import { createPrismaMock } from '../__tests__/helpers/prismaMock';
 
 const prismaInstance = createPrismaMock();
 const PrismaClientCtor = jest.fn(() => prismaInstance);
@@ -15,7 +15,7 @@ jest.mock('../../node_modules/.prisma/remitos', () => ({
   },
 }));
 
-jest.mock('../../src/config/logger', () => ({
+jest.mock('../src/config/logger', () => ({
   AppLogger: {
     info: jest.fn(),
     warn: jest.fn(),
@@ -31,14 +31,14 @@ describe('database', () => {
   });
 
   it('connect initializes prisma and connects', async () => {
-    const mod = await import('../../src/config/database');
+    const mod = await import('../src/config/database');
     await mod.db.connect();
     expect(prismaInstance.$connect).toHaveBeenCalled();
     expect(mod.db.getClient()).toBe(prismaInstance);
   });
 
   it('getClient throws if not connected', async () => {
-    const mod = await import('../../src/config/database');
+    const mod = await import('../src/config/database');
     expect(() => mod.db.getClient()).toThrow('Database not connected');
   });
 });

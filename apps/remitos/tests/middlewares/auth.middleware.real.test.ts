@@ -3,7 +3,7 @@
  * @jest-environment node
  */
 
-import { createMockRes, createNext } from '../helpers/testUtils';
+import { createMockRes, createNext } from '../__tests__/helpers/testUtils';
 
 jest.mock('../../src/config/logger', () => ({
   AppLogger: {

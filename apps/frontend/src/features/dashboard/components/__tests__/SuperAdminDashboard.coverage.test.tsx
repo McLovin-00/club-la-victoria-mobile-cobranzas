@@ -2,13 +2,15 @@
  * Tests de cobertura para SuperAdminDashboard usando jest.unstable_mockModule
  */
 import React from 'react';
-import { describe, it, expect, beforeEach, jest } from '@jest/globals';
-import { render, screen } from '@testing-library/react';
+import { describe, it, expect, beforeAll, beforeEach, jest } from '@jest/globals';
+import { render, screen, fireEvent, waitFor, act } from '@testing-library/react';
+import '@testing-library/jest-dom';
 
 describe('SuperAdminDashboard - Coverage', () => {
   let SuperAdminDashboard: React.FC;
   let useGetSuperAdminDashboardQuery: jest.Mock;
   let useRefreshDashboardMutation: jest.Mock;
+  let mockShowToast: jest.Mock;
 
   const mockRefetch = jest.fn();
   const mockRefresh = jest.fn();
@@ -26,15 +28,16 @@ describe('SuperAdminDashboard - Coverage', () => {
 
     // Mock de componentes UI
     await jest.unstable_mockModule('@/components/ui/card', () => ({
-      Card: ({ children, className }: any) => <div className={className}>{children}</div>,
+      Card: ({ children, className }: { children: React.ReactNode; className?: string }) => <div className={className}>{children}</div>,
     }));
 
+    mockShowToast = jest.fn();
     await jest.unstable_mockModule('@/components/ui/Toast.utils', () => ({
-      showToast: jest.fn(),
+      showToast: (...args: unknown[]) => mockShowToast(...args),
     }));
 
     await jest.unstable_mockModule('@/components/ui/button', () => ({
-      Button: ({ children, onClick, disabled, variant, size }: any) => (
+      Button: ({ children, onClick, disabled, variant, size }: { children: React.ReactNode; onClick?: () => void; disabled?: boolean; variant?: string; size?: string }) => (
         <button onClick={onClick} disabled={disabled} data-variant={variant} data-size={size}>
           {children}
         </button>
@@ -42,14 +45,14 @@ describe('SuperAdminDashboard - Coverage', () => {
     }));
 
     await jest.unstable_mockModule('@/components/ui/spinner', () => ({
-      Spinner: ({ className }: any) => <div className={className} data-testid="spinner">Spinner</div>,
+      Spinner: ({ className }: { className?: string }) => <div className={className} data-testid="spinner">Spinner</div>,
     }));
 
     await jest.unstable_mockModule('@/components/icons', () => ({
-      UserIcon: ({ className }: any) => <span className={className}>UserIcon</span>,
-      ServerIcon: ({ className }: any) => <span className={className}>ServerIcon</span>,
-      BuildingOfficeIcon: ({ className }: any) => <span className={className}>BuildingIcon</span>,
-      ArrowPathIcon: ({ className }: any) => <span className={className}>RefreshIcon</span>,
+      UserIcon: ({ className }: { className?: string }) => <span className={className}>UserIcon</span>,
+      ServerIcon: ({ className }: { className?: string }) => <span className={className}>ServerIcon</span>,
+      BuildingOfficeIcon: ({ className }: { className?: string }) => <span className={className}>BuildingIcon</span>,
+      ArrowPathIcon: ({ className }: { className?: string }) => <span className={className}>RefreshIcon</span>,
     }));
 
     await jest.unstable_mockModule('../ServiceWidgets', () => ({
@@ -63,6 +66,10 @@ describe('SuperAdminDashboard - Coverage', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
+    mockRefetch.mockResolvedValue({});
+    mockRefresh.mockReturnValue({
+      unwrap: () => Promise.resolve({}),
+    });
     useGetSuperAdminDashboardQuery.mockReturnValue({
       data: null,
       isLoading: false,
@@ -330,5 +337,212 @@ describe('SuperAdminDashboard - Coverage', () => {
     expect(screen.getByText('Total Empresas')).toBeInTheDocument();
     const totalElements = screen.getAllByText('3');
     expect(totalElements.length).toBeGreaterThan(0);
+  });
+
+  it('debería llamar a handleRefresh correctamente cuando se hace clic en Actualizar', async () => {
+    useGetSuperAdminDashboardQuery.mockReturnValue({
+      data: {
+        empresasCount: 1,
+        totalUsersCount: 10,
+        serverUsage: 50,
+        empresas: [],
+        systemActivity: [],
+      },
+      isLoading: false,
+      error: null,
+      refetch: mockRefetch,
+    });
+
+    render(<SuperAdminDashboard />);
+
+    const refreshButton = screen.getByText('Actualizar');
+    
+    await act(async () => {
+      fireEvent.click(refreshButton);
+    });
+
+    await waitFor(() => {
+      expect(mockRefresh).toHaveBeenCalled();
+      expect(mockRefetch).toHaveBeenCalled();
+      expect(mockShowToast).toHaveBeenCalledWith('Dashboard actualizado correctamente', 'success');
+    });
+  });
+
+  it('debería manejar error en handleRefresh', async () => {
+    mockRefresh.mockReturnValue({
+      unwrap: () => Promise.reject(new Error('Error de refresh')),
+    });
+    const consoleSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
+
+    useGetSuperAdminDashboardQuery.mockReturnValue({
+      data: {
+        empresasCount: 1,
+        totalUsersCount: 10,
+        serverUsage: 50,
+        empresas: [],
+        systemActivity: [],
+      },
+      isLoading: false,
+      error: null,
+      refetch: mockRefetch,
+    });
+
+    render(<SuperAdminDashboard />);
+
+    const refreshButton = screen.getByText('Actualizar');
+    
+    await act(async () => {
+      fireEvent.click(refreshButton);
+    });
+
+    await waitFor(() => {
+      expect(mockRefresh).toHaveBeenCalled();
+      expect(consoleSpy).toHaveBeenCalledWith('Error al actualizar dashboard:', expect.anything());
+      expect(mockShowToast).toHaveBeenCalledWith('Error al actualizar dashboard', 'error');
+    });
+
+    consoleSpy.mockRestore();
+  });
+
+  it('debería mostrar spinner en botón mientras se actualiza', () => {
+    useRefreshDashboardMutation.mockReturnValue([
+      mockRefresh,
+      { isLoading: true },
+    ]);
+
+    useGetSuperAdminDashboardQuery.mockReturnValue({
+      data: {
+        empresasCount: 1,
+        totalUsersCount: 10,
+        serverUsage: 50,
+        empresas: [],
+        systemActivity: [],
+      },
+      isLoading: false,
+      error: null,
+      refetch: mockRefetch,
+    });
+
+    render(<SuperAdminDashboard />);
+
+    const refreshButton = screen.getByText('Actualizar');
+    expect(refreshButton).toBeDisabled();
+    expect(screen.getAllByTestId('spinner').length).toBeGreaterThan(0);
+  });
+
+  it('debería paginar hacia adelante al hacer clic en Siguiente', async () => {
+    const empresas = Array.from({ length: 7 }, (_, i) => ({
+      id: String(i + 1),
+      nombre: `Empresa ${i + 1}`,
+      descripcion: `Descripción ${i + 1}`,
+      usuariosCount: i + 1,
+      createdAt: '2024-01-01T00:00:00',
+    }));
+
+    useGetSuperAdminDashboardQuery.mockReturnValue({
+      data: {
+        empresasCount: 7,
+        totalUsersCount: 28,
+        serverUsage: 50,
+        empresas,
+        systemActivity: [],
+      },
+      isLoading: false,
+      error: null,
+      refetch: mockRefetch,
+    });
+
+    render(<SuperAdminDashboard />);
+
+    expect(screen.getByText('Página 1 de 2')).toBeInTheDocument();
+    expect(screen.getByText('Empresa 1')).toBeInTheDocument();
+
+    const nextButton = screen.getByText('Siguiente');
+    fireEvent.click(nextButton);
+
+    await waitFor(() => {
+      expect(screen.getByText('Página 2 de 2')).toBeInTheDocument();
+      expect(screen.getByText('Empresa 6')).toBeInTheDocument();
+    });
+  });
+
+  it('debería paginar hacia atrás al hacer clic en Anterior', async () => {
+    const empresas = Array.from({ length: 7 }, (_, i) => ({
+      id: String(i + 1),
+      nombre: `Empresa ${i + 1}`,
+      descripcion: `Descripción ${i + 1}`,
+      usuariosCount: i + 1,
+      createdAt: '2024-01-01T00:00:00',
+    }));
+
+    useGetSuperAdminDashboardQuery.mockReturnValue({
+      data: {
+        empresasCount: 7,
+        totalUsersCount: 28,
+        serverUsage: 50,
+        empresas,
+        systemActivity: [],
+      },
+      isLoading: false,
+      error: null,
+      refetch: mockRefetch,
+    });
+
+    render(<SuperAdminDashboard />);
+
+    // Go to page 2
+    fireEvent.click(screen.getByText('Siguiente'));
+
+    await waitFor(() => {
+      expect(screen.getByText('Página 2 de 2')).toBeInTheDocument();
+    });
+
+    // Go back to page 1
+    fireEvent.click(screen.getByText('Anterior'));
+
+    await waitFor(() => {
+      expect(screen.getByText('Página 1 de 2')).toBeInTheDocument();
+      expect(screen.getByText('Empresa 1')).toBeInTheDocument();
+    });
+  });
+
+  it('debería deshabilitar Anterior en primera página y Siguiente en última', async () => {
+    const empresas = Array.from({ length: 7 }, (_, i) => ({
+      id: String(i + 1),
+      nombre: `Empresa ${i + 1}`,
+      descripcion: `Descripción ${i + 1}`,
+      usuariosCount: i + 1,
+      createdAt: '2024-01-01T00:00:00',
+    }));
+
+    useGetSuperAdminDashboardQuery.mockReturnValue({
+      data: {
+        empresasCount: 7,
+        totalUsersCount: 28,
+        serverUsage: 50,
+        empresas,
+        systemActivity: [],
+      },
+      isLoading: false,
+      error: null,
+      refetch: mockRefetch,
+    });
+
+    render(<SuperAdminDashboard />);
+
+    // On page 1, Anterior should be disabled
+    const anteriorButton = screen.getByText('Anterior');
+    expect(anteriorButton).toBeDisabled();
+
+    // Go to page 2
+    fireEvent.click(screen.getByText('Siguiente'));
+
+    await waitFor(() => {
+      expect(screen.getByText('Página 2 de 2')).toBeInTheDocument();
+    });
+
+    // On page 2 (last), Siguiente should be disabled
+    const siguienteButton = screen.getByText('Siguiente');
+    expect(siguienteButton).toBeDisabled();
   });
 });

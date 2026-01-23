@@ -9,24 +9,23 @@
  */
 import { describe, it, expect, jest, beforeEach } from '@jest/globals';
 
-// Mock del Logger
+// Crear mock functions que podemos referenciar
+const mockLoggerApi = jest.fn();
+const mockLoggerWarn = jest.fn();
+const mockLoggerError = jest.fn();
+
+// Mock del Logger con referencias consistentes
 jest.mock('../../../../lib/utils', () => ({
   Logger: {
-    api: jest.fn(),
-    error: jest.fn(),
-    warn: jest.fn(),
+    api: mockLoggerApi,
+    error: mockLoggerError,
+    warn: mockLoggerWarn,
   },
 }));
 
 describe('usersApiSlice - getUsuarios transformResponse', () => {
-  let Logger: any;
-
-  beforeEach(async () => {
-    jest.resetModules();
+  beforeEach(() => {
     jest.clearAllMocks();
-
-    const utils = await import('../../../../lib/utils');
-    Logger = utils.Logger;
   });
 
   // Simular transformResponse de getUsuarios
@@ -35,11 +34,11 @@ describe('usersApiSlice - getUsuarios transformResponse', () => {
     data: unknown[];
     [key: string]: any;
   }) => {
-    Logger.api('Respuesta de getUsuarios:', response);
+    mockLoggerApi('Respuesta de getUsuarios:', response);
 
     // Validar estructura de respuesta
     if (!response || !response.success || !Array.isArray(response.data)) {
-      Logger.warn('Respuesta de usuarios inválida:', response);
+      mockLoggerWarn('Respuesta de usuarios inválida:', response);
       throw new Error('Error al obtener usuarios: respuesta inválida');
     }
 
@@ -103,7 +102,7 @@ describe('usersApiSlice - getUsuarios transformResponse', () => {
 
     transformGetUsuariosResponse(response);
 
-    expect(Logger.api).toHaveBeenCalledWith('Respuesta de getUsuarios:', response);
+    expect(mockLoggerApi).toHaveBeenCalledWith('Respuesta de getUsuarios:', response);
   });
 
   it('debería loggear warning para respuesta inválida', () => {
@@ -115,7 +114,7 @@ describe('usersApiSlice - getUsuarios transformResponse', () => {
       // Se espera que lance error
     }
 
-    expect(Logger.warn).toHaveBeenCalledWith('Respuesta de usuarios inválida:', response);
+    expect(mockLoggerWarn).toHaveBeenCalledWith('Respuesta de usuarios inválida:', response);
   });
 
   it('debería manejar array vacío como válido', () => {
@@ -144,14 +143,8 @@ describe('usersApiSlice - getUsuarios transformResponse', () => {
 });
 
 describe('usersApiSlice - getUsuarioById transformResponse', () => {
-  let Logger: any;
-
-  beforeEach(async () => {
-    jest.resetModules();
+  beforeEach(() => {
     jest.clearAllMocks();
-
-    const utils = await import('../../../../lib/utils');
-    Logger = utils.Logger;
   });
 
   const transformGetUsuarioByIdResponse = (response: {
@@ -159,10 +152,10 @@ describe('usersApiSlice - getUsuarioById transformResponse', () => {
     data?: { id: number; [key: string]: any };
     [key: string]: any;
   }) => {
-    Logger.api(`Respuesta de getUsuarioById(${response.data?.id}):`, response);
+    mockLoggerApi(`Respuesta de getUsuarioById(${response.data?.id}):`, response);
 
     if (!response || !response.success || !response.data) {
-      Logger.warn('Usuario obtenido es inválido:', response);
+      mockLoggerWarn('Usuario obtenido es inválido:', response);
       throw new Error('Error al obtener usuario: respuesta inválida');
     }
 
@@ -222,7 +215,7 @@ describe('usersApiSlice - getUsuarioById transformResponse', () => {
 
     transformGetUsuarioByIdResponse(response);
 
-    expect(Logger.api).toHaveBeenCalledWith('Respuesta de getUsuarioById(123):', response);
+    expect(mockLoggerApi).toHaveBeenCalledWith('Respuesta de getUsuarioById(123):', response);
   });
 
   it('debería loggear warning para respuesta inválida', () => {
@@ -234,19 +227,13 @@ describe('usersApiSlice - getUsuarioById transformResponse', () => {
       // Se espera que lance error
     }
 
-    expect(Logger.warn).toHaveBeenCalledWith('Usuario obtenido es inválido:', response);
+    expect(mockLoggerWarn).toHaveBeenCalledWith('Usuario obtenido es inválido:', response);
   });
 });
 
 describe('usersApiSlice - createUser transformResponse', () => {
-  let Logger: any;
-
-  beforeEach(async () => {
-    jest.resetModules();
+  beforeEach(() => {
     jest.clearAllMocks();
-
-    const utils = await import('../../../../lib/utils');
-    Logger = utils.Logger;
   });
 
   const transformCreateUserResponse = (response: {
@@ -254,17 +241,17 @@ describe('usersApiSlice - createUser transformResponse', () => {
     data?: { id?: number; [key: string]: any };
     [key: string]: any;
   }) => {
-    Logger.api('Usuario creado exitosamente:', response);
+    mockLoggerApi('Usuario creado exitosamente:', response);
 
     // Validar estructura básica de respuesta
     if (!response || !response.success || !response.data) {
-      Logger.warn('Respuesta de creación de usuario inválida:', response);
+      mockLoggerWarn('Respuesta de creación de usuario inválida:', response);
       throw new Error('Error al crear usuario: respuesta inválida');
     }
 
     // Validar que el usuario tenga ID (indica creación exitosa)
     if (!response.data.id) {
-      Logger.warn('Usuario creado sin ID válido:', response);
+      mockLoggerWarn('Usuario creado sin ID válido:', response);
       throw new Error('Error al crear usuario: ID no válido');
     }
 
@@ -324,7 +311,7 @@ describe('usersApiSlice - createUser transformResponse', () => {
 
     transformCreateUserResponse(response);
 
-    expect(Logger.api).toHaveBeenCalledWith('Usuario creado exitosamente:', response);
+    expect(mockLoggerApi).toHaveBeenCalledWith('Usuario creado exitosamente:', response);
   });
 
   it('debería loggear warning para ID inválido', () => {
@@ -336,19 +323,13 @@ describe('usersApiSlice - createUser transformResponse', () => {
       // Se espera que lance error
     }
 
-    expect(Logger.warn).toHaveBeenCalledWith('Usuario creado sin ID válido:', response);
+    expect(mockLoggerWarn).toHaveBeenCalledWith('Usuario creado sin ID válido:', response);
   });
 });
 
 describe('usersApiSlice - updateUser transformResponse', () => {
-  let Logger: any;
-
-  beforeEach(async () => {
-    jest.resetModules();
+  beforeEach(() => {
     jest.clearAllMocks();
-
-    const utils = await import('../../../../lib/utils');
-    Logger = utils.Logger;
   });
 
   const transformUpdateUserResponse = (response: {
@@ -356,10 +337,10 @@ describe('usersApiSlice - updateUser transformResponse', () => {
     data?: any;
     [key: string]: any;
   }) => {
-    Logger.api('Usuario actualizado exitosamente:', response);
+    mockLoggerApi('Usuario actualizado exitosamente:', response);
 
     if (!response || !response.success || !response.data) {
-      Logger.warn('Respuesta de actualización de usuario inválida:', response);
+      mockLoggerWarn('Respuesta de actualización de usuario inválida:', response);
       throw new Error('Error al actualizar usuario: respuesta inválida');
     }
 
@@ -403,19 +384,19 @@ describe('usersApiSlice - updateUser transformResponse', () => {
 
     transformUpdateUserResponse(response);
 
-    expect(Logger.api).toHaveBeenCalledWith('Usuario actualizado exitosamente:', response);
+    expect(mockLoggerApi).toHaveBeenCalledWith('Usuario actualizado exitosamente:', response);
   });
 
   it('debería loggear warning para respuesta inválida', () => {
     const response = { success: false, data: null };
 
     try {
-      transformUpdateUserResponse(response as any);
+      transformUpdateUserResponse(response);
     } catch (e) {
       // Se espera que lance error
     }
 
-    expect(Logger.warn).toHaveBeenCalledWith(
+    expect(mockLoggerWarn).toHaveBeenCalledWith(
       'Respuesta de actualización de usuario inválida:',
       response
     );
@@ -423,14 +404,8 @@ describe('usersApiSlice - updateUser transformResponse', () => {
 });
 
 describe('usersApiSlice - deleteUser transformResponse', () => {
-  let Logger: any;
-
-  beforeEach(async () => {
-    jest.resetModules();
+  beforeEach(() => {
     jest.clearAllMocks();
-
-    const utils = await import('../../../../lib/utils');
-    Logger = utils.Logger;
   });
 
   const transformDeleteUserResponse = (response: {
@@ -438,10 +413,10 @@ describe('usersApiSlice - deleteUser transformResponse', () => {
     message?: string;
     [key: string]: any;
   }) => {
-    Logger.api('Usuario eliminado exitosamente:', response);
+    mockLoggerApi('Usuario eliminado exitosamente:', response);
 
     if (!response || !response.success) {
-      Logger.warn('Respuesta de eliminación de usuario inválida:', response);
+      mockLoggerWarn('Respuesta de eliminación de usuario inválida:', response);
       throw new Error('Error al eliminar usuario: respuesta inválida');
     }
 
@@ -475,7 +450,7 @@ describe('usersApiSlice - deleteUser transformResponse', () => {
 
     transformDeleteUserResponse(response);
 
-    expect(Logger.api).toHaveBeenCalledWith('Usuario eliminado exitosamente:', response);
+    expect(mockLoggerApi).toHaveBeenCalledWith('Usuario eliminado exitosamente:', response);
   });
 
   it('debería loggear warning para respuesta inválida', () => {
@@ -487,19 +462,13 @@ describe('usersApiSlice - deleteUser transformResponse', () => {
       // Se espera que lance error
     }
 
-    expect(Logger.warn).toHaveBeenCalledWith('Respuesta de eliminación de usuario inválida:', response);
+    expect(mockLoggerWarn).toHaveBeenCalledWith('Respuesta de eliminación de usuario inválida:', response);
   });
 });
 
 describe('usersApiSlice - providesTags con error', () => {
-  let Logger: any;
-
-  beforeEach(async () => {
-    jest.resetModules();
+  beforeEach(() => {
     jest.clearAllMocks();
-
-    const utils = await import('../../../../lib/utils');
-    Logger = utils.Logger;
   });
 
   const createUsersTags = (users?: Array<{ id: number }>) => {
@@ -516,7 +485,7 @@ describe('usersApiSlice - providesTags con error', () => {
     const error = true;
 
     if (error) {
-      Logger.warn('Error en getUsuarios, usando tags por defecto:', error);
+      mockLoggerWarn('Error en getUsuarios, usando tags por defecto:', error);
       const tags = [{ type: 'User' as const, id: 'LIST' }];
       expect(tags).toEqual([{ type: 'User', id: 'LIST' }]);
       return;
@@ -531,7 +500,7 @@ describe('usersApiSlice - providesTags con error', () => {
     const id = 123;
 
     if (error) {
-      Logger.warn(`Error obteniendo usuario ${id}:`, error);
+      mockLoggerWarn(`Error obteniendo usuario ${id}:`, error);
       const tags: any[] = [];
       expect(tags).toEqual([]);
       return;
@@ -615,18 +584,12 @@ describe('usersApiSlice - invalidatesTags con error', () => {
 });
 
 describe('usersApiSlice - transformErrorResponse', () => {
-  let Logger: any;
-
-  beforeEach(async () => {
-    jest.resetModules();
+  beforeEach(() => {
     jest.clearAllMocks();
-
-    const utils = await import('../../../../lib/utils');
-    Logger = utils.Logger;
   });
 
   const handleApiError = (error: unknown, operation: string) => {
-    Logger.error(`Error en ${operation}:`, error);
+    mockLoggerError(`Error en ${operation}:`, error);
     return error;
   };
 
@@ -636,7 +599,7 @@ describe('usersApiSlice - transformErrorResponse', () => {
 
     operations.forEach(op => {
       handleApiError(error, op);
-      expect(Logger.error).toHaveBeenCalledWith(`Error en ${op}:`, error);
+      expect(mockLoggerError).toHaveBeenCalledWith(`Error en ${op}:`, error);
     });
   });
 

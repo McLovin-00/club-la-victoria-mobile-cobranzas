@@ -472,7 +472,7 @@ describe('PortalClienteController (more)', () => {
       await PortalClienteController.bulkDownloadForm({ body: { token: 't', searchTerm: '' } } as Request, res);
 
       expect(res.status).toHaveBeenCalledWith(404);
-      expect(res.send).toHaveBeenCalledWith('No hay equipos asignados');
+      expect(res.send).toHaveBeenCalledWith('No se encontraron equipos');
     });
 
     it('filtra por searchTerm y 404 si no encuentra equipos', async () => {

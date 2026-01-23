@@ -4,7 +4,7 @@
 
 import { describe, it, expect, jest, beforeEach } from '@jest/globals';
 
-jest.mock('../../src/config/environment', () => ({
+jest.mock('../src/config/environment', () => ({
   getEnvironment: jest.fn().mockReturnValue({
     NODE_ENV: 'test',
     PORT: 4803,
@@ -18,7 +18,7 @@ describe('AppLogger extended', () => {
 
   beforeEach(async () => {
     jest.resetModules();
-    const module = await import('../../src/config/logger');
+    const module = await import('../src/config/logger');
     AppLogger = module.AppLogger;
   });
 

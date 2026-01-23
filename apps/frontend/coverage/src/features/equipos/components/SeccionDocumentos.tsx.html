@@ -23,30 +23,30 @@
         <div class='clearfix'>
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">25% </span>
+                <span class="strong">87.5% </span>
                 <span class="quiet">Statements</span>
-                <span class='fraction'>2/8</span>
+                <span class='fraction'>7/8</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">0% </span>
+                <span class="strong">100% </span>
                 <span class="quiet">Branches</span>
-                <span class='fraction'>0/5</span>
+                <span class='fraction'>5/5</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">0% </span>
+                <span class="strong">75% </span>
                 <span class="quiet">Functions</span>
-                <span class='fraction'>0/4</span>
+                <span class='fraction'>3/4</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">28.57% </span>
+                <span class="strong">85.71% </span>
                 <span class="quiet">Lines</span>
-                <span class='fraction'>2/7</span>
+                <span class='fraction'>6/7</span>
             </div>
         
             
@@ -61,7 +61,7 @@
             </div>
         </template>
     </div>
-    <div class='status-line low'></div>
+    <div class='status-line high'></div>
     <pre><table class="coverage">
 <tr><td class="line-count quiet"><a name='L1'></a><a href='#L1'>1</a>
 <a name='L2'></a><a href='#L2'>2</a>
@@ -180,14 +180,14 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">4x</span>
+<span class="cline-any cline-yes">6x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">4x</span>
+<span class="cline-any cline-yes">6x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -200,31 +200,31 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">38x</span>
+<span class="cline-any cline-yes">107x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">95x</span>
 <span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-yes">95x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -271,15 +271,15 @@ export interface SeccionDocumentosProps {
 }
 &nbsp;
 // TODOS los documentos requieren fecha de vencimiento
-// Solo se exceptúan documentos que explícitamente no vencen
-const TEMPLATES_WITHOUT_EXPIRY = [
-  // Agregar aquí templates que NO requieren vencimiento (si los hay)
+// Si en el futuro hay templates que no requieren vencimiento, agregarlos aquí
+const TEMPLATES_WITHOUT_EXPIRY: string[] = [
+  // Ejemplo: 'CONTRATO_INDEFINIDO', 'HABILITACION_PERMANENTE'
 ];
 &nbsp;
 /**
  * Componente que agrupa documentos por tipo de entidad
  */
-export const SeccionDocumentos: React.FC&lt;SeccionDocumentosProps&gt; = <span class="fstat-no" title="function not covered" >({</span>
+export const SeccionDocumentos: React.FC&lt;SeccionDocumentosProps&gt; = ({
   titulo,
   templates,
   entityType,
@@ -287,13 +287,13 @@ export const SeccionDocumentos: React.FC&lt;SeccionDocumentosProps&gt; = <span c
   dadorCargaId,
   onUploadSuccess,
   uploadMutation,
-  disabled = <span class="branch-0 cbranch-no" title="branch not covered" >false,</span>
+  disabled = false,
   uploadedTemplateIds,
-  selectOnlyMode = <span class="branch-0 cbranch-no" title="branch not covered" >false,</span>
+  selectOnlyMode = false,
   onFileSelect,
 }) =&gt; {
-  const templatesCount = <span class="cstat-no" title="statement not covered" >templates.length;</span>
-  const uploadedCount = <span class="cstat-no" title="statement not covered" >templates.filter(<span class="fstat-no" title="function not covered" >(t</span>) =&gt; <span class="cstat-no" title="statement not covered" >uploadedTemplateIds.includes(t.id)).l</span>ength;</span>
+  const templatesCount = templates.length;
+  const uploadedCount = templates.filter((t) =&gt; uploadedTemplateIds.includes(t.id)).length;
 &nbsp;
   return (
     &lt;div className='border border-gray-300 rounded-lg p-4 mb-4 bg-gray-50'&gt;
@@ -305,18 +305,18 @@ export const SeccionDocumentos: React.FC&lt;SeccionDocumentosProps&gt; = <span c
       &lt;/div&gt;
 &nbsp;
       {!entityId || entityId === '0' ? (
-<span class="branch-0 cbranch-no" title="branch not covered" >        &lt;div className='bg-yellow-50 border border-yellow-200 rounded p-3 text-sm text-yellow-800'&gt;</span>
+        &lt;div className='bg-yellow-50 border border-yellow-200 rounded p-3 text-sm text-yellow-800'&gt;
           ⚠️ Completá primero los datos básicos para habilitar esta sección
         &lt;/div&gt;
       ) : (
         &lt;div className='space-y-2'&gt;
-          {templates.map(<span class="fstat-no" title="function not covered" >(t</span>emplate) =&gt; {
+          {templates.map((template) =&gt; {
             // TODOS requieren vencimiento EXCEPTO los que están explícitamente excluidos
-            const requiresExpiry = <span class="cstat-no" title="statement not covered" >!TEMPLATES_WITHOUT_EXPIRY.some(<span class="fstat-no" title="function not covered" >(k</span>eyword) =&gt;</span>
+            const requiresExpiry = !TEMPLATES_WITHOUT_EXPIRY.some(<span class="fstat-no" title="function not covered" >(k</span>eyword) =&gt;
 <span class="cstat-no" title="statement not covered" >              template.name.includes(keyword)</span>
             );
 &nbsp;
-<span class="cstat-no" title="statement not covered" >            return (</span>
+            return (
               &lt;DocumentoField
                 key={template.id}
                 templateId={template.id}
@@ -346,7 +346,7 @@ export const SeccionDocumentos: React.FC&lt;SeccionDocumentosProps&gt; = <span c
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2026-01-16T22:33:48.744Z
+                at 2026-01-22T22:47:17.727Z
             </div>
         <script src="../../../../prettify.js"></script>
         <script>

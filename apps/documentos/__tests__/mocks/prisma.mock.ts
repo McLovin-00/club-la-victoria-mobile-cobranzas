@@ -46,6 +46,7 @@ export const prismaMock = {
   notificationLog: createModelMock(),
   alertRule: createModelMock(),
   user: createModelMock(),
+  internalNotification: createModelMock(),
   
   // Transaction and raw queries
   $transaction: jest.fn((fn) => {

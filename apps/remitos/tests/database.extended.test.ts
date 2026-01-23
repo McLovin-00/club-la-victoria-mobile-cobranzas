@@ -4,7 +4,7 @@
 
 import { describe, it, expect, jest, beforeEach } from '@jest/globals';
 
-jest.mock('../../src/config/logger', () => ({
+jest.mock('../src/config/logger', () => ({
   AppLogger: {
     info: jest.fn(),
     error: jest.fn(),
@@ -32,7 +32,7 @@ describe('Database extended', () => {
     jest.resetModules();
     
     // Re-mockear después de resetModules
-    jest.doMock('../../src/config/logger', () => ({
+    jest.doMock('../src/config/logger', () => ({
       AppLogger: {
         info: jest.fn(),
         error: jest.fn(),
@@ -45,7 +45,7 @@ describe('Database extended', () => {
       PrismaClient: jest.fn().mockImplementation(() => mockPrismaInstance),
     }));
 
-    const module = await import('../../src/config/database');
+    const module = await import('../src/config/database');
     db = module.db;
   });
 

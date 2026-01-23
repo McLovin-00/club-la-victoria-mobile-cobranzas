@@ -23,6 +23,7 @@ const mockUser = { id: 1, email: 'test@test.com', role: 'SUPERADMIN', empresaId:
 // Define mocks
 jest.unstable_mockModule('../../../auth/authSlice', () => ({
   selectCurrentUser: () => mockUser,
+  selectCurrentToken: () => 'mock-token',
 }));
 
 jest.unstable_mockModule('../../api/remitosApiSlice', () => ({

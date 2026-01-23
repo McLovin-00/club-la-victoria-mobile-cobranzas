@@ -78,7 +78,9 @@ export function RemitosPage() {
       if (exportFilters.transportistaNombre) params.append('transportistaNombre', exportFilters.transportistaNombre);
       if (exportFilters.patenteChasis) params.append('patenteChasis', exportFilters.patenteChasis);
 
-      const baseUrl = import.meta.env.VITE_REMITOS_API_URL || '/api/remitos';
+      // En Vite `import.meta.env` existe. En tests/Node puede no estar definido: fallback seguro.
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const baseUrl = (import.meta as unknown as { env?: { VITE_REMITOS_API_URL?: string } })?.env?.VITE_REMITOS_API_URL || '/api/remitos';
       const response = await fetch(`${baseUrl}/export?${params.toString()}`, {
         headers: {
           'Authorization': `Bearer ${token}`,

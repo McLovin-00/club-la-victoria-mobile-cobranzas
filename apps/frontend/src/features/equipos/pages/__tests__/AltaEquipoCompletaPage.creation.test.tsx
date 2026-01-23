@@ -11,10 +11,10 @@ import {
     mockTemplates,
     mockDadores,
     mockClientes,
-} from './__mocks__/mockTestData';
+} from '../__mocks__/mockTestData';
 import {
     createMockStore,
-} from './__mocks__/mockApiHooks';
+} from '../__mocks__/mockApiHooks';
 
 // Definir mocks
 const useGetTemplatesQuery = jest.fn() as any;

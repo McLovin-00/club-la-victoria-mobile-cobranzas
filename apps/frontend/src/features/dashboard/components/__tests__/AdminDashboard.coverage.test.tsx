@@ -2,13 +2,15 @@
  * Tests de cobertura para AdminDashboard usando jest.unstable_mockModule
  */
 import React from 'react';
-import { describe, it, expect, beforeEach, jest } from '@jest/globals';
-import { render, screen } from '@testing-library/react';
+import { describe, it, expect, beforeAll, beforeEach, jest, afterEach } from '@jest/globals';
+import { render, screen, fireEvent, waitFor, act } from '@testing-library/react';
+import '@testing-library/jest-dom';
 
 describe('AdminDashboard - Coverage', () => {
   let AdminDashboard: React.FC;
   let useGetAdminDashboardQuery: jest.Mock;
   let useRefreshDashboardMutation: jest.Mock;
+  let mockShowToast: jest.Mock;
 
   const mockRefetch = jest.fn();
   const mockRefresh = jest.fn();
@@ -26,15 +28,16 @@ describe('AdminDashboard - Coverage', () => {
 
     // Mock de componentes UI
     await jest.unstable_mockModule('@/components/ui/card', () => ({
-      Card: ({ children, className }: any) => <div className={className}>{children}</div>,
+      Card: ({ children, className }: { children: React.ReactNode; className?: string }) => <div className={className}>{children}</div>,
     }));
 
+    mockShowToast = jest.fn();
     await jest.unstable_mockModule('@/components/ui/Toast.utils', () => ({
-      showToast: jest.fn(),
+      showToast: (...args: unknown[]) => mockShowToast(...args),
     }));
 
     await jest.unstable_mockModule('@/components/ui/button', () => ({
-      Button: ({ children, onClick, disabled, variant, size }: any) => (
+      Button: ({ children, onClick, disabled, variant, size }: { children: React.ReactNode; onClick?: () => void; disabled?: boolean; variant?: string; size?: string }) => (
         <button onClick={onClick} disabled={disabled} data-variant={variant} data-size={size}>
           {children}
         </button>
@@ -42,13 +45,13 @@ describe('AdminDashboard - Coverage', () => {
     }));
 
     await jest.unstable_mockModule('@/components/ui/spinner', () => ({
-      Spinner: ({ className }: any) => <div className={className} data-testid="spinner">Spinner</div>,
+      Spinner: ({ className }: { className?: string }) => <div className={className} data-testid="spinner">Spinner</div>,
     }));
 
     await jest.unstable_mockModule('@/components/icons', () => ({
-      UserIcon: ({ className }: any) => <span className={className}>UserIcon</span>,
-      BuildingOfficeIcon: ({ className }: any) => <span className={className}>BuildingIcon</span>,
-      ArrowPathIcon: ({ className }: any) => <span className={className}>RefreshIcon</span>,
+      UserIcon: ({ className }: { className?: string }) => <span className={className}>UserIcon</span>,
+      BuildingOfficeIcon: ({ className }: { className?: string }) => <span className={className}>BuildingIcon</span>,
+      ArrowPathIcon: ({ className }: { className?: string }) => <span className={className}>RefreshIcon</span>,
     }));
 
     await jest.unstable_mockModule('../ServiceWidgets', () => ({
@@ -62,6 +65,10 @@ describe('AdminDashboard - Coverage', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
+    mockRefetch.mockResolvedValue({});
+    mockRefresh.mockReturnValue({
+      unwrap: () => Promise.resolve({}),
+    });
     useGetAdminDashboardQuery.mockReturnValue({
       data: null,
       isLoading: false,
@@ -329,5 +336,100 @@ describe('AdminDashboard - Coverage', () => {
     expect(screen.getByText('50%')).toBeInTheDocument();
     expect(screen.getByText('Bot Green')).toBeInTheDocument();
     expect(screen.getByText('90%')).toBeInTheDocument();
+  });
+
+  it('debería llamar a handleRefresh correctamente cuando se hace clic en Actualizar', async () => {
+    useGetAdminDashboardQuery.mockReturnValue({
+      data: {
+        usersCount: 1,
+        clientsCount: 0,
+        bots: [],
+        botCompleteness: [],
+        users: [],
+        recentActivity: [],
+      },
+      isLoading: false,
+      error: null,
+      refetch: mockRefetch,
+    });
+
+    render(<AdminDashboard />);
+
+    const refreshButton = screen.getByText('Actualizar');
+    
+    await act(async () => {
+      fireEvent.click(refreshButton);
+    });
+
+    await waitFor(() => {
+      expect(mockRefresh).toHaveBeenCalled();
+      expect(mockRefetch).toHaveBeenCalled();
+      expect(mockShowToast).toHaveBeenCalledWith('Dashboard actualizado correctamente', 'success');
+    });
+  });
+
+  it('debería manejar error en handleRefresh', async () => {
+    mockRefresh.mockReturnValue({
+      unwrap: () => Promise.reject(new Error('Error de refresh')),
+    });
+    const consoleSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
+
+    useGetAdminDashboardQuery.mockReturnValue({
+      data: {
+        usersCount: 1,
+        clientsCount: 0,
+        bots: [],
+        botCompleteness: [],
+        users: [],
+        recentActivity: [],
+      },
+      isLoading: false,
+      error: null,
+      refetch: mockRefetch,
+    });
+
+    render(<AdminDashboard />);
+
+    const refreshButton = screen.getByText('Actualizar');
+    
+    await act(async () => {
+      fireEvent.click(refreshButton);
+    });
+
+    await waitFor(() => {
+      expect(mockRefresh).toHaveBeenCalled();
+      expect(consoleSpy).toHaveBeenCalledWith('Error al actualizar dashboard:', expect.anything());
+      expect(mockShowToast).toHaveBeenCalledWith('Error al actualizar dashboard', 'error');
+    });
+
+    consoleSpy.mockRestore();
+  });
+
+  it('debería mostrar spinner en botón mientras se actualiza', () => {
+    useRefreshDashboardMutation.mockReturnValue([
+      mockRefresh,
+      { isLoading: true },
+    ]);
+
+    useGetAdminDashboardQuery.mockReturnValue({
+      data: {
+        usersCount: 1,
+        clientsCount: 0,
+        bots: [],
+        botCompleteness: [],
+        users: [],
+        recentActivity: [],
+      },
+      isLoading: false,
+      error: null,
+      refetch: mockRefetch,
+    });
+
+    render(<AdminDashboard />);
+
+    const refreshButton = screen.getByText('Actualizar');
+    expect(refreshButton).toBeDisabled();
+    // There should be a spinner in the button area
+    expect(screen.getAllByTestId('spinner').length).toBeGreaterThan(0);
   });
 });

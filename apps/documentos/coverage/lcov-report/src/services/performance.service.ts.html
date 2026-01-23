@@ -954,7 +954,16 @@ export class PerformanceService {
       const whereClause = empresaId ? 'WHERE empresa_id = $1' : '';
       const params = empresaId ? [empresaId] : [];
 &nbsp;
-      const results = await db.getClient().$queryRawUnsafe(`
+      const results = await db.getClient().$queryRawUnsafe&lt;Array&lt;{
+        empresaId: number;
+        entityType: string;
+        entityId: number;
+        redCount: number;
+        yellowCount: number;
+        greenCount: number;
+        totalCount: number;
+        lastUpdated: Date;
+      }&gt;&gt;(`
         SELECT 
           empresa_id as "empresaId",
           entity_type as "entityType", 
@@ -967,16 +976,7 @@ export class PerformanceService {
         FROM document_status_summary 
         ${whereClause}
         ORDER BY red_count DESC, yellow_count DESC
-      `, ...params) as Array&lt;{
-        empresaId: number;
-        entityType: string;
-        entityId: number;
-        redCount: number;
-        yellowCount: number;
-        greenCount: number;
-        totalCount: number;
-        lastUpdated: Date;
-      }&gt;;
+      `, ...params);
 &nbsp;
       // Calcular estado general para cada entidad
       return results.map(row =&gt; ({
@@ -1003,7 +1003,16 @@ export class PerformanceService {
     avgProcessingHours: number;
   }&gt; {
     try {
-      const result = await db.getClient().$queryRawUnsafe(`
+      const result = await db.getClient().$queryRawUnsafe&lt;Array&lt;{
+        totalDocuments: number;
+        pendingCount: number;
+        validatingCount: number;
+        approvedCount: number;
+        rejectedCount: number;
+        expiredCount: number;
+        activeCompanies: number;
+        avgProcessingHours: number;
+      }&gt;&gt;(`
         SELECT 
           total_documents as "totalDocuments",
           pending_count as "pendingCount",
@@ -1015,16 +1024,7 @@ export class PerformanceService {
           COALESCE(avg_processing_hours, 0) as "avgProcessingHours"
         FROM global_document_stats
         LIMIT 1
-      `) as Array&lt;{
-        totalDocuments: number;
-        pendingCount: number;
-        validatingCount: number;
-        approvedCount: number;
-        rejectedCount: number;
-        expiredCount: number;
-        activeCompanies: number;
-        avgProcessingHours: number;
-      }&gt;;
+      `);
 &nbsp;
       return result[0] || {
         totalDocuments: 0,
@@ -1109,7 +1109,13 @@ export class PerformanceService {
     totalCount: number;
   }&gt;&gt; {
     try {
-      const rows = await db.getClient().$queryRawUnsafe(`
+      const rows = await db.getClient().$queryRawUnsafe&lt;Array&lt;{
+        tenantId: number;
+        redCount: number;
+        yellowCount: number;
+        greenCount: number;
+        totalCount: number;
+      }&gt;&gt;(`
         SELECT 
           tenant_id   AS "tenantId",
           SUM(red_count)    AS "redCount",
@@ -1119,13 +1125,7 @@ export class PerformanceService {
         FROM ${this.mvName}
         GROUP BY tenant_id
         ORDER BY tenant_id
-      `) as Array&lt;{
-        tenantId: number;
-        redCount: number;
-        yellowCount: number;
-        greenCount: number;
-        totalCount: number;
-      }&gt;;
+      `);
       return rows;
     } catch (_e) {
       AppLogger.error('💥 Error obteniendo agregados por tenant:', _e);
@@ -1183,24 +1183,24 @@ export class PerformanceService {
   }&gt; {
     try {
       // Conexiones activas
-      const connectionsResult = await db.getClient().$queryRawUnsafe(`
+      const connectionsResult = await db.getClient().$queryRawUnsafe&lt;Array&lt;{ connections: bigint }&gt;&gt;(`
         SELECT count(*) as connections 
         FROM pg_stat_activity 
         WHERE state = 'active'
-      `) as Array&lt;{ connections: bigint }&gt;;
+      `);
 &nbsp;
       // Edad de la vista materializada
-      const viewAgeResult = await db.getClient().$queryRawUnsafe(`
+      const viewAgeResult = await db.getClient().$queryRawUnsafe&lt;Array&lt;{ age_minutes: number }&gt;&gt;(`
         SELECT 
           EXTRACT(EPOCH FROM (NOW() - MAX(last_updated)))/60 as age_minutes
         FROM document_status_summary
-      `) as Array&lt;{ age_minutes: number }&gt;;
+      `);
 &nbsp;
       return {
         databaseConnections: Number(connectionsResult[0]?.connections || <span class="branch-1 cbranch-no" title="branch not covered" >0)</span>,
         materializedViewAge: viewAgeResult[0]?.age_minutes || <span class="branch-1 cbranch-no" title="branch not covered" >0,</span>
-        avgQueryTime: 0, // TODO: Implementar con pg_stat_statements
-        cacheHitRatio: 0, // TODO: Implementar cache metrics
+        avgQueryTime: 0, // Requiere pg_stat_statements extension
+        cacheHitRatio: 0, // Requiere configuración de métricas de cache
       };
     } catch (_e) {
       AppLogger.error('💥 Error obteniendo métricas del sistema:', _e);
@@ -1261,7 +1261,7 @@ export const performanceService = PerformanceService.getInstance();</pre></td></
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2026-01-16T22:32:31.220Z
+                at 2026-01-23T02:17:30.926Z
             </div>
         <script src="../../prettify.js"></script>
         <script>

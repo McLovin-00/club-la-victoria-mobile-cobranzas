@@ -100,6 +100,8 @@ describe('EquipoService (high coverage)', () => {
 
     prismaMock.empresaTransportista.findFirst.mockResolvedValueOnce({ id: 1 } as any);
     prismaMock.chofer.findFirst.mockResolvedValueOnce({ id: 22 } as any);
+    // Simular chofer en uso por otro equipo activo
+    prismaMock.equipo.findFirst.mockResolvedValueOnce({ id: 99 } as any);
     await expect(EquipoService.createEquipoCompleto({
       tenantEmpresaId: 1,
       dadorCargaId: 2,
@@ -107,7 +109,7 @@ describe('EquipoService (high coverage)', () => {
       empresaTransportistaNombre: 'ET',
       choferDni: '12345678',
       camionPatente: 'AAA123',
-    } as any)).rejects.toMatchObject({ code: 'CHOFER_DUPLICADO' });
+    } as any)).rejects.toMatchObject({ code: 'CHOFER_EN_USO' });
   });
 
   it('rollbackAltaCompleta validates tenant and optionally deletes empresa when no other equipos', async () => {
@@ -194,7 +196,8 @@ describe('EquipoService (high coverage)', () => {
     prismaMock.chofer.findUnique.mockResolvedValueOnce({ id: 11, dadorCargaId: 2, dniNorm: '111' } as any);
     prismaMock.camion.findUnique.mockResolvedValueOnce({ id: 21, dadorCargaId: 2, patenteNorm: 'AAA123' } as any);
     prismaMock.acoplado.findUnique.mockResolvedValueOnce({ id: 31, dadorCargaId: 2, patenteNorm: 'BBB234' } as any);
-    prismaMock.empresaTransportista.findUnique.mockResolvedValueOnce({ id: 41, dadorCargaId: 2 } as any);
+    // validateEmpresaChange usa findFirst, no findUnique
+    prismaMock.empresaTransportista.findFirst.mockResolvedValueOnce({ id: 41, dadorCargaId: 2 } as any);
 
     prismaMock.equipo.update.mockResolvedValueOnce({ id: 1 } as any);
     prismaMock.equipoHistory.create.mockResolvedValueOnce({} as any);

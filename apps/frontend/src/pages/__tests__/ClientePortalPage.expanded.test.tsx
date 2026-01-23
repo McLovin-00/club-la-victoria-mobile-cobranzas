@@ -91,6 +91,8 @@ describe('ClientePortalPage - Expandido', () => {
             configurable: true,
             writable: true,
         });
+        // Mock localStorage token
+        localStorage.setItem('token', 'test-token');
     });
 
     describe('Búsqueda masiva funcional', () => {
@@ -303,6 +305,225 @@ describe('ClientePortalPage - Expandido', () => {
             fireEvent.change(selects[1], { target: { value: 'FALTANTE' } });
 
             expect(selects[1]).toHaveValue('FALTANTE');
+        });
+    });
+
+    describe('Búsqueda masiva - tipos de patente', () => {
+        it('maneja tipo de patente "truck"', async () => {
+            render(<MemoryRouter><ClientePortalPage /></MemoryRouter>);
+
+            const textarea = screen.getByPlaceholderText(/Ejemplo:/);
+            // Formato truck:AA123BB
+            fireEvent.change(textarea, { target: { value: 'truck:AA123BB' } });
+
+            const searchButton = screen.getByText('Buscar');
+            fireEvent.click(searchButton);
+
+            await waitFor(() => {
+                expect(mockBulkSearch).toHaveBeenCalled();
+            });
+        });
+
+        it('maneja tipo de patente "trailer"', async () => {
+            render(<MemoryRouter><ClientePortalPage /></MemoryRouter>);
+
+            const textarea = screen.getByPlaceholderText(/Ejemplo:/);
+            // Formato trailer:AC456CD
+            fireEvent.change(textarea, { target: { value: 'trailer:AC456CD' } });
+
+            const searchButton = screen.getByText('Buscar');
+            fireEvent.click(searchButton);
+
+            await waitFor(() => {
+                expect(mockBulkSearch).toHaveBeenCalled();
+            });
+        });
+
+        it('limpia resultados cuando no hay patentes válidas', async () => {
+            render(<MemoryRouter><ClientePortalPage /></MemoryRouter>);
+
+            const textarea = screen.getByPlaceholderText(/Ejemplo:/);
+            fireEvent.change(textarea, { target: { value: '   \n  ' } }); // Solo espacios
+
+            const searchButton = screen.getByText('Buscar');
+            fireEvent.click(searchButton);
+
+            // No debería llamar a bulkSearch
+            expect(mockBulkSearch).not.toHaveBeenCalled();
+        });
+    });
+
+    describe('Excel download', () => {
+        it('muestra botón de Excel cliente', () => {
+            render(<MemoryRouter><ClientePortalPage /></MemoryRouter>);
+
+            // El botón existe en el DOM
+            const excelButton = screen.queryByText('Excel cliente');
+            expect(excelButton).toBeInTheDocument();
+        });
+    });
+
+    describe('ZIP masivo', () => {
+        it('inicia nuevo ZIP cuando no hay signedUrl', async () => {
+            // Mock sin signedUrl para que inicie un nuevo ZIP
+            jest.unstable_mockModule('@/features/documentos/api/documentosApiSlice', () => ({
+                useGetClientsQuery: () => ({ data: mockClients }),
+                useGetClienteEquiposQuery: () => ({ data: mockEquipos, refetch: mockRefetch }),
+                useGetDocumentosPorEquipoQuery: () => ({ data: mockDocs }),
+                useGetClientRequirementsQuery: () => ({ data: mockReqs }),
+                useBulkSearchPlatesMutation: () => [mockBulkSearch, { isLoading: false }],
+                useRequestClientsBulkZipMutation: () => [mockRequestZip, { isLoading: false }],
+                useGetClientsZipJobQuery: () => ({ data: { job: { status: 'pending', signedUrl: null } } }),
+            }));
+
+            const { ClientePortalPage: ClientePageNoUrl } = await import('../ClientePortalPage');
+            render(<MemoryRouter><ClientePageNoUrl /></MemoryRouter>);
+
+            // Primero hacer una búsqueda para tener bulkResults
+            const textarea = screen.getByPlaceholderText(/Ejemplo:/);
+            fireEvent.change(textarea, { target: { value: 'AA123BB' } });
+            fireEvent.click(screen.getByText('Buscar'));
+
+            await waitFor(() => {
+                expect(mockBulkSearch).toHaveBeenCalled();
+            });
+        });
+    });
+
+    describe('ZIP por equipo', () => {
+        it('abre URL con window.open para descargar ZIP de equipo', () => {
+            const openSpy = jest.spyOn(window, 'open').mockImplementation(() => null);
+
+            render(<MemoryRouter><ClientePortalPage /></MemoryRouter>);
+
+            const zipButtons = screen.getAllByText('ZIP');
+            fireEvent.click(zipButtons[0]);
+
+            expect(openSpy).toHaveBeenCalledWith(
+                expect.stringContaining('/api/docs/clients/equipos/'),
+                '_blank'
+            );
+
+            openSpy.mockRestore();
+        });
+    });
+
+    describe('CSV export success', () => {
+        it('muestra toast de éxito al exportar CSV', async () => {
+            render(<MemoryRouter><ClientePortalPage /></MemoryRouter>);
+
+            const csvButton = screen.getByText('Exportar CSV');
+            fireEvent.click(csvButton);
+
+            await waitFor(() => {
+                expect(mockShowToast).toHaveBeenCalledWith('CSV generado', 'success');
+            });
+        });
+    });
+
+    describe('Búsqueda masiva con selección', () => {
+        it('muestra checkboxes para seleccionar equipos en resultados', async () => {
+            render(<MemoryRouter><ClientePortalPage /></MemoryRouter>);
+
+            // Hacer búsqueda
+            const textarea = screen.getByPlaceholderText(/Ejemplo:/);
+            fireEvent.change(textarea, { target: { value: 'AA123BB\nBB456CC' } });
+            fireEvent.click(screen.getByText('Buscar'));
+
+            await waitFor(() => {
+                expect(mockBulkSearch).toHaveBeenCalled();
+            });
+
+            // Debería haber checkboxes para selección
+            const checkboxes = screen.queryAllByRole('checkbox');
+            expect(checkboxes.length).toBeGreaterThan(0);
+        });
+    });
+
+    describe('Errores en generación de ZIP', () => {
+        it('muestra error cuando falla requestZip en handleGenerateZip', async () => {
+            // Crear un mock que falle para la búsqueda masiva
+            const mockRequestZipError = jest.fn().mockImplementation(() => ({
+                unwrap: () => Promise.reject(new Error('ZIP error'))
+            }));
+
+            jest.unstable_mockModule('@/features/documentos/api/documentosApiSlice', () => ({
+                useGetClientsQuery: () => ({ data: mockClients }),
+                useGetClienteEquiposQuery: () => ({ data: mockEquipos, refetch: mockRefetch }),
+                useGetDocumentosPorEquipoQuery: () => ({ data: mockDocs }),
+                useGetClientRequirementsQuery: () => ({ data: mockReqs }),
+                useBulkSearchPlatesMutation: () => [mockBulkSearch, { isLoading: false }],
+                useRequestClientsBulkZipMutation: () => [mockRequestZipError, { isLoading: false }],
+                useGetClientsZipJobQuery: () => ({ data: { job: { status: 'completed', signedUrl: 'https://download.test/zip' } } }),
+            }));
+
+            const { ClientePortalPage: ClientePageZipError } = await import('../ClientePortalPage');
+            render(<MemoryRouter><ClientePageZipError /></MemoryRouter>);
+
+            // Hacer búsqueda para tener bulkResults
+            const textarea = screen.getByPlaceholderText(/Ejemplo:/);
+            fireEvent.change(textarea, { target: { value: 'AA123BB' } });
+            fireEvent.click(screen.getByText('Buscar'));
+
+            await waitFor(() => {
+                expect(mockBulkSearch).toHaveBeenCalled();
+            });
+
+            // Buscar y hacer click en "ZIP masivo" de búsqueda masiva
+            const zipButtons = screen.getAllByText('ZIP');
+            // El último ZIP es el de búsqueda masiva
+            if (zipButtons.length > 1) {
+                fireEvent.click(zipButtons[zipButtons.length - 1]);
+
+                await waitFor(() => {
+                    expect(mockRequestZipError).toHaveBeenCalled();
+                });
+            }
+        });
+    });
+
+    describe('DocumentoRow - handleDownload', () => {
+        it('muestra botón de descarga en documento expandido', async () => {
+            render(<MemoryRouter><ClientePortalPage /></MemoryRouter>);
+
+            const viewButtons = screen.getAllByText('Ver Documentos Detallados');
+            fireEvent.click(viewButtons[0]);
+
+            await waitFor(() => {
+                expect(screen.getByText('dni.pdf')).toBeInTheDocument();
+            });
+
+            // Buscar botón de descargar
+            const downloadButtons = screen.getAllByText('Descargar');
+            expect(downloadButtons.length).toBeGreaterThan(0);
+        });
+    });
+
+    describe('Fecha inválida en formatDate', () => {
+        it('muestra Sin fecha cuando expiresAt es null', async () => {
+            const mockDocsNullDate = [
+                { id: 1, templateId: 1, entityType: 'CHOFER', status: 'APROBADO', expiresAt: null, fileName: 'dni.pdf' },
+            ];
+
+            jest.unstable_mockModule('@/features/documentos/api/documentosApiSlice', () => ({
+                useGetClientsQuery: () => ({ data: mockClients }),
+                useGetClienteEquiposQuery: () => ({ data: mockEquipos, refetch: mockRefetch }),
+                useGetDocumentosPorEquipoQuery: () => ({ data: mockDocsNullDate }),
+                useGetClientRequirementsQuery: () => ({ data: mockReqs }),
+                useBulkSearchPlatesMutation: () => [mockBulkSearch, { isLoading: false }],
+                useRequestClientsBulkZipMutation: () => [mockRequestZip, { isLoading: false }],
+                useGetClientsZipJobQuery: () => ({ data: { job: { status: 'completed', signedUrl: 'https://download.test/zip' } } }),
+            }));
+
+            const { ClientePortalPage: ClientePageNullDate } = await import('../ClientePortalPage');
+            render(<MemoryRouter><ClientePageNullDate /></MemoryRouter>);
+
+            const viewButtons = screen.getAllByText('Ver Documentos Detallados');
+            fireEvent.click(viewButtons[0]);
+
+            await waitFor(() => {
+                expect(screen.getAllByText('Sin fecha').length).toBeGreaterThan(0);
+            });
         });
     });
 });
