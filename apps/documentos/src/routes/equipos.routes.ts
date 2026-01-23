@@ -563,4 +563,87 @@ router.get('/:id/summary.xlsx', validate(equipoSummarySchema), async (req: any, 
   }
 });
 
+// ============================================================================
+// PRE-CHECK: Verificación de documentos existentes para reutilización
+// ============================================================================
+import { DocumentPreCheckService } from '../services/document-precheck.service';
+import { EquipoEvaluationService } from '../services/equipo-evaluation.service';
+
+const preCheckSchema = z.object({
+  body: z.object({
+    entidades: z.array(z.object({
+      entityType: z.enum(['CHOFER', 'CAMION', 'ACOPLADO', 'EMPRESA_TRANSPORTISTA']),
+      identificador: z.string().min(1).max(32),
+    })).min(1).max(20),
+    clienteId: z.number().int().positive().optional(),
+  }),
+});
+
+router.post('/pre-check', validate(preCheckSchema), async (req: any, res) => {
+  try {
+    const { entidades, clienteId } = req.body;
+    const tenantEmpresaId = req.tenantId!;
+    const dadorCargaId = req.dadorCargaId!;
+
+    const result = await DocumentPreCheckService.preCheck({
+      tenantEmpresaId,
+      dadorCargaIdSolicitante: dadorCargaId,
+      entidades,
+      clienteId,
+    });
+
+    return res.json({ success: true, data: result });
+  } catch (error) {
+    AppLogger.error('💥 Error en pre-check', error);
+    return res.status(500).json({ success: false, message: 'Error verificando documentos' });
+  }
+});
+
+// Evaluar estado documental de un equipo
+router.post('/:id/evaluar', authorize(ADMIN_ROLES), async (req: any, res) => {
+  try {
+    const equipoId = Number(req.params.id);
+    if (!Number.isInteger(equipoId) || equipoId <= 0) {
+      return res.status(400).json({ success: false, message: 'ID de equipo inválido' });
+    }
+
+    const resultado = await EquipoEvaluationService.evaluarEquipo(equipoId);
+    if (!resultado) {
+      return res.status(404).json({ success: false, message: 'Equipo no encontrado' });
+    }
+
+    return res.json({ success: true, data: resultado });
+  } catch (error) {
+    AppLogger.error('💥 Error evaluando equipo', error);
+    return res.status(500).json({ success: false, message: 'Error evaluando equipo' });
+  }
+});
+
+// Evaluar múltiples equipos (batch)
+router.post('/evaluar-batch', authorize(ADMIN_ROLES), async (req: any, res) => {
+  try {
+    const equipoIds = (req.body?.equipoIds || [])
+      .map((id: unknown) => Number(id))
+      .filter((id: number) => Number.isInteger(id) && id > 0)
+      .slice(0, 100); // Límite de 100 equipos por batch
+
+    if (equipoIds.length === 0) {
+      return res.status(400).json({ success: false, message: 'Se requieren IDs de equipos' });
+    }
+
+    const resultados = await EquipoEvaluationService.evaluarEquipos(equipoIds);
+    return res.json({ 
+      success: true, 
+      data: {
+        evaluados: resultados.length,
+        actualizados: resultados.filter(r => r.cambio).length,
+        resultados,
+      },
+    });
+  } catch (error) {
+    AppLogger.error('💥 Error en evaluación batch', error);
+    return res.status(500).json({ success: false, message: 'Error en evaluación batch' });
+  }
+});
+
 export default router;

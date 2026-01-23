@@ -36,6 +36,7 @@ export class SchedulerService {
       this.schedulePerformanceOptimization();
       this.scheduleNotifications();
       this.scheduleAuditRetention();
+      this.scheduleNotificationCleanup();
       
       AppLogger.info('✅ Todas las tareas programadas iniciadas');
     } catch (error) {
@@ -209,6 +210,38 @@ export class SchedulerService {
     this.tasks.set('documents-expiry-normalization', normTask); normTask.start();
 
     AppLogger.info('⏰ Tareas programadas: Notificaciones (vencimientos cada hora, faltantes diario 07:00)');
+  }
+
+  /**
+   * Programar limpieza automática de notificaciones (diario 04:00)
+   */
+  private scheduleNotificationCleanup(): void {
+    const task = cron.schedule('0 4 * * *', async () => {
+      try {
+        AppLogger.info('🧹 Ejecutando limpieza de notificaciones');
+        const { InternalNotificationService } = await import('./internal-notification.service');
+        
+        // 1. Eliminar notificaciones soft-deleted después de 30 días
+        const deleted = await InternalNotificationService.cleanupOldNotifications(30);
+        
+        // 2. Auto-borrar notificaciones leídas después de 90 días
+        const autoDeleted = await InternalNotificationService.cleanupOldReadNotifications(90);
+        
+        if (deleted > 0 || autoDeleted > 0) {
+          AppLogger.info(`🧹 Limpieza de notificaciones completada`, { 
+            eliminadasPermanentemente: deleted, 
+            autoborradas: autoDeleted 
+          });
+        }
+      } catch (error) {
+        AppLogger.error('💥 Error en limpieza de notificaciones:', error);
+      }
+    });
+
+    this.tasks.set('notification-cleanup', task);
+    task.start();
+    
+    AppLogger.info('⏰ Tarea programada: Limpieza de notificaciones (diario 04:00)');
   }
 
   /**

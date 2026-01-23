@@ -82,7 +82,7 @@ export const documentosApiSlice = createApi({
       return headers;
     },
   }),
-  tagTypes: ['DocumentTemplate', 'Document', 'Dashboard', 'Clients', 'Equipos', 'Search', 'ClientRequirements', 'Maestros', 'Approval', 'EmpresasTransportistas', 'ExtractedData', 'Notifications'],
+  tagTypes: ['DocumentTemplate', 'Document', 'Dashboard', 'Clients', 'Equipos', 'Search', 'ClientRequirements', 'Maestros', 'Approval', 'EmpresasTransportistas', 'ExtractedData', 'Notifications', 'Transferencias'],
   endpoints: (builder) => ({
     // =================================
     // COMPLIANCE
@@ -1248,6 +1248,136 @@ export const documentosApiSlice = createApi({
     }),
 
     // =================================
+    // PRE-CHECK DE DOCUMENTOS (Reutilización)
+    // =================================
+    preCheckDocumentos: builder.mutation<
+      {
+        entidades: Array<{
+          entityType: string;
+          entityId: number | null;
+          identificador: string;
+          nombre?: string;
+          existe: boolean;
+          dadorCargaActualId: number | null;
+          dadorCargaActualNombre?: string;
+          perteneceSolicitante: boolean;
+          requiereTransferencia: boolean;
+          documentos: Array<{
+            id: number;
+            templateId: number;
+            templateName: string;
+            estado: 'VIGENTE' | 'POR_VENCER' | 'VENCIDO' | 'PENDIENTE' | 'RECHAZADO' | 'FALTANTE';
+            expiresAt: string | null;
+            diasParaVencer: number | null;
+            reutilizable: boolean;
+            requiereTransferencia: boolean;
+          }>;
+          resumen: {
+            total: number;
+            vigentes: number;
+            porVencer: number;
+            vencidos: number;
+            pendientes: number;
+            rechazados: number;
+            faltantes: number;
+            completo: boolean;
+          };
+        }>;
+        hayEntidadesDeOtroDador: boolean;
+        requiereTransferencia: boolean;
+        dadorActualIds: number[];
+      },
+      { entidades: Array<{ entityType: string; identificador: string }>; clienteId?: number }
+    >({
+      query: (body) => ({
+        url: '/equipos/pre-check',
+        method: 'POST',
+        body,
+      }),
+      transformResponse: (r: any) => r?.data ?? r,
+    }),
+
+    // =================================
+    // TRANSFERENCIAS DE ENTIDADES
+    // =================================
+    crearSolicitudTransferencia: builder.mutation<
+      { id: number; estado: string; entidades: any[]; equiposAfectados: number[] },
+      { dadorActualId: number; entidades: Array<{ tipo: string; id: number; identificador: string; nombre?: string }>; motivo?: string }
+    >({
+      query: (body) => ({
+        url: '/transferencias',
+        method: 'POST',
+        body,
+      }),
+      transformResponse: (r: any) => r?.data ?? r,
+      invalidatesTags: ['Transferencias'],
+    }),
+
+    getTransferenciasPendientes: builder.query<
+      { solicitudes: any[]; total: number },
+      void
+    >({
+      query: () => '/transferencias/pendientes',
+      transformResponse: (r: any) => r?.data ?? { solicitudes: [], total: 0 },
+      providesTags: ['Transferencias'],
+    }),
+
+    getTransferencias: builder.query<
+      { solicitudes: any[]; total: number },
+      { estado?: string; limit?: number; offset?: number }
+    >({
+      query: ({ estado, limit = 50, offset = 0 }) => ({
+        url: '/transferencias',
+        params: { estado, limit, offset },
+      }),
+      transformResponse: (r: any) => r?.data ?? { solicitudes: [], total: 0 },
+      providesTags: ['Transferencias'],
+    }),
+
+    getTransferencia: builder.query<any, { id: number }>({
+      query: ({ id }) => `/transferencias/${id}`,
+      transformResponse: (r: any) => r?.data ?? null,
+      providesTags: ['Transferencias'],
+    }),
+
+    aprobarTransferencia: builder.mutation<
+      { success: boolean; message: string; entidadesTransferidas: number },
+      { id: number }
+    >({
+      query: ({ id }) => ({
+        url: `/transferencias/${id}/aprobar`,
+        method: 'POST',
+      }),
+      transformResponse: (r: any) => r?.data ?? r,
+      invalidatesTags: ['Transferencias', 'Equipos', 'Maestros'],
+    }),
+
+    rechazarTransferencia: builder.mutation<
+      { success: boolean; message: string },
+      { id: number; motivoRechazo: string }
+    >({
+      query: ({ id, motivoRechazo }) => ({
+        url: `/transferencias/${id}/rechazar`,
+        method: 'POST',
+        body: { motivoRechazo },
+      }),
+      transformResponse: (r: any) => r?.data ?? r,
+      invalidatesTags: ['Transferencias'],
+    }),
+
+    cancelarTransferencia: builder.mutation<
+      { success: boolean; message: string },
+      { id: number }
+    >({
+      query: ({ id }) => ({
+        url: `/transferencias/${id}/cancelar`,
+        method: 'POST',
+      }),
+      transformResponse: (r: any) => r?.data ?? r,
+      invalidatesTags: ['Transferencias'],
+    }),
+
+    // =================================
     // DOCUMENTOS RECHAZADOS (DASHBOARD)
     // =================================
     getRejectedDocuments: builder.query<
@@ -1419,4 +1549,14 @@ export const {
   // Documentos rechazados
   useGetRejectedDocumentsQuery,
   useGetRejectedStatsQuery,
+  // Pre-check de documentos (reutilización)
+  usePreCheckDocumentosMutation,
+  // Transferencias de entidades
+  useCrearSolicitudTransferenciaMutation,
+  useGetTransferenciasPendientesQuery,
+  useGetTransferenciasQuery,
+  useGetTransferenciaQuery,
+  useAprobarTransferenciaMutation,
+  useRechazarTransferenciaMutation,
+  useCancelarTransferenciaMutation,
 } = documentosApiSlice;

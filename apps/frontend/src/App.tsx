@@ -51,6 +51,7 @@ import ClientePortalPage from './pages/ClientePortalPage';
 import DadoresPortalPage from './pages/DadoresPortalPage';
 import TransportistasPortalPage from './pages/TransportistasPortalPage';
 import { AdminInternoPortalPage } from './pages/AdminInternoPortalPage';
+import TransferenciasPage from './features/admin/pages/TransferenciasPage';
 // Portal Cliente (nuevo - solo lectura)
 import ClienteDashboard from './features/cliente/pages/ClienteDashboard';
 import ClienteEquipoDetalle from './features/cliente/pages/ClienteEquipoDetalle';
@@ -249,6 +250,7 @@ function App() {
               {/* Portal de Admin Interno */}
               <Route element={<RequireAuth allowedRoles={['ADMIN_INTERNO', 'ADMIN', 'SUPERADMIN']} />}> 
                 <Route path='/portal/admin-interno' element={<AdminInternoPortalPage />} />
+                <Route path='/admin/transferencias' element={<TransferenciasPage />} />
               </Route>
 
               {/* Portal Cliente (nuevo - solo lectura con endpoints dedicados) */}

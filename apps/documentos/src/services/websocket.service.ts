@@ -59,9 +59,13 @@ export class WebSocketService {
         socketData.empresaId = payload.empresaId ?? null;
         socketData.role = payload.role;
 
-        // Claims opcionales (solo lectura, para compatibilidad)
+        // Claims opcionales (solo lectura, para compatibilidad y salas específicas)
         const decoded: any = jwt.decode(token) || {};
         socketData.tenantEmpresaId = decoded.tenantEmpresaId ?? null;
+        socketData.dadorCargaId = decoded.dadorCargaId ?? null;
+        socketData.empresaTransportistaId = decoded.empresaTransportistaId ?? null;
+        socketData.choferId = decoded.choferId ?? null;
+        
         if (socketData.empresaId == null) {
           socketData.empresaId = decoded.empresaId ?? decoded.dadorCargaId ?? null;
         }
@@ -79,17 +83,37 @@ export class WebSocketService {
         userId: socket.userId,
         empresaId: socket.empresaId,
         role: socket.role,
+        dadorCargaId: socket.dadorCargaId,
+        empresaTransportistaId: socket.empresaTransportistaId,
+        choferId: socket.choferId,
         connectedAt: new Date(),
       };
 
       this.connectedClients.set(socket.id, clientInfo);
       
-      AppLogger.info(`Cliente conectado: ${socket.id} (Empresa: ${socket.empresaId})`);
+      AppLogger.info(`Cliente conectado: ${socket.id} (Usuario: ${socket.userId}, Rol: ${socket.role})`);
 
-      // Unir al cliente a salas específicas
+      // Unir al cliente a salas específicas por usuario (para notificaciones directas)
+      socket.join(`user_${socket.userId}`);
+      
+      // Sala por empresa/tenant
       socket.join(`empresa_${socket.empresaId}`);
+      
+      // Salas por rol jerárquico
       if (socket.role === 'SUPERADMIN') {
         socket.join('superadmin');
+      }
+      if (socket.role === 'ADMIN' || socket.role === 'ADMIN_INTERNO') {
+        socket.join(`admin_${socket.empresaId}`);
+      }
+      if (socket.dadorCargaId) {
+        socket.join(`dador_${socket.dadorCargaId}`);
+      }
+      if (socket.empresaTransportistaId) {
+        socket.join(`transportista_${socket.empresaTransportistaId}`);
+      }
+      if (socket.choferId) {
+        socket.join(`chofer_${socket.choferId}`);
       }
 
       socket.on('disconnect', () => {

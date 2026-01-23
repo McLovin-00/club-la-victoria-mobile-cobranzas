@@ -389,7 +389,7 @@ export class ApprovalService {
     tenantEmpresaId: number,
     reviewData: ReviewData
   ): Promise<any> {
-    return db.getClient().$transaction(async (tx) => {
+    const result = await db.getClient().$transaction(async (tx) => {
       // 1. Obtener documento
       const document = await tx.document.findFirst({
         where: { id: documentId, tenantEmpresaId, status: 'PENDIENTE_APROBACION' as DocumentStatus },
@@ -467,6 +467,18 @@ export class ApprovalService {
 
       return updated;
     });
+
+    // 9. Disparar event handlers para re-evaluar equipos (async, no bloquea)
+    setImmediate(async () => {
+      try {
+        const { DocumentEventHandlers } = await import('./document-event-handlers.service');
+        await DocumentEventHandlers.onDocumentApproved(documentId);
+      } catch (err) {
+        AppLogger.error('Error en event handler de documento aprobado', err);
+      }
+    });
+
+    return result;
   }
 
   static async rejectDocument(
@@ -521,6 +533,16 @@ export class ApprovalService {
         );
       } catch (error) {
         AppLogger.error('Error enviando notificaciones de rechazo:', error);
+      }
+    });
+
+    // Disparar event handlers para re-evaluar equipos (async, no bloquea)
+    setImmediate(async () => {
+      try {
+        const { DocumentEventHandlers } = await import('./document-event-handlers.service');
+        await DocumentEventHandlers.onDocumentRejected(documentId, reviewData.reason);
+      } catch (err) {
+        AppLogger.error('Error en event handler de documento rechazado', err);
       }
     });
 

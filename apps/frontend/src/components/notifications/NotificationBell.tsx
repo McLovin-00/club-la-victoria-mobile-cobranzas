@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { BellIcon } from '@heroicons/react/24/outline';
 import { BellAlertIcon } from '@heroicons/react/24/solid';
 import {
@@ -12,11 +12,37 @@ import { formatDistanceToNow } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { Link } from 'react-router-dom';
 
+// Iconos por tipo de notificación
+const getNotificationIcon = (type: string): string => {
+  const icons: Record<string, string> = {
+    DOCUMENT_APPROVED: '✅',
+    DOCUMENT_REJECTED: '❌',
+    DOCUMENT_EXPIRING: '🟠',
+    DOCUMENT_EXPIRING_URGENT: '🔴',
+    DOCUMENT_EXPIRED: '⏰',
+    DOCUMENT_UPLOADED: '📤',
+    DOCUMENT_MISSING: '📋',
+    EQUIPO_COMPLETE: '✅',
+    EQUIPO_INCOMPLETE: '⚠️',
+    EQUIPO_ESTADO_ACTUALIZADO: '🔄',
+    EQUIPO_BLOQUEADO: '🚫',
+    TRANSFERENCIA_SOLICITADA: '🔀',
+    TRANSFERENCIA_APROBADA: '✅',
+    TRANSFERENCIA_RECHAZADA: '❌',
+    NUEVO_REQUISITO_CLIENTE: '📋',
+    SYSTEM_ALERT: '🔔',
+  };
+  return icons[type] || '🔔';
+};
+
 export const NotificationBell = () => {
   const [isOpen, setIsOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
+  const prevUnreadCount = useRef<number>(0);
 
-  const { data: unreadCount = 0, refetch: refetchCount } = useGetUnreadNotificationsCountQuery();
+  const { data: unreadCount = 0, refetch: refetchCount } = useGetUnreadNotificationsCountQuery(undefined, {
+    pollingInterval: 30000, // Poll cada 30 segundos
+  });
   const { data: notificationsData, refetch: refetchNotifications } = useGetUserNotificationsQuery(
     { page: 1, limit: 10, unreadOnly: false },
     { skip: !isOpen }
@@ -27,6 +53,15 @@ export const NotificationBell = () => {
   const [deleteNotification] = useDeleteNotificationMutation();
 
   const notifications = notificationsData?.data ?? [];
+
+  // Efecto para animación cuando llegan nuevas notificaciones
+  useEffect(() => {
+    if (unreadCount > prevUnreadCount.current && prevUnreadCount.current > 0) {
+      // Hay nuevas notificaciones, podríamos agregar sonido aquí si se desea
+      console.log('🔔 Nueva notificación recibida');
+    }
+    prevUnreadCount.current = unreadCount;
+  }, [unreadCount]);
 
   // Cerrar dropdown al hacer clic fuera
   useEffect(() => {
@@ -44,6 +79,13 @@ export const NotificationBell = () => {
       document.removeEventListener('mousedown', handleClickOutside);
     };
   }, [isOpen]);
+
+  const handleToggle = useCallback(() => {
+    setIsOpen(prev => !prev);
+    if (!isOpen) {
+      refetchNotifications();
+    }
+  }, [isOpen, refetchNotifications]);
 
   const handleNotificationClick = async (notification: any) => {
     if (!notification.read) {
@@ -65,54 +107,91 @@ export const NotificationBell = () => {
 
   const handleDelete = async (notificationId: number, e: React.MouseEvent) => {
     e.stopPropagation();
+    e.preventDefault();
     await deleteNotification(notificationId);
     refetchCount();
     refetchNotifications();
   };
 
-  const getPriorityColor = (priority: string) => {
+  const getPriorityStyles = (priority: string) => {
     switch (priority) {
       case 'urgent':
-        return 'bg-red-100 border-red-300 text-red-800';
+        return {
+          bg: 'bg-red-50 border-l-4 border-red-500',
+          badge: 'bg-red-100 text-red-800 border-red-300',
+          label: '🔴 Urgente',
+        };
       case 'high':
-        return 'bg-orange-100 border-orange-300 text-orange-800';
+        return {
+          bg: 'bg-orange-50 border-l-4 border-orange-400',
+          badge: 'bg-orange-100 text-orange-800 border-orange-300',
+          label: '🟠 Alta',
+        };
       case 'normal':
-        return 'bg-blue-100 border-blue-300 text-blue-800';
+        return {
+          bg: '',
+          badge: 'bg-blue-100 text-blue-800 border-blue-300',
+          label: '🔵 Normal',
+        };
       case 'low':
-        return 'bg-gray-100 border-gray-300 text-gray-800';
+        return {
+          bg: '',
+          badge: 'bg-gray-100 text-gray-600 border-gray-300',
+          label: '⚪ Baja',
+        };
       default:
-        return 'bg-gray-100 border-gray-300 text-gray-800';
+        return {
+          bg: '',
+          badge: 'bg-gray-100 text-gray-600 border-gray-300',
+          label: priority,
+        };
     }
   };
 
   return (
     <div className="relative" ref={dropdownRef}>
+      {/* Botón de campana */}
       <button
-        onClick={() => setIsOpen(!isOpen)}
-        className="relative p-2 text-gray-600 hover:text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 rounded-full"
-        aria-label="Notificaciones"
+        onClick={handleToggle}
+        className={`relative p-2 rounded-full transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+          unreadCount > 0 
+            ? 'text-blue-600 hover:bg-blue-50' 
+            : 'text-gray-500 hover:text-gray-700 hover:bg-gray-100'
+        }`}
+        aria-label={`Notificaciones${unreadCount > 0 ? ` (${unreadCount} sin leer)` : ''}`}
       >
         {unreadCount > 0 ? (
-          <BellAlertIcon className="h-6 w-6 text-blue-600 animate-pulse" />
+          <BellAlertIcon className="h-6 w-6 animate-[pulse_2s_ease-in-out_infinite]" />
         ) : (
           <BellIcon className="h-6 w-6" />
         )}
+        
+        {/* Badge con contador */}
         {unreadCount > 0 && (
-          <span className="absolute top-0 right-0 inline-flex items-center justify-center px-2 py-1 text-xs font-bold leading-none text-white transform translate-x-1/2 -translate-y-1/2 bg-red-600 rounded-full">
+          <span className="absolute -top-1 -right-1 flex items-center justify-center min-w-[20px] h-5 px-1.5 text-xs font-bold text-white bg-red-500 rounded-full shadow-lg animate-[bounce_1s_ease-in-out_1]">
             {unreadCount > 99 ? '99+' : unreadCount}
           </span>
         )}
       </button>
 
+      {/* Dropdown */}
       {isOpen && (
-        <div className="absolute right-0 mt-2 w-96 bg-white rounded-lg shadow-xl border border-gray-200 z-50 max-h-[600px] flex flex-col">
+        <div className="absolute right-0 mt-2 w-96 bg-white rounded-xl shadow-2xl border border-gray-200 z-50 max-h-[70vh] flex flex-col overflow-hidden">
           {/* Header */}
-          <div className="px-4 py-3 border-b border-gray-200 flex items-center justify-between bg-gray-50 rounded-t-lg">
-            <h3 className="text-lg font-semibold text-gray-900">Notificaciones</h3>
-            {notifications.length > 0 && (
+          <div className="px-4 py-3 border-b border-gray-100 flex items-center justify-between bg-gradient-to-r from-blue-50 to-white">
+            <div className="flex items-center gap-2">
+              <BellIcon className="h-5 w-5 text-blue-600" />
+              <h3 className="text-lg font-semibold text-gray-900">Notificaciones</h3>
+              {unreadCount > 0 && (
+                <span className="px-2 py-0.5 text-xs font-medium text-blue-700 bg-blue-100 rounded-full">
+                  {unreadCount} nuevas
+                </span>
+              )}
+            </div>
+            {notifications.length > 0 && unreadCount > 0 && (
               <button
                 onClick={handleMarkAllAsRead}
-                className="text-sm text-blue-600 hover:text-blue-800 font-medium"
+                className="text-xs text-blue-600 hover:text-blue-800 font-medium hover:underline"
               >
                 Marcar todas como leídas
               </button>
@@ -122,50 +201,63 @@ export const NotificationBell = () => {
           {/* Lista de notificaciones */}
           <div className="overflow-y-auto flex-1">
             {notifications.length === 0 ? (
-              <div className="px-4 py-8 text-center text-gray-500">
-                <BellIcon className="h-12 w-12 mx-auto mb-2 text-gray-300" />
-                <p>No hay notificaciones</p>
+              <div className="px-4 py-12 text-center">
+                <BellIcon className="h-16 w-16 mx-auto mb-3 text-gray-200" />
+                <p className="text-gray-500 font-medium">No hay notificaciones</p>
+                <p className="text-gray-400 text-sm mt-1">Te avisaremos cuando haya novedades</p>
               </div>
             ) : (
-              <ul className="divide-y divide-gray-200">
-                {notifications.map((notification: any) => (
-                  <li
-                    key={notification.id}
-                    className={`px-4 py-3 hover:bg-gray-50 cursor-pointer transition-colors ${
-                      !notification.read ? 'bg-blue-50' : ''
-                    }`}
-                    onClick={() => handleNotificationClick(notification)}
-                  >
-                    {notification.link ? (
-                      <Link to={notification.link} className="block">
-                        <NotificationContent
-                          notification={notification}
-                          getPriorityColor={getPriorityColor}
-                          handleDelete={handleDelete}
-                        />
-                      </Link>
-                    ) : (
-                      <NotificationContent
-                        notification={notification}
-                        getPriorityColor={getPriorityColor}
-                        handleDelete={handleDelete}
-                      />
-                    )}
-                  </li>
-                ))}
+              <ul className="divide-y divide-gray-100">
+                {notifications.map((notification: any) => {
+                  const priorityStyles = getPriorityStyles(notification.priority);
+                  const icon = getNotificationIcon(notification.type);
+                  
+                  return (
+                    <li
+                      key={notification.id}
+                      className={`relative hover:bg-gray-50 cursor-pointer transition-colors ${
+                        !notification.read ? 'bg-blue-50/50' : ''
+                      } ${priorityStyles.bg}`}
+                      onClick={() => handleNotificationClick(notification)}
+                    >
+                      <div className="px-4 py-3">
+                        {notification.link ? (
+                          <Link to={notification.link} className="block">
+                            <NotificationContent
+                              notification={notification}
+                              icon={icon}
+                              priorityStyles={priorityStyles}
+                              handleDelete={handleDelete}
+                            />
+                          </Link>
+                        ) : (
+                          <NotificationContent
+                            notification={notification}
+                            icon={icon}
+                            priorityStyles={priorityStyles}
+                            handleDelete={handleDelete}
+                          />
+                        )}
+                      </div>
+                    </li>
+                  );
+                })}
               </ul>
             )}
           </div>
 
           {/* Footer */}
           {notifications.length > 0 && (
-            <div className="px-4 py-3 border-t border-gray-200 bg-gray-50 rounded-b-lg">
+            <div className="px-4 py-3 border-t border-gray-100 bg-gray-50/50">
               <Link
                 to="/notificaciones"
-                className="text-sm text-blue-600 hover:text-blue-800 font-medium block text-center"
+                className="flex items-center justify-center gap-2 text-sm text-blue-600 hover:text-blue-800 font-medium"
                 onClick={() => setIsOpen(false)}
               >
                 Ver todas las notificaciones
+                <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                </svg>
               </Link>
             </div>
           )}
@@ -177,42 +269,54 @@ export const NotificationBell = () => {
 
 interface NotificationContentProps {
   notification: any;
-  getPriorityColor: (priority: string) => string;
+  icon: string;
+  priorityStyles: { bg: string; badge: string; label: string };
   handleDelete: (id: number, e: React.MouseEvent) => void;
 }
 
-const NotificationContent = ({ notification, getPriorityColor, handleDelete }: NotificationContentProps) => (
-  <div className="flex items-start justify-between gap-3">
+const NotificationContent = ({ notification, icon, priorityStyles, handleDelete }: NotificationContentProps) => (
+  <div className="flex items-start gap-3">
+    {/* Icono */}
+    <div className="flex-shrink-0 text-2xl mt-0.5">
+      {icon}
+    </div>
+    
+    {/* Contenido */}
     <div className="flex-1 min-w-0">
-      <div className="flex items-center gap-2 mb-1">
-        <h4 className={`text-sm font-semibold ${!notification.read ? 'text-gray-900' : 'text-gray-700'}`}>
-          {notification.title}
-        </h4>
-        {!notification.read && (
-          <span className="inline-block w-2 h-2 bg-blue-600 rounded-full flex-shrink-0"></span>
-        )}
+      <div className="flex items-start justify-between gap-2">
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2 mb-0.5">
+            <h4 className={`text-sm font-semibold truncate ${!notification.read ? 'text-gray-900' : 'text-gray-700'}`}>
+              {notification.title}
+            </h4>
+            {!notification.read && (
+              <span className="flex-shrink-0 w-2 h-2 bg-blue-500 rounded-full"></span>
+            )}
+          </div>
+          <p className="text-sm text-gray-600 line-clamp-2">{notification.message}</p>
+        </div>
+        
+        {/* Botón eliminar */}
+        <button
+          onClick={(e) => handleDelete(notification.id, e)}
+          className="flex-shrink-0 p-1 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded transition-colors"
+          aria-label="Eliminar notificación"
+        >
+          <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+          </svg>
+        </button>
       </div>
-      <p className="text-sm text-gray-600 line-clamp-2 mb-1">{notification.message}</p>
+      
+      {/* Footer con prioridad y tiempo */}
       <div className="flex items-center gap-2 mt-2">
-        <span className={`text-xs px-2 py-0.5 rounded-full border ${getPriorityColor(notification.priority)}`}>
-          {notification.priority === 'urgent' && '🔴 Urgente'}
-          {notification.priority === 'high' && '🟠 Alta'}
-          {notification.priority === 'normal' && '🔵 Normal'}
-          {notification.priority === 'low' && '⚪ Baja'}
+        <span className={`text-xs px-2 py-0.5 rounded-full border ${priorityStyles.badge}`}>
+          {priorityStyles.label}
         </span>
-        <span className="text-xs text-gray-500">
+        <span className="text-xs text-gray-400">
           {formatDistanceToNow(new Date(notification.createdAt), { addSuffix: true, locale: es })}
         </span>
       </div>
     </div>
-    <button
-      onClick={(e) => handleDelete(notification.id, e)}
-      className="text-gray-400 hover:text-red-600 flex-shrink-0 p-1"
-      aria-label="Eliminar notificación"
-    >
-      <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-      </svg>
-    </button>
   </div>
 );

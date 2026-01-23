@@ -34,6 +34,7 @@ import auditLogsRoutes from './audit.routes';
 import portalClienteRoutes from './portal-cliente.routes';
 import portalTransportistaRoutes from './portal-transportista.routes';
 import entityDataRoutes from './entity-data.routes';
+import transferenciasRoutes from './transferencias.routes';
 
 const router: ReturnType<typeof Router> = Router();
 
@@ -111,6 +112,7 @@ router.use('/api/docs/approval', authenticate, tenantResolver, approvalRoutes);
 router.use('/api/docs/compliance', authenticate, tenantResolver, complianceRoutes);
 router.use('/api/docs/audit', authenticate, tenantResolver, auditLogsRoutes);
 router.use('/api/docs/entities', authenticate, tenantResolver, entityDataRoutes);
+router.use('/api/docs/transferencias', authenticate, tenantResolver, autoFilterByDador, transferenciasRoutes);
 
 // =================================
 // RUTA RAÍZ - Información del Servicio

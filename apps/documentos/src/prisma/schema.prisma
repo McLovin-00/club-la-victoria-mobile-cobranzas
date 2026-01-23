@@ -276,6 +276,23 @@ enum EquipoEstado {
   finalizada
 }
 
+// Estado documental del equipo (evaluación automática)
+enum EstadoDocumental {
+  PENDIENTE_VALIDACION      // Documentos en proceso de aprobación
+  COMPLETO                  // Todos los documentos aprobados y vigentes
+  DOCUMENTACION_INCOMPLETA  // Falta algún documento o fue rechazado
+  DOCUMENTACION_VENCIDA     // Algún documento venció
+  DOCUMENTACION_POR_VENCER  // Documentos vencen pronto (warning)
+}
+
+// Estado de solicitudes de transferencia de entidades
+enum EstadoSolicitud {
+  PENDIENTE
+  APROBADA
+  RECHAZADA
+  CANCELADA
+}
+
 model Equipo {
   id                Int          @id @default(autoincrement())
   driverId          Int          @map("driver_id")
@@ -291,6 +308,11 @@ model Equipo {
   validTo           DateTime?    @map("valid_to")
   estado            EquipoEstado @default(activa)
   activo            Boolean      @default(true)
+  
+  // Estado documental (evaluación automática de documentos)
+  estadoDocumental        EstadoDocumental @default(PENDIENTE_VALIDACION) @map("estado_documental")
+  documentosEvaluadosAt   DateTime?        @map("documentos_evaluados_at")
+  
   createdAt         DateTime     @default(now()) @map("created_at")
   updatedAt         DateTime     @updatedAt @map("updated_at")
 
@@ -305,6 +327,7 @@ model Equipo {
   @@index([tenantEmpresaId, dadorCargaId, trailerPlateNorm])
   @@index([tenantEmpresaId, dadorCargaId])
   @@index([validFrom, validTo])
+  @@index([estadoDocumental])
   @@unique([tenantEmpresaId, dadorCargaId, driverDniNorm, truckPlateNorm, trailerPlateNorm, validFrom])
   @@map("equipo")
 }
@@ -494,6 +517,52 @@ model EquipoAuditLog {
 }
 
 // =================================
+// SOLICITUDES DE TRANSFERENCIA DE ENTIDADES
+// =================================
+
+model SolicitudTransferencia {
+  id                   Int             @id @default(autoincrement())
+  tenantEmpresaId      Int             @map("tenant_empresa_id")
+  
+  // Quién solicita
+  solicitanteUserId    Int             @map("solicitante_user_id")
+  solicitanteUserEmail String?         @map("solicitante_user_email") @db.VarChar(150)
+  solicitanteDadorId   Int             @map("solicitante_dador_id")
+  solicitanteDadorNombre String?       @map("solicitante_dador_nombre") @db.VarChar(200)
+  
+  // Dador actual de las entidades
+  dadorActualId        Int             @map("dador_actual_id")
+  dadorActualNombre    String?         @map("dador_actual_nombre") @db.VarChar(200)
+  
+  // Entidades a transferir (JSON array)
+  // Formato: [{tipo: 'EMPRESA_TRANSPORTISTA', id: 1, identificador: '30-12345678-9', nombre: 'Empresa X'}, ...]
+  entidades            Json
+  
+  // Equipos que serán afectados (calculado al crear)
+  equiposAfectados     Json?           @map("equipos_afectados")
+  
+  // Estado y motivos
+  estado               EstadoSolicitud @default(PENDIENTE)
+  motivo               String?         @db.Text
+  
+  // Resolución
+  resueltoPorUserId    Int?            @map("resuelto_por_user_id")
+  resueltoPorUserEmail String?         @map("resuelto_por_user_email") @db.VarChar(150)
+  resueltoAt           DateTime?       @map("resuelto_at")
+  motivoRechazo        String?         @map("motivo_rechazo") @db.Text
+  
+  // Timestamps
+  createdAt            DateTime        @default(now()) @map("created_at")
+  updatedAt            DateTime        @updatedAt @map("updated_at")
+
+  @@index([tenantEmpresaId, estado])
+  @@index([solicitanteDadorId])
+  @@index([dadorActualId])
+  @@index([estado, createdAt(sort: Desc)])
+  @@map("solicitudes_transferencia")
+}
+
+// =================================
 // DATOS EXTRAÍDOS POR IA (solo visible para admins)
 // =================================
 
@@ -576,13 +645,30 @@ model EntityExtractionLog {
 // =================================
 
 enum InternalNotificationType {
+  // Documentos
   DOCUMENT_REJECTED
   DOCUMENT_APPROVED
-  DOCUMENT_EXPIRING
+  DOCUMENT_EXPIRING           // Próximo a vencer (7 días)
+  DOCUMENT_EXPIRING_URGENT    // Próximo a vencer (3 días o menos)
   DOCUMENT_EXPIRED
   DOCUMENT_UPLOADED
+  DOCUMENT_MISSING            // Faltante por nuevo requisito de cliente
+  
+  // Equipos
   EQUIPO_INCOMPLETE
   EQUIPO_COMPLETE
+  EQUIPO_ESTADO_ACTUALIZADO
+  EQUIPO_BLOQUEADO            // Equipo bloqueado por documentación vencida/rechazada
+  
+  // Transferencias
+  TRANSFERENCIA_SOLICITADA
+  TRANSFERENCIA_APROBADA
+  TRANSFERENCIA_RECHAZADA
+  
+  // Clientes/Requisitos
+  NUEVO_REQUISITO_CLIENTE     // Cliente agregó nuevo tipo de documento requerido
+  
+  // Sistema
   SYSTEM_ALERT
 }
 
