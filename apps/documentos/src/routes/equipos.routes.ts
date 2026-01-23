@@ -347,8 +347,14 @@ async function streamExcelOnly(equipoIds: number[], res: any) {
 
 // Endpoint para descargar solo el Excel (sin documentos)
 router.post('/download/excel-form', async (req: any, res) => {
+  AppLogger.info('📊 Excel form request', { 
+    bodyKeys: Object.keys(req.body || {}),
+    hasToken: !!req.body?.token,
+    contentType: req.headers['content-type'],
+  });
+  
   const token = String(req.body?.token || '');
-  if (!token) return res.status(401).send('Token requerido');
+  if (!token) return res.status(401).json({ success: false, message: 'Token de autenticación requerido', code: 'MISSING_TOKEN' });
 
   const decoded = verifyJwtFromForm(token);
   if (!decoded) return res.status(401).send('Token inválido');

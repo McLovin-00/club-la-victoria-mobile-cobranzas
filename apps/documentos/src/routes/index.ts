@@ -15,6 +15,7 @@ import dashboardRoutes from './dashboard.routes';
 import metricsRoutes from './metrics.routes';
 import clientsRoutes from './clients.routes';
 import equiposRoutes from './equipos.routes';
+import equiposDownloadRoutes from './equipos-download.routes';
 import searchRoutes from './search.routes';
 import storageRoutes from './storage.routes';
 import notificationsRoutes from './notifications.routes';
@@ -82,6 +83,12 @@ router.use('/api/docs/config', authenticate, tenantResolver, configRateLimit, co
 router.use('/api/docs/documents', authenticate, tenantResolver, documentsRoutes);
 router.use('/api/docs/dashboard', authenticate, tenantResolver, dashboardRoutes);
 router.use('/api/docs/clients', authenticate, tenantResolver, clientsRoutes);
+
+// IMPORTANTE: Rutas de descarga de equipos (form-post) SIN authenticate middleware
+// Estas rutas manejan autenticación internamente via token en el body del formulario
+// Deben montarse ANTES de la ruta principal de equipos que tiene authenticate
+router.use('/api/docs/equipos/download', equiposDownloadRoutes);
+
 router.use('/api/docs/equipos', authenticate, tenantResolver, autoFilterByDador, authorizeTransportista, equiposRoutes);
 router.use('/api/docs/search', authenticate, tenantResolver, autoFilterByDador, authorizeTransportista, searchRoutes);
 router.use('/api/docs/storage', authenticate, tenantResolver, storageRoutes);
