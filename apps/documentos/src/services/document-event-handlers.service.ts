@@ -226,81 +226,110 @@ export class DocumentEventHandlers {
       const info = await obtenerInfoDocumento(documentId);
       if (!info) return;
 
-      // Resolver usuarios a notificar
-      const recipients = await UserNotificationResolverService.resolveFromEntity(
-        info.tenantEmpresaId,
-        info.entityType,
-        info.entityId
-      );
-
-      AppLogger.info(`📬 Notificando rechazo a ${recipients.length} usuarios`);
-
-      // Crear notificaciones
-      for (const recipient of recipients) {
-        const titulo = getTituloContextualizado('⚠️ Documento rechazado', recipient, info.entityType);
-        const mensaje = reason 
-          ? `${info.templateName} de ${info.entityIdentifier} fue rechazado: ${reason}`
-          : `${info.templateName} de ${info.entityIdentifier} fue rechazado`;
-        
-        await InternalNotificationService.create({
-          tenantEmpresaId: info.tenantEmpresaId,
-          userId: recipient.userId,
-          type: 'DOCUMENT_REJECTED',
-          title: titulo,
-          message: mensaje,
-          link: `/documentos/documentos/${documentId}`,
-          priority: 'high',
-          documentId,
-          metadata: { 
-            entityType: info.entityType, 
-            entityId: info.entityId,
-            reason,
-            recipientRole: recipient.role,
-          },
-        });
-      }
-
-      // Re-evaluar equipos afectados
-      const equiposAfectados = await EquipoEvaluationService.buscarEquiposPorEntidad(
-        info.tenantEmpresaId,
-        info.dadorCargaId,
-        info.entityType,
-        info.entityId
-      );
-
-      if (equiposAfectados.length > 0) {
-        const resultados = await EquipoEvaluationService.evaluarEquipos(
-          equiposAfectados.map(e => e.id)
-        );
-
-        AppLogger.info('⚠️ Equipos re-evaluados por documento rechazado', {
-          documentId,
-          equiposAfectados: equiposAfectados.length,
-        });
-
-        // Notificar sobre equipos que quedaron INCOMPLETOS
-        for (const resultado of resultados) {
-          if (resultado.estadoNuevo === 'DOCUMENTACION_INCOMPLETA' && resultado.cambio) {
-            const equipoRecipients = await UserNotificationResolverService.resolveFromEquipo(resultado.equipoId);
-            
-            for (const recipient of equipoRecipients) {
-              await InternalNotificationService.create({
-                tenantEmpresaId: info.tenantEmpresaId,
-                userId: recipient.userId,
-                type: 'EQUIPO_INCOMPLETE',
-                title: '⚠️ Equipo con documentación incompleta',
-                message: `El equipo #${resultado.equipoId} requiere atención: documentación rechazada o faltante`,
-                link: `/documentos/equipos/${resultado.equipoId}`,
-                priority: 'high',
-                equipoId: resultado.equipoId,
-                metadata: { equipoId: resultado.equipoId, documentId, reason: recipient.reason },
-              });
-            }
-          }
-        }
-      }
+      await this.notifyDocumentRejection(documentId, info, reason);
+      await this.evaluateAndNotifyEquiposIncompletos(documentId, info);
     } catch (error) {
       AppLogger.error('💥 Error procesando evento de documento rechazado', error);
+    }
+  }
+
+  /**
+   * Notifica a usuarios sobre el rechazo de un documento
+   */
+  private static async notifyDocumentRejection(
+    documentId: number,
+    info: DocumentInfo,
+    reason?: string
+  ): Promise<void> {
+    const recipients = await UserNotificationResolverService.resolveFromEntity(
+      info.tenantEmpresaId,
+      info.entityType,
+      info.entityId
+    );
+
+    AppLogger.info(`📬 Notificando rechazo a ${recipients.length} usuarios`);
+
+    const baseMessage = `${info.templateName} de ${info.entityIdentifier} fue rechazado`;
+    const mensaje = reason ? `${baseMessage}: ${reason}` : baseMessage;
+
+    for (const recipient of recipients) {
+      const titulo = getTituloContextualizado('⚠️ Documento rechazado', recipient, info.entityType);
+      
+      await InternalNotificationService.create({
+        tenantEmpresaId: info.tenantEmpresaId,
+        userId: recipient.userId,
+        type: 'DOCUMENT_REJECTED',
+        title: titulo,
+        message: mensaje,
+        link: `/documentos/documentos/${documentId}`,
+        priority: 'high',
+        documentId,
+        metadata: { 
+          entityType: info.entityType, 
+          entityId: info.entityId,
+          reason,
+          recipientRole: recipient.role,
+        },
+      });
+    }
+  }
+
+  /**
+   * Re-evalúa equipos y notifica sobre los que quedaron incompletos
+   */
+  private static async evaluateAndNotifyEquiposIncompletos(
+    documentId: number,
+    info: DocumentInfo
+  ): Promise<void> {
+    const equiposAfectados = await EquipoEvaluationService.buscarEquiposPorEntidad(
+      info.tenantEmpresaId,
+      info.dadorCargaId,
+      info.entityType,
+      info.entityId
+    );
+
+    if (equiposAfectados.length === 0) return;
+
+    const resultados = await EquipoEvaluationService.evaluarEquipos(
+      equiposAfectados.map(e => e.id)
+    );
+
+    AppLogger.info('⚠️ Equipos re-evaluados por documento rechazado', {
+      documentId,
+      equiposAfectados: equiposAfectados.length,
+    });
+
+    const equiposIncompletos = resultados.filter(
+      r => r.estadoNuevo === 'DOCUMENTACION_INCOMPLETA' && r.cambio
+    );
+
+    for (const resultado of equiposIncompletos) {
+      await this.notifyEquipoIncompleto(resultado.equipoId, info.tenantEmpresaId, documentId);
+    }
+  }
+
+  /**
+   * Notifica a usuarios sobre un equipo que quedó incompleto
+   */
+  private static async notifyEquipoIncompleto(
+    equipoId: number,
+    tenantEmpresaId: number,
+    documentId: number
+  ): Promise<void> {
+    const equipoRecipients = await UserNotificationResolverService.resolveFromEquipo(equipoId);
+    
+    for (const recipient of equipoRecipients) {
+      await InternalNotificationService.create({
+        tenantEmpresaId,
+        userId: recipient.userId,
+        type: 'EQUIPO_INCOMPLETE',
+        title: '⚠️ Equipo con documentación incompleta',
+        message: `El equipo #${equipoId} requiere atención: documentación rechazada o faltante`,
+        link: `/documentos/equipos/${equipoId}`,
+        priority: 'high',
+        equipoId,
+        metadata: { equipoId, documentId, reason: recipient.reason },
+      });
     }
   }
 
@@ -406,7 +435,7 @@ export class DocumentEventHandlers {
       // Determinar tipo y prioridad según días restantes
       const isUrgent = daysUntilExpiry <= 3;
       const type = isUrgent ? 'DOCUMENT_EXPIRING_URGENT' : 'DOCUMENT_EXPIRING';
-      const priority = isUrgent ? 'urgent' : (daysUntilExpiry <= 7 ? 'high' : 'normal');
+      const priority = this.getPriorityByDays(daysUntilExpiry, isUrgent);
       const emoji = isUrgent ? '🔴' : '🟠';
 
       for (const recipient of recipients) {
@@ -474,5 +503,14 @@ export class DocumentEventHandlers {
       default:
         break;
     }
+  }
+
+  /**
+   * Determina la prioridad según días hasta vencimiento
+   */
+  private static getPriorityByDays(daysUntilExpiry: number, isUrgent: boolean): 'urgent' | 'high' | 'normal' {
+    if (isUrgent) return 'urgent';
+    if (daysUntilExpiry <= 7) return 'high';
+    return 'normal';
   }
 }

@@ -399,7 +399,7 @@ export class RemitosController {
         ? new Date(req.query.fechaHasta as string) 
         : undefined;
       
-      // Ajustar fechaHasta para incluir todo el día
+      // Ajustar fechaHasta para incluir el día completo
       if (fechaHasta) {
         fechaHasta.setHours(23, 59, 59, 999);
       }

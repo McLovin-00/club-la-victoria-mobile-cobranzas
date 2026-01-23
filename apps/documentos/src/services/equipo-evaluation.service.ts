@@ -213,38 +213,46 @@ async function contarDocumentos(
   const now = new Date();
   const limitePorVencer = new Date(now.getTime() + DIAS_POR_VENCER * 24 * 60 * 60 * 1000);
 
-  let vigentes = 0, porVencer = 0, vencidos = 0, pendientes = 0, rechazados = 0;
+  const stats = { vigentes: 0, porVencer: 0, vencidos: 0, pendientes: 0, rechazados: 0 };
 
   for (const doc of docsPorKey.values()) {
-    // Rechazado
-    if (doc.status === 'RECHAZADO') {
-      rechazados++;
-      continue;
-    }
-
-    // Vencido
-    if (doc.status === 'VENCIDO' || (doc.expiresAt && doc.expiresAt < now)) {
-      vencidos++;
-      continue;
-    }
-
-    // Pendiente
-    if (ESTADOS_PENDIENTES.includes(doc.status)) {
-      pendientes++;
-      continue;
-    }
-
-    // Aprobado
-    if (doc.status === 'APROBADO') {
-      if (doc.expiresAt && doc.expiresAt <= limitePorVencer) {
-        porVencer++;
-      } else {
-        vigentes++;
-      }
-    }
+    clasificarDocumento(doc, now, limitePorVencer, stats);
   }
 
-  return { vigentes, porVencer, vencidos, pendientes, rechazados, documentosPorEntidad };
+  return { ...stats, documentosPorEntidad };
+}
+
+/**
+ * Clasifica un documento y actualiza los contadores
+ */
+function clasificarDocumento(
+  doc: { status: string; expiresAt: Date | null },
+  now: Date,
+  limitePorVencer: Date,
+  stats: { vigentes: number; porVencer: number; vencidos: number; pendientes: number; rechazados: number }
+): void {
+  if (doc.status === 'RECHAZADO') {
+    stats.rechazados++;
+    return;
+  }
+
+  if (doc.status === 'VENCIDO' || (doc.expiresAt && doc.expiresAt < now)) {
+    stats.vencidos++;
+    return;
+  }
+
+  if (ESTADOS_PENDIENTES.includes(doc.status)) {
+    stats.pendientes++;
+    return;
+  }
+
+  if (doc.status === 'APROBADO') {
+    if (doc.expiresAt && doc.expiresAt <= limitePorVencer) {
+      stats.porVencer++;
+    } else {
+      stats.vigentes++;
+    }
+  }
 }
 
 /**

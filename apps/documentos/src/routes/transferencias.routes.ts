@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { z } from 'zod';
-import { authenticate, authorize, validate } from '../middlewares/auth.middleware';
+import { authorize, validate } from '../middlewares/auth.middleware';
 import { TransferenciaService } from '../services/transferencia.service';
 import { AppLogger } from '../config/logger';
 import { AuditService } from '../services/audit.service';
@@ -130,7 +130,7 @@ router.get('/', validate(listarSolicitudesSchema), async (req: any, res) => {
     const userRole = req.user?.role;
     const dadorCargaId = req.dadorCargaId;
 
-    // Admins ven todo, otros solo sus solicitudes
+    // Admins ven todas las solicitudes, otros usuarios solo las propias
     const filtrarPorDador = !ADMIN_ROLES.includes(userRole) ? dadorCargaId : undefined;
 
     const resultado = await TransferenciaService.listarSolicitudes({

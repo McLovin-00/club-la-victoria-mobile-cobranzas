@@ -43,7 +43,7 @@ export const NotificationBell = () => {
   const { data: unreadCount = 0, refetch: refetchCount } = useGetUnreadNotificationsCountQuery(undefined, {
     pollingInterval: 30000, // Poll cada 30 segundos
   });
-  const { data: notificationsData, refetch: refetchNotifications } = useGetUserNotificationsQuery(
+  const { data: notificationsData } = useGetUserNotificationsQuery(
     { page: 1, limit: 10, unreadOnly: false },
     { skip: !isOpen }
   );
@@ -81,17 +81,20 @@ export const NotificationBell = () => {
   }, [isOpen]);
 
   const handleToggle = useCallback(() => {
-    setIsOpen(prev => !prev);
-    if (!isOpen) {
-      refetchNotifications();
-    }
-  }, [isOpen, refetchNotifications]);
+    setIsOpen(prev => {
+      // Si se está abriendo, refetch se hará automáticamente cuando skip cambie a false
+      return !prev;
+    });
+  }, []);
 
   const handleNotificationClick = async (notification: any) => {
     if (!notification.read) {
-      await markAsRead(notification.id);
-      refetchCount();
-      refetchNotifications();
+      try {
+        await markAsRead(notification.id);
+        refetchCount();
+      } catch {
+        // Error ya logueado por RTK Query
+      }
     }
 
     if (notification.link) {
@@ -100,17 +103,24 @@ export const NotificationBell = () => {
   };
 
   const handleMarkAllAsRead = async () => {
-    await markAllAsRead();
-    refetchCount();
-    refetchNotifications();
+    try {
+      await markAllAsRead();
+      refetchCount();
+    } catch {
+      // Error ya logueado por RTK Query
+    }
   };
 
   const handleDelete = async (notificationId: number, e: React.MouseEvent) => {
     e.stopPropagation();
     e.preventDefault();
-    await deleteNotification(notificationId);
-    refetchCount();
-    refetchNotifications();
+    try {
+      await deleteNotification(notificationId);
+      refetchCount();
+      // RTK Query invalida automáticamente los datos por los tags
+    } catch {
+      // Error ya logueado por RTK Query
+    }
   };
 
   const getPriorityStyles = (priority: string) => {

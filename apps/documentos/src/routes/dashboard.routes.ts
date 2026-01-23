@@ -83,21 +83,21 @@ router.get(
 
 /**
  * GET /api/docs/dashboard/rejected - Lista de documentos rechazados
- * Acceso: Administradores y Dadores de Carga
+ * Acceso: Todos los usuarios autenticados (filtrado por órbita)
  */
 router.get(
   '/rejected',
-  authorize([UserRole.SUPERADMIN, UserRole.ADMIN, UserRole.ADMIN_INTERNO, UserRole.DADOR_DE_CARGA]),
+  authorize([UserRole.SUPERADMIN, UserRole.ADMIN, UserRole.ADMIN_INTERNO, UserRole.DADOR_DE_CARGA, UserRole.TRANSPORTISTA, UserRole.CHOFER]),
   DashboardController.getRejectedDocuments
 );
 
 /**
  * GET /api/docs/dashboard/rejected/stats - Estadísticas de documentos rechazados
- * Acceso: Administradores y Dadores de Carga
+ * Acceso: Todos los usuarios autenticados (filtrado por órbita)
  */
 router.get(
   '/rejected/stats',
-  authorize([UserRole.SUPERADMIN, UserRole.ADMIN, UserRole.ADMIN_INTERNO, UserRole.DADOR_DE_CARGA]),
+  authorize([UserRole.SUPERADMIN, UserRole.ADMIN, UserRole.ADMIN_INTERNO, UserRole.DADOR_DE_CARGA, UserRole.TRANSPORTISTA, UserRole.CHOFER]),
   DashboardController.getRejectedStats
 );
 
