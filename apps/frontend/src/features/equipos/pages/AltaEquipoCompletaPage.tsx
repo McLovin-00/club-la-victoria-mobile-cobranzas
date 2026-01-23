@@ -9,6 +9,7 @@ import {
   useGetDadoresQuery,
   useGetClientsQuery,
   useLazyGetConsolidatedTemplatesQuery,
+  useGetEmpresaTransportistaByIdQuery,
 } from '../../documentos/api/documentosApiSlice';
 import { SeccionDocumentos, Template } from '../components/SeccionDocumentos';
 import { useRoleBasedNavigation } from '../../../hooks/useRoleBasedNavigation';
@@ -65,6 +66,14 @@ const AltaEquipoCompletaPage: React.FC = () => {
   // Permisos
   const canUpload = ['SUPERADMIN', 'ADMIN', 'OPERATOR', 'ADMIN_INTERNO', 'DADOR_DE_CARGA', 'TRANSPORTISTA'].includes(role || '');
   const isAdminInterno = role === 'ADMIN_INTERNO';
+  const isTransportista = role === 'TRANSPORTISTA';
+  
+  // Si el usuario es TRANSPORTISTA, obtener sus datos de empresa transportista
+  const userEmpresaTransportistaId = useAppSelector((s) => (s as any).auth?.user?.empresaTransportistaId) as number | undefined;
+  const { data: empresaTransportistaData } = useGetEmpresaTransportistaByIdQuery(
+    { id: userEmpresaTransportistaId! },
+    { skip: !isTransportista || !userEmpresaTransportistaId }
+  );
   
   // Listas de dadores y clientes
   const dadoresList = useMemo(() => {
@@ -83,6 +92,20 @@ const AltaEquipoCompletaPage: React.FC = () => {
       setDadorCargaId(empresaId);
     }
   }, [isAdminInterno, empresaId, dadorCargaId]);
+
+  // Si el usuario es TRANSPORTISTA, auto-completar datos de su empresa transportista
+  useEffect(() => {
+    if (isTransportista && empresaTransportistaData) {
+      const nombre = empresaTransportistaData.razonSocial || empresaTransportistaData.nombre || '';
+      const cuit = empresaTransportistaData.cuit || '';
+      setEmpresaTransportista(nombre);
+      setCuitTransportista(cuit);
+      // También usar el dadorCargaId de la empresa transportista si está disponible
+      if (empresaTransportistaData.dadorCargaId && !dadorCargaId) {
+        setDadorCargaId(empresaTransportistaData.dadorCargaId);
+      }
+    }
+  }, [isTransportista, empresaTransportistaData, dadorCargaId]);
 
   // Cargar templates consolidados cuando cambian los clientes seleccionados
   useEffect(() => {
@@ -600,11 +623,22 @@ const AltaEquipoCompletaPage: React.FC = () => {
       {/* DATOS BÁSICOS AGRUPADOS POR ENTIDAD */}
       
       {/* EMPRESA TRANSPORTISTA */}
-      <div className='bg-white border border-gray-300 rounded-lg p-6 mb-4'>
+      <div className={`border rounded-lg p-6 mb-4 ${isTransportista ? 'bg-blue-50 border-blue-300' : 'bg-white border-gray-300'}`}>
         <h2 className='text-xl font-semibold text-gray-900 mb-4 flex items-center'>
           <span className='bg-blue-100 text-blue-800 rounded-full w-8 h-8 flex items-center justify-center mr-3 text-sm font-bold'>1</span>
           🏢 Empresa Transportista
+          {isTransportista && (
+            <span className='ml-3 text-sm font-normal text-blue-600 bg-blue-100 px-2 py-1 rounded'>
+              ✓ Tu empresa (automático)
+            </span>
+          )}
         </h2>
+        
+        {isTransportista && (
+          <div className='mb-4 bg-blue-100 border border-blue-200 rounded p-3 text-sm text-blue-800'>
+            ℹ️ Los datos de tu empresa transportista se completan automáticamente y no pueden modificarse.
+          </div>
+        )}
         
         <div className='grid grid-cols-1 md:grid-cols-2 gap-4'>
           <div>
@@ -614,8 +648,13 @@ const AltaEquipoCompletaPage: React.FC = () => {
             <input
               type='text'
               value={empresaTransportista}
-              onChange={(e) => setEmpresaTransportista(e.target.value)}
-              className='w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500'
+              onChange={(e) => !isTransportista && setEmpresaTransportista(e.target.value)}
+              disabled={isTransportista}
+              className={`w-full border rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                isTransportista 
+                  ? 'bg-gray-100 border-gray-300 text-gray-700 cursor-not-allowed' 
+                  : 'border-gray-300'
+              }`}
               placeholder='Ej: Transportes del Norte S.A.'
             />
           </div>
@@ -627,12 +666,17 @@ const AltaEquipoCompletaPage: React.FC = () => {
             <input
               type='text'
               value={cuitTransportista}
-              onChange={(e) => setCuitTransportista(e.target.value.replace(/\D/g, '').slice(0, 11))}
-              className='w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500'
+              onChange={(e) => !isTransportista && setCuitTransportista(e.target.value.replace(/\D/g, '').slice(0, 11))}
+              disabled={isTransportista}
+              className={`w-full border rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                isTransportista 
+                  ? 'bg-gray-100 border-gray-300 text-gray-700 cursor-not-allowed' 
+                  : 'border-gray-300'
+              }`}
               placeholder='30123456789'
               maxLength={11}
             />
-            {cuitTransportista && !/^\d{11}$/.test(cuitTransportista) && (
+            {cuitTransportista && !/^\d{11}$/.test(cuitTransportista) && !isTransportista && (
               <p className='text-xs text-red-600 mt-1'>⚠️ Debe tener 11 dígitos</p>
             )}
           </div>
