@@ -177,6 +177,17 @@ export const RegisterUserModal: React.FC<RegisterUserModalProps> = ({ isOpen, on
     if (!currentUser?.role) return [];
     return PERMISOS_CREACION[currentUser.role] || [];
   }, [currentUser?.role]);
+  
+  // Corregir el rol inicial cuando el modal se abre - usar el primer rol disponible
+  useEffect(() => {
+    if (isOpen && rolesDisponibles.length > 0) {
+      const currentRole = watch('role');
+      // Si el rol actual no está en la lista de roles disponibles, usar el primero
+      if (!rolesDisponibles.includes(currentRole)) {
+        setValue('role', rolesDisponibles[0]);
+      }
+    }
+  }, [isOpen, rolesDisponibles, setValue, watch]);
 
   // Reset estado cuando cambia el rol o se cierra el modal
   useEffect(() => {
