@@ -90,11 +90,21 @@ async function appendDocsToArchive(equipo: any, docs: any[], archive: any, mainF
 
   for (const d of sorted) {
     const { bucketName, objectPath } = parseFilePath(d.filePath, equipo.tenantEmpresaId);
-    const stream = await minioService.getObject(bucketName, objectPath);
-    const subfolder = subfolders[d.entityType] || 'otros';
-    const safeTpl = String(d.template?.name || 'documento').replace(/[^a-z0-9_-]/gi, '_');
-    const ext = (d.fileName || '').split('.').pop() || 'pdf';
-    archive.append(stream as any, { name: `${mainFolder}/${subfolder}/${safeTpl}.${ext}` });
+    try {
+      const stream = await minioService.getObject(bucketName, objectPath);
+      const subfolder = subfolders[d.entityType] || 'otros';
+      const safeTpl = String(d.template?.name || 'documento').replace(/[^a-z0-9_-]/gi, '_');
+      const ext = (d.fileName || '').split('.').pop() || 'pdf';
+      archive.append(stream as any, { name: `${mainFolder}/${subfolder}/${safeTpl}.${ext}` });
+    } catch (err: any) {
+      // Si el archivo no existe en MinIO, lo omitimos y continuamos
+      AppLogger.warn('⚠️ Archivo no encontrado en MinIO, omitiendo', {
+        docId: d.id,
+        bucketName,
+        objectPath,
+        error: err?.code || err?.message,
+      });
+    }
   }
 }
 
