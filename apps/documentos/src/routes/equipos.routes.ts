@@ -179,8 +179,13 @@ async function streamVigentesZip(equipoIdsInput: number[], res: any) {
 
   const archiver = await getArchiver();
   const archive = archiver('zip', { zlib: { level: 9 } });
-  archive.on('error', (err: any) => res.status(500).end(String(err)));
+  archive.on('error', (err: any) => {
+    AppLogger.error('💥 Error en archiver:', err);
+    res.status(500).end(String(err));
+  });
   archive.pipe(res);
+
+  AppLogger.info('📦 Iniciando ZIP masivo', { totalEquipos: equipoIds.length });
 
   try {
     const excelRows: any[] = [];
@@ -189,9 +194,15 @@ async function streamVigentesZip(equipoIdsInput: number[], res: any) {
       if (row) excelRows.push(row);
     }
 
+    AppLogger.info('📦 Equipos procesados, generando Excel', { excelRowsCount: excelRows.length });
+
     if (excelRows.length > 0) {
       const excelBuffer = await generateExcelBuffer(excelRows);
+      AppLogger.info('📦 Excel generado, agregando al ZIP', { bufferSize: excelBuffer.length });
       archive.append(excelBuffer, { name: 'resumen_equipos.xlsx' });
+      AppLogger.info('📦 Excel agregado al ZIP');
+    } else {
+      AppLogger.warn('📦 No hay filas para el Excel - no se generará resumen');
     }
   } catch (err) {
     AppLogger.error('💥 Error generando ZIP masivo', err);
@@ -200,7 +211,9 @@ async function streamVigentesZip(equipoIdsInput: number[], res: any) {
     return;
   }
 
-  archive.finalize();
+  AppLogger.info('📦 Finalizando ZIP');
+  await archive.finalize();
+  AppLogger.info('📦 ZIP finalizado correctamente');
 }
 
 // ============================================================================
