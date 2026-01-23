@@ -49,67 +49,117 @@ async function main(): Promise<void> {
     console.log('⚠️ Algunas plantillas no existen. Saltando creación de requisitos demo.');
   }
 
-  // Equipo demo (chofer+camión+acoplado)
+  // Equipo demo (chofer+camión+acoplado) - solo crear si no existe
   const now = new Date();
   const dayMs = 24 * 60 * 60 * 1000;
-  const equipoDemo = await prisma.equipo.create({
-    data: {
+  
+  // Verificar si ya existe un equipo demo con estos datos
+  let equipoDemo = await prisma.equipo.findFirst({
+    where: {
       tenantEmpresaId: tenantId,
       dadorCargaId: dadorId,
-      driverId: 101,
-      truckId: 201,
-      trailerId: 301,
       driverDniNorm: '20333444',
       truckPlateNorm: 'ABC123',
-      trailerPlateNorm: 'XYZ987',
-      validFrom: new Date(now.getTime() - dayMs),
-      validTo: null,
     },
   });
 
-  // Asociar cliente al equipo
-  await prisma.equipoCliente.create({
-    data: {
+  if (!equipoDemo) {
+    equipoDemo = await prisma.equipo.create({
+      data: {
+        tenantEmpresaId: tenantId,
+        dadorCargaId: dadorId,
+        driverId: 101,
+        truckId: 201,
+        trailerId: 301,
+        driverDniNorm: '20333444',
+        truckPlateNorm: 'ABC123',
+        trailerPlateNorm: 'XYZ987',
+        validFrom: new Date(now.getTime() - dayMs),
+        validTo: null,
+      },
+    });
+    console.log('✅ Equipo demo creado:', equipoDemo.id);
+  } else {
+    console.log('ℹ️ Equipo demo ya existe:', equipoDemo.id);
+  }
+
+  // Asociar cliente al equipo (solo si no existe la asociación)
+  const existingAssoc = await prisma.equipoCliente.findFirst({
+    where: {
       equipoId: equipoDemo.id,
       clienteId: clienteDemo.id,
-      asignadoDesde: new Date(now.getTime() - dayMs),
       asignadoHasta: null,
     },
   });
 
-  // Documentos demo para compliance (solo si las plantillas existen)
-  if (licenciaTplId && vtvTplId) {
-  await prisma.document.create({
-    data: {
-      tenantEmpresaId: tenantId,
-      templateId: licenciaTplId,
-      entityType: EntityType.CHOFER,
-      entityId: 101,
-      dadorCargaId: dadorId,
-      fileName: 'licencia.pdf',
-      filePath: `documentos-empresa-t${tenantId}/chofer/101/licencia/seed.pdf`,
-      fileSize: 12345,
-      mimeType: 'application/pdf',
-      status: DocumentStatus.APROBADO,
-      expiresAt: new Date(now.getTime() + 90 * dayMs),
-    },
-  });
+  if (!existingAssoc) {
+    await prisma.equipoCliente.create({
+      data: {
+        equipoId: equipoDemo.id,
+        clienteId: clienteDemo.id,
+        asignadoDesde: new Date(now.getTime() - dayMs),
+        asignadoHasta: null,
+      },
+    });
+  }
 
-  await prisma.document.create({
-    data: {
-      tenantEmpresaId: tenantId,
-      templateId: vtvTplId,
-      entityType: EntityType.CAMION,
-      entityId: 201,
-      dadorCargaId: dadorId,
-      fileName: 'vtv.pdf',
-      filePath: `documentos-empresa-t${tenantId}/camion/201/vtv/seed.pdf`,
-      fileSize: 23456,
-      mimeType: 'application/pdf',
-      status: DocumentStatus.APROBADO,
-      expiresAt: new Date(now.getTime() + 15 * dayMs),
-    },
-  });
+  // Documentos demo para compliance (solo si las plantillas existen y no existen ya)
+  if (licenciaTplId && vtvTplId) {
+    const existingLicencia = await prisma.document.findFirst({
+      where: {
+        tenantEmpresaId: tenantId,
+        templateId: licenciaTplId,
+        entityType: EntityType.CHOFER,
+        entityId: 101,
+        dadorCargaId: dadorId,
+      },
+    });
+
+    if (!existingLicencia) {
+      await prisma.document.create({
+        data: {
+          tenantEmpresaId: tenantId,
+          templateId: licenciaTplId,
+          entityType: EntityType.CHOFER,
+          entityId: 101,
+          dadorCargaId: dadorId,
+          fileName: 'licencia.pdf',
+          filePath: `documentos-empresa-t${tenantId}/chofer/101/licencia/seed.pdf`,
+          fileSize: 12345,
+          mimeType: 'application/pdf',
+          status: DocumentStatus.APROBADO,
+          expiresAt: new Date(now.getTime() + 90 * dayMs),
+        },
+      });
+    }
+
+    const existingVtv = await prisma.document.findFirst({
+      where: {
+        tenantEmpresaId: tenantId,
+        templateId: vtvTplId,
+        entityType: EntityType.CAMION,
+        entityId: 201,
+        dadorCargaId: dadorId,
+      },
+    });
+
+    if (!existingVtv) {
+      await prisma.document.create({
+        data: {
+          tenantEmpresaId: tenantId,
+          templateId: vtvTplId,
+          entityType: EntityType.CAMION,
+          entityId: 201,
+          dadorCargaId: dadorId,
+          fileName: 'vtv.pdf',
+          filePath: `documentos-empresa-t${tenantId}/camion/201/vtv/seed.pdf`,
+          fileSize: 23456,
+          mimeType: 'application/pdf',
+          status: DocumentStatus.APROBADO,
+          expiresAt: new Date(now.getTime() + 15 * dayMs),
+        },
+      });
+    }
   } else {
     console.log('⚠️ Plantillas no encontradas. Saltando creación de documentos demo.');
   }
