@@ -3,9 +3,9 @@ import { Card, CardContent, CardHeader, CardTitle } from '../../../components/ui
 import { Button } from '../../../components/ui/button';
 import { useNavigate } from 'react-router-dom';
 import { 
-  DocumentTextIcon, 
-  TruckIcon, 
-  MagnifyingGlassIcon
+  MagnifyingGlassIcon,
+  TruckIcon,
+  DocumentTextIcon
 } from '@heroicons/react/24/outline';
 import bcaLogo from '../../../assets/logo-bca.jpg';
 
@@ -61,10 +61,6 @@ const TransportistaDashboard: React.FC = () => {
                 Registrar nuevo equipo con toda su documentación
               </p>
               <ul className='text-sm text-muted-foreground space-y-2 text-left'>
-                <li className='flex items-start gap-2'>
-                  <DocumentTextIcon className='h-5 w-5 text-blue-500 mt-0.5 flex-shrink-0' />
-                  <span>Carga de chofer</span>
-                </li>
                 <li className='flex items-start gap-2'>
                   <DocumentTextIcon className='h-5 w-5 text-blue-500 mt-0.5 flex-shrink-0' />
                   <span>Registro de camión y acoplado</span>

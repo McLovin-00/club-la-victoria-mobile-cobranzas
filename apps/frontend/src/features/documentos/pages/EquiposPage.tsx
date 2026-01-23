@@ -14,9 +14,15 @@ import type { Cliente, DadorCarga, EquipoWithExtras } from '../types/entities';
 import { ArrowLeftIcon } from '@heroicons/react/24/outline';
 import { ConfirmContext } from '../../../contexts/confirmContext';
 
+// Roles que pueden crear equipos completos
+// TRANSPORTISTA puede crear equipos, CHOFER no tiene acceso directo a esta opción
+const ROLES_CAN_CREATE_EQUIPO = ['ADMIN', 'SUPERADMIN', 'ADMIN_INTERNO', 'DADOR_DE_CARGA', 'TRANSPORTISTA'];
+
 export const EquiposPage: React.FC = () => {
   const navigate = useNavigate();
   const { goBack } = useRoleBasedNavigation();
+  const user = useSelector((state: RootState) => state.auth.user);
+  const canCreateEquipo = user?.role && ROLES_CAN_CREATE_EQUIPO.includes(user.role);
   const show = (msg: string) => { try { alert(msg); } catch { console.log(msg); } };
   const { confirm } = useContext(ConfirmContext);
   const { data: dadoresResp } = useGetDadoresQuery({});
@@ -299,14 +305,16 @@ export const EquiposPage: React.FC = () => {
           </Button>
           <h1 className='text-2xl font-bold'>Asociación de Equipos</h1>
         </div>
-        <Button 
-          variant='default' 
-          size='sm' 
-          onClick={() => navigate('/documentos/equipos/alta-completa')}
-          className='bg-green-600 hover:bg-green-700 text-white'
-        >
-          📄 Alta Completa con Documentos
-        </Button>
+        {canCreateEquipo && (
+          <Button 
+            variant='default' 
+            size='sm' 
+            onClick={() => navigate('/documentos/equipos/alta-completa')}
+            className='bg-green-600 hover:bg-green-700 text-white'
+          >
+            📄 Alta Completa con Documentos
+          </Button>
+        )}
       </div>
 
       {/* Importación CSV */}
