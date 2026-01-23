@@ -287,9 +287,82 @@ const searchByDnisSchema = z.object({ body: z.object({ dnis: z.array(z.string().
 const bulkZipSchema = z.object({ body: z.object({ equipoIds: z.array(z.number().int().positive()).min(1).max(500) }) });
 const equipoSummarySchema = z.object({ params: z.object({ id: z.string().transform((v) => Number(v)) }) });
 
+// Helper: generar solo datos para Excel (sin descargar documentos)
+async function buildExcelRowsOnly(equipoIds: number[]): Promise<any[]> {
+  const rows: any[] = [];
+  for (const equipoId of equipoIds) {
+    const equipo = await prisma.equipo.findUnique({
+      where: { id: equipoId },
+      include: { empresaTransportista: { select: { cuit: true, razonSocial: true } } },
+    });
+    if (!equipo) continue;
+
+    const [chofer, camion, acoplado] = await Promise.all([
+      prisma.chofer.findUnique({ where: { id: equipo.driverId }, select: { dni: true, nombre: true, apellido: true } }),
+      prisma.camion.findUnique({ where: { id: equipo.truckId }, select: { patente: true } }),
+      equipo.trailerId ? prisma.acoplado.findUnique({ where: { id: equipo.trailerId }, select: { patente: true } }) : null,
+    ]);
+
+    rows.push({
+      equipoId: equipo.id,
+      empresaCuit: equipo.empresaTransportista?.cuit || '',
+      empresaRazonSocial: equipo.empresaTransportista?.razonSocial || '',
+      choferDni: chofer?.dni || equipo.driverDniNorm || '',
+      choferNombre: chofer?.nombre || '',
+      choferApellido: chofer?.apellido || '',
+      camionPatente: camion?.patente || equipo.truckPlateNorm || '',
+      acopladoPatente: acoplado?.patente || equipo.trailerPlateNorm || '',
+    });
+  }
+  return rows;
+}
+
+async function streamExcelOnly(equipoIds: number[], res: any) {
+  const stamp = new Date().toISOString().replace(/[-:T]/g, '').slice(0, 12);
+  
+  res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+  res.setHeader('Content-Disposition', `attachment; filename=resumen_equipos_${stamp}.xlsx`);
+
+  try {
+    AppLogger.info('📊 Generando Excel de equipos', { totalEquipos: equipoIds.length });
+    const excelRows = await buildExcelRowsOnly(equipoIds);
+    
+    if (excelRows.length === 0) {
+      AppLogger.warn('📊 No hay equipos para generar Excel');
+      return res.status(404).send('No se encontraron equipos');
+    }
+
+    const excelBuffer = await generateExcelBuffer(excelRows);
+    AppLogger.info('📊 Excel generado correctamente', { rows: excelRows.length, size: excelBuffer.length });
+    res.send(excelBuffer);
+  } catch (err) {
+    AppLogger.error('💥 Error generando Excel', err);
+    if (!res.headersSent) res.status(500).send('Error generando Excel');
+  }
+}
+
 // ============================================================================
 // RUTAS SIN AUTENTICACIÓN (FORM POST)
 // ============================================================================
+
+// Endpoint para descargar solo el Excel (sin documentos)
+router.post('/download/excel-form', async (req: any, res) => {
+  const token = String(req.body?.token || '');
+  if (!token) return res.status(401).send('Token requerido');
+
+  const decoded = verifyJwtFromForm(token);
+  if (!decoded) return res.status(401).send('Token inválido');
+
+  const allowed = new Set(['ADMIN', 'SUPERADMIN', 'ADMIN_INTERNO', 'DADOR_DE_CARGA']);
+  if (!allowed.has(String(decoded.role || decoded.userRole || ''))) return res.status(403).send('No autorizado');
+
+  const equipoIds = String(req.body?.equipoIds || '').split(',').map((s: string) => Number(s.trim())).filter((n: number) => Number.isInteger(n) && n > 0);
+  if (!equipoIds.length) return res.status(400).send('equipoIds requerido');
+  if (equipoIds.length > 5000) return res.status(400).send('Máximo 5000 equipos');
+
+  return streamExcelOnly(equipoIds, res);
+});
+
 router.post('/download/vigentes-form', async (req: any, res) => {
   const token = String(req.body?.token || '');
   if (!token) return res.status(401).send('Token requerido');
