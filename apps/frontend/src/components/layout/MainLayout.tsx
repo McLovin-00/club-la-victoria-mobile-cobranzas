@@ -15,6 +15,7 @@ import {
   ClipboardDocumentCheckIcon,
   TruckIcon,
   ExclamationTriangleIcon,
+  ArrowsRightLeftIcon,
 } from '@heroicons/react/24/outline';
 import { ThemeToggle } from '../ui/theme-toggle';
 import { Logger } from '../../lib/utils';
@@ -242,6 +243,13 @@ const SidebarContent = ({ closeSidebar }: SidebarContentProps) => {
                 to='/remitos'
                 icon={ClipboardDocumentCheckIcon}
                 text='Remitos'
+                closeSidebar={closeSidebar}
+              />
+              {/* Transferencias - gestión de solicitudes de transferencia */}
+              <NavItem
+                to='/admin/transferencias'
+                icon={ArrowsRightLeftIcon}
+                text='Transferencias'
                 closeSidebar={closeSidebar}
               />
             </div>

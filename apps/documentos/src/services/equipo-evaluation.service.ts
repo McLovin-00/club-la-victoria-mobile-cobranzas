@@ -241,7 +241,7 @@ function clasificarDocumento(
     return;
   }
 
-  if (ESTADOS_PENDIENTES.includes(doc.status)) {
+  if (ESTADOS_PENDIENTES.includes(doc.status as DocumentStatus)) {
     stats.pendientes++;
     return;
   }
