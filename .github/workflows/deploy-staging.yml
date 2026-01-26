@@ -1,52 +1,228 @@
-name: deploy-staging
+# ============================================================================
+# DEPLOY STAGING WORKFLOW
+# ============================================================================
+# Propósito: Deploy controlado al ambiente de Staging (Pre-producción)
+# Trigger: MANUAL (workflow_dispatch) después de PR staging aprobado
+# Target: 10.3.0.243
+# ============================================================================
+
+name: Deploy Staging
 
 on:
-  push:
-    branches: [ main ]
-    paths:
-      - 'apps/**'
-      - 'packages/**'
-      - '.github/workflows/**'
-      - 'docker-compose.prod.yml'
-      - 'scripts/deploy-prod.sh'
+  # Solo ejecución manual - NO automático
+  workflow_dispatch:
+    inputs:
+      confirm:
+        description: 'Confirmar deploy a Staging (escribir "deploy")'
+        required: true
+        type: string
+      notes:
+        description: 'Notas del deploy (opcional)'
+        required: false
+        type: string
+
+concurrency:
+  group: deploy-staging
+  cancel-in-progress: false
+
+env:
+  ENVIRONMENT: staging
+  SERVER_IP: 10.3.0.243
+  PROJECT_PATH: /home/administrador/monorepo-bca
 
 jobs:
-  deploy:
+  # -------------------------------------------------------------------------
+  # JOB: Validate
+  # -------------------------------------------------------------------------
+  validate:
+    name: 🔍 Validate Request
     runs-on: ubuntu-latest
-    environment: staging
-    if: github.ref == 'refs/heads/main'
     steps:
+      - name: Validate confirmation
+        run: |
+          if [ "${{ github.event.inputs.confirm }}" != "deploy" ]; then
+            echo "❌ Confirmación inválida"
+            echo "Debe escribir 'deploy' para confirmar"
+            exit 1
+          fi
+          echo "✅ Confirmación válida"
+
+      - name: Check branch
+        run: |
+          if [ "${{ github.ref }}" != "refs/heads/staging" ]; then
+            echo "❌ Este workflow solo puede ejecutarse desde la rama 'staging'"
+            echo "Rama actual: ${{ github.ref }}"
+            exit 1
+          fi
+          echo "✅ Ejecutando desde rama staging"
+
+  # -------------------------------------------------------------------------
+  # JOB: Deploy
+  # -------------------------------------------------------------------------
+  deploy:
+    name: 🎭 Deploy to Staging
+    runs-on: ubuntu-latest
+    needs: validate
+    environment:
+      name: staging
+      url: http://10.3.0.243:8550
+
+    steps:
+      # ---------------------------------------------------------------------
+      # Checkout
+      # ---------------------------------------------------------------------
       - name: Checkout
         uses: actions/checkout@v4
-
-      - name: Setup Node
-        uses: actions/setup-node@v4
         with:
-          node-version: 20
+          ref: staging
 
-      - name: Set up SSH
-        uses: webfactory/ssh-agent@v0.8.0
-        with:
-          ssh-private-key: ${{ secrets.STAGING_SSH_KEY }}
-
-      - name: Deploy to staging (Docker Swarm)
-        env:
-          HOST: ${{ secrets.STAGING_HOST }}
-          SSH_USER: ${{ secrets.STAGING_SSH_USER }}
+      # ---------------------------------------------------------------------
+      # Notificar inicio
+      # ---------------------------------------------------------------------
+      - name: Notify start
         run: |
-          set -euo pipefail
-          echo "🔗 Connecting to $SSH_USER@$HOST"
-          ssh -o StrictHostKeyChecking=no "$SSH_USER@$HOST" 'bash -s' <<'REMOTE'
-          set -euo pipefail
-          cd /home/administrador/monorepo
-          git fetch --all --prune
-          git checkout main
-          git pull --rebase
-          npm ci
-          # Ejecutar migraciones seguras en staging
-          npx prisma migrate deploy --schema=apps/backend/prisma/schema.prisma
-          # Desplegar stack
-          bash scripts/deploy-prod.sh
-          REMOTE
+          echo "🎭 =========================================="
+          echo "🎭 DEPLOY A STAGING"
+          echo "🎭 =========================================="
+          echo "📦 Branch: staging"
+          echo "📦 Commit: ${{ github.sha }}"
+          echo "👤 Requested by: ${{ github.actor }}"
+          echo "📝 Notes: ${{ github.event.inputs.notes || 'N/A' }}"
+          echo "🕐 Time: $(date +'%Y-%m-%d %H:%M:%S')"
 
+      # ---------------------------------------------------------------------
+      # Deploy via SSH
+      # ---------------------------------------------------------------------
+      - name: Deploy via SSH
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.STAGING_SSH_HOST }}
+          username: ${{ secrets.STAGING_SSH_USER }}
+          key: ${{ secrets.STAGING_SSH_KEY }}
+          port: 22
+          command_timeout: 15m
+          script_stop: true
+          script: |
+            set -e
+            
+            echo "=============================================="
+            echo "DEPLOY A STAGING - $(date +'%Y-%m-%d %H:%M:%S')"
+            echo "=============================================="
+            
+            cd ${{ env.PROJECT_PATH }}
+            
+            # Pull latest code
+            echo "📥 Pulling staging branch..."
+            git fetch origin
+            git checkout staging
+            git reset --hard origin/staging
+            
+            # Install dependencies
+            echo "📦 Installing dependencies..."
+            npm ci
+            
+            # Run migrations
+            echo "🔄 Running Prisma migrations..."
+            npx prisma migrate deploy --schema=apps/backend/prisma/schema.prisma || true
+            npx prisma migrate deploy --schema=apps/documentos/src/prisma/schema.prisma || true
+            
+            # Generate Prisma clients
+            echo "🔄 Generating Prisma clients..."
+            npx prisma generate --schema=apps/backend/prisma/schema.prisma
+            npx prisma generate --schema=apps/documentos/src/prisma/schema.prisma
+            
+            # Build and deploy
+            echo "🏗️ Building and deploying..."
+            cd /home/administrador/stack-ip-10.3.0.243
+            docker compose down || true
+            docker compose up -d --build
+            
+            # Wait for services
+            echo "⏳ Waiting for services..."
+            sleep 25
+            
+            echo "=============================================="
+            echo "✅ DEPLOY COMPLETADO"
+            echo "=============================================="
 
+      # ---------------------------------------------------------------------
+      # Health Check
+      # ---------------------------------------------------------------------
+      - name: Health Check
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.STAGING_SSH_HOST }}
+          username: ${{ secrets.STAGING_SSH_USER }}
+          key: ${{ secrets.STAGING_SSH_KEY }}
+          port: 22
+          script: |
+            echo "🔍 Verificando servicios..."
+            
+            FAILED=0
+            
+            # Backend
+            if curl -sf http://localhost:4800/health > /dev/null 2>&1; then
+              echo "✅ Backend: OK"
+            else
+              echo "❌ Backend: FAILED"
+              FAILED=1
+            fi
+            
+            # Documentos
+            if curl -sf http://localhost:4802/health > /dev/null 2>&1; then
+              echo "✅ Documentos: OK"
+            else
+              echo "❌ Documentos: FAILED"
+              FAILED=1
+            fi
+            
+            # Frontend
+            if curl -sf http://localhost:8550 > /dev/null 2>&1; then
+              echo "✅ Frontend: OK"
+            else
+              echo "⚠️ Frontend: No responde (puede estar iniciando)"
+            fi
+            
+            # Container status
+            echo ""
+            echo "📊 Estado de contenedores:"
+            docker ps --filter name=bca --format "table {{.Names}}\t{{.Status}}"
+            
+            if [ $FAILED -eq 1 ]; then
+              echo ""
+              echo "❌ Algunos servicios no están healthy"
+              exit 1
+            fi
+
+      # ---------------------------------------------------------------------
+      # Notificar resultado
+      # ---------------------------------------------------------------------
+      - name: Notify success
+        if: success()
+        run: |
+          echo ""
+          echo "✅ =========================================="
+          echo "✅ DEPLOY A STAGING EXITOSO"
+          echo "✅ =========================================="
+          echo "🌐 URL: http://10.3.0.243:8550"
+          echo "📦 Commit: ${{ github.sha }}"
+          echo "👤 Deployed by: ${{ github.actor }}"
+          echo "📝 Notes: ${{ github.event.inputs.notes || 'N/A' }}"
+          echo ""
+          echo "📋 Próximos pasos:"
+          echo "   1. Notificar a QA para iniciar validación"
+          echo "   2. Verificar funcionalidades principales"
+          echo "   3. Cuando esté validado, crear PR staging → main"
+
+      - name: Notify failure
+        if: failure()
+        run: |
+          echo ""
+          echo "❌ =========================================="
+          echo "❌ DEPLOY A STAGING FALLÓ"
+          echo "❌ =========================================="
+          echo "📦 Commit: ${{ github.sha }}"
+          echo "👤 Attempted by: ${{ github.actor }}"
+          echo ""
+          echo "🔍 Revisar logs para más detalles"
+          echo "🔄 Si es necesario, verificar estado en el servidor"

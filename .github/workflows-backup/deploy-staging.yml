@@ -1,0 +1,52 @@
+name: deploy-staging
+
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - 'apps/**'
+      - 'packages/**'
+      - '.github/workflows/**'
+      - 'docker-compose.prod.yml'
+      - 'scripts/deploy-prod.sh'
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment: staging
+    if: github.ref == 'refs/heads/main'
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Set up SSH
+        uses: webfactory/ssh-agent@v0.8.0
+        with:
+          ssh-private-key: ${{ secrets.STAGING_SSH_KEY }}
+
+      - name: Deploy to staging (Docker Swarm)
+        env:
+          HOST: ${{ secrets.STAGING_HOST }}
+          SSH_USER: ${{ secrets.STAGING_SSH_USER }}
+        run: |
+          set -euo pipefail
+          echo "🔗 Connecting to $SSH_USER@$HOST"
+          ssh -o StrictHostKeyChecking=no "$SSH_USER@$HOST" 'bash -s' <<'REMOTE'
+          set -euo pipefail
+          cd /home/administrador/monorepo
+          git fetch --all --prune
+          git checkout main
+          git pull --rebase
+          npm ci
+          # Ejecutar migraciones seguras en staging
+          npx prisma migrate deploy --schema=apps/backend/prisma/schema.prisma
+          # Desplegar stack
+          bash scripts/deploy-prod.sh
+          REMOTE
+
+
