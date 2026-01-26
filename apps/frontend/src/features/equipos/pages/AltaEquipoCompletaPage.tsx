@@ -31,6 +31,7 @@ const AltaEquipoCompletaPage: React.FC = () => {
   const navigate = useNavigate();
   const { goBack, getHomeRoute, user } = useRoleBasedNavigation();
   const empresaId = useAppSelector((s) => (s as any).auth?.user?.empresaId) as number | undefined;
+  const userDadorCargaId = useAppSelector((s) => (s as any).auth?.user?.dadorCargaId) as number | undefined;
   const role = user?.role;
 
   // Queries y mutations del sistema existente
@@ -86,12 +87,13 @@ const AltaEquipoCompletaPage: React.FC = () => {
     return Array.isArray(raw) ? raw : [];
   }, [clientsResp]);
   
-  // Si el usuario NO es ADMIN_INTERNO, usar su empresaId como dadorCargaId por defecto
+  // Para DADOR_DE_CARGA, usar su dadorCargaId; para otros roles, usar empresaId como fallback
   useEffect(() => {
-    if (!isAdminInterno && empresaId && !dadorCargaId) {
-      setDadorCargaId(empresaId);
+    if (!isAdminInterno && !dadorCargaId) {
+      const defaultDadorId = userDadorCargaId || empresaId;
+      if (defaultDadorId) setDadorCargaId(defaultDadorId);
     }
-  }, [isAdminInterno, empresaId, dadorCargaId]);
+  }, [isAdminInterno, userDadorCargaId, empresaId, dadorCargaId]);
 
   // Si el usuario es TRANSPORTISTA, auto-completar datos de su empresa transportista
   useEffect(() => {
