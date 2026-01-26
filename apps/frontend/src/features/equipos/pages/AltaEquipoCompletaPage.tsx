@@ -87,13 +87,28 @@ const AltaEquipoCompletaPage: React.FC = () => {
     return Array.isArray(raw) ? raw : [];
   }, [clientsResp]);
   
-  // Para DADOR_DE_CARGA, usar su dadorCargaId; para otros roles, usar empresaId como fallback
+  // Determinar dadorCargaId según el rol del usuario
+  // - DADOR_DE_CARGA: DEBE usar su propio dadorCargaId (obligatorio)
+  // - TRANSPORTISTA: se asigna en el useEffect de empresaTransportistaData
+  // - ADMIN_INTERNO: selecciona manualmente
+  // - Otros roles admin: usan su dadorCargaId si lo tienen
+  const isDadorDeCarga = role === 'DADOR_DE_CARGA';
+  const dadorCargaIdMissing = isDadorDeCarga && !userDadorCargaId;
+  
   useEffect(() => {
-    if (!isAdminInterno && !dadorCargaId) {
-      const defaultDadorId = userDadorCargaId || empresaId;
-      if (defaultDadorId) setDadorCargaId(defaultDadorId);
+    // Para DADOR_DE_CARGA: usar su dadorCargaId del perfil (obligatorio)
+    if (isDadorDeCarga && userDadorCargaId && !dadorCargaId) {
+      setDadorCargaId(userDadorCargaId);
+      return;
     }
-  }, [isAdminInterno, userDadorCargaId, empresaId, dadorCargaId]);
+    
+    // Para otros roles (excepto ADMIN_INTERNO que selecciona manual):
+    // Si tienen dadorCargaId en su perfil, usarlo
+    if (!isAdminInterno && !isTransportista && !isDadorDeCarga && userDadorCargaId && !dadorCargaId) {
+      setDadorCargaId(userDadorCargaId);
+    }
+    // NOTA: NO usar empresaId como fallback, son conceptos diferentes
+  }, [isAdminInterno, isTransportista, isDadorDeCarga, userDadorCargaId, dadorCargaId]);
 
   // Si el usuario es TRANSPORTISTA, auto-completar datos de su empresa transportista
   useEffect(() => {
@@ -274,7 +289,11 @@ const AltaEquipoCompletaPage: React.FC = () => {
     }
 
     if (!dadorCargaId) {
-      setMessage({ type: 'error', text: 'Debe seleccionar un dador de carga' });
+      if (dadorCargaIdMissing) {
+        setMessage({ type: 'error', text: 'Tu sesión está desactualizada. Cerrá sesión y volvé a iniciar sesión para continuar.' });
+      } else {
+        setMessage({ type: 'error', text: 'Debe seleccionar un dador de carga' });
+      }
       return;
     }
 
@@ -517,6 +536,22 @@ const AltaEquipoCompletaPage: React.FC = () => {
           />
         </div>
       </div>
+
+      {/* Alerta: sesión desactualizada para DADOR_DE_CARGA */}
+      {dadorCargaIdMissing && (
+        <div className='mb-4 p-4 rounded-lg bg-amber-50 border-2 border-amber-400 text-amber-800'>
+          <div className='flex items-start gap-3'>
+            <span className='text-2xl'>⚠️</span>
+            <div>
+              <p className='font-semibold mb-1'>Sesión desactualizada</p>
+              <p className='text-sm'>
+                Tu perfil no tiene el dador de carga asignado correctamente. 
+                Por favor, <strong>cerrá sesión y volvé a iniciar sesión</strong> para actualizar tus datos.
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Mensaje */}
       {message && (
