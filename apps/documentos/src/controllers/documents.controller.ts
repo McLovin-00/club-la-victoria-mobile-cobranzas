@@ -153,11 +153,22 @@ function extractFilesFromRequest(req: AuthRequest): { files: Express.Multer.File
 
 /** Valida permisos de empresa para roles de campo */
 function validateUploadPermissions(req: AuthRequest, dadorIdNum: number): void {
-  const restrictedRoles = ['DADOR_DE_CARGA', 'TRANSPORTISTA', 'CLIENTE'];
-  if (restrictedRoles.includes(req.user?.role || '')) {
-    const userEmpresaId = (req.user as any)?.empresaId;
-    if (!userEmpresaId || userEmpresaId !== dadorIdNum) {
-      throw createError('Acceso denegado a empresa', 403, 'DOCUMENT_UPLOAD_FORBIDDEN');
+  const userRole = req.user?.role || '';
+  
+  // DADOR_DE_CARGA: debe usar su propio dadorCargaId
+  if (userRole === 'DADOR_DE_CARGA') {
+    const userDadorCargaId = (req.user as any)?.dadorCargaId;
+    if (!userDadorCargaId || userDadorCargaId !== dadorIdNum) {
+      throw createError('Acceso denegado a dador indicado', 403, 'DOCUMENT_UPLOAD_FORBIDDEN');
+    }
+    return;
+  }
+  
+  // TRANSPORTISTA y CLIENTE: verificar que tengan acceso al dador indicado
+  if (userRole === 'TRANSPORTISTA' || userRole === 'CLIENTE') {
+    const userDadorCargaId = (req.user as any)?.dadorCargaId;
+    if (!userDadorCargaId || userDadorCargaId !== dadorIdNum) {
+      throw createError('Acceso denegado a dador indicado', 403, 'DOCUMENT_UPLOAD_FORBIDDEN');
     }
   }
 }
