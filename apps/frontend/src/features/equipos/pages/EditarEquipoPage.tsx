@@ -58,14 +58,26 @@ const EditarEquipoPage: React.FC = () => {
     { skip: !equipoId }
   );
   
-  const dadorId = equipo?.dadorCargaId || 1;
+  const dadorId = equipo?.dadorCargaId;
   
-  // Cargar catálogos
+  // Cargar catálogos - esperar a que cargue el equipo para obtener el dadorCargaId correcto
   const { data: clientsResp } = useGetClientsQuery({ activo: true });
-  const { data: choferesResp } = useGetChoferesQuery({ empresaId: dadorId, page: 1, limit: 100 });
-  const { data: camionesResp } = useGetCamionesQuery({ empresaId: dadorId, page: 1, limit: 100 });
-  const { data: acopladosResp } = useGetAcopladosQuery({ empresaId: dadorId, page: 1, limit: 100 });
-  const { data: empresasResp } = useGetEmpresasTransportistasQuery({ dadorCargaId: dadorId });
+  const { data: choferesResp } = useGetChoferesQuery(
+    { empresaId: dadorId!, page: 1, limit: 100 },
+    { skip: !dadorId }
+  );
+  const { data: camionesResp } = useGetCamionesQuery(
+    { empresaId: dadorId!, page: 1, limit: 100 },
+    { skip: !dadorId }
+  );
+  const { data: acopladosResp } = useGetAcopladosQuery(
+    { empresaId: dadorId!, page: 1, limit: 100 },
+    { skip: !dadorId }
+  );
+  const { data: empresasResp } = useGetEmpresasTransportistasQuery(
+    { dadorCargaId: dadorId! },
+    { skip: !dadorId }
+  );
   
   // Cargar requisitos del equipo
   const { data: requisitos, refetch: refetchRequisitos } = useGetEquipoRequisitosQuery(
