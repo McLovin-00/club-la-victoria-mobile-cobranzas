@@ -18,7 +18,9 @@ type ComplianceFilter = 'all' | 'faltantes' | 'vencidos' | 'por_vencer';
 export const ConsultaPage: React.FC = () => {
   const navigate = useNavigate();
   const userRole = useAppSelector((s) => (s as any).auth?.user?.role) as string | undefined;
+  const userDadorCargaId = useAppSelector((s) => (s as any).auth?.user?.dadorCargaId) as number | undefined;
   const isChofer = userRole === 'CHOFER';
+  const isDadorDeCarga = userRole === 'DADOR_DE_CARGA';
   
   // Determinar ruta de volver según el rol
   const getBackRoute = () => {
@@ -38,14 +40,20 @@ export const ConsultaPage: React.FC = () => {
   const show = (msg: string) => { try { alert(msg); } catch { console.log(msg); } };
   const { confirm } = useContext(ConfirmContext);
   const { data: dadoresResp } = useGetDadoresQuery({}, { skip: isChofer } as any);
-  const dadores = dadoresResp?.list ?? (Array.isArray(dadoresResp) ? dadoresResp : []);
+  const dadoresRaw = dadoresResp?.list ?? (Array.isArray(dadoresResp) ? dadoresResp : []);
+  // Para DADOR_DE_CARGA, filtrar para que solo vea su propio dador
+  const dadores = isDadorDeCarga && userDadorCargaId
+    ? dadoresRaw.filter((d: any) => d.id === userDadorCargaId)
+    : dadoresRaw;
   const { data: templates = [] } = useGetTemplatesQuery(undefined as any, { skip: isChofer } as any);
   const { data: clientsResp } = useGetClientsQuery({}, { skip: isChofer } as any);
   const clients = clientsResp?.list ?? (Array.isArray(clientsResp) ? clientsResp : []);
   const empresaIdFromAuth = useSelector((s: RootState) => s.auth?.user?.empresaId) as number | undefined;
   const { data: defaults } = useGetDefaultsQuery();
-  // Para búsqueda, usar default del dador si existe; si no, caer al empresaId del usuario
-  const dadorIdForSearch = (defaults?.defaultDadorId ?? empresaIdFromAuth ?? undefined);
+  // Para DADOR_DE_CARGA, usar su dadorCargaId; para otros, usar default o empresaId
+  const dadorIdForSearch = isDadorDeCarga && userDadorCargaId
+    ? userDadorCargaId
+    : (defaults?.defaultDadorId ?? empresaIdFromAuth ?? undefined);
   const authToken = useSelector((s: RootState) => s.auth?.token) || (typeof localStorage !== 'undefined' ? (localStorage.getItem('token') || '') : '');
   
   // Estados de filtros
@@ -128,7 +136,12 @@ export const ConsultaPage: React.FC = () => {
   const [csvResults, setCsvResults] = useState<Array<any>>([]);
   const [csvInfo, setCsvInfo] = useState<{ name?: string; count?: number }>({});
   
-  
+  // Para DADOR_DE_CARGA, forzar su dadorCargaId como único seleccionable
+  useEffect(() => {
+    if (isDadorDeCarga && userDadorCargaId && selectedDadorId !== userDadorCargaId) {
+      setSelectedDadorId(userDadorCargaId);
+    }
+  }, [isDadorDeCarga, userDadorCargaId, selectedDadorId]);
 
   // Persistir búsqueda en URL cuando cambian los parámetros
   useEffect(() => {
@@ -768,14 +781,18 @@ export const ConsultaPage: React.FC = () => {
                   className='w-full border rounded px-3 py-2 text-sm'
                   value={selectedDadorId || ''}
                   onChange={(e) => setSelectedDadorId(e.target.value ? Number(e.target.value) : undefined)}
+                  disabled={isDadorDeCarga}
                 >
-                  <option value=''>Seleccione un dador</option>
+                  {isDadorDeCarga ? null : <option value=''>Seleccione un dador</option>}
                   {dadores.map((d: any) => (
                     <option key={d.id} value={d.id}>
                       {d.razonSocial || d.nombre || `Dador #${d.id}`}
                     </option>
                   ))}
                 </select>
+                {isDadorDeCarga && (
+                  <p className='text-xs text-muted-foreground mt-1'>Solo puede consultar equipos de su dador asignado</p>
+                )}
               </div>
             )}
             {filterType === 'cliente' && (
