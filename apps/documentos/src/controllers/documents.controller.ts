@@ -179,7 +179,9 @@ function validateUploadScenario(
   last: { id: number; status: string } | null
 ): void {
   const isInitialAttempt = !last;
-  const allowInitialUpload = req.user?.role === 'ADMIN_INTERNO' || req.user?.role === 'SUPERADMIN';
+  // Permitir subida inicial para roles que pueden crear equipos desde alta-completa
+  const rolesWithInitialUpload = ['ADMIN_INTERNO', 'SUPERADMIN', 'DADOR_DE_CARGA'];
+  const allowInitialUpload = rolesWithInitialUpload.includes(req.user?.role || '');
 
   if (isInitialAttempt && !allowInitialUpload) {
     throw createError(
