@@ -10,6 +10,8 @@ import {
   useGetClientsQuery,
   useLazyGetConsolidatedTemplatesQuery,
   useGetEmpresaTransportistaByIdQuery,
+  useGetPlantillasRequisitoQuery,
+  useLazyGetConsolidatedTemplatesByPlantillasQuery,
 } from '../../documentos/api/documentosApiSlice';
 import { SeccionDocumentos, Template } from '../components/SeccionDocumentos';
 import { useRoleBasedNavigation } from '../../../hooks/useRoleBasedNavigation';
@@ -42,10 +44,14 @@ const AltaEquipoCompletaPage: React.FC = () => {
   const [createEquipoCompleto, { isLoading: creatingEquipo }] = useCreateEquipoCompletoMutation();
   const [rollbackEquipoCompleto] = useRollbackEquipoCompletoMutation();
   const [getConsolidatedTemplates, { data: consolidatedData, isFetching: loadingConsolidated }] = useLazyGetConsolidatedTemplatesQuery();
+  const { data: plantillasData = [] } = useGetPlantillasRequisitoQuery({ activo: true });
+  const [getConsolidatedTemplatesByPlantillas, { data: consolidatedPlantillasData, isFetching: loadingConsolidatedPlantillas }] = useLazyGetConsolidatedTemplatesByPlantillasQuery();
 
   // Estados del formulario
   const [dadorCargaId, setDadorCargaId] = useState<number | null>(null);
   const [clienteIds, setClienteIds] = useState<number[]>([]);
+  const [plantillaIds, setPlantillaIds] = useState<number[]>([]);
+  const [usePlantillas, setUsePlantillas] = useState(true); // Por defecto usar plantillas
   const [empresaTransportista, setEmpresaTransportista] = useState('');
   const [cuitTransportista, setCuitTransportista] = useState('');
   const [choferNombre, setChoferNombre] = useState('');
@@ -129,16 +135,53 @@ const AltaEquipoCompletaPage: React.FC = () => {
 
   // Cargar templates consolidados cuando cambian los clientes seleccionados
   useEffect(() => {
-    if (clienteIds.length > 0) {
+    if (clienteIds.length > 0 && !usePlantillas) {
       getConsolidatedTemplates({ clienteIds });
     }
-  }, [clienteIds, getConsolidatedTemplates]);
+  }, [clienteIds, getConsolidatedTemplates, usePlantillas]);
+
+  // Cargar templates consolidados cuando cambian las plantillas seleccionadas
+  useEffect(() => {
+    if (plantillaIds.length > 0 && usePlantillas) {
+      getConsolidatedTemplatesByPlantillas({ plantillaIds });
+    }
+  }, [plantillaIds, getConsolidatedTemplatesByPlantillas, usePlantillas]);
 
   // Agrupar templates por entityType
-  // Si hay clientes seleccionados, usar templates consolidados; si no, usar todos los templates
+  // Si hay plantillas/clientes seleccionados, usar templates consolidados; si no, usar todos los templates
   const templatesPorTipo = useMemo(() => {
+    // Si usamos plantillas y hay plantillas seleccionadas
+    if (usePlantillas && plantillaIds.length > 0 && consolidatedPlantillasData?.byEntityType) {
+      const byType = consolidatedPlantillasData.byEntityType;
+      return {
+        EMPRESA_TRANSPORTISTA: (byType.EMPRESA_TRANSPORTISTA || []).map((t: any) => ({
+          id: t.templateId,
+          name: t.templateName,
+          entityType: 'EMPRESA_TRANSPORTISTA',
+          active: true,
+        })),
+        CHOFER: (byType.CHOFER || []).map((t: any) => ({
+          id: t.templateId,
+          name: t.templateName,
+          entityType: 'CHOFER',
+          active: true,
+        })),
+        CAMION: (byType.CAMION || []).map((t: any) => ({
+          id: t.templateId,
+          name: t.templateName,
+          entityType: 'CAMION',
+          active: true,
+        })),
+        ACOPLADO: (byType.ACOPLADO || []).map((t: any) => ({
+          id: t.templateId,
+          name: t.templateName,
+          entityType: 'ACOPLADO',
+          active: true,
+        })),
+      };
+    }
     // Si hay clientes seleccionados y tenemos datos consolidados, usar esos
-    if (clienteIds.length > 0 && consolidatedData?.byEntityType) {
+    if (!usePlantillas && clienteIds.length > 0 && consolidatedData?.byEntityType) {
       const byType = consolidatedData.byEntityType;
       return {
         EMPRESA_TRANSPORTISTA: (byType.EMPRESA_TRANSPORTISTA || []).map((t) => ({
@@ -184,7 +227,7 @@ const AltaEquipoCompletaPage: React.FC = () => {
       CAMION: allTemplates.filter((t: Template) => t.entityType === 'CAMION'),
       ACOPLADO: allTemplates.filter((t: Template) => t.entityType === 'ACOPLADO'),
     };
-  }, [templatesResp, clienteIds, consolidatedData]);
+  }, [templatesResp, clienteIds, consolidatedData, usePlantillas, plantillaIds, consolidatedPlantillasData]);
 
   // Calcular IDs de entidades temporales (antes de crear el equipo)
   // Usamos valores temporales para permitir uploads; el backend creará las entidades
@@ -608,59 +651,79 @@ const AltaEquipoCompletaPage: React.FC = () => {
         </div>
       )}
 
-      {/* SELECTOR DE CLIENTES (para todos los roles que pueden cargar) */}
+      {/* SELECTOR DE PLANTILLAS DE REQUISITOS */}
       <div className='bg-gradient-to-r from-blue-50 to-blue-100 border-2 border-blue-300 rounded-lg p-6 mb-4'>
         <h2 className='text-xl font-semibold text-blue-900 mb-4 flex items-center'>
-          <span className='bg-blue-200 text-blue-900 rounded-full w-8 h-8 flex items-center justify-center mr-3 text-sm font-bold'>👥</span>
-          Clientes (Opcional)
+          <span className='bg-blue-200 text-blue-900 rounded-full w-8 h-8 flex items-center justify-center mr-3 text-sm font-bold'>📋</span>
+          Plantillas de Requisitos (Opcional)
         </h2>
         <div className='grid grid-cols-1 gap-4'>
           <div>
             <label className='block text-sm font-medium text-gray-700 mb-2'>
-              Seleccionar Clientes (puede seleccionar múltiples)
+              Seleccionar Plantillas de Requisitos (puede seleccionar múltiples)
             </label>
             <div className='max-h-60 overflow-y-auto border border-gray-300 rounded-md p-3 bg-white'>
-              {clientesList.length === 0 ? (
-                <p className='text-sm text-gray-500'>No hay clientes disponibles</p>
+              {plantillasData.length === 0 ? (
+                <p className='text-sm text-gray-500'>No hay plantillas de requisitos disponibles</p>
               ) : (
-                clientesList.map((cliente: any) => (
-                  <label key={cliente.id} className='flex items-center gap-2 p-2 hover:bg-gray-50 rounded cursor-pointer'>
-                    <input
-                      type='checkbox'
-                      checked={clienteIds.includes(cliente.id)}
-                      onChange={(e) => {
-                        if (e.target.checked) {
-                          setClienteIds([...clienteIds, cliente.id]);
-                        } else {
-                          setClienteIds(clienteIds.filter((id) => id !== cliente.id));
-                        }
-                      }}
-                      className='w-4 h-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded'
-                    />
-                    <span className='text-sm text-gray-700'>
-                      {cliente.razonSocial} {cliente.cuit && `(CUIT: ${cliente.cuit})`}
-                    </span>
-                  </label>
+                // Agrupar por cliente
+                Object.entries(
+                  plantillasData.reduce((acc: Record<string, any[]>, p: any) => {
+                    const clienteName = p.cliente?.razonSocial || 'Sin cliente';
+                    acc[clienteName] = acc[clienteName] || [];
+                    acc[clienteName].push(p);
+                    return acc;
+                  }, {})
+                ).map(([clienteName, plantillas]: [string, any[]]) => (
+                  <div key={clienteName} className='mb-3'>
+                    <div className='text-xs font-semibold text-gray-500 uppercase mb-1 px-2'>{clienteName}</div>
+                    {plantillas.map((plantilla: any) => (
+                      <label key={plantilla.id} className='flex items-center gap-2 p-2 hover:bg-gray-50 rounded cursor-pointer'>
+                        <input
+                          type='checkbox'
+                          checked={plantillaIds.includes(plantilla.id)}
+                          onChange={(e) => {
+                            if (e.target.checked) {
+                              setPlantillaIds([...plantillaIds, plantilla.id]);
+                              // También agregar el clienteId para la asociación
+                              if (!clienteIds.includes(plantilla.clienteId)) {
+                                setClienteIds([...clienteIds, plantilla.clienteId]);
+                              }
+                            } else {
+                              setPlantillaIds(plantillaIds.filter((id) => id !== plantilla.id));
+                            }
+                          }}
+                          className='w-4 h-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded'
+                        />
+                        <span className='text-sm text-gray-700'>
+                          {plantilla.nombre}
+                          <span className='text-xs text-gray-500 ml-2'>
+                            ({plantilla._count?.templates || 0} docs)
+                          </span>
+                        </span>
+                      </label>
+                    ))}
+                  </div>
                 ))
               )}
             </div>
-            {clienteIds.length > 0 && (
+            {plantillaIds.length > 0 && (
               <div className='mt-2'>
                 <p className='text-xs text-blue-600'>
-                  ✓ {clienteIds.length} cliente{clienteIds.length > 1 ? 's' : ''} seleccionado{clienteIds.length > 1 ? 's' : ''}
+                  ✓ {plantillaIds.length} plantilla{plantillaIds.length > 1 ? 's' : ''} seleccionada{plantillaIds.length > 1 ? 's' : ''}
                 </p>
-                {loadingConsolidated ? (
+                {loadingConsolidatedPlantillas ? (
                   <p className='text-xs text-gray-500 mt-1'>⏳ Cargando documentos requeridos...</p>
-                ) : consolidatedData?.templates && consolidatedData.templates.length > 0 ? (
+                ) : consolidatedPlantillasData?.templates && consolidatedPlantillasData.templates.length > 0 ? (
                   <p className='text-xs text-green-600 mt-1'>
-                    📋 {consolidatedData.templates.length} documentos requeridos por {clienteIds.length > 1 ? 'estos clientes' : 'este cliente'}
+                    📋 {consolidatedPlantillasData.templates.length} documentos requeridos por {plantillaIds.length > 1 ? 'estas plantillas' : 'esta plantilla'}
                   </p>
                 ) : null}
               </div>
             )}
-            {clienteIds.length === 0 && (
+            {plantillaIds.length === 0 && (
               <p className='text-xs text-amber-600 mt-2'>
-                ⚠️ Sin clientes seleccionados se mostrarán todos los documentos disponibles
+                ⚠️ Sin plantillas seleccionadas se mostrarán todos los documentos disponibles
               </p>
             )}
           </div>

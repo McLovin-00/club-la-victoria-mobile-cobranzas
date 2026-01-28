@@ -20,6 +20,10 @@ import {
   useCreateChoferMutation,
   useCreateEmpresaTransportistaMutation,
   useLazyCheckMissingDocsForClientQuery,
+  useGetEquipoPlantillasQuery,
+  useGetPlantillasRequisitoQuery,
+  useAssignPlantillaToEquipoMutation,
+  useUnassignPlantillaFromEquipoMutation,
 } from '../../documentos/api/documentosApiSlice';
 import { useRegisterChoferWizardMutation, useRegisterTransportistaWizardMutation } from '../../platform-users/api/platformUsersApiSlice';
 import { Button } from '../../../components/ui/button';
@@ -84,6 +88,22 @@ const EditarEquipoPage: React.FC = () => {
     { equipoId },
     { skip: !equipoId, refetchOnMountOrArgChange: true, refetchOnFocus: true }
   );
+  
+  // Cargar plantillas del equipo
+  const { data: equipoPlantillas = [], refetch: refetchPlantillas } = useGetEquipoPlantillasQuery(
+    { equipoId },
+    { skip: !equipoId }
+  );
+  
+  // Cargar todas las plantillas disponibles
+  const { data: allPlantillas = [] } = useGetPlantillasRequisitoQuery({ activo: true });
+  
+  // Mutations para plantillas
+  const [assignPlantilla] = useAssignPlantillaToEquipoMutation();
+  const [unassignPlantilla] = useUnassignPlantillaFromEquipoMutation();
+  
+  // State para agregar plantilla
+  const [plantillaToAdd, setPlantillaToAdd] = useState<number | ''>('');
   
   // Mutations
   const [attachComponents, { isLoading: attaching }] = useAttachEquipoComponentsMutation();
@@ -468,6 +488,44 @@ const EditarEquipoPage: React.FC = () => {
       setMessage({ type: 'error', text: err?.data?.message || 'Error al quitar cliente' });
     }
   };
+  
+  // Agregar plantilla al equipo
+  const handleAddPlantilla = async () => {
+    if (!plantillaToAdd) return;
+    try {
+      await assignPlantilla({ equipoId, plantillaRequisitoId: Number(plantillaToAdd) }).unwrap();
+      setPlantillaToAdd('');
+      setMessage({ type: 'success', text: 'Plantilla agregada correctamente' });
+      refetchPlantillas();
+      refetchRequisitos();
+    } catch (err: any) {
+      setMessage({ type: 'error', text: err?.data?.message || 'Error al agregar plantilla' });
+    }
+  };
+  
+  // Quitar plantilla del equipo
+  const handleRemovePlantilla = async (plantillaId: number, plantillaNombre: string) => {
+    const ok = await confirm({
+      title: 'Quitar plantilla',
+      message: `¿Quitar la plantilla "${plantillaNombre}" de este equipo?`,
+      confirmText: 'Quitar',
+      variant: 'danger',
+    });
+    if (!ok) return;
+    
+    try {
+      await unassignPlantilla({ equipoId, plantillaId }).unwrap();
+      setMessage({ type: 'success', text: 'Plantilla removida' });
+      refetchPlantillas();
+      refetchRequisitos();
+    } catch (err: any) {
+      setMessage({ type: 'error', text: err?.data?.message || 'Error al quitar plantilla' });
+    }
+  };
+  
+  // Plantillas disponibles para agregar (filtrar las ya asociadas)
+  const plantillasActualesIds = equipoPlantillas.map((ep: any) => ep.plantillaRequisito?.id);
+  const plantillasDisponibles = allPlantillas.filter((p: any) => !plantillasActualesIds.includes(p.id));
   
   // Helper para obtener color de estado
   const getEstadoStyle = (estado: string) => {
@@ -933,6 +991,69 @@ const EditarEquipoPage: React.FC = () => {
             </div>
           </div>
         )}
+      </Card>
+      
+      {/* Gestionar Plantillas de Requisitos */}
+      <Card className='p-4 mb-6'>
+        <h2 className='text-lg font-semibold mb-4'>Plantillas de Requisitos</h2>
+        
+        {/* Lista de plantillas actuales */}
+        <div className='mb-4 space-y-2'>
+          {equipoPlantillas.map((ep: any) => (
+            <div
+              key={ep.plantillaRequisito?.id}
+              className='flex items-center justify-between p-3 bg-blue-50 rounded border border-blue-200'
+            >
+              <div>
+                <span className='font-medium'>{ep.plantillaRequisito?.nombre}</span>
+                <span className='text-sm text-gray-500 ml-2'>
+                  ({ep.plantillaRequisito?.cliente?.razonSocial})
+                </span>
+                <span className='text-xs text-gray-400 ml-2'>
+                  {ep.plantillaRequisito?._count?.templates || 0} docs
+                </span>
+              </div>
+              {canManageClients && (
+              <Button
+                variant='outline'
+                size='sm'
+                onClick={() => handleRemovePlantilla(ep.plantillaRequisito?.id, ep.plantillaRequisito?.nombre)}
+              >
+                Quitar
+              </Button>
+              )}
+            </div>
+          ))}
+          {equipoPlantillas.length === 0 && (
+            <div className='text-gray-500 text-sm'>No hay plantillas asociadas</div>
+          )}
+        </div>
+        
+        {/* Agregar plantilla */}
+        {canManageClients && (
+        <div className='flex gap-2'>
+          <select
+            className='flex-1 border rounded px-3 py-2 bg-background'
+            value={plantillaToAdd}
+            onChange={(e) => setPlantillaToAdd(e.target.value ? Number(e.target.value) : '')}
+          >
+            <option value=''>Seleccionar plantilla para agregar</option>
+            {plantillasDisponibles.map((p: any) => (
+              <option key={p.id} value={p.id}>
+                {p.nombre} - {p.cliente?.razonSocial} ({p._count?.templates || 0} docs)
+              </option>
+            ))}
+          </select>
+          <Button onClick={handleAddPlantilla} disabled={!plantillaToAdd}>
+            <PlusIcon className='h-4 w-4 mr-1' />
+            Agregar
+          </Button>
+        </div>
+        )}
+        
+        <p className='text-xs text-gray-500 mt-2'>
+          Las plantillas de requisitos definen qué documentos son requeridos para este equipo.
+        </p>
       </Card>
       
       {/* Documentación Requerida */}

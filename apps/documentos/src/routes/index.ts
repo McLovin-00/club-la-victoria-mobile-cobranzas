@@ -35,6 +35,7 @@ import portalClienteRoutes from './portal-cliente.routes';
 import portalTransportistaRoutes from './portal-transportista.routes';
 import entityDataRoutes from './entity-data.routes';
 import transferenciasRoutes from './transferencias.routes';
+import plantillasRoutes, { clientPlantillasRoutes, equipoPlantillasRoutes } from './plantillas.routes';
 
 const router: ReturnType<typeof Router> = Router();
 
@@ -84,6 +85,10 @@ router.use('/api/docs/config', authenticate, tenantResolver, configRateLimit, co
 router.use('/api/docs/documents', authenticate, tenantResolver, documentsRoutes);
 router.use('/api/docs/dashboard', authenticate, tenantResolver, dashboardRoutes);
 router.use('/api/docs/clients', authenticate, tenantResolver, clientsRoutes);
+// Rutas de plantillas anidadas en clientes (GET/POST /:clienteId/plantillas)
+router.use('/api/docs/clients', authenticate, tenantResolver, clientPlantillasRoutes);
+// Rutas principales de plantillas
+router.use('/api/docs/plantillas', authenticate, tenantResolver, plantillasRoutes);
 
 // IMPORTANTE: Rutas de descarga de equipos (form-post) SIN authenticate middleware
 // Estas rutas manejan autenticación internamente via token en el body del formulario
@@ -91,6 +96,8 @@ router.use('/api/docs/clients', authenticate, tenantResolver, clientsRoutes);
 router.use('/api/docs/equipos/download', equiposDownloadRoutes);
 
 router.use('/api/docs/equipos', authenticate, tenantResolver, autoFilterByDador, authorizeTransportista, equiposRoutes);
+// Rutas de plantillas anidadas en equipos (GET/POST/DELETE /:equipoId/plantillas)
+router.use('/api/docs/equipos', authenticate, tenantResolver, equipoPlantillasRoutes);
 router.use('/api/docs/search', authenticate, tenantResolver, autoFilterByDador, authorizeTransportista, searchRoutes);
 router.use('/api/docs/storage', authenticate, tenantResolver, storageRoutes);
 router.use('/api/docs/notifications', authenticate, tenantResolver, notificationsRoutes);

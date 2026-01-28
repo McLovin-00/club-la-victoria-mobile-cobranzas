@@ -26,6 +26,7 @@ import AuditLogsPage from './features/documentos/pages/AuditLogsPage';
 import DashboardDadoresPage from './features/documentos/pages/DashboardDadoresPage';
 import ClientsPage from './features/documentos/pages/ClientsPage';
 import ClientRequirementsPage from './features/documentos/pages/ClientRequirementsPage';
+import PlantillasRequisitoPage from './features/documentos/pages/PlantillasRequisitoPage';
 import EquiposPage from './features/documentos/pages/EquiposPage';
 import ConsultaPage from './features/documentos/pages/ConsultaPage';
 import DadoresPage from './features/documentos/pages/DadoresPage';
@@ -121,6 +122,16 @@ function App() {
                 <Route path='/documentos/clientes/:clienteId/requirements' element={
                   <ProtectedServiceRoute service="documentos">
                     <ClientRequirementsPage />
+                  </ProtectedServiceRoute>
+                } />
+                <Route path='/documentos/plantillas' element={
+                  <ProtectedServiceRoute service="documentos">
+                    <PlantillasRequisitoPage />
+                  </ProtectedServiceRoute>
+                } />
+                <Route path='/documentos/plantillas/:clienteId' element={
+                  <ProtectedServiceRoute service="documentos">
+                    <PlantillasRequisitoPage />
                   </ProtectedServiceRoute>
                 } />
                 <Route path='/documentos/equipos' element={

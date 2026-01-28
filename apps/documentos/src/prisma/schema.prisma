@@ -27,14 +27,14 @@ enum EntityType {
 }
 
 enum DocumentStatus {
-  PENDIENTE             // Subido, esperando clasificación/validación
-  VALIDANDO             // En proceso de validación IA (legacy, compat)
-  CLASIFICANDO          // En proceso de clasificación IA
-  PENDIENTE_APROBACION  // Clasificado, esperando aprobación humana
-  APROBADO              // Validado y aprobado
-  RECHAZADO             // Validación falló
-  VENCIDO               // Documento expiró
-  DEPRECADO             // Reemplazado por una versión más nueva
+  PENDIENTE // Subido, esperando clasificación/validación
+  VALIDANDO // En proceso de validación IA (legacy, compat)
+  CLASIFICANDO // En proceso de clasificación IA
+  PENDIENTE_APROBACION // Clasificado, esperando aprobación humana
+  APROBADO // Validado y aprobado
+  RECHAZADO // Validación falló
+  VENCIDO // Documento expiró
+  DEPRECADO // Reemplazado por una versión más nueva
 }
 
 // Notificaciones
@@ -56,16 +56,17 @@ enum NotificationAudience {
 
 // Plantillas globales configurables por superadmin
 model DocumentTemplate {
-  id          Int        @id @default(autoincrement())
-  name        String     @db.VarChar(100)
-  entityType  EntityType @map("entity_type")
-  active      Boolean    @default(true)
-  createdAt   DateTime   @default(now()) @map("created_at")
-  updatedAt   DateTime   @updatedAt @map("updated_at")
+  id         Int        @id @default(autoincrement())
+  name       String     @db.VarChar(100)
+  entityType EntityType @map("entity_type")
+  active     Boolean    @default(true)
+  createdAt  DateTime   @default(now()) @map("created_at")
+  updatedAt  DateTime   @updatedAt @map("updated_at")
 
   // Relaciones
-  clientRequirements ClienteDocumentRequirement[] @relation("TemplateToClienteRequirement")
-  documents    Document[]
+  clientRequirements  ClienteDocumentRequirement[] @relation("TemplateToClienteRequirement")
+  plantillaRequisitos PlantillaRequisitoTemplate[] @relation("TemplateToPlantillaRequisito")
+  documents           Document[]
 
   @@index([entityType, active])
   @@map("document_templates")
@@ -75,52 +76,52 @@ model DocumentTemplate {
 
 // Documentos subidos por usuarios
 model Document {
-  id            Int            @id @default(autoincrement())
-  templateId    Int            @map("template_id")
-  entityType    EntityType     @map("entity_type")
-  entityId      Int            @map("entity_id")
-  dadorCargaId  Int            @map("dador_carga_id")
-  tenantEmpresaId Int          @map("tenant_empresa_id")
-  
+  id              Int        @id @default(autoincrement())
+  templateId      Int        @map("template_id")
+  entityType      EntityType @map("entity_type")
+  entityId        Int        @map("entity_id")
+  dadorCargaId    Int        @map("dador_carga_id")
+  tenantEmpresaId Int        @map("tenant_empresa_id")
+
   // Información del archivo
-  fileName      String         @map("file_name") @db.VarChar(255)
-  filePath      String         @map("file_path") @db.VarChar(500)
-  fileSize      Int            @map("file_size")
-  mimeType      String         @map("mime_type") @db.VarChar(100)
-  
+  fileName String @map("file_name") @db.VarChar(255)
+  filePath String @map("file_path") @db.VarChar(500)
+  fileSize Int    @map("file_size")
+  mimeType String @map("mime_type") @db.VarChar(100)
+
   // Nombres de archivo (original y estandarizado)
-  originalFileName     String?  @map("original_file_name") @db.VarChar(255)
-  standardizedFileName String?  @map("standardized_file_name") @db.VarChar(255)
-  
+  originalFileName     String? @map("original_file_name") @db.VarChar(255)
+  standardizedFileName String? @map("standardized_file_name") @db.VarChar(255)
+
   // Estado y validación
-  status        DocumentStatus @default(PENDIENTE)
-  validationData Json?         @map("validation_data")
-  expiresAt     DateTime?      @map("expires_at")
-  
+  status         DocumentStatus @default(PENDIENTE)
+  validationData Json?          @map("validation_data")
+  expiresAt      DateTime?      @map("expires_at")
+
   // Archivado (para documentos que ya no aplican)
-  archived      Boolean        @default(false)
-  archivedAt    DateTime?      @map("archived_at")
-  archivedBy    Int?           @map("archived_by")
-  archiveReason String?        @map("archive_reason") @db.VarChar(50)
-  
+  archived      Boolean   @default(false)
+  archivedAt    DateTime? @map("archived_at")
+  archivedBy    Int?      @map("archived_by")
+  archiveReason String?   @map("archive_reason") @db.VarChar(50)
+
   // Rechazo
-  rejectedAt      DateTime?    @map("rejected_at")
-  rejectedBy      Int?         @map("rejected_by")
-  rejectionReason String?      @map("rejection_reason") @db.Text
-  rejectionCount  Int          @default(0) @map("rejection_count")
-  
+  rejectedAt      DateTime? @map("rejected_at")
+  rejectedBy      Int?      @map("rejected_by")
+  rejectionReason String?   @map("rejection_reason") @db.Text
+  rejectionCount  Int       @default(0) @map("rejection_count")
+
   // Revisión
-  reviewedAt      DateTime?    @map("reviewed_at")
-  reviewedBy      Int?         @map("reviewed_by")
-  reviewNotes     String?      @map("review_notes") @db.Text
-  
+  reviewedAt  DateTime? @map("reviewed_at")
+  reviewedBy  Int?      @map("reviewed_by")
+  reviewNotes String?   @map("review_notes") @db.Text
+
   // Timestamps
-  uploadedAt    DateTime       @default(now()) @map("uploaded_at")
-  validatedAt   DateTime?      @map("validated_at")
-  updatedAt     DateTime       @updatedAt @map("updated_at")
+  uploadedAt  DateTime  @default(now()) @map("uploaded_at")
+  validatedAt DateTime? @map("validated_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
 
   // Relaciones
-  template    DocumentTemplate     @relation(fields: [templateId], references: [id])
+  template DocumentTemplate @relation(fields: [templateId], references: [id])
 
   classification DocumentClassification?
 
@@ -140,20 +141,20 @@ model Document {
 // =================================
 
 model Chofer {
-  id           Int      @id @default(autoincrement())
-  dadorCargaId Int      @map("dador_carga_id")
-  tenantEmpresaId Int   @map("tenant_empresa_id")
+  id                     Int      @id @default(autoincrement())
+  dadorCargaId           Int      @map("dador_carga_id")
+  tenantEmpresaId        Int      @map("tenant_empresa_id")
   empresaTransportistaId Int?     @map("empresa_transportista_id")
-  dni          String   @db.VarChar(32)
-  dniNorm      String   @map("dni_norm") @db.VarChar(32)
-  nombre       String?  @db.VarChar(120)
-  apellido     String?  @db.VarChar(120)
-  phones       String[] @default([])
-  activo       Boolean  @default(true)
-  createdAt    DateTime @default(now()) @map("created_at")
-  updatedAt    DateTime @updatedAt @map("updated_at")
+  dni                    String   @db.VarChar(32)
+  dniNorm                String   @map("dni_norm") @db.VarChar(32)
+  nombre                 String?  @db.VarChar(120)
+  apellido               String?  @db.VarChar(120)
+  phones                 String[] @default([])
+  activo                 Boolean  @default(true)
+  createdAt              DateTime @default(now()) @map("created_at")
+  updatedAt              DateTime @updatedAt @map("updated_at")
 
-  dador DadorCarga @relation(fields: [dadorCargaId], references: [id])
+  dador                DadorCarga            @relation(fields: [dadorCargaId], references: [id])
   empresaTransportista EmpresaTransportista? @relation(fields: [empresaTransportistaId], references: [id])
 
   @@unique([tenantEmpresaId, dadorCargaId, dniNorm])
@@ -162,19 +163,19 @@ model Chofer {
 }
 
 model Camion {
-  id          Int      @id @default(autoincrement())
-  dadorCargaId Int     @map("dador_carga_id")
-  tenantEmpresaId Int  @map("tenant_empresa_id")
+  id                     Int      @id @default(autoincrement())
+  dadorCargaId           Int      @map("dador_carga_id")
+  tenantEmpresaId        Int      @map("tenant_empresa_id")
   empresaTransportistaId Int?     @map("empresa_transportista_id")
-  patente     String   @db.VarChar(32)
-  patenteNorm String   @map("patente_norm") @db.VarChar(32)
-  marca       String?  @db.VarChar(120)
-  modelo      String?  @db.VarChar(120)
-  activo      Boolean  @default(true)
-  createdAt   DateTime @default(now()) @map("created_at")
-  updatedAt   DateTime @updatedAt @map("updated_at")
+  patente                String   @db.VarChar(32)
+  patenteNorm            String   @map("patente_norm") @db.VarChar(32)
+  marca                  String?  @db.VarChar(120)
+  modelo                 String?  @db.VarChar(120)
+  activo                 Boolean  @default(true)
+  createdAt              DateTime @default(now()) @map("created_at")
+  updatedAt              DateTime @updatedAt @map("updated_at")
 
-  dador DadorCarga @relation(fields: [dadorCargaId], references: [id])
+  dador                DadorCarga            @relation(fields: [dadorCargaId], references: [id])
   empresaTransportista EmpresaTransportista? @relation(fields: [empresaTransportistaId], references: [id])
 
   @@unique([tenantEmpresaId, dadorCargaId, patenteNorm])
@@ -183,18 +184,18 @@ model Camion {
 }
 
 model Acoplado {
-  id          Int      @id @default(autoincrement())
-  dadorCargaId Int     @map("dador_carga_id")
-  tenantEmpresaId Int  @map("tenant_empresa_id")
+  id                     Int      @id @default(autoincrement())
+  dadorCargaId           Int      @map("dador_carga_id")
+  tenantEmpresaId        Int      @map("tenant_empresa_id")
   empresaTransportistaId Int?     @map("empresa_transportista_id")
-  patente     String   @db.VarChar(32)
-  patenteNorm String   @map("patente_norm") @db.VarChar(32)
-  tipo        String?  @db.VarChar(120)
-  activo      Boolean  @default(true)
-  createdAt   DateTime @default(now()) @map("created_at")
-  updatedAt   DateTime @updatedAt @map("updated_at")
+  patente                String   @db.VarChar(32)
+  patenteNorm            String   @map("patente_norm") @db.VarChar(32)
+  tipo                   String?  @db.VarChar(120)
+  activo                 Boolean  @default(true)
+  createdAt              DateTime @default(now()) @map("created_at")
+  updatedAt              DateTime @updatedAt @map("updated_at")
 
-  dador DadorCarga @relation(fields: [dadorCargaId], references: [id])
+  dador                DadorCarga            @relation(fields: [dadorCargaId], references: [id])
   empresaTransportista EmpresaTransportista? @relation(fields: [empresaTransportistaId], references: [id])
 
   @@unique([tenantEmpresaId, dadorCargaId, patenteNorm])
@@ -203,17 +204,18 @@ model Acoplado {
 }
 
 model Cliente {
-  id          Int      @id @default(autoincrement())
-  tenantEmpresaId Int  @map("tenant_empresa_id")
-  razonSocial String   @map("razon_social") @db.VarChar(200)
-  cuit        String   @db.VarChar(20)
-  activo      Boolean  @default(true)
-  notas       String?  @db.Text
-  createdAt   DateTime @default(now()) @map("created_at")
-  updatedAt   DateTime @updatedAt @map("updated_at")
+  id              Int      @id @default(autoincrement())
+  tenantEmpresaId Int      @map("tenant_empresa_id")
+  razonSocial     String   @map("razon_social") @db.VarChar(200)
+  cuit            String   @db.VarChar(20)
+  activo          Boolean  @default(true)
+  notas           String?  @db.Text
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
 
-  requisitos ClienteDocumentRequirement[]
-  equipos    EquipoCliente[]
+  requisitos          ClienteDocumentRequirement[]
+  equipos             EquipoCliente[]
+  plantillasRequisito PlantillaRequisito[]
 
   @@unique([tenantEmpresaId, cuit])
   @@index([tenantEmpresaId])
@@ -221,32 +223,78 @@ model Cliente {
 }
 
 // =================================
+// PLANTILLAS DE REQUISITOS POR CLIENTE
+// Permite que un cliente tenga múltiples conjuntos de requisitos
+// =================================
+
+model PlantillaRequisito {
+  id              Int      @id @default(autoincrement())
+  tenantEmpresaId Int      @map("tenant_empresa_id")
+  clienteId       Int      @map("cliente_id")
+  nombre          String   @db.VarChar(100)
+  descripcion     String?  @db.Text
+  activo          Boolean  @default(true)
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+
+  cliente   Cliente                      @relation(fields: [clienteId], references: [id])
+  templates PlantillaRequisitoTemplate[]
+  equipos   EquipoPlantillaRequisito[]
+
+  @@unique([tenantEmpresaId, clienteId, nombre])
+  @@index([tenantEmpresaId, clienteId])
+  @@index([activo])
+  @@map("plantillas_requisito")
+}
+
+model PlantillaRequisitoTemplate {
+  id                   Int        @id @default(autoincrement())
+  tenantEmpresaId      Int        @map("tenant_empresa_id")
+  plantillaRequisitoId Int        @map("plantilla_requisito_id")
+  templateId           Int        @map("template_id")
+  entityType           EntityType @map("entity_type")
+  obligatorio          Boolean    @default(true)
+  diasAnticipacion     Int        @default(0) @map("dias_anticipacion")
+  visibleChofer        Boolean    @default(true) @map("visible_chofer")
+  createdAt            DateTime   @default(now()) @map("created_at")
+  updatedAt            DateTime   @updatedAt @map("updated_at")
+
+  plantillaRequisito PlantillaRequisito @relation(fields: [plantillaRequisitoId], references: [id], onDelete: Cascade)
+  template           DocumentTemplate   @relation("TemplateToPlantillaRequisito", fields: [templateId], references: [id])
+
+  @@unique([tenantEmpresaId, plantillaRequisitoId, templateId, entityType])
+  @@index([tenantEmpresaId, plantillaRequisitoId, entityType])
+  @@map("plantilla_requisito_template")
+}
+
+// =================================
 // DADOR DE CARGA (empresa externa que provee transportistas)
 // =================================
 
 model DadorCarga {
-  id          Int      @id @default(autoincrement())
-  tenantEmpresaId Int  @map("tenant_empresa_id")
-  razonSocial String   @map("razon_social") @db.VarChar(200)
-  cuit        String   @db.VarChar(20)
-  phones      String[] @default([])
-  notifyDriverEnabled Boolean @default(true) @map("notify_driver_enabled")
-  notifyDadorEnabled  Boolean @default(true) @map("notify_dador_enabled")
-  activo      Boolean  @default(true)
-  notas       String?  @db.Text
-  createdAt   DateTime @default(now()) @map("created_at")
-  updatedAt   DateTime @updatedAt @map("updated_at")
+  id                  Int      @id @default(autoincrement())
+  tenantEmpresaId     Int      @map("tenant_empresa_id")
+  razonSocial         String   @map("razon_social") @db.VarChar(200)
+  cuit                String   @db.VarChar(20)
+  phones              String[] @default([])
+  notifyDriverEnabled Boolean  @default(true) @map("notify_driver_enabled")
+  notifyDadorEnabled  Boolean  @default(true) @map("notify_dador_enabled")
+  activo              Boolean  @default(true)
+  notas               String?  @db.Text
+  createdAt           DateTime @default(now()) @map("created_at")
+  updatedAt           DateTime @updatedAt @map("updated_at")
 
-  equipos Equipo[]
-  choferes Chofer[]
-  camiones Camion[]
-  acoplados Acoplado[]
+  equipos                Equipo[]
+  choferes               Chofer[]
+  camiones               Camion[]
+  acoplados              Acoplado[]
   empresasTransportistas EmpresaTransportista[]
 
   @@unique([tenantEmpresaId, cuit])
   @@index([tenantEmpresaId])
   @@map("dadores_carga")
 }
+
 model ClienteDocumentRequirement {
   id               Int        @id @default(autoincrement())
   tenantEmpresaId  Int        @map("tenant_empresa_id")
@@ -278,11 +326,11 @@ enum EquipoEstado {
 
 // Estado documental del equipo (evaluación automática)
 enum EstadoDocumental {
-  PENDIENTE_VALIDACION      // Documentos en proceso de aprobación
-  COMPLETO                  // Todos los documentos aprobados y vigentes
-  DOCUMENTACION_INCOMPLETA  // Falta algún documento o fue rechazado
-  DOCUMENTACION_VENCIDA     // Algún documento venció
-  DOCUMENTACION_POR_VENCER  // Documentos vencen pronto (warning)
+  PENDIENTE_VALIDACION // Documentos en proceso de aprobación
+  COMPLETO // Todos los documentos aprobados y vigentes
+  DOCUMENTACION_INCOMPLETA // Falta algún documento o fue rechazado
+  DOCUMENTACION_VENCIDA // Algún documento venció
+  DOCUMENTACION_POR_VENCER // Documentos vencen pronto (warning)
 }
 
 // Estado de solicitudes de transferencia de entidades
@@ -294,49 +342,50 @@ enum EstadoSolicitud {
 }
 
 model Equipo {
-  id                Int          @id @default(autoincrement())
-  driverId          Int          @map("driver_id")
-  truckId           Int          @map("truck_id")
-  trailerId         Int?         @map("trailer_id")
-  dadorCargaId      Int          @map("dador_carga_id")
-  tenantEmpresaId   Int          @map("tenant_empresa_id")
-  empresaTransportistaId Int?     @map("empresa_transportista_id")
-  driverDniNorm     String       @map("driver_dni_norm") @db.VarChar(32)
-  truckPlateNorm    String       @map("truck_plate_norm") @db.VarChar(32)
-  trailerPlateNorm  String?      @map("trailer_plate_norm") @db.VarChar(32)
-  validFrom         DateTime     @map("valid_from")
-  validTo           DateTime?    @map("valid_to")
-  estado            EquipoEstado @default(activa)
-  activo            Boolean      @default(true)
-  
+  id                     Int          @id @default(autoincrement())
+  driverId               Int          @map("driver_id")
+  truckId                Int          @map("truck_id")
+  trailerId              Int?         @map("trailer_id")
+  dadorCargaId           Int          @map("dador_carga_id")
+  tenantEmpresaId        Int          @map("tenant_empresa_id")
+  empresaTransportistaId Int?         @map("empresa_transportista_id")
+  driverDniNorm          String       @map("driver_dni_norm") @db.VarChar(32)
+  truckPlateNorm         String       @map("truck_plate_norm") @db.VarChar(32)
+  trailerPlateNorm       String?      @map("trailer_plate_norm") @db.VarChar(32)
+  validFrom              DateTime     @map("valid_from")
+  validTo                DateTime?    @map("valid_to")
+  estado                 EquipoEstado @default(activa)
+  activo                 Boolean      @default(true)
+
   // Estado documental (evaluación automática de documentos)
-  estadoDocumental        EstadoDocumental @default(PENDIENTE_VALIDACION) @map("estado_documental")
-  documentosEvaluadosAt   DateTime?        @map("documentos_evaluados_at")
-  
-  createdAt         DateTime     @default(now()) @map("created_at")
-  updatedAt         DateTime     @updatedAt @map("updated_at")
+  estadoDocumental      EstadoDocumental @default(PENDIENTE_VALIDACION) @map("estado_documental")
+  documentosEvaluadosAt DateTime?        @map("documentos_evaluados_at")
 
-  clientes EquipoCliente[]
-  history  EquipoHistory[]
-  auditLogs EquipoAuditLog[]
-  dador    DadorCarga?          @relation(fields: [dadorCargaId], references: [id])
-  empresaTransportista EmpresaTransportista? @relation(fields: [empresaTransportistaId], references: [id])
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
 
+  clientes             EquipoCliente[]
+  plantillasRequisito  EquipoPlantillaRequisito[]
+  history              EquipoHistory[]
+  auditLogs            EquipoAuditLog[]
+  dador                DadorCarga?                @relation(fields: [dadorCargaId], references: [id])
+  empresaTransportista EmpresaTransportista?      @relation(fields: [empresaTransportistaId], references: [id])
+
+  @@unique([tenantEmpresaId, dadorCargaId, driverDniNorm, truckPlateNorm, trailerPlateNorm, validFrom])
   @@index([tenantEmpresaId, dadorCargaId, driverDniNorm])
   @@index([tenantEmpresaId, dadorCargaId, truckPlateNorm])
   @@index([tenantEmpresaId, dadorCargaId, trailerPlateNorm])
   @@index([tenantEmpresaId, dadorCargaId])
   @@index([validFrom, validTo])
   @@index([estadoDocumental])
-  @@unique([tenantEmpresaId, dadorCargaId, driverDniNorm, truckPlateNorm, trailerPlateNorm, validFrom])
   @@map("equipo")
 }
 
 model EquipoCliente {
-  equipoId       Int       @map("equipo_id")
-  clienteId      Int       @map("cliente_id")
-  asignadoDesde  DateTime  @map("asignado_desde")
-  asignadoHasta  DateTime? @map("asignado_hasta")
+  equipoId      Int       @map("equipo_id")
+  clienteId     Int       @map("cliente_id")
+  asignadoDesde DateTime  @map("asignado_desde")
+  asignadoHasta DateTime? @map("asignado_hasta")
 
   equipo  Equipo  @relation(fields: [equipoId], references: [id])
   cliente Cliente @relation(fields: [clienteId], references: [id])
@@ -346,17 +395,31 @@ model EquipoCliente {
   @@map("equipo_cliente")
 }
 
+model EquipoPlantillaRequisito {
+  equipoId             Int       @map("equipo_id")
+  plantillaRequisitoId Int       @map("plantilla_requisito_id")
+  asignadoDesde        DateTime  @default(now()) @map("asignado_desde")
+  asignadoHasta        DateTime? @map("asignado_hasta")
+
+  equipo             Equipo             @relation(fields: [equipoId], references: [id])
+  plantillaRequisito PlantillaRequisito @relation(fields: [plantillaRequisitoId], references: [id])
+
+  @@id([equipoId, plantillaRequisitoId, asignadoDesde])
+  @@index([plantillaRequisitoId, equipoId])
+  @@map("equipo_plantilla_requisito")
+}
+
 // Historial mínimo de movimientos de componentes de equipos
 model EquipoHistory {
-  id               Int      @id @default(autoincrement())
-  equipoId         Int      @map("equipo_id")
-  action           String   @db.VarChar(32) // attach|detach|create|forcemove|close|reopen
-  component        String   @db.VarChar(16) // driver|truck|trailer|empresa
-  originEquipoId   Int?     @map("origin_equipo_id")
-  payload          Json?
-  createdAt        DateTime @default(now()) @map("created_at")
+  id             Int      @id @default(autoincrement())
+  equipoId       Int      @map("equipo_id")
+  action         String   @db.VarChar(32) // attach|detach|create|forcemove|close|reopen
+  component      String   @db.VarChar(16) // driver|truck|trailer|empresa
+  originEquipoId Int?     @map("origin_equipo_id")
+  payload        Json?
+  createdAt      DateTime @default(now()) @map("created_at")
 
-  equipo  Equipo  @relation(fields: [equipoId], references: [id])
+  equipo Equipo @relation(fields: [equipoId], references: [id])
 
   @@index([equipoId, createdAt])
   @@map("equipo_history")
@@ -379,19 +442,19 @@ model SystemConfig {
 
 // Registro de notificaciones enviadas (deduplicación y auditoría)
 model NotificationLog {
-  id               Int                   @id @default(autoincrement())
-  tenantEmpresaId  Int                   @map("tenant_empresa_id")
-  dadorCargaId     Int?                  @map("dador_carga_id")
-  documentId       Int?                  @map("document_id")
-  equipoId         Int?                  @map("equipo_id")
-  type             NotificationType
-  audience         NotificationAudience
-  target           String                @db.VarChar(64)
-  templateKey      String                @map("template_key") @db.VarChar(64)
-  payload          Json?
-  status           String                @db.VarChar(16)
-  error            String?               @db.Text
-  sentAt           DateTime              @default(now()) @map("sent_at")
+  id              Int                  @id @default(autoincrement())
+  tenantEmpresaId Int                  @map("tenant_empresa_id")
+  dadorCargaId    Int?                 @map("dador_carga_id")
+  documentId      Int?                 @map("document_id")
+  equipoId        Int?                 @map("equipo_id")
+  type            NotificationType
+  audience        NotificationAudience
+  target          String               @db.VarChar(64)
+  templateKey     String               @map("template_key") @db.VarChar(64)
+  payload         Json?
+  status          String               @db.VarChar(16)
+  error           String?              @db.Text
+  sentAt          DateTime             @default(now()) @map("sent_at")
 
   @@index([documentId, type, audience])
   @@index([equipoId, type, audience])
@@ -438,29 +501,29 @@ model EmpresaTransportista {
 // =================================
 
 model DocumentClassification {
-  id                    Int         @id @default(autoincrement())
-  documentId            Int         @unique @map("document_id")
-  detectedEntityType    EntityType? @map("detected_entity_type")
-  detectedEntityId      String?     @map("detected_entity_id") @db.VarChar(100)
-  detectedExpiration    DateTime?   @map("detected_expiration")
-  detectedDocumentType  String?     @map("detected_document_type") @db.VarChar(100)
-  confidence            Float       @default(0.0)
-  aiResponse            Json?       @map("ai_response")
-  reviewedAt            DateTime?   @map("reviewed_at")
-  reviewedBy            Int?        @map("reviewed_by")
-  reviewNotes           String?     @map("review_notes") @db.Text
-  createdAt             DateTime    @default(now()) @map("created_at")
-  updatedAt             DateTime    @updatedAt @map("updated_at")
-  
+  id                   Int         @id @default(autoincrement())
+  documentId           Int         @unique @map("document_id")
+  detectedEntityType   EntityType? @map("detected_entity_type")
+  detectedEntityId     String?     @map("detected_entity_id") @db.VarChar(100)
+  detectedExpiration   DateTime?   @map("detected_expiration")
+  detectedDocumentType String?     @map("detected_document_type") @db.VarChar(100)
+  confidence           Float       @default(0.0)
+  aiResponse           Json?       @map("ai_response")
+  reviewedAt           DateTime?   @map("reviewed_at")
+  reviewedBy           Int?        @map("reviewed_by")
+  reviewNotes          String?     @map("review_notes") @db.Text
+  createdAt            DateTime    @default(now()) @map("created_at")
+  updatedAt            DateTime    @updatedAt @map("updated_at")
+
   // Validación de documento (Control IA)
-  documentoEsValido     Boolean?    @map("documento_es_valido")
-  motivoInvalidez       String?     @map("motivo_invalidez") @db.Text
-  datosExtraidos        Json?       @map("datos_extraidos")
-  disparidades          Json?       @map("disparidades")
-  tieneDisparidades     Boolean     @default(false) @map("tiene_disparidades")
-  vencimientoDetectado  DateTime?   @map("vencimiento_detectado")
-  vencimientoOrigen     String?     @map("vencimiento_origen") @db.VarChar(20)
-  validationStatus      String?     @map("validation_status") @db.VarChar(50)
+  documentoEsValido    Boolean?  @map("documento_es_valido")
+  motivoInvalidez      String?   @map("motivo_invalidez") @db.Text
+  datosExtraidos       Json?     @map("datos_extraidos")
+  disparidades         Json?     @map("disparidades")
+  tieneDisparidades    Boolean   @default(false) @map("tiene_disparidades")
+  vencimientoDetectado DateTime? @map("vencimiento_detectado")
+  vencimientoOrigen    String?   @map("vencimiento_origen") @db.VarChar(20)
+  validationStatus     String?   @map("validation_status") @db.VarChar(50)
 
   document Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
 
@@ -474,19 +537,19 @@ model DocumentClassification {
 // AUDITORÍA
 // =================================
 model AuditLog {
-  id               Int       @id @default(autoincrement())
-  tenantEmpresaId  Int?      @map("tenant_empresa_id")
-  accion           String    @db.VarChar(150)
-  detalles         Json?
-  userId           Int?      @map("user_id")
-  userEmail        String?   @map("user_email") @db.VarChar(150)
-  userRole         String?   @map("user_role") @db.VarChar(50)
-  statusCode       Int       @map("status_code")
-  method           String    @db.VarChar(10)
-  path             String    @db.VarChar(500)
-  entityType       String?   @map("entity_type") @db.VarChar(50)
-  entityId         Int?      @map("entity_id")
-  createdAt        DateTime  @default(now()) @map("created_at")
+  id              Int      @id @default(autoincrement())
+  tenantEmpresaId Int?     @map("tenant_empresa_id")
+  accion          String   @db.VarChar(150)
+  detalles        Json?
+  userId          Int?     @map("user_id")
+  userEmail       String?  @map("user_email") @db.VarChar(150)
+  userRole        String?  @map("user_role") @db.VarChar(50)
+  statusCode      Int      @map("status_code")
+  method          String   @db.VarChar(10)
+  path            String   @db.VarChar(500)
+  entityType      String?  @map("entity_type") @db.VarChar(50)
+  entityId        Int?     @map("entity_id")
+  createdAt       DateTime @default(now()) @map("created_at")
 
   @@index([tenantEmpresaId, createdAt])
   @@index([userId, createdAt])
@@ -521,39 +584,39 @@ model EquipoAuditLog {
 // =================================
 
 model SolicitudTransferencia {
-  id                   Int             @id @default(autoincrement())
-  tenantEmpresaId      Int             @map("tenant_empresa_id")
-  
+  id              Int @id @default(autoincrement())
+  tenantEmpresaId Int @map("tenant_empresa_id")
+
   // Quién solicita
-  solicitanteUserId    Int             @map("solicitante_user_id")
-  solicitanteUserEmail String?         @map("solicitante_user_email") @db.VarChar(150)
-  solicitanteDadorId   Int             @map("solicitante_dador_id")
-  solicitanteDadorNombre String?       @map("solicitante_dador_nombre") @db.VarChar(200)
-  
+  solicitanteUserId      Int     @map("solicitante_user_id")
+  solicitanteUserEmail   String? @map("solicitante_user_email") @db.VarChar(150)
+  solicitanteDadorId     Int     @map("solicitante_dador_id")
+  solicitanteDadorNombre String? @map("solicitante_dador_nombre") @db.VarChar(200)
+
   // Dador actual de las entidades
-  dadorActualId        Int             @map("dador_actual_id")
-  dadorActualNombre    String?         @map("dador_actual_nombre") @db.VarChar(200)
-  
+  dadorActualId     Int     @map("dador_actual_id")
+  dadorActualNombre String? @map("dador_actual_nombre") @db.VarChar(200)
+
   // Entidades a transferir (JSON array)
   // Formato: [{tipo: 'EMPRESA_TRANSPORTISTA', id: 1, identificador: '30-12345678-9', nombre: 'Empresa X'}, ...]
-  entidades            Json
-  
+  entidades Json
+
   // Equipos que serán afectados (calculado al crear)
-  equiposAfectados     Json?           @map("equipos_afectados")
-  
+  equiposAfectados Json? @map("equipos_afectados")
+
   // Estado y motivos
-  estado               EstadoSolicitud @default(PENDIENTE)
-  motivo               String?         @db.Text
-  
+  estado EstadoSolicitud @default(PENDIENTE)
+  motivo String?         @db.Text
+
   // Resolución
-  resueltoPorUserId    Int?            @map("resuelto_por_user_id")
-  resueltoPorUserEmail String?         @map("resuelto_por_user_email") @db.VarChar(150)
-  resueltoAt           DateTime?       @map("resuelto_at")
-  motivoRechazo        String?         @map("motivo_rechazo") @db.Text
-  
+  resueltoPorUserId    Int?      @map("resuelto_por_user_id")
+  resueltoPorUserEmail String?   @map("resuelto_por_user_email") @db.VarChar(150)
+  resueltoAt           DateTime? @map("resuelto_at")
+  motivoRechazo        String?   @map("motivo_rechazo") @db.Text
+
   // Timestamps
-  createdAt            DateTime        @default(now()) @map("created_at")
-  updatedAt            DateTime        @updatedAt @map("updated_at")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
 
   @@index([tenantEmpresaId, estado])
   @@index([solicitanteDadorId])
@@ -572,41 +635,41 @@ model EntityExtractedData {
   dadorCargaId    Int        @map("dador_carga_id")
   entityType      EntityType @map("entity_type")
   entityId        Int        @map("entity_id")
-  
+
   // Datos extraídos (JSON flexible)
-  datosExtraidos  Json       @map("datos_extraidos")
-  
+  datosExtraidos Json @map("datos_extraidos")
+
   // Metadatos de última extracción
-  ultimaExtraccionAt    DateTime   @map("ultima_extraccion_at")
-  ultimoDocumentoId     Int?       @map("ultimo_documento_id")
-  ultimoDocumentoTipo   String?    @map("ultimo_documento_tipo") @db.VarChar(100)
-  confianzaPromedio     Float      @default(0.0) @map("confianza_promedio")
-  
+  ultimaExtraccionAt  DateTime @map("ultima_extraccion_at")
+  ultimoDocumentoId   Int?     @map("ultimo_documento_id")
+  ultimoDocumentoTipo String?  @map("ultimo_documento_tipo") @db.VarChar(100)
+  confianzaPromedio   Float    @default(0.0) @map("confianza_promedio")
+
   // Campos consolidados CHOFER
-  cuil              String?  @db.VarChar(20)
-  fechaNacimiento   DateTime? @map("fecha_nacimiento")
-  nacionalidad      String?  @db.VarChar(50)
-  numeroLicencia    String?  @map("numero_licencia") @db.VarChar(50)
-  clasesLicencia    String[] @default([]) @map("clases_licencia")
+  cuil                String?   @db.VarChar(20)
+  fechaNacimiento     DateTime? @map("fecha_nacimiento")
+  nacionalidad        String?   @db.VarChar(50)
+  numeroLicencia      String?   @map("numero_licencia") @db.VarChar(50)
+  clasesLicencia      String[]  @default([]) @map("clases_licencia")
   vencimientoLicencia DateTime? @map("vencimiento_licencia")
-  
+
   // Campos consolidados CAMION/ACOPLADO
-  anioFabricacion   Int?     @map("anio_fabricacion")
-  numeroMotor       String?  @map("numero_motor") @db.VarChar(50)
-  numeroChasis      String?  @map("numero_chasis") @db.VarChar(50)
-  titular           String?  @db.VarChar(200)
-  titularDni        String?  @map("titular_dni") @db.VarChar(20)
-  
+  anioFabricacion Int?    @map("anio_fabricacion")
+  numeroMotor     String? @map("numero_motor") @db.VarChar(50)
+  numeroChasis    String? @map("numero_chasis") @db.VarChar(50)
+  titular         String? @db.VarChar(200)
+  titularDni      String? @map("titular_dni") @db.VarChar(20)
+
   // Campos consolidados EMPRESA_TRANSPORTISTA
-  condicionIva      String?  @map("condicion_iva") @db.VarChar(50)
-  domicilioFiscal   Json?    @map("domicilio_fiscal")
+  condicionIva       String? @map("condicion_iva") @db.VarChar(50)
+  domicilioFiscal    Json?   @map("domicilio_fiscal")
   actividadPrincipal Json?   @map("actividad_principal")
-  cantidadEmpleados Int?     @map("cantidad_empleados")
-  artNombre         String?  @map("art_nombre") @db.VarChar(100)
-  artPoliza         String?  @map("art_poliza") @db.VarChar(50)
-  
-  createdAt         DateTime @default(now()) @map("created_at")
-  updatedAt         DateTime @updatedAt @map("updated_at")
+  cantidadEmpleados  Int?    @map("cantidad_empleados")
+  artNombre          String? @map("art_nombre") @db.VarChar(100)
+  artPoliza          String? @map("art_poliza") @db.VarChar(50)
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
 
   @@unique([tenantEmpresaId, entityType, entityId])
   @@index([tenantEmpresaId, dadorCargaId, entityType])
@@ -621,18 +684,18 @@ model EntityExtractionLog {
   entityId        Int        @map("entity_id")
   documentId      Int        @map("document_id")
   templateName    String     @map("template_name") @db.VarChar(100)
-  
+
   // Resultado de la extracción
-  datosExtraidos  Json       @map("datos_extraidos")
-  disparidades    Json?      @map("disparidades")
-  esValido        Boolean    @map("es_valido")
-  confianza       Float      @default(0.0)
-  
+  datosExtraidos Json    @map("datos_extraidos")
+  disparidades   Json?   @map("disparidades")
+  esValido       Boolean @map("es_valido")
+  confianza      Float   @default(0.0)
+
   // Quién solicitó
-  solicitadoPor   Int?       @map("solicitado_por")
-  esRechequeo     Boolean    @default(false) @map("es_rechequeo")
-  
-  createdAt       DateTime   @default(now()) @map("created_at")
+  solicitadoPor Int?    @map("solicitado_por")
+  esRechequeo   Boolean @default(false) @map("es_rechequeo")
+
+  createdAt DateTime @default(now()) @map("created_at")
 
   @@index([tenantEmpresaId, entityType, entityId])
   @@index([documentId])
@@ -648,26 +711,26 @@ enum InternalNotificationType {
   // Documentos
   DOCUMENT_REJECTED
   DOCUMENT_APPROVED
-  DOCUMENT_EXPIRING           // Próximo a vencer (7 días)
-  DOCUMENT_EXPIRING_URGENT    // Próximo a vencer (3 días o menos)
+  DOCUMENT_EXPIRING // Próximo a vencer (7 días)
+  DOCUMENT_EXPIRING_URGENT // Próximo a vencer (3 días o menos)
   DOCUMENT_EXPIRED
   DOCUMENT_UPLOADED
-  DOCUMENT_MISSING            // Faltante por nuevo requisito de cliente
-  
+  DOCUMENT_MISSING // Faltante por nuevo requisito de cliente
+
   // Equipos
   EQUIPO_INCOMPLETE
   EQUIPO_COMPLETE
   EQUIPO_ESTADO_ACTUALIZADO
-  EQUIPO_BLOQUEADO            // Equipo bloqueado por documentación vencida/rechazada
-  
+  EQUIPO_BLOQUEADO // Equipo bloqueado por documentación vencida/rechazada
+
   // Transferencias
   TRANSFERENCIA_SOLICITADA
   TRANSFERENCIA_APROBADA
   TRANSFERENCIA_RECHAZADA
-  
+
   // Clientes/Requisitos
-  NUEVO_REQUISITO_CLIENTE     // Cliente agregó nuevo tipo de documento requerido
-  
+  NUEVO_REQUISITO_CLIENTE // Cliente agregó nuevo tipo de documento requerido
+
   // Sistema
   SYSTEM_ALERT
 }
@@ -680,31 +743,31 @@ enum NotificationPriority {
 }
 
 model InternalNotification {
-  id              Int      @id @default(autoincrement())
-  tenantEmpresaId Int      @map("tenant_empresa_id")
-  userId          Int      @map("user_id")
-  
-  type            InternalNotificationType
-  title           String   @db.VarChar(200)
-  message         String   @db.Text
-  link            String?  @db.VarChar(500)
-  priority        NotificationPriority @default(normal)
-  
-  read            Boolean  @default(false)
-  readAt          DateTime? @map("read_at")
-  deleted         Boolean  @default(false)
-  deletedAt       DateTime? @map("deleted_at")
-  
+  id              Int @id @default(autoincrement())
+  tenantEmpresaId Int @map("tenant_empresa_id")
+  userId          Int @map("user_id")
+
+  type     InternalNotificationType
+  title    String                   @db.VarChar(200)
+  message  String                   @db.Text
+  link     String?                  @db.VarChar(500)
+  priority NotificationPriority     @default(normal)
+
+  read      Boolean   @default(false)
+  readAt    DateTime? @map("read_at")
+  deleted   Boolean   @default(false)
+  deletedAt DateTime? @map("deleted_at")
+
   // Metadatos adicionales
-  metadata        Json?
-  
+  metadata Json?
+
   // Relaciones opcionales
-  documentId      Int?     @map("document_id")
-  equipoId        Int?     @map("equipo_id")
-  remitoId        Int?     @map("remito_id")
-  
-  createdAt       DateTime @default(now()) @map("created_at")
-  updatedAt       DateTime @updatedAt @map("updated_at")
+  documentId Int? @map("document_id")
+  equipoId   Int? @map("equipo_id")
+  remitoId   Int? @map("remito_id")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
 
   @@index([userId, read, deleted])
   @@index([userId, createdAt(sort: Desc)])

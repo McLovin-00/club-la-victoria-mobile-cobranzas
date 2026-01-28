@@ -75,7 +75,8 @@ export const ClientsPage: React.FC = () => {
                   Cliente por defecto
                 </label>
                 <div className='flex gap-2'>
-                <Button variant='outline' onClick={() => navigate(`/documentos/clientes/${c.id}/requirements`)}>Requisitos</Button>
+                <Button variant='outline' onClick={() => navigate(`/documentos/plantillas/${c.id}`)}>Plantillas</Button>
+                <Button variant='outline' onClick={() => navigate(`/documentos/clientes/${c.id}/requirements`)}>Requisitos (legacy)</Button>
                 <Button variant='outline' onClick={() => updateClient({ id: c.id, activo: !c.activo })}>{c.activo ? 'Desactivar' : 'Activar'}</Button>
                 <Button variant='destructive' onClick={() => setConfirmDeleteId(c.id)}>Borrar</Button>
                 </div>

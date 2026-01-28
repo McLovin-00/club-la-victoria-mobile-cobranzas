@@ -58,29 +58,17 @@ export class ClientsService {
       // 1. Crear el cliente
       const cliente = await tx.cliente.create({ data: input });
 
-      // 2. Obtener todas las plantillas activas
-      const templates = await tx.documentTemplate.findMany({
-        where: { active: true },
-        orderBy: [{ entityType: 'asc' }, { name: 'asc' }],
+      // 2. Crear una PlantillaRequisito vacía por defecto
+      // El usuario configurará los templates manualmente
+      await tx.plantillaRequisito.create({
+        data: {
+          tenantEmpresaId: input.tenantEmpresaId,
+          clienteId: cliente.id,
+          nombre: 'Requisitos Generales',
+          descripcion: 'Plantilla de requisitos por defecto. Configure los documentos requeridos.',
+          activo: true,
+        },
       });
-
-      // 3. Crear requisitos automáticamente para cada plantilla
-      const requirements = templates.map((template) => ({
-        tenantEmpresaId: input.tenantEmpresaId,
-        clienteId: cliente.id,
-        templateId: template.id,
-        entityType: template.entityType,
-        obligatorio: true,
-        diasAnticipacion: 0,
-        visibleChofer: true,
-      }));
-
-      if (requirements.length > 0) {
-        await tx.clienteDocumentRequirement.createMany({
-          data: requirements,
-          skipDuplicates: true,
-        });
-      }
 
       return cliente;
     });
