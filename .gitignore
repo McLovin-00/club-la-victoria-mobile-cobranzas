@@ -148,3 +148,8 @@ keys/
 import-data/dni-images/
 import-data/dni-small/
 import-data/documentos/
+
+# Documentación de deployment con credenciales sensibles
+docs/DEPLOYMENT-10.8.10.20.md
+docs/DEPLOYMENT-10.3.0.243.md
+docs/DEPLOYMENT-10.3.0.246.md
