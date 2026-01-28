@@ -64,6 +64,9 @@ const AltaEquipoCompletaPage: React.FC = () => {
   // Mensajes
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
+  // Estado de envío: true desde que se hace click hasta que termina todo el proceso
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
   // Permisos
   const canUpload = ['SUPERADMIN', 'ADMIN', 'OPERATOR', 'ADMIN_INTERNO', 'DADOR_DE_CARGA', 'TRANSPORTISTA'].includes(role || '');
   const isAdminInterno = role === 'ADMIN_INTERNO';
@@ -297,6 +300,8 @@ const AltaEquipoCompletaPage: React.FC = () => {
       return;
     }
 
+    // Deshabilitar botón durante todo el proceso
+    setIsSubmitting(true);
     let equipoCreado: any = null;
 
     try {
@@ -453,10 +458,14 @@ const AltaEquipoCompletaPage: React.FC = () => {
         // ÉXITO COMPLETO
         // ═══════════════════════════════════════════════════════════════════
         setMessage({ type: 'success', text: '✅ Equipo creado exitosamente con todos sus documentos' });
-      setTimeout(() => {
+        // Mantener deshabilitado hasta la navegación
+        setTimeout(() => {
           navigate(getHomeRoute());
-      }, 2000);
+        }, 2000);
+        return; // No rehabilitar el botón, vamos a navegar
       }
+      // Rehabilitar botón si hubo errores en uploads pero no navegamos
+      setIsSubmitting(false);
     } catch (error: any) {
       // ═══════════════════════════════════════════════════════════════════
       // ERROR EN CREACIÓN DE EQUIPO (antes de subir documentos)
@@ -486,6 +495,7 @@ const AltaEquipoCompletaPage: React.FC = () => {
 
       // El rollback es automático (transacción de Prisma)
       // No se creó nada en la base de datos
+      setIsSubmitting(false);
     }
   };
 
@@ -949,10 +959,10 @@ const AltaEquipoCompletaPage: React.FC = () => {
       <div className='mt-8 flex justify-center'>
         <button
           onClick={handleCrearEquipo}
-          disabled={!datosBasicosCompletos || !todosDocumentosSeleccionados || creatingEquipo}
+          disabled={!datosBasicosCompletos || !todosDocumentosSeleccionados || isSubmitting}
           className='px-8 py-3 text-lg font-semibold text-white bg-green-600 rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors shadow-lg'
         >
-          {creatingEquipo ? 'Creando Equipo y Subiendo Documentos...' : '✓ Crear Equipo con Todos los Documentos'}
+          {isSubmitting ? 'Creando Equipo y Subiendo Documentos...' : '✓ Crear Equipo con Todos los Documentos'}
         </button>
       </div>
 
