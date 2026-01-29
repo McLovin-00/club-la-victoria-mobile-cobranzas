@@ -160,12 +160,12 @@ export class PlantillasController {
    * Obtiene templates consolidados de múltiples plantillas
    */
   static async getConsolidatedTemplates(req: AuthRequest, res: Response) {
-    const plantillaIdsParam = req.query.plantillaIds as string;
-    if (!plantillaIdsParam) {
+    // El parámetro ya viene transformado por Zod a un array de números
+    const plantillaIds = req.query.plantillaIds as unknown as number[];
+    if (!plantillaIds || plantillaIds.length === 0) {
       res.json({ success: true, data: { templates: [], byEntityType: {} } });
       return;
     }
-    const plantillaIds = plantillaIdsParam.split(',').map(Number).filter((n) => !isNaN(n));
     const data = await PlantillasService.getConsolidatedTemplates(req.tenantId!, plantillaIds);
     res.json({ success: true, data });
   }
