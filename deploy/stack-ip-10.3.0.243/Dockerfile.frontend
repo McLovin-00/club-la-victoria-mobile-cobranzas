@@ -8,11 +8,19 @@ FROM node:20-alpine AS build
 
 WORKDIR /app
 
+# 1. Copiar solo package.json para aprovechar cache de Docker
+#    Solo si cambian estos archivos se re-ejecuta npm install
 COPY package*.json ./
-COPY . .
+COPY apps/frontend/package*.json ./apps/frontend/
+COPY apps/backend/package*.json ./apps/backend/
+COPY apps/documentos/package*.json ./apps/documentos/
+COPY apps/remitos/package*.json ./apps/remitos/
 
-# Instalar dependencias
+# 2. Instalar dependencias (cacheado si package.json no cambia)
 RUN npm config set legacy-peer-deps true && npm install --workspaces
+
+# 3. Ahora copiar el resto del código
+COPY . .
 
 # Variables de build de Vite
 ARG VITE_API_URL
