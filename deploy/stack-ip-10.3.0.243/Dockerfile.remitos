@@ -1,0 +1,55 @@
+# =============================================================================
+# Dockerfile para el microservicio de Remitos - BCA Group
+# Multi-stage build para optimizar tamaño de imagen
+# =============================================================================
+
+FROM node:20-alpine AS builder
+
+WORKDIR /app
+
+# Copiar archivos de dependencias del monorepo
+COPY package.json package-lock.json ./
+COPY apps/remitos/package.json ./apps/remitos/
+
+# Instalar dependencias del monorepo
+RUN --mount=type=cache,target=/root/.npm npm ci --workspaces --include-workspace-root
+
+# Copiar código fuente
+COPY . .
+
+# Generar Prisma client y compilar TypeScript
+WORKDIR /app/apps/remitos
+RUN ../../node_modules/.bin/prisma generate --schema=src/prisma/schema.prisma && \
+    ../../node_modules/.bin/tsc -p tsconfig.standalone.json
+
+# =============================================================================
+# Imagen de producción
+# =============================================================================
+
+FROM node:20-alpine AS runner
+
+# Instalar poppler-utils para rasterización de PDF
+RUN apk add --no-cache poppler-utils
+
+WORKDIR /app/apps/remitos
+
+# Copiar dependencias de producción
+COPY --from=builder /app/node_modules /app/node_modules
+COPY --from=builder /app/apps/remitos/node_modules ./node_modules
+COPY --from=builder /app/apps/remitos/dist ./dist
+COPY --from=builder /app/apps/remitos/package.json ./package.json
+COPY --from=builder /app/apps/remitos/src/prisma ./src/prisma
+
+# Variables de entorno
+ENV NODE_ENV=production
+ENV PORT=4803
+
+# Puerto del servicio
+EXPOSE 4803
+
+# Healthcheck
+HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
+  CMD wget --no-verbose --tries=1 --spider http://127.0.0.1:4803/health || exit 1
+
+# Comando de inicio
+CMD ["node", "dist/index.js"]
