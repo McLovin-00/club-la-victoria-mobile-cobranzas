@@ -150,20 +150,20 @@ router.get(
 // Obtiene una plantilla por ID con sus templates y equipos
 router.get(
   '/:id',
-  authorize([UserRole.ADMIN, UserRole.SUPERADMIN, UserRole.ADMIN_INTERNO, UserRole.DADOR_DE_CARGA]),
+  authorize([UserRole.ADMIN, UserRole.SUPERADMIN, UserRole.ADMIN_INTERNO, UserRole.DADOR_DE_CARGA, UserRole.TRANSPORTISTA]),
   validate(getByIdSchema),
   PlantillasController.getById
 );
 
-// Actualiza una plantilla
+// Actualiza una plantilla (solo admins)
 router.put(
   '/:id',
-  authorize([UserRole.ADMIN, UserRole.SUPERADMIN, UserRole.ADMIN_INTERNO, UserRole.DADOR_DE_CARGA]),
+  authorize([UserRole.ADMIN, UserRole.SUPERADMIN, UserRole.ADMIN_INTERNO]),
   validate(updatePlantillaSchema),
   PlantillasController.update
 );
 
-// Elimina una plantilla
+// Elimina una plantilla (solo admins)
 router.delete(
   '/:id',
   authorize([UserRole.ADMIN, UserRole.SUPERADMIN, UserRole.ADMIN_INTERNO]),
@@ -171,10 +171,10 @@ router.delete(
   PlantillasController.remove
 );
 
-// Duplica una plantilla
+// Duplica una plantilla (solo admins)
 router.post(
   '/:id/duplicate',
-  authorize([UserRole.ADMIN, UserRole.SUPERADMIN, UserRole.ADMIN_INTERNO, UserRole.DADOR_DE_CARGA]),
+  authorize([UserRole.ADMIN, UserRole.SUPERADMIN, UserRole.ADMIN_INTERNO]),
   validate(duplicatePlantillaSchema),
   PlantillasController.duplicate
 );
@@ -187,26 +187,26 @@ router.get(
   PlantillasController.listTemplates
 );
 
-// Agrega un template a una plantilla
+// Agrega un template a una plantilla (solo admins)
 router.post(
   '/:id/templates',
-  authorize([UserRole.ADMIN, UserRole.SUPERADMIN, UserRole.ADMIN_INTERNO, UserRole.DADOR_DE_CARGA]),
+  authorize([UserRole.ADMIN, UserRole.SUPERADMIN, UserRole.ADMIN_INTERNO]),
   validate(addTemplateSchema),
   PlantillasController.addTemplate
 );
 
-// Actualiza la configuración de un template en una plantilla
+// Actualiza la configuración de un template en una plantilla (solo admins)
 router.put(
   '/:id/templates/:templateConfigId',
-  authorize([UserRole.ADMIN, UserRole.SUPERADMIN, UserRole.ADMIN_INTERNO, UserRole.DADOR_DE_CARGA]),
+  authorize([UserRole.ADMIN, UserRole.SUPERADMIN, UserRole.ADMIN_INTERNO]),
   validate(updateTemplateSchema),
   PlantillasController.updateTemplate
 );
 
-// Elimina un template de una plantilla
+// Elimina un template de una plantilla (solo admins)
 router.delete(
   '/:id/templates/:templateConfigId',
-  authorize([UserRole.ADMIN, UserRole.SUPERADMIN, UserRole.ADMIN_INTERNO, UserRole.DADOR_DE_CARGA]),
+  authorize([UserRole.ADMIN, UserRole.SUPERADMIN, UserRole.ADMIN_INTERNO]),
   validate(removeTemplateSchema),
   PlantillasController.removeTemplate
 );
@@ -222,16 +222,16 @@ export const clientPlantillasRoutes = Router();
 clientPlantillasRoutes.get(
   '/:clienteId/plantillas',
   authenticate,
-  authorize([UserRole.ADMIN, UserRole.SUPERADMIN, UserRole.ADMIN_INTERNO, UserRole.DADOR_DE_CARGA]),
+  authorize([UserRole.ADMIN, UserRole.SUPERADMIN, UserRole.ADMIN_INTERNO, UserRole.DADOR_DE_CARGA, UserRole.TRANSPORTISTA]),
   validate(listByClienteSchema),
   PlantillasController.listByCliente
 );
 
-// Crea una nueva plantilla para un cliente
+// Crea una nueva plantilla para un cliente (solo admins)
 clientPlantillasRoutes.post(
   '/:clienteId/plantillas',
   authenticate,
-  authorize([UserRole.ADMIN, UserRole.SUPERADMIN, UserRole.ADMIN_INTERNO, UserRole.DADOR_DE_CARGA]),
+  authorize([UserRole.ADMIN, UserRole.SUPERADMIN, UserRole.ADMIN_INTERNO]),
   validate(createPlantillaSchema),
   PlantillasController.create
 );
@@ -250,20 +250,20 @@ equipoPlantillasRoutes.get(
   PlantillasController.listByEquipo
 );
 
-// Asocia una plantilla a un equipo
+// Asocia una plantilla a un equipo (solo admins)
 equipoPlantillasRoutes.post(
   '/:equipoId/plantillas',
   authenticate,
-  authorize([UserRole.ADMIN, UserRole.SUPERADMIN, UserRole.ADMIN_INTERNO, UserRole.DADOR_DE_CARGA]),
+  authorize([UserRole.ADMIN, UserRole.SUPERADMIN, UserRole.ADMIN_INTERNO]),
   validate(assignPlantillaSchema),
   PlantillasController.assignToEquipo
 );
 
-// Desasocia una plantilla de un equipo
+// Desasocia una plantilla de un equipo (solo admins)
 equipoPlantillasRoutes.delete(
   '/:equipoId/plantillas/:plantillaId',
   authenticate,
-  authorize([UserRole.ADMIN, UserRole.SUPERADMIN, UserRole.ADMIN_INTERNO, UserRole.DADOR_DE_CARGA]),
+  authorize([UserRole.ADMIN, UserRole.SUPERADMIN, UserRole.ADMIN_INTERNO]),
   validate(unassignPlantillaSchema),
   PlantillasController.unassignFromEquipo
 );
@@ -277,11 +277,11 @@ equipoPlantillasRoutes.get(
   PlantillasController.getEquipoConsolidatedTemplates
 );
 
-// Calcula documentos faltantes si se agrega esta plantilla al equipo
+// Calcula documentos faltantes si se agrega esta plantilla al equipo (solo admins)
 equipoPlantillasRoutes.get(
   '/:equipoId/plantillas/:plantillaId/check',
   authenticate,
-  authorize([UserRole.ADMIN, UserRole.SUPERADMIN, UserRole.ADMIN_INTERNO, UserRole.DADOR_DE_CARGA]),
+  authorize([UserRole.ADMIN, UserRole.SUPERADMIN, UserRole.ADMIN_INTERNO]),
   validate(checkMissingDocsSchema),
   PlantillasController.checkMissingDocuments
 );
