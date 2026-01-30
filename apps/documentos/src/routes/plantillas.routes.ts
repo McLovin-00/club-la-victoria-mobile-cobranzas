@@ -250,20 +250,20 @@ equipoPlantillasRoutes.get(
   PlantillasController.listByEquipo
 );
 
-// Asocia una plantilla a un equipo (solo admins)
+// Asocia una plantilla a un equipo (roles que pueden crear equipos)
 equipoPlantillasRoutes.post(
   '/:equipoId/plantillas',
   authenticate,
-  authorize([UserRole.ADMIN, UserRole.SUPERADMIN, UserRole.ADMIN_INTERNO]),
+  authorize([UserRole.ADMIN, UserRole.SUPERADMIN, UserRole.ADMIN_INTERNO, UserRole.DADOR_DE_CARGA, UserRole.TRANSPORTISTA]),
   validate(assignPlantillaSchema),
   PlantillasController.assignToEquipo
 );
 
-// Desasocia una plantilla de un equipo (solo admins)
+// Desasocia una plantilla de un equipo (roles que pueden crear equipos)
 equipoPlantillasRoutes.delete(
   '/:equipoId/plantillas/:plantillaId',
   authenticate,
-  authorize([UserRole.ADMIN, UserRole.SUPERADMIN, UserRole.ADMIN_INTERNO]),
+  authorize([UserRole.ADMIN, UserRole.SUPERADMIN, UserRole.ADMIN_INTERNO, UserRole.DADOR_DE_CARGA, UserRole.TRANSPORTISTA]),
   validate(unassignPlantillaSchema),
   PlantillasController.unassignFromEquipo
 );
@@ -277,11 +277,11 @@ equipoPlantillasRoutes.get(
   PlantillasController.getEquipoConsolidatedTemplates
 );
 
-// Calcula documentos faltantes si se agrega esta plantilla al equipo (solo admins)
+// Calcula documentos faltantes si se agrega esta plantilla al equipo
 equipoPlantillasRoutes.get(
   '/:equipoId/plantillas/:plantillaId/check',
   authenticate,
-  authorize([UserRole.ADMIN, UserRole.SUPERADMIN, UserRole.ADMIN_INTERNO]),
+  authorize([UserRole.ADMIN, UserRole.SUPERADMIN, UserRole.ADMIN_INTERNO, UserRole.DADOR_DE_CARGA, UserRole.TRANSPORTISTA]),
   validate(checkMissingDocsSchema),
   PlantillasController.checkMissingDocuments
 );
