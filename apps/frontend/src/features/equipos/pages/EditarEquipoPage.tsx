@@ -565,9 +565,14 @@ const EditarEquipoPage: React.FC = () => {
     }
   };
   
-  // Plantillas disponibles para agregar (filtrar las ya asociadas)
+  // Plantillas disponibles para agregar:
+  // 1. Solo plantillas de clientes actualmente asociados al equipo
+  // 2. Excluir las que ya están asociadas al equipo
+  const clientesActualesIds = new Set(clientesActuales.map((c: any) => c.id));
   const plantillasActualesIds = equipoPlantillas.map((ep: any) => ep.plantillaRequisito?.id);
-  const plantillasDisponibles = allPlantillas.filter((p: any) => !plantillasActualesIds.includes(p.id));
+  const plantillasDisponibles = allPlantillas.filter(
+    (p: any) => clientesActualesIds.has(p.clienteId) && !plantillasActualesIds.includes(p.id)
+  );
   
   // Helper para obtener color de estado
   const getEstadoStyle = (estado: string) => {
