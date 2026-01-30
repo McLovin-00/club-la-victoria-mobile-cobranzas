@@ -8,15 +8,17 @@ FROM node:20-alpine AS build
 
 WORKDIR /app
 
-# 1. Copiar solo package.json para aprovechar cache de Docker
+# 1. Copiar package.json y esquemas Prisma para aprovechar cache de Docker
 #    Solo si cambian estos archivos se re-ejecuta npm install
 COPY package*.json ./
 COPY apps/frontend/package*.json ./apps/frontend/
 COPY apps/backend/package*.json ./apps/backend/
+COPY apps/backend/prisma ./apps/backend/prisma/
 COPY apps/documentos/package*.json ./apps/documentos/
+COPY apps/documentos/src/prisma ./apps/documentos/src/prisma/
 COPY apps/remitos/package*.json ./apps/remitos/
 
-# 2. Instalar dependencias (cacheado si package.json no cambia)
+# 2. Instalar dependencias (cacheado si package.json y prisma no cambian)
 RUN npm config set legacy-peer-deps true && npm install --workspaces
 
 # 3. Ahora copiar el resto del código
