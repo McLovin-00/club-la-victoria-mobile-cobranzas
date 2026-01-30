@@ -1898,6 +1898,32 @@ export class EquipoService {
       data: { asignadoHasta: new Date() },
     });
 
+    // También cerrar las plantillas de requisito del cliente removido
+    // Buscar plantillas que pertenecen al cliente removido
+    const plantillasDelCliente = await prisma.plantillaRequisito.findMany({
+      where: { 
+        clienteId: input.clienteId,
+        tenantEmpresaId: input.tenantEmpresaId,
+      },
+      select: { id: true },
+    });
+
+    let plantillasCerradas = 0;
+    if (plantillasDelCliente.length > 0) {
+      const plantillaIds = plantillasDelCliente.map(p => p.id);
+      
+      // Cerrar asociaciones equipo-plantilla activas de este cliente
+      const result = await prisma.equipoPlantillaRequisito.updateMany({
+        where: {
+          equipoId: input.equipoId,
+          plantillaRequisitoId: { in: plantillaIds },
+          asignadoHasta: null, // Solo las activas
+        },
+        data: { asignadoHasta: new Date() },
+      });
+      plantillasCerradas = result.count;
+    }
+
     // Auditoría
     await AuditService.logEquipoChange({
       equipoId: input.equipoId,
@@ -1905,10 +1931,12 @@ export class EquipoService {
       accion: 'QUITAR_CLIENTE',
       campoModificado: 'cliente',
       valorAnterior: { clienteId: input.clienteId },
-      motivo: exclusiveDocIds.length > 0 ? `${exclusiveDocIds.length} documentos archivados` : undefined,
+      motivo: exclusiveDocIds.length > 0 || plantillasCerradas > 0 
+        ? `${exclusiveDocIds.length} documentos archivados, ${plantillasCerradas} plantillas desasociadas` 
+        : undefined,
     });
 
-    return { removed: true, archivedDocuments: exclusiveDocIds.length };
+    return { removed: true, archivedDocuments: exclusiveDocIds.length, plantillasRemovidas: plantillasCerradas };
   }
 
   /**
