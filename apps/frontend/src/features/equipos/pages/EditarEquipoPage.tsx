@@ -19,7 +19,6 @@ import {
   useCreateAcopladoMutation,
   useCreateChoferMutation,
   useCreateEmpresaTransportistaMutation,
-  useLazyCheckMissingDocsForClientQuery,
   useGetEquipoPlantillasQuery,
   useGetPlantillasRequisitoQuery,
   useAssignPlantillaToEquipoMutation,
@@ -117,7 +116,6 @@ const EditarEquipoPage: React.FC = () => {
   const [createEmpresaTransportista, { isLoading: creatingTransportista }] = useCreateEmpresaTransportistaMutation();
   const [registerChoferWizard, { isLoading: creatingChoferUser }] = useRegisterChoferWizardMutation();
   const [registerTransportistaWizard, { isLoading: creatingTransportistaUser }] = useRegisterTransportistaWizardMutation();
-  const [checkMissingDocs] = useLazyCheckMissingDocsForClientQuery();
   
   // Estados para modales de creación de Camión/Acoplado
   const [showNewCamionModal, setShowNewCamionModal] = useState(false);
@@ -147,10 +145,11 @@ const EditarEquipoPage: React.FC = () => {
   // Mensaje de estado
   const [message, setMessage] = useState<{ type: 'success' | 'error' | 'info'; text: string } | null>(null);
   
-  // Estado para alerta de documentos faltantes al agregar cliente
-  const [missingDocsAlert, setMissingDocsAlert] = useState<{
+  // Estado para sugerir plantillas del cliente recién agregado
+  const [plantillasSugeridas, setPlantillasSugeridas] = useState<{
+    clienteId: number;
     clienteName: string;
-    templates: Array<{ templateName: string; entityType: string; obligatorio: boolean }>;
+    plantillas: Array<{ id: number; nombre: string; templatesCount: number }>;
   } | null>(null);
   
   // Listas de datos
@@ -417,16 +416,10 @@ const EditarEquipoPage: React.FC = () => {
     if (!clienteToAdd) return;
     
     const newClienteId = Number(clienteToAdd);
-    const existingClienteIds = clientesActuales.map((c: any) => c.id);
+    const clienteInfo = clientes.find((c: any) => c.id === newClienteId);
+    const clienteName = clienteInfo?.razonSocial || `Cliente ${newClienteId}`;
     
     try {
-      // Primero verificar documentos faltantes
-      const missingResult = await checkMissingDocs({
-        equipoId,
-        clienteId: newClienteId,
-        existingClienteIds,
-      }).unwrap();
-      
       // Agregar el cliente
       await associateCliente({
         equipoId,
@@ -437,23 +430,33 @@ const EditarEquipoPage: React.FC = () => {
       setClienteToAdd('');
       refetch();
       refetchRequisitos();
+      refetchPlantillas();
       
-      // Si hay documentos faltantes, mostrar alerta informativa
-      if (missingResult.missingTemplates && missingResult.missingTemplates.length > 0) {
-        setMissingDocsAlert({
-          clienteName: missingResult.newClientName,
-          templates: missingResult.missingTemplates.map((t: any) => ({
-            templateName: t.templateName,
-            entityType: t.entityType,
-            obligatorio: t.obligatorio,
+      // Buscar plantillas del cliente recién agregado que no estén ya asociadas al equipo
+      const plantillasDelCliente = allPlantillas.filter(
+        (p: any) => p.clienteId === newClienteId && p.activo
+      );
+      const plantillasYaAsociadas = new Set(equipoPlantillas.map((ep: any) => ep.plantillaRequisito?.id));
+      const plantillasDisponiblesDelCliente = plantillasDelCliente.filter(
+        (p: any) => !plantillasYaAsociadas.has(p.id)
+      );
+      
+      if (plantillasDisponiblesDelCliente.length > 0) {
+        setPlantillasSugeridas({
+          clienteId: newClienteId,
+          clienteName,
+          plantillas: plantillasDisponiblesDelCliente.map((p: any) => ({
+            id: p.id,
+            nombre: p.nombre,
+            templatesCount: p._count?.templates || 0,
           })),
         });
         setMessage({ 
           type: 'info', 
-          text: `Cliente "${missingResult.newClientName}" agregado. Hay ${missingResult.missingTemplates.length} documento(s) adicionales requeridos.` 
+          text: `Cliente "${clienteName}" agregado. Tiene ${plantillasDisponiblesDelCliente.length} plantilla(s) de requisitos disponibles.` 
         });
       } else {
-        setMessage({ type: 'success', text: 'Cliente agregado correctamente. Todos los documentos requeridos ya están cargados.' });
+        setMessage({ type: 'success', text: `Cliente "${clienteName}" agregado correctamente.` });
       }
     } catch (err: any) {
       setMessage({ type: 'error', text: err?.data?.message || 'Error al agregar cliente' });
@@ -520,6 +523,45 @@ const EditarEquipoPage: React.FC = () => {
       refetchRequisitos();
     } catch (err: any) {
       setMessage({ type: 'error', text: err?.data?.message || 'Error al quitar plantilla' });
+    }
+  };
+  
+  // Agregar plantilla sugerida (desde el cartel de sugerencias)
+  const handleAddPlantillaSugerida = async (plantillaId: number) => {
+    try {
+      await assignPlantilla({ equipoId, plantillaRequisitoId: plantillaId }).unwrap();
+      refetchPlantillas();
+      refetchRequisitos();
+      
+      // Quitar la plantilla de las sugeridas
+      if (plantillasSugeridas) {
+        const remaining = plantillasSugeridas.plantillas.filter(p => p.id !== plantillaId);
+        if (remaining.length === 0) {
+          setPlantillasSugeridas(null);
+          setMessage({ type: 'success', text: 'Todas las plantillas del cliente fueron agregadas.' });
+        } else {
+          setPlantillasSugeridas({ ...plantillasSugeridas, plantillas: remaining });
+          setMessage({ type: 'success', text: 'Plantilla agregada.' });
+        }
+      }
+    } catch (err: any) {
+      setMessage({ type: 'error', text: err?.data?.message || 'Error al agregar plantilla' });
+    }
+  };
+  
+  // Agregar todas las plantillas sugeridas
+  const handleAddAllPlantillasSugeridas = async () => {
+    if (!plantillasSugeridas) return;
+    try {
+      for (const p of plantillasSugeridas.plantillas) {
+        await assignPlantilla({ equipoId, plantillaRequisitoId: p.id }).unwrap();
+      }
+      setPlantillasSugeridas(null);
+      setMessage({ type: 'success', text: `${plantillasSugeridas.plantillas.length} plantilla(s) agregadas.` });
+      refetchPlantillas();
+      refetchRequisitos();
+    } catch (err: any) {
+      setMessage({ type: 'error', text: err?.data?.message || 'Error al agregar plantillas' });
     }
   };
   
@@ -954,39 +996,52 @@ const EditarEquipoPage: React.FC = () => {
         </p>
         )}
         
-        {/* Alerta de documentos faltantes al agregar cliente */}
-        {missingDocsAlert && (
-          <div className='mt-4 p-4 bg-amber-50 border border-amber-200 rounded-lg'>
+        {/* Sugerencia de plantillas del cliente recién agregado */}
+        {plantillasSugeridas && (
+          <div className='mt-4 p-4 bg-blue-50 border border-blue-200 rounded-lg'>
             <div className='flex items-start gap-3'>
-              <ExclamationTriangleIcon className='h-5 w-5 text-amber-600 mt-0.5 flex-shrink-0' />
+              <DocumentIcon className='h-5 w-5 text-blue-600 mt-0.5 flex-shrink-0' />
               <div className='flex-1'>
-                <h4 className='font-medium text-amber-800'>
-                  Documentos adicionales requeridos por "{missingDocsAlert.clienteName}"
+                <h4 className='font-medium text-blue-800'>
+                  Plantillas de requisitos de "{plantillasSugeridas.clienteName}"
                 </h4>
-                <p className='text-sm text-amber-700 mt-1'>
-                  El cliente agregado requiere los siguientes documentos que aún no están cargados:
+                <p className='text-sm text-blue-700 mt-1'>
+                  Este cliente tiene plantillas de requisitos disponibles. ¿Desea agregarlas al equipo?
                 </p>
-                <ul className='mt-2 space-y-1'>
-                  {missingDocsAlert.templates.map((t, idx) => (
-                    <li key={idx} className='text-sm text-amber-700 flex items-center gap-2'>
-                      <span className={`w-2 h-2 rounded-full ${t.obligatorio ? 'bg-red-500' : 'bg-yellow-500'}`}></span>
-                      <span className='font-medium'>{t.templateName}</span>
-                      <span className='text-amber-500'>({t.entityType})</span>
-                      {t.obligatorio && <span className='text-xs text-red-600 font-medium'>OBLIGATORIO</span>}
+                <ul className='mt-3 space-y-2'>
+                  {plantillasSugeridas.plantillas.map((p) => (
+                    <li key={p.id} className='flex items-center justify-between bg-white p-2 rounded border'>
+                      <div>
+                        <span className='font-medium text-gray-800'>{p.nombre}</span>
+                        <span className='text-xs text-gray-500 ml-2'>({p.templatesCount} documentos)</span>
+                      </div>
+                      <Button 
+                        size='sm'
+                        onClick={() => handleAddPlantillaSugerida(p.id)}
+                      >
+                        <PlusIcon className='h-4 w-4 mr-1' />
+                        Agregar
+                      </Button>
                     </li>
                   ))}
                 </ul>
-                <p className='text-xs text-amber-600 mt-3'>
-                  Estos documentos figurarán como faltantes hasta que se carguen.
-                </p>
-                <Button 
-                  variant='outline' 
-                  size='sm' 
-                  className='mt-3'
-                  onClick={() => setMissingDocsAlert(null)}
-                >
-                  Entendido
-                </Button>
+                <div className='flex gap-2 mt-3'>
+                  {plantillasSugeridas.plantillas.length > 1 && (
+                    <Button 
+                      size='sm'
+                      onClick={handleAddAllPlantillasSugeridas}
+                    >
+                      Agregar todas ({plantillasSugeridas.plantillas.length})
+                    </Button>
+                  )}
+                  <Button 
+                    variant='outline' 
+                    size='sm'
+                    onClick={() => setPlantillasSugeridas(null)}
+                  >
+                    Omitir
+                  </Button>
+                </div>
               </div>
             </div>
           </div>
