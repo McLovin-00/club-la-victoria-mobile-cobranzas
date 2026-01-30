@@ -318,10 +318,36 @@ export class PlatformAuthService {
 
   static async deletePlatformUser(id: number, actor: PlatformUserProfile): Promise<void> {
     const prisma = prismaService.getClient();
-    if (actor.role !== 'SUPERADMIN') {
-      throw new Error('Solo superadmin puede eliminar usuarios');
+    
+    // SUPERADMIN puede eliminar cualquier usuario
+    if (actor.role === 'SUPERADMIN') {
+      await prisma.user.delete({ where: { id } });
+      return;
     }
-    await prisma.user.delete({ where: { id } });
+    
+    // ADMIN_INTERNO puede eliminar usuarios de su misma empresa (excepto SUPERADMIN/ADMIN)
+    if (actor.role === 'ADMIN_INTERNO') {
+      const targetUser = await prisma.user.findUnique({ where: { id } });
+      if (!targetUser) {
+        throw new Error('Usuario no encontrado');
+      }
+      // Verificar que el usuario objetivo pertenezca a la misma empresa
+      if (targetUser.empresaId !== actor.empresaId) {
+        throw new Error('No tiene permisos para eliminar usuarios de otra empresa');
+      }
+      // No puede eliminar SUPERADMIN ni ADMIN
+      if (['SUPERADMIN', 'ADMIN'].includes(targetUser.role)) {
+        throw new Error('No tiene permisos para eliminar usuarios con ese rol');
+      }
+      // No puede eliminarse a sí mismo
+      if (targetUser.id === actor.id) {
+        throw new Error('No puede eliminarse a sí mismo');
+      }
+      await prisma.user.delete({ where: { id } });
+      return;
+    }
+    
+    throw new Error('Solo superadmin y admin interno pueden eliminar usuarios');
   }
 
   static async updatePassword(userId: number, currentPassword: string, newPassword: string): Promise<{ success: boolean; message: string }> {
@@ -529,6 +555,7 @@ export class PlatformAuthService {
 
   /**
    * Wizard: crear usuario CHOFER con contraseña temporal
+   * Bug 7 fix: usar tenantEmpresaId del chofer para consistencia multi-tenant
    */
   static async registerChoferWithTempPassword(
     input: { email: string; nombre?: string; apellido?: string; empresaId?: number | null; choferId: number },
@@ -547,9 +574,17 @@ export class PlatformAuthService {
       return { success: false, message: 'El email ya está en uso' };
     }
 
+    // Obtener el tenantEmpresaId del chofer para asegurar consistencia multi-tenant
+    const chofer = await prisma.chofer.findUnique({
+      where: { id: input.choferId },
+      select: { tenantEmpresaId: true },
+    });
+    
+    // Usar tenantEmpresaId del chofer, con fallback a la lógica original
+    const finalEmpresaId = chofer?.tenantEmpresaId ?? this.determineFinalEmpresaId('CHOFER', input.empresaId ?? null, createdBy);
+
     const tempPassword = this.generateTempPassword();
     const hashedPassword = await this.hashPassword(tempPassword);
-    const finalEmpresaId = this.determineFinalEmpresaId('CHOFER', input.empresaId ?? null, createdBy);
 
     const newUser = await prisma.user.create({
       data: {

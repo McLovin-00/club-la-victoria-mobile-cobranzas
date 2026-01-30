@@ -91,7 +91,15 @@ const PlatformUsersPage: React.FC = () => {
                     >
                       {u.activo !== false ? 'Desactivar' : 'Activar'}
                     </button>
-                    <button className="text-red-600 text-sm" onClick={async()=>{ await deleteUser({ id: u.id }).unwrap(); refetch(); }}>Eliminar</button>
+                    <button className="text-red-600 text-sm" onClick={async()=>{ 
+                      try {
+                        await deleteUser({ id: u.id }).unwrap(); 
+                        showToast('Usuario eliminado exitosamente', 'success');
+                        refetch(); 
+                      } catch (e: any) {
+                        showToast(e?.data?.message || 'Error al eliminar usuario', 'error');
+                      }
+                    }}>Eliminar</button>
                   </div>
                     </td>
                   </tr>

@@ -445,10 +445,14 @@ export const RegisterUserModal: React.FC<RegisterUserModalProps> = ({ isOpen, on
           return;
         }
 
+        // Si se creó un chofer nuevo, usar los datos del chofer para el usuario
+        const finalNombre = choferMode === 'new' ? (data.choferNombre || undefined) : (data.nombre || undefined);
+        const finalApellido = choferMode === 'new' ? (data.choferApellido || undefined) : (data.apellido || undefined);
+        
         const resp = await registerChoferWizard({
           email: data.email,
-          nombre: data.nombre || undefined,
-          apellido: data.apellido || undefined,
+          nombre: finalNombre,
+          apellido: finalApellido,
           empresaId: data.empresaId ? Number(data.empresaId) : undefined,
           choferId: choferIdFinal,
         }).unwrap();
@@ -515,19 +519,23 @@ export const RegisterUserModal: React.FC<RegisterUserModalProps> = ({ isOpen, on
                 {errors.email && <p className="text-red-500 text-xs mt-1">{errors.email.message}</p>}
               </div>
 
-              {/* Nombre y Apellido */}
-              <div>
-                <label className="block text-sm font-medium mb-1">Nombre</label>
-                <Controller name="nombre" control={control} render={({ field }) => (
-                  <input type="text" className="w-full px-3 py-2 border rounded-md" {...field} />
-                )} />
-              </div>
-              <div>
-                <label className="block text-sm font-medium mb-1">Apellido</label>
-                <Controller name="apellido" control={control} render={({ field }) => (
-                  <input type="text" className="w-full px-3 py-2 border rounded-md" {...field} />
-                )} />
-              </div>
+              {/* Nombre y Apellido - ocultos cuando se crea CHOFER nuevo (se usan los datos del chofer) */}
+              {!(selectedRole === 'CHOFER' && choferMode === 'new') && (
+                <>
+                  <div>
+                    <label className="block text-sm font-medium mb-1">Nombre</label>
+                    <Controller name="nombre" control={control} render={({ field }) => (
+                      <input type="text" className="w-full px-3 py-2 border rounded-md" {...field} />
+                    )} />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium mb-1">Apellido</label>
+                    <Controller name="apellido" control={control} render={({ field }) => (
+                      <input type="text" className="w-full px-3 py-2 border rounded-md" {...field} />
+                    )} />
+                  </div>
+                </>
+              )}
 
               {/* Rol */}
               <div>
@@ -568,7 +576,7 @@ export const RegisterUserModal: React.FC<RegisterUserModalProps> = ({ isOpen, on
                 <div>
                   <label className="block text-sm font-medium mb-1">Empresa</label>
                   <div className="w-full px-3 py-2 border rounded-md bg-muted text-muted-foreground">
-                    {empresas.find((e: any) => e.id === currentUser?.empresaId)?.nombre || 'BCA'}
+                    {(currentUser as any)?.empresa?.nombre || 'Su empresa'}
                   </div>
                 </div>
               )}
@@ -981,10 +989,10 @@ export const RegisterUserModal: React.FC<RegisterUserModalProps> = ({ isOpen, on
                 </>
               )}
 
-              {/* Password */}
-              {selectedRole !== 'CLIENTE' && (
+              {/* Password - solo para roles que NO usan wizard con contraseña auto-generada */}
+              {!['CLIENTE', 'DADOR_DE_CARGA', 'TRANSPORTISTA', 'CHOFER'].includes(selectedRole) && (
                 <div className="col-span-2">
-                  <label className="block text-sm font-medium mb-1">Password temporal *</label>
+                  <label className="block text-sm font-medium mb-1">Password *</label>
                   <Controller
                     name="password"
                     control={control}

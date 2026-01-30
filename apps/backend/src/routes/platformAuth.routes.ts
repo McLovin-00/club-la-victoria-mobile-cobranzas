@@ -234,12 +234,12 @@ router.put(
 /**
  * @route DELETE /api/platform/auth/users/:id
  * @desc Eliminar usuario de plataforma
- * @access Private (Superadmin)
+ * @access Private (Superadmin, Admin Interno - solo usuarios de su empresa)
  */
 router.delete(
   '/users/:id',
   authenticateUser,
-  authorizeRoles(['SUPERADMIN']),
+  authorizeRoles(['SUPERADMIN', 'ADMIN_INTERNO']),
   logAction('PLATFORM_USER_DELETE'),
   PlatformAuthController.deleteUser
 );
@@ -356,6 +356,11 @@ router.get(
         // Admin solo puede ver usuarios de su empresa y no puede ver otros superadmins
         conditions.push({ empresaId: user.empresaId });
         conditions.push({ role: { not: 'SUPERADMIN' } });
+      } else if (user.role === 'ADMIN_INTERNO') {
+        // Admin Interno solo puede ver usuarios de su empresa (tenant)
+        conditions.push({ empresaId: user.empresaId });
+        // No puede ver SUPERADMIN ni ADMIN de otras empresas
+        conditions.push({ role: { notIn: ['SUPERADMIN', 'ADMIN'] } });
       } else if (user.role === 'DADOR_DE_CARGA') {
         // Dador de carga solo puede ver usuarios que él creó o que tienen su dadorCargaId
         conditions.push({

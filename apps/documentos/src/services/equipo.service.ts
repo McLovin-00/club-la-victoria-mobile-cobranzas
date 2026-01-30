@@ -1378,7 +1378,7 @@ export class EquipoService {
       await resolveComponentConflicts(input.tenantEmpresaId, dniNorm, truckNorm, trailerNorm);
     }
 
-    // Crear equipo
+    // Crear equipo con activo=true explícito para evitar problemas de filtrado
     const equipo = await prisma.equipo.create({
       data: {
         tenantEmpresaId: input.tenantEmpresaId,
@@ -1392,6 +1392,7 @@ export class EquipoService {
         trailerPlateNorm: trailerNorm,
         validFrom: input.validFrom,
         validTo: input.validTo ?? null,
+        activo: true,
       },
     });
     // Ejecutar acciones post-creación
