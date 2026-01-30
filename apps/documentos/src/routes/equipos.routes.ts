@@ -229,7 +229,7 @@ async function streamVigentesZip(equipoIdsInput: number[], res: any) {
 // ============================================================================
 // CONSTANTES DE ROLES
 // ============================================================================
-const ADMIN_ROLES = ['ADMIN', 'SUPERADMIN', 'ADMIN_INTERNO', 'DADOR_DE_CARGA'] as any[];
+const ADMIN_ROLES = ['ADMIN', 'SUPERADMIN', 'ADMIN_INTERNO', 'DADOR_DE_CARGA', 'TRANSPORTISTA'] as any[];
 const PHONE_REGEX = /^\+?[1-9]\d{7,14}$/;
 
 // ============================================================================
