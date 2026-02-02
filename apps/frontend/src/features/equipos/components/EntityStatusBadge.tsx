@@ -1,13 +1,15 @@
 import React from 'react';
-import { EntityVerificationResult, VerificationStatus } from '../hooks/useEntityVerification';
+import { EntityVerificationResult, VerificationStatus, EntityType } from '../hooks/useEntityVerification';
 
 interface EntityStatusBadgeProps {
   result?: EntityVerificationResult;
+  entityType?: EntityType;
   onRequestTransfer?: () => void;
+  onAcceptReassignment?: () => void;
   compact?: boolean;
 }
 
-const STATUS_CONFIG: Record<VerificationStatus, {
+const STATUS_CONFIG: Record<VerificationStatus | 'en_otro_equipo', {
   icon: string;
   label: string;
   bgColor: string;
@@ -43,6 +45,12 @@ const STATUS_CONFIG: Record<VerificationStatus, {
     bgColor: 'bg-yellow-50',
     textColor: 'text-yellow-700',
   },
+  en_otro_equipo: {
+    icon: '🔄',
+    label: 'En otro equipo',
+    bgColor: 'bg-orange-50',
+    textColor: 'text-orange-700',
+  },
   error: {
     icon: '❌',
     label: 'Error',
@@ -57,14 +65,23 @@ const STATUS_CONFIG: Record<VerificationStatus, {
  */
 export const EntityStatusBadge: React.FC<EntityStatusBadgeProps> = ({
   result,
+  entityType,
   onRequestTransfer,
+  onAcceptReassignment,
   compact = false,
 }) => {
   if (!result || result.status === 'idle') {
     return null;
   }
 
-  const config = STATUS_CONFIG[result.status];
+  // Determinar el estado visual a mostrar
+  // Si está asignada a otro equipo (mismo dador), mostrar advertencia de reasignación
+  const showReassignmentWarning = result.asignadaAOtroEquipo && 
+    result.status === 'disponible' && 
+    entityType !== 'EMPRESA_TRANSPORTISTA'; // Empresa puede tener múltiples equipos
+
+  const displayStatus = showReassignmentWarning ? 'en_otro_equipo' : result.status;
+  const config = STATUS_CONFIG[displayStatus];
 
   // Verificando - mostrar spinner
   if (result.status === 'checking') {
@@ -132,6 +149,36 @@ export const EntityStatusBadge: React.FC<EntityStatusBadgeProps> = ({
         <p className="mt-1 text-xs opacity-75">
           Pertenece a: {result.dadorActualNombre || 'Otro dador de carga'}
         </p>
+      )}
+
+      {/* Advertencia de reasignación - entidad en otro equipo */}
+      {showReassignmentWarning && result.equipoActual && (
+        <div className="mt-2 p-2 bg-orange-100 rounded border border-orange-200">
+          <p className="text-xs font-medium text-orange-800">
+            ⚠️ Esta entidad será REASIGNADA
+          </p>
+          <p className="text-xs text-orange-700 mt-1">
+            Actualmente en Equipo #{result.equipoActual.id}
+            {result.equipoActual.choferNombre && ` - ${result.equipoActual.choferNombre}`}
+            {result.equipoActual.camionPatente && ` - ${result.equipoActual.camionPatente}`}
+          </p>
+          <p className="text-xs text-orange-600 mt-1 italic">
+            El equipo anterior quedará sin {
+              entityType === 'CHOFER' ? 'chofer' :
+              entityType === 'CAMION' ? 'camión' :
+              entityType === 'ACOPLADO' ? 'acoplado' : 'esta entidad'
+            }
+          </p>
+          {onAcceptReassignment && (
+            <button
+              type="button"
+              onClick={onAcceptReassignment}
+              className="mt-2 text-xs px-2 py-1 bg-orange-200 hover:bg-orange-300 rounded transition-colors"
+            >
+              Entendido, continuar
+            </button>
+          )}
+        </div>
       )}
 
       {/* Mensaje para nuevas */}

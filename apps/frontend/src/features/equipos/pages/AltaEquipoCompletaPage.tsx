@@ -984,7 +984,7 @@ const AltaEquipoCompletaPage: React.FC = () => {
               <p className='text-xs text-red-600 mt-1'>⚠️ Debe tener 11 dígitos</p>
             )}
             {!isTransportista && /^\d{11}$/.test(cuitTransportista) && (
-              <EntityStatusBadge result={getResult('EMPRESA_TRANSPORTISTA')} />
+              <EntityStatusBadge result={getResult('EMPRESA_TRANSPORTISTA')} entityType="EMPRESA_TRANSPORTISTA" />
             )}
           </div>
         </div>
@@ -1012,7 +1012,7 @@ const AltaEquipoCompletaPage: React.FC = () => {
               placeholder='12345678'
             />
             {choferDni.length >= 6 && (
-              <EntityStatusBadge result={getResult('CHOFER')} />
+              <EntityStatusBadge result={getResult('CHOFER')} entityType="CHOFER" />
             )}
           </div>
 
@@ -1080,7 +1080,7 @@ const AltaEquipoCompletaPage: React.FC = () => {
               placeholder='ABC123'
             />
             {tractorPatente.length >= 5 && (
-              <EntityStatusBadge result={getResult('CAMION')} />
+              <EntityStatusBadge result={getResult('CAMION')} entityType="CAMION" />
             )}
           </div>
 
@@ -1134,7 +1134,7 @@ const AltaEquipoCompletaPage: React.FC = () => {
               placeholder='DEF456'
             />
             {semiPatente.length >= 5 && (
-              <EntityStatusBadge result={getResult('ACOPLADO')} />
+              <EntityStatusBadge result={getResult('ACOPLADO')} entityType="ACOPLADO" />
             )}
           </div>
 

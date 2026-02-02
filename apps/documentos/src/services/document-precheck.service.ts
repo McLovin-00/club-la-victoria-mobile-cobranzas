@@ -31,6 +31,14 @@ export interface DocumentoExistente {
   requiereTransferencia: boolean; // Si es de otro dador y requiere solicitud
 }
 
+/** Información del equipo al que está asignada la entidad */
+export interface EquipoAsignado {
+  id: number;
+  choferNombre?: string;
+  camionPatente?: string;
+  acopladoPatente?: string;
+}
+
 /** Resultado del pre-check para una entidad */
 export interface PreCheckEntidadResult {
   entityType: EntityType;
@@ -42,6 +50,8 @@ export interface PreCheckEntidadResult {
   dadorCargaActualNombre?: string;
   perteneceSolicitante: boolean;  // Si pertenece al dador que consulta
   requiereTransferencia: boolean; // Si es de otro dador
+  equipoActual?: EquipoAsignado;  // Equipo al que está asignada actualmente
+  asignadaAOtroEquipo: boolean;   // Si está en otro equipo (para entidades exclusivas)
   documentos: DocumentoExistente[];
   resumen: PreCheckResumen;
 }
@@ -214,6 +224,71 @@ async function obtenerNombreDador(dadorCargaId: number): Promise<string | undefi
     select: { razonSocial: true },
   });
   return dador?.razonSocial;
+}
+
+/**
+ * Busca si la entidad está asignada a algún equipo activo
+ * Solo aplica para CHOFER, CAMION y ACOPLADO (entidades exclusivas)
+ * EMPRESA_TRANSPORTISTA puede tener múltiples equipos
+ */
+async function buscarEquipoAsignado(
+  entityType: EntityType,
+  entityId: number
+): Promise<EquipoAsignado | null> {
+  // Empresa transportista puede tener múltiples equipos, no aplica restricción
+  if (entityType === 'EMPRESA_TRANSPORTISTA' || entityType === 'DADOR') {
+    return null;
+  }
+
+  let equipo: any = null;
+
+  switch (entityType) {
+    case 'CHOFER':
+      equipo = await prisma.equipo.findFirst({
+        where: { driverId: entityId, activo: true },
+        select: {
+          id: true,
+          camion: { select: { patente: true } },
+          acoplado: { select: { patente: true } },
+        },
+      });
+      break;
+
+    case 'CAMION':
+      equipo = await prisma.equipo.findFirst({
+        where: { truckId: entityId, activo: true },
+        select: {
+          id: true,
+          driver: { select: { nombre: true, apellido: true } },
+          acoplado: { select: { patente: true } },
+        },
+      });
+      break;
+
+    case 'ACOPLADO':
+      equipo = await prisma.equipo.findFirst({
+        where: { trailerId: entityId, activo: true },
+        select: {
+          id: true,
+          driver: { select: { nombre: true, apellido: true } },
+          camion: { select: { patente: true } },
+        },
+      });
+      break;
+  }
+
+  if (!equipo) {
+    return null;
+  }
+
+  return {
+    id: equipo.id,
+    choferNombre: equipo.driver 
+      ? [equipo.driver.nombre, equipo.driver.apellido].filter(Boolean).join(' ')
+      : undefined,
+    camionPatente: equipo.camion?.patente,
+    acopladoPatente: equipo.acoplado?.patente,
+  };
 }
 
 /**
@@ -394,6 +469,7 @@ export class DocumentPreCheckService {
           dadorCargaActualId: null,
           perteneceSolicitante: true,  // Nueva, será del solicitante
           requiereTransferencia: false,
+          asignadaAOtroEquipo: false,
           documentos: [],
           resumen: {
             total: templatesReq.length,
@@ -417,6 +493,14 @@ export class DocumentPreCheckService {
       }
       
       const dadorNombre = await obtenerNombreDador(entidadExistente.dadorCargaId);
+      
+      // Buscar si está asignada a algún equipo activo
+      // Solo para CHOFER, CAMION, ACOPLADO (entidades exclusivas)
+      const equipoActual = await buscarEquipoAsignado(
+        entidadInput.entityType,
+        entidadExistente.id
+      );
+      const asignadaAOtroEquipo = equipoActual !== null;
       
       // Obtener documentos existentes
       const documentos = await obtenerDocumentosEntidad(
@@ -446,6 +530,8 @@ export class DocumentPreCheckService {
         dadorCargaActualNombre: dadorNombre,
         perteneceSolicitante: esDelSolicitante,
         requiereTransferencia: !esDelSolicitante,
+        equipoActual: equipoActual || undefined,
+        asignadaAOtroEquipo,
         documentos,
         resumen,
       });

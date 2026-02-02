@@ -1565,6 +1565,13 @@ export const documentosApiSlice = createApi({
           dadorCargaActualNombre?: string;
           perteneceSolicitante: boolean;
           requiereTransferencia: boolean;
+          equipoActual?: {
+            id: number;
+            choferNombre?: string;
+            camionPatente?: string;
+            acopladoPatente?: string;
+          };
+          asignadaAOtroEquipo: boolean;
           documentos: Array<{
             id: number;
             templateId: number;

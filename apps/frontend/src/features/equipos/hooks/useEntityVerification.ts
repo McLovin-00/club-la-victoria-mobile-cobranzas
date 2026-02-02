@@ -11,12 +11,21 @@ export type VerificationStatus =
   | 'otro_dador'  // Existe pero de otro dador
   | 'error';      // Error al verificar
 
+export interface EquipoAsignado {
+  id: number;
+  choferNombre?: string;
+  camionPatente?: string;
+  acopladoPatente?: string;
+}
+
 export interface EntityVerificationResult {
   status: VerificationStatus;
   entityId: number | null;
   nombre?: string;
   dadorActualId: number | null;
   dadorActualNombre?: string;
+  equipoActual?: EquipoAsignado;
+  asignadaAOtroEquipo: boolean;
   documentos: {
     vigentes: number;
     porVencer: number;
@@ -82,6 +91,7 @@ export function useEntityVerification(options: UseEntityVerificationOptions = {}
       status: 'checking',
       entityId: null,
       dadorActualId: null,
+      asignadaAOtroEquipo: false,
       documentos: { vigentes: 0, porVencer: 0, vencidos: 0, total: 0 },
     };
     
@@ -101,6 +111,7 @@ export function useEntityVerification(options: UseEntityVerificationOptions = {}
           status: 'error',
           entityId: null,
           dadorActualId: null,
+          asignadaAOtroEquipo: false,
           documentos: { vigentes: 0, porVencer: 0, vencidos: 0, total: 0 },
           error: 'No se recibió respuesta del servidor',
         };
@@ -123,6 +134,8 @@ export function useEntityVerification(options: UseEntityVerificationOptions = {}
         nombre: entidad.nombre,
         dadorActualId: entidad.dadorCargaActualId,
         dadorActualNombre: entidad.dadorCargaActualNombre,
+        equipoActual: entidad.equipoActual,
+        asignadaAOtroEquipo: entidad.asignadaAOtroEquipo || false,
         documentos: {
           vigentes: entidad.resumen?.vigentes || 0,
           porVencer: entidad.resumen?.porVencer || 0,
@@ -139,6 +152,7 @@ export function useEntityVerification(options: UseEntityVerificationOptions = {}
         status: 'error',
         entityId: null,
         dadorActualId: null,
+        asignadaAOtroEquipo: false,
         documentos: { vigentes: 0, porVencer: 0, vencidos: 0, total: 0 },
         error: err?.data?.message || 'Error al verificar',
       };
