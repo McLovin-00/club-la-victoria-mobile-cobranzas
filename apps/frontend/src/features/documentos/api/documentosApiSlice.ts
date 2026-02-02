@@ -1590,7 +1590,7 @@ export const documentosApiSlice = createApi({
         requiereTransferencia: boolean;
         dadorActualIds: number[];
       },
-      { entidades: Array<{ entityType: string; identificador: string }>; clienteId?: number }
+      { entidades: Array<{ entityType: string; identificador: string }>; clienteId?: number; dadorCargaId?: number }
     >({
       query: (body) => ({
         url: '/equipos/pre-check',

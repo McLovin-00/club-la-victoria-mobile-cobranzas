@@ -82,7 +82,8 @@ const AltaEquipoCompletaPage: React.FC = () => {
   const [preCheckResult, setPreCheckResult] = useState<any>(null);
 
   // Hook para verificación inline de entidades
-  const { verify, getResult, clearResult } = useEntityVerification();
+  // Pasa el dadorCargaId para que el backend compare correctamente (especialmente para ADMIN_INTERNO)
+  const { verify, getResult, clearResult } = useEntityVerification({ dadorCargaId });
 
   // Permisos
   const canUpload = ['SUPERADMIN', 'ADMIN', 'OPERATOR', 'ADMIN_INTERNO', 'DADOR_DE_CARGA', 'TRANSPORTISTA'].includes(role || '');

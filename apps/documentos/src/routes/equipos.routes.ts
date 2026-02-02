@@ -576,14 +576,16 @@ const preCheckSchema = z.object({
       identificador: z.string().min(1).max(32),
     })).min(1).max(20),
     clienteId: z.number().int().positive().optional(),
+    dadorCargaId: z.number().int().positive().optional(), // Para ADMIN_INTERNO que selecciona dador
   }),
 });
 
 router.post('/pre-check', validate(preCheckSchema), async (req: any, res) => {
   try {
-    const { entidades, clienteId } = req.body;
+    const { entidades, clienteId, dadorCargaId: bodyDadorCargaId } = req.body;
     const tenantEmpresaId = req.tenantId!;
-    const dadorCargaId = req.dadorCargaId!;
+    // Usar dadorCargaId del body si existe (ADMIN_INTERNO), sino del token
+    const dadorCargaId = bodyDadorCargaId || req.dadorCargaId;
 
     const result = await DocumentPreCheckService.preCheck({
       tenantEmpresaId,

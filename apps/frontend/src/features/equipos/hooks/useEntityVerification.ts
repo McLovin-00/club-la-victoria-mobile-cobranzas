@@ -26,6 +26,10 @@ export interface EntityVerificationResult {
   error?: string;
 }
 
+export interface UseEntityVerificationOptions {
+  dadorCargaId?: number | null;
+}
+
 export interface UseEntityVerificationReturn {
   verify: (entityType: EntityType, identificador: string) => Promise<EntityVerificationResult | null>;
   results: Map<string, EntityVerificationResult>;
@@ -38,8 +42,11 @@ export interface UseEntityVerificationReturn {
  * Hook para verificar entidades individualmente antes de crear un equipo.
  * Permite saber si una entidad (empresa, chofer, camión, acoplado) ya existe
  * y si pertenece al mismo dador de carga.
+ * 
+ * @param options.dadorCargaId - ID del dador de carga seleccionado (requerido para ADMIN_INTERNO)
  */
-export function useEntityVerification(): UseEntityVerificationReturn {
+export function useEntityVerification(options: UseEntityVerificationOptions = {}): UseEntityVerificationReturn {
+  const { dadorCargaId } = options;
   const [preCheck] = usePreCheckDocumentosMutation();
   const [results, setResults] = useState<Map<string, EntityVerificationResult>>(new Map());
   
@@ -84,6 +91,7 @@ export function useEntityVerification(): UseEntityVerificationReturn {
     try {
       const response = await preCheck({
         entidades: [{ entityType, identificador: normalizedId }],
+        ...(dadorCargaId && { dadorCargaId }),
       }).unwrap();
 
       const entidad = response.entidades[0];
@@ -137,7 +145,7 @@ export function useEntityVerification(): UseEntityVerificationReturn {
       setResults(prev => new Map(prev).set(entityType, errorResult));
       return errorResult;
     }
-  }, [preCheck, results]);
+  }, [preCheck, results, dadorCargaId]);
 
   const getResult = useCallback((entityType: EntityType) => {
     return results.get(entityType);
