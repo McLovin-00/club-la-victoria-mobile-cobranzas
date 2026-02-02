@@ -16,6 +16,8 @@ import {
 import { SeccionDocumentos, Template } from '../components/SeccionDocumentos';
 import { useRoleBasedNavigation } from '../../../hooks/useRoleBasedNavigation';
 import { PreCheckModal } from '../components/PreCheckModal';
+import { useEntityVerification, EntityType } from '../hooks/useEntityVerification';
+import { EntityStatusBadge } from '../components/EntityStatusBadge';
 
 /**
  * Página de Alta Completa de Equipo
@@ -78,6 +80,9 @@ const AltaEquipoCompletaPage: React.FC = () => {
   const [showPreCheck, setShowPreCheck] = useState(false);
   const [preCheckPassed, setPreCheckPassed] = useState(false);
   const [preCheckResult, setPreCheckResult] = useState<any>(null);
+
+  // Hook para verificación inline de entidades
+  const { verify, getResult, clearResult } = useEntityVerification();
 
   // Permisos
   const canUpload = ['SUPERADMIN', 'ADMIN', 'OPERATOR', 'ADMIN_INTERNO', 'DADOR_DE_CARGA', 'TRANSPORTISTA'].includes(role || '');
@@ -404,6 +409,92 @@ const AltaEquipoCompletaPage: React.FC = () => {
       setPreCheckResult(null);
     }
   }, [cuitTransportista, choferDni, tractorPatente, semiPatente]);
+
+  // Handlers de verificación inline (onBlur)
+  const handleVerifyCuit = useCallback(async () => {
+    if (!cuitTransportista || !/^\d{11}$/.test(cuitTransportista)) return;
+    
+    const result = await verify('EMPRESA_TRANSPORTISTA', cuitTransportista);
+    
+    // Auto-completar nombre si existe y es del mismo dador
+    if (result?.status === 'disponible' && result.nombre && !empresaTransportista) {
+      setEmpresaTransportista(result.nombre);
+    }
+  }, [cuitTransportista, empresaTransportista, verify]);
+
+  const handleVerifyDni = useCallback(async () => {
+    if (!choferDni || choferDni.length < 6) return;
+    
+    const result = await verify('CHOFER', choferDni);
+    
+    // Auto-completar nombre si existe y es del mismo dador
+    if (result?.status === 'disponible' && result.nombre) {
+      const parts = result.nombre.split(' ');
+      if (parts.length >= 2 && !choferNombre && !choferApellido) {
+        setChoferNombre(parts[0]);
+        setChoferApellido(parts.slice(1).join(' '));
+      }
+    }
+  }, [choferDni, choferNombre, choferApellido, verify]);
+
+  const handleVerifyPatenteCamion = useCallback(async () => {
+    if (!tractorPatente || tractorPatente.length < 5) return;
+    
+    const result = await verify('CAMION', tractorPatente.toUpperCase());
+    
+    // Auto-completar marca/modelo si existe y es del mismo dador
+    if (result?.status === 'disponible' && result.nombre) {
+      const parts = result.nombre.split(' ');
+      if (parts.length >= 1 && !tractorMarca) {
+        setTractorMarca(parts[0]);
+        if (parts.length >= 2 && !tractorModelo) {
+          setTractorModelo(parts.slice(1).join(' '));
+        }
+      }
+    }
+  }, [tractorPatente, tractorMarca, tractorModelo, verify]);
+
+  const handleVerifyPatenteAcoplado = useCallback(async () => {
+    if (!semiPatente || semiPatente.length < 5) return;
+    
+    const result = await verify('ACOPLADO', semiPatente.toUpperCase());
+    
+    // Auto-completar tipo si existe y es del mismo dador
+    if (result?.status === 'disponible' && result.nombre && !semiTipo) {
+      setSemiTipo(result.nombre);
+    }
+  }, [semiPatente, semiTipo, verify]);
+
+  // Limpiar verificación cuando cambia el valor del campo
+  const handleCuitChange = (value: string) => {
+    const cleaned = value.replace(/\D/g, '').slice(0, 11);
+    setCuitTransportista(cleaned);
+    if (cleaned.length < 11) {
+      clearResult('EMPRESA_TRANSPORTISTA');
+    }
+  };
+
+  const handleDniChange = (value: string) => {
+    const cleaned = value.replace(/\D/g, '');
+    setChoferDni(cleaned);
+    if (cleaned.length < 6) {
+      clearResult('CHOFER');
+    }
+  };
+
+  const handlePatenteCamionChange = (value: string) => {
+    setTractorPatente(value.toUpperCase());
+    if (value.length < 5) {
+      clearResult('CAMION');
+    }
+  };
+
+  const handlePatenteAcopladoChange = (value: string) => {
+    setSemiPatente(value.toUpperCase());
+    if (value.length < 5) {
+      clearResult('ACOPLADO');
+    }
+  };
 
   // Handler para iniciar el pre-check
   const handleInitPreCheck = () => {
@@ -876,7 +967,9 @@ const AltaEquipoCompletaPage: React.FC = () => {
             <input
               type='text'
               value={cuitTransportista}
-              onChange={(e) => !isTransportista && setCuitTransportista(e.target.value.replace(/\D/g, '').slice(0, 11))}
+              onChange={(e) => !isTransportista && handleCuitChange(e.target.value)}
+              onBlur={!isTransportista ? handleVerifyCuit : undefined}
+              onKeyDown={(e) => e.key === 'Enter' && !isTransportista && handleVerifyCuit()}
               disabled={isTransportista}
               className={`w-full border rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${
                 isTransportista 
@@ -888,6 +981,9 @@ const AltaEquipoCompletaPage: React.FC = () => {
             />
             {cuitTransportista && !/^\d{11}$/.test(cuitTransportista) && !isTransportista && (
               <p className='text-xs text-red-600 mt-1'>⚠️ Debe tener 11 dígitos</p>
+            )}
+            {!isTransportista && /^\d{11}$/.test(cuitTransportista) && (
+              <EntityStatusBadge result={getResult('EMPRESA_TRANSPORTISTA')} />
             )}
           </div>
         </div>
@@ -908,10 +1004,15 @@ const AltaEquipoCompletaPage: React.FC = () => {
             <input
               type='text'
               value={choferDni}
-              onChange={(e) => setChoferDni(e.target.value.replace(/\D/g, ''))}
+              onChange={(e) => handleDniChange(e.target.value)}
+              onBlur={handleVerifyDni}
+              onKeyDown={(e) => e.key === 'Enter' && handleVerifyDni()}
               className='w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500'
               placeholder='12345678'
             />
+            {choferDni.length >= 6 && (
+              <EntityStatusBadge result={getResult('CHOFER')} />
+            )}
           </div>
 
           <div>
@@ -971,10 +1072,15 @@ const AltaEquipoCompletaPage: React.FC = () => {
             <input
               type='text'
               value={tractorPatente}
-              onChange={(e) => setTractorPatente(e.target.value.toUpperCase())}
+              onChange={(e) => handlePatenteCamionChange(e.target.value)}
+              onBlur={handleVerifyPatenteCamion}
+              onKeyDown={(e) => e.key === 'Enter' && handleVerifyPatenteCamion()}
               className='w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono'
               placeholder='ABC123'
             />
+            {tractorPatente.length >= 5 && (
+              <EntityStatusBadge result={getResult('CAMION')} />
+            )}
           </div>
 
           <div>
@@ -1020,10 +1126,15 @@ const AltaEquipoCompletaPage: React.FC = () => {
             <input
               type='text'
               value={semiPatente}
-              onChange={(e) => setSemiPatente(e.target.value.toUpperCase())}
+              onChange={(e) => handlePatenteAcopladoChange(e.target.value)}
+              onBlur={handleVerifyPatenteAcoplado}
+              onKeyDown={(e) => e.key === 'Enter' && handleVerifyPatenteAcoplado()}
               className='w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono'
               placeholder='DEF456'
             />
+            {semiPatente.length >= 5 && (
+              <EntityStatusBadge result={getResult('ACOPLADO')} />
+            )}
           </div>
 
           <div>
