@@ -157,7 +157,19 @@ const EditarEquipoPage: React.FC = () => {
   const choferes = useMemo(() => (choferesResp as any)?.data || [], [choferesResp]);
   const camiones = useMemo(() => (camionesResp as any)?.data || [], [camionesResp]);
   const acoplados = useMemo(() => (acopladosResp as any)?.data || [], [acopladosResp]);
-  const empresas = useMemo(() => empresasResp || [], [empresasResp]);
+  
+  // Asegurar que la empresa actual del equipo esté siempre en el listado
+  const empresas = useMemo(() => {
+    const listaEmpresas = empresasResp || [];
+    // Si el equipo tiene una empresa transportista asignada y no está en la lista, agregarla
+    if (equipo?.empresaTransportista && equipo.empresaTransportistaId) {
+      const yaExiste = listaEmpresas.some((e: any) => e.id === equipo.empresaTransportistaId);
+      if (!yaExiste) {
+        return [equipo.empresaTransportista, ...listaEmpresas];
+      }
+    }
+    return listaEmpresas;
+  }, [empresasResp, equipo?.empresaTransportista, equipo?.empresaTransportistaId]);
   
   // Clientes actuales del equipo
   const clientesActuales = useMemo(() => {
