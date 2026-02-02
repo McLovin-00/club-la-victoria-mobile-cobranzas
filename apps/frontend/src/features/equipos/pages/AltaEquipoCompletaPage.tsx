@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAppSelector } from '../../../store/hooks';
 import {
@@ -15,6 +15,7 @@ import {
 } from '../../documentos/api/documentosApiSlice';
 import { SeccionDocumentos, Template } from '../components/SeccionDocumentos';
 import { useRoleBasedNavigation } from '../../../hooks/useRoleBasedNavigation';
+import { PreCheckModal } from '../components/PreCheckModal';
 
 /**
  * Página de Alta Completa de Equipo
@@ -72,6 +73,11 @@ const AltaEquipoCompletaPage: React.FC = () => {
 
   // Estado de envío: true desde que se hace click hasta que termina todo el proceso
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Estados para pre-check de entidades existentes
+  const [showPreCheck, setShowPreCheck] = useState(false);
+  const [preCheckPassed, setPreCheckPassed] = useState(false);
+  const [preCheckResult, setPreCheckResult] = useState<any>(null);
 
   // Permisos
   const canUpload = ['SUPERADMIN', 'ADMIN', 'OPERATOR', 'ADMIN_INTERNO', 'DADOR_DE_CARGA', 'TRANSPORTISTA'].includes(role || '');
@@ -316,6 +322,100 @@ const AltaEquipoCompletaPage: React.FC = () => {
   // Handler dummy para compatibilidad (ya no se usa)
   const handleUploadSuccess = (templateId: number, expiryDate?: string) => {
     // No hace nada, la subida se hace al crear el equipo
+  };
+
+  // Construir lista de entidades para pre-check
+  const buildPreCheckEntidades = useCallback(() => {
+    const entidades: Array<{ entityType: string; identificador: string; nombre?: string }> = [];
+    
+    // Empresa Transportista (por CUIT)
+    if (cuitTransportista && /^\d{11}$/.test(cuitTransportista)) {
+      entidades.push({
+        entityType: 'EMPRESA_TRANSPORTISTA',
+        identificador: cuitTransportista,
+        nombre: empresaTransportista,
+      });
+    }
+    
+    // Chofer (por DNI)
+    if (choferDni && choferDni.length >= 6) {
+      entidades.push({
+        entityType: 'CHOFER',
+        identificador: choferDni,
+        nombre: `${choferNombre} ${choferApellido}`.trim(),
+      });
+    }
+    
+    // Camión (por patente)
+    if (tractorPatente && tractorPatente.length >= 5) {
+      entidades.push({
+        entityType: 'CAMION',
+        identificador: tractorPatente.toUpperCase(),
+        nombre: `${tractorMarca} ${tractorModelo}`.trim() || undefined,
+      });
+    }
+    
+    // Acoplado (por patente, si tiene)
+    if (semiPatente && semiPatente.length >= 5) {
+      entidades.push({
+        entityType: 'ACOPLADO',
+        identificador: semiPatente.toUpperCase(),
+        nombre: semiTipo || undefined,
+      });
+    }
+    
+    return entidades;
+  }, [cuitTransportista, empresaTransportista, choferDni, choferNombre, choferApellido, 
+      tractorPatente, tractorMarca, tractorModelo, semiPatente, semiTipo]);
+
+  // Handler cuando el pre-check pasa exitosamente
+  const handlePreCheckContinue = useCallback((result: any) => {
+    setPreCheckResult(result);
+    setPreCheckPassed(true);
+    setShowPreCheck(false);
+    
+    // Mostrar resumen de entidades reutilizadas
+    const reutilizadas = result.entidades.filter((e: any) => e.existe && e.perteneceSolicitante);
+    if (reutilizadas.length > 0) {
+      const nombres = reutilizadas.map((e: any) => {
+        const docsVigentes = e.resumen?.vigentes || 0;
+        return `${e.identificador}${docsVigentes > 0 ? ` (${docsVigentes} docs vigentes)` : ''}`;
+      }).join(', ');
+      setMessage({ 
+        type: 'success', 
+        text: `✓ Entidades existentes detectadas: ${nombres}. Sus documentos vigentes se reutilizarán.` 
+      });
+    }
+  }, []);
+
+  // Handler cuando se crea una solicitud de transferencia
+  const handleTransferenciaCreada = useCallback(() => {
+    setMessage({ 
+      type: 'success', 
+      text: '📨 Solicitud de transferencia enviada. Recibirás una notificación cuando sea aprobada.' 
+    });
+    setShowPreCheck(false);
+  }, []);
+
+  // Resetear pre-check cuando cambian los datos básicos
+  useEffect(() => {
+    if (preCheckPassed) {
+      setPreCheckPassed(false);
+      setPreCheckResult(null);
+    }
+  }, [cuitTransportista, choferDni, tractorPatente, semiPatente]);
+
+  // Handler para iniciar el pre-check
+  const handleInitPreCheck = () => {
+    if (!datosBasicosCompletos) {
+      setMessage({ type: 'error', text: 'Completá todos los datos básicos obligatorios' });
+      return;
+    }
+    if (!dadorCargaId) {
+      setMessage({ type: 'error', text: 'Debe seleccionar un dador de carga' });
+      return;
+    }
+    setShowPreCheck(true);
   };
 
   // Handler de creación de equipo (NUEVO FLUJO TRANSACCIONAL)
@@ -1018,14 +1118,67 @@ const AltaEquipoCompletaPage: React.FC = () => {
         onFileSelect={handleFileSelect}
       />
 
-      {/* BOTÓN CREAR EQUIPO */}
-      <div className='mt-8 flex justify-center'>
+      {/* INDICADOR DE PRE-CHECK PASADO */}
+      {preCheckPassed && preCheckResult && (
+        <div className='mt-6 bg-green-50 border border-green-200 rounded-lg p-4'>
+          <div className='flex items-start gap-3'>
+            <span className='text-2xl'>✓</span>
+            <div className='flex-1'>
+              <p className='font-medium text-green-800'>Entidades verificadas</p>
+              <div className='mt-2 flex flex-wrap gap-2'>
+                {preCheckResult.entidades.map((e: any, idx: number) => (
+                  <span 
+                    key={idx}
+                    className={`px-2 py-1 rounded text-xs ${
+                      e.existe 
+                        ? e.perteneceSolicitante 
+                          ? 'bg-green-100 text-green-800' 
+                          : 'bg-yellow-100 text-yellow-800'
+                        : 'bg-blue-100 text-blue-800'
+                    }`}
+                  >
+                    {e.entityType === 'EMPRESA_TRANSPORTISTA' && '🏢'}
+                    {e.entityType === 'CHOFER' && '👤'}
+                    {e.entityType === 'CAMION' && '🚛'}
+                    {e.entityType === 'ACOPLADO' && '📦'}
+                    {' '}{e.identificador}
+                    {e.existe && e.perteneceSolicitante && e.resumen?.vigentes > 0 && (
+                      <span className='ml-1'>({e.resumen.vigentes} docs ✓)</span>
+                    )}
+                    {!e.existe && ' (nueva)'}
+                  </span>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* BOTONES DE ACCIÓN */}
+      <div className='mt-8 flex flex-col items-center gap-4'>
+        {/* Botón de verificar entidades (si no pasó pre-check) */}
+        {!preCheckPassed && datosBasicosCompletos && (
+          <button
+            onClick={handleInitPreCheck}
+            disabled={isSubmitting}
+            className='px-6 py-2 text-sm font-medium text-blue-700 bg-blue-50 border border-blue-300 rounded-lg hover:bg-blue-100 disabled:opacity-50 disabled:cursor-not-allowed transition-colors'
+          >
+            🔍 Verificar disponibilidad de entidades
+          </button>
+        )}
+
+        {/* Botón crear equipo */}
         <button
-          onClick={handleCrearEquipo}
+          onClick={preCheckPassed ? handleCrearEquipo : handleInitPreCheck}
           disabled={!datosBasicosCompletos || !todosDocumentosSeleccionados || isSubmitting}
           className='px-8 py-3 text-lg font-semibold text-white bg-green-600 rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors shadow-lg'
         >
-          {isSubmitting ? 'Creando Equipo y Subiendo Documentos...' : '✓ Crear Equipo con Todos los Documentos'}
+          {isSubmitting 
+            ? 'Creando Equipo y Subiendo Documentos...' 
+            : preCheckPassed 
+              ? '✓ Crear Equipo con Todos los Documentos'
+              : '🔍 Verificar y Crear Equipo'
+          }
         </button>
       </div>
 
@@ -1042,6 +1195,16 @@ const AltaEquipoCompletaPage: React.FC = () => {
           )}
         </div>
       )}
+
+      {/* MODAL DE PRE-CHECK */}
+      <PreCheckModal
+        isOpen={showPreCheck}
+        onClose={() => setShowPreCheck(false)}
+        entidades={buildPreCheckEntidades()}
+        clienteId={clienteIds.length > 0 ? clienteIds[0] : undefined}
+        onContinue={handlePreCheckContinue}
+        onTransferenciaCreada={handleTransferenciaCreada}
+      />
     </div>
   );
 };
