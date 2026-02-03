@@ -26,20 +26,24 @@ export function errorHandler(
     AppLogger.error(`💥 ${err.message}`, { stack: err.stack });
   }
   
-  res.status(statusCode).json({
+  // Set Content-Type explicitly to avoid Express 5 charset bug
+  res.setHeader('Content-Type', 'application/json; charset=utf-8');
+  res.status(statusCode).send(JSON.stringify({
     success: false,
     error: code,
     message: err.message,
     timestamp: new Date().toISOString(),
-  });
+  }));
 }
 
 export function notFoundHandler(req: Request, res: Response): void {
-  res.status(404).json({
+  // Set Content-Type explicitly to avoid Express 5 charset bug
+  res.setHeader('Content-Type', 'application/json; charset=utf-8');
+  res.status(404).send(JSON.stringify({
     success: false,
     error: 'NOT_FOUND',
     message: `Ruta no encontrada: ${req.method} ${req.path}`,
     timestamp: new Date().toISOString(),
-  });
+  }));
 }
 
