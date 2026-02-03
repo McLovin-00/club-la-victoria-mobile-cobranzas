@@ -240,39 +240,27 @@ async function buscarEquipoAsignado(
     return null;
   }
 
-  let equipo: any = null;
+  let equipo: { id: number; driverId: number; truckId: number; trailerId: number | null } | null = null;
 
   switch (entityType) {
     case 'CHOFER':
       equipo = await prisma.equipo.findFirst({
         where: { driverId: entityId, activo: true },
-        select: {
-          id: true,
-          camion: { select: { patente: true } },
-          acoplado: { select: { patente: true } },
-        },
+        select: { id: true, driverId: true, truckId: true, trailerId: true },
       });
       break;
 
     case 'CAMION':
       equipo = await prisma.equipo.findFirst({
         where: { truckId: entityId, activo: true },
-        select: {
-          id: true,
-          driver: { select: { nombre: true, apellido: true } },
-          acoplado: { select: { patente: true } },
-        },
+        select: { id: true, driverId: true, truckId: true, trailerId: true },
       });
       break;
 
     case 'ACOPLADO':
       equipo = await prisma.equipo.findFirst({
         where: { trailerId: entityId, activo: true },
-        select: {
-          id: true,
-          driver: { select: { nombre: true, apellido: true } },
-          camion: { select: { patente: true } },
-        },
+        select: { id: true, driverId: true, truckId: true, trailerId: true },
       });
       break;
   }
@@ -281,13 +269,24 @@ async function buscarEquipoAsignado(
     return null;
   }
 
+  // Buscar información adicional de las entidades relacionadas
+  const [chofer, camion] = await Promise.all([
+    prisma.chofer.findUnique({
+      where: { id: equipo.driverId },
+      select: { nombre: true, apellido: true },
+    }),
+    prisma.camion.findUnique({
+      where: { id: equipo.truckId },
+      select: { patente: true },
+    }),
+  ]);
+
   return {
     id: equipo.id,
-    choferNombre: equipo.driver 
-      ? [equipo.driver.nombre, equipo.driver.apellido].filter(Boolean).join(' ')
+    choferNombre: chofer 
+      ? [chofer.nombre, chofer.apellido].filter(Boolean).join(' ')
       : undefined,
-    camionPatente: equipo.camion?.patente,
-    acopladoPatente: equipo.acoplado?.patente,
+    camionPatente: camion?.patente,
   };
 }
 
