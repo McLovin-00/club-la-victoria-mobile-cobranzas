@@ -1,6 +1,17 @@
 import React from 'react';
 import { EntityVerificationResult, VerificationStatus, EntityType } from '../hooks/useEntityVerification';
 
+// Helper para obtener nombre legible del tipo de entidad
+function getEntityTypeName(entityType?: EntityType): string {
+  const names: Record<EntityType, string> = {
+    CHOFER: 'chofer',
+    CAMION: 'camión',
+    ACOPLADO: 'acoplado',
+    EMPRESA_TRANSPORTISTA: 'empresa transportista',
+  };
+  return entityType ? names[entityType] ?? 'esta entidad' : 'esta entidad';
+}
+
 interface EntityStatusBadgeProps {
   result?: EntityVerificationResult;
   entityType?: EntityType;
@@ -163,11 +174,7 @@ export const EntityStatusBadge: React.FC<EntityStatusBadgeProps> = ({
             {result.equipoActual.camionPatente && ` - ${result.equipoActual.camionPatente}`}
           </p>
           <p className="text-xs text-orange-600 mt-1 italic">
-            El equipo anterior quedará sin {
-              entityType === 'CHOFER' ? 'chofer' :
-              entityType === 'CAMION' ? 'camión' :
-              entityType === 'ACOPLADO' ? 'acoplado' : 'esta entidad'
-            }
+            El equipo anterior quedará sin {getEntityTypeName(entityType)}
           </p>
           {onAcceptReassignment && (
             <button
