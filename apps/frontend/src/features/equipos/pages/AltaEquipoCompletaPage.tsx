@@ -99,12 +99,12 @@ const AltaEquipoCompletaPage: React.FC = () => {
   
   // Listas de dadores y clientes
   const dadoresList = useMemo(() => {
-    const raw = (dadoresResp as any)?.data || (dadoresResp as any)?.list ?? [];
+    const raw = ((dadoresResp as any)?.data || (dadoresResp as any)?.list) ?? [];
     return Array.isArray(raw) ? raw : [];
   }, [dadoresResp]);
   
   const clientesList = useMemo(() => {
-    const raw = (clientsResp as any)?.data || (clientsResp as any)?.list ?? [];
+    const raw = ((clientsResp as any)?.data || (clientsResp as any)?.list) ?? [];
     return Array.isArray(raw) ? raw : [];
   }, [clientsResp]);
   
@@ -134,7 +134,7 @@ const AltaEquipoCompletaPage: React.FC = () => {
   // Si el usuario es TRANSPORTISTA, auto-completar datos de su empresa transportista
   useEffect(() => {
     if (isTransportista && empresaTransportistaData) {
-      const nombre = empresaTransportistaData.razonSocial || empresaTransportistaData.nombre ?? '';
+      const nombre = (empresaTransportistaData.razonSocial || empresaTransportistaData.nombre) ?? '';
       const cuit = empresaTransportistaData.cuit ?? '';
       setEmpresaTransportista(nombre);
       setCuitTransportista(cuit);
@@ -224,7 +224,7 @@ const AltaEquipoCompletaPage: React.FC = () => {
     }
 
     // Sin clientes seleccionados: usar todos los templates globales
-    const rawTemplates = (templatesResp as any)?.data || (templatesResp as any) ?? [];
+    const rawTemplates = ((templatesResp as any)?.data || (templatesResp as any)) ?? [];
     
     // Mapear 'nombre' del backend a 'name' esperado por el componente
     const allTemplates = rawTemplates.map((t: any) => ({

@@ -128,7 +128,7 @@ const ChoferesPage: React.FC = () => {
             setDni(''); setNombre(''); setApellido(''); setPhones(['']);
           } catch (error: any) {
             console.error('Error creating chofer:', error);
-            const rawMsg = (error?.data?.message || error?.data?.error || error?.error ?? '') as string;
+            const rawMsg = ((error?.data?.message || error?.data?.error || error?.error) ?? '') as string;
             const msg = (rawMsg ?? '').toString();
             const isDuplicate = msg.includes('Unique constraint failed') || msg.includes('P2002') || msg.toLowerCase().includes('unique constraint') || msg.toLowerCase().includes('ya existe');
             if (isDuplicate) {

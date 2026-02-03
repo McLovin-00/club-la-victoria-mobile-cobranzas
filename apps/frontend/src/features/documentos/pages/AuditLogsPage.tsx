@@ -203,7 +203,7 @@ const AuditLogsPage: React.FC = () => {
                   {visibleCols.accion && <td className='px-2 py-2'>{row.accion}</td>}
                   {visibleCols.metodo && <td className='px-2 py-2'>{row.method}</td>}
                   {visibleCols.status && <td className='px-2 py-2'>{row.statusCode}</td>}
-                  {visibleCols.usuario && <td className='px-2 py-2'>{row.userEmail || row.userId ?? ''}</td>}
+                  {visibleCols.usuario && <td className='px-2 py-2'>{(row.userEmail || row.userId) ?? ''}</td>}
                   {visibleCols.rol && <td className='px-2 py-2'>{row.userRole ?? ''}</td>}
                   {visibleCols.entidad && <td className='px-2 py-2'>
                     {row.entityType}{row.entityId ? `#${row.entityId}` : ''}

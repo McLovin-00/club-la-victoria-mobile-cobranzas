@@ -96,7 +96,7 @@ export const EquiposPage: React.FC = () => {
   const [createCamion] = useCreateCamionMutation();
   const [createAcoplado] = useCreateAcopladoMutation();
   const [getEquipoComplianceLazy] = useLazyGetEquipoComplianceQuery();
-  const authToken = useSelector((s: RootState) => s.auth?.token) || (typeof localStorage !== 'undefined' ? localStorage.getItem('token') ?? '' : '');
+  const authToken = useSelector((s: RootState) => s.auth?.token) || (typeof localStorage !== 'undefined' ? (localStorage.getItem('token') ?? '') : '');
 
   // Catálogos para selección (dropdowns)
   // Paginación de maestros: choferes, camiones, acoplados

@@ -83,7 +83,7 @@ const EditPlatformUserModal: React.FC<Props> = ({ isOpen, onClose, user }) => {
   // Para TRANSPORTISTA, usar su propia empresaTransportistaId
   const [selectedTransportistaForChofer, setSelectedTransportistaForChofer] = useState<number | ''>(
     currentUser?.role === 'TRANSPORTISTA' 
-      ? (currentUser as any).empresaTransportistaId || user.empresaTransportistaId ?? ''
+      ? ((currentUser as any).empresaTransportistaId || user.empresaTransportistaId) ?? ''
       : (user.role === 'CHOFER' && user.empresaTransportistaId ? user.empresaTransportistaId : '')
   );
   const [initialLoadDoneChofer, setInitialLoadDoneChofer] = useState(false);

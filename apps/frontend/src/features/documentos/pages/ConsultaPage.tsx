@@ -129,7 +129,7 @@ export const ConsultaPage: React.FC = () => {
   // Obtener empresas transportistas - para admins sin filtro, para dadores con su ID
   const { data: empresasTransp = [] } = useGetEmpresasTransportistasQuery(
     { 
-      dadorCargaId: selectedDadorId || dadorIdForSearch ?? undefined,
+      dadorCargaId: (selectedDadorId || dadorIdForSearch) ?? undefined,
       q: empresaSearchText ?? undefined,
       limit: 100 // Traer hasta 100 empresas que coincidan
     },
