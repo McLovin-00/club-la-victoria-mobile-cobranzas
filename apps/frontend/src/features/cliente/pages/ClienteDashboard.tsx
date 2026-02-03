@@ -119,7 +119,7 @@ const ClienteDashboard: React.FC = () => {
     setIsDownloading(true);
     showToast(`Iniciando descarga ZIP de ${pagination.total} equipos...`);
 
-    const baseUrl = import.meta.env.VITE_DOCUMENTOS_API_URL || '';
+    const baseUrl = import.meta.env.VITE_DOCUMENTOS_API_URL ?? '';
     const form = document.createElement('form');
     form.method = 'POST';
     form.action = `${baseUrl}/api/docs/portal-cliente/equipos/bulk-download-form`;
@@ -134,7 +134,7 @@ const ClienteDashboard: React.FC = () => {
     const searchInput = document.createElement('input');
     searchInput.type = 'hidden';
     searchInput.name = 'searchTerm';
-    searchInput.value = searchTerm || '';
+    searchInput.value = searchTerm ?? '';
     form.appendChild(searchInput);
 
     const estadoInput = document.createElement('input');
@@ -447,7 +447,7 @@ TZI127
                             </div>
                             <div className='text-sm text-gray-600 dark:text-gray-400'>
                               {equipo.chofer 
-                                ? `${equipo.chofer.nombre || ''} ${equipo.chofer.apellido || ''} - DNI ${equipo.chofer.dni}`
+                                ? `${equipo.chofer.nombre ?? ''} ${equipo.chofer.apellido ?? ''} - DNI ${equipo.chofer.dni}`
                                 : 'Sin chofer asignado'}
                             </div>
                             {equipo.empresaTransportista && (

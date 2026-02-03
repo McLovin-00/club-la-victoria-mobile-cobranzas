@@ -363,7 +363,7 @@ export const RegisterUserModal: React.FC<RegisterUserModalProps> = ({ isOpen, on
   const canSelectEmpresa = currentUser?.role === 'SUPERADMIN';
   const { data: empresas = [] } = useGetEmpresasQuery(undefined, { skip: !canSelectEmpresa });
   // Solo roles admin pueden ver dadores y clientes
-  const canSeeDadoresYClientes = ['SUPERADMIN', 'ADMIN', 'ADMIN_INTERNO'].includes(currentUser?.role || '');
+  const canSeeDadoresYClientes = ['SUPERADMIN', 'ADMIN', 'ADMIN_INTERNO'].includes(currentUser?.role ?? '');
   const { data: dadoresResp } = useGetDadoresQuery({}, { skip: !canSeeDadoresYClientes });
   const { data: clientesResp } = useGetClientsQuery({}, { skip: !canSeeDadoresYClientes });
   
@@ -464,7 +464,7 @@ export const RegisterUserModal: React.FC<RegisterUserModalProps> = ({ isOpen, on
   // Roles disponibles según el rol del usuario actual
   const rolesDisponibles = useMemo(() => {
     if (!currentUser?.role) return [];
-    return PERMISOS_CREACION[currentUser.role] || [];
+    return PERMISOS_CREACION[currentUser.role] ?? [];
   }, [currentUser?.role]);
   
   // Corregir el rol inicial cuando el modal se abre - usar el primer rol disponible

@@ -117,7 +117,7 @@ export const ConsultaPage: React.FC = () => {
   const dadorIdForSearch = isDadorDeCarga && userDadorCargaId
     ? userDadorCargaId
     : (defaults?.defaultDadorId ?? empresaIdFromAuth ?? undefined);
-  const authToken = useSelector((s: RootState) => s.auth?.token) || (typeof localStorage !== 'undefined' ? (localStorage.getItem('token') || '') : '');
+  const authToken = useSelector((s: RootState) => s.auth?.token) || (typeof localStorage !== 'undefined' ? (localStorage.getItem('token') ?? '') : '');
   
   // Estados de filtros
   const [filterType, setFilterType] = useState<FilterType>('dador');
@@ -129,8 +129,8 @@ export const ConsultaPage: React.FC = () => {
   // Obtener empresas transportistas - para admins sin filtro, para dadores con su ID
   const { data: empresasTransp = [] } = useGetEmpresasTransportistasQuery(
     { 
-      dadorCargaId: selectedDadorId || dadorIdForSearch || undefined,
-      q: empresaSearchText || undefined,
+      dadorCargaId: selectedDadorId || dadorIdForSearch ?? undefined,
+      q: empresaSearchText ?? undefined,
       limit: 100 // Traer hasta 100 empresas que coincidan
     },
     { skip: isChofer }
@@ -227,9 +227,9 @@ export const ConsultaPage: React.FC = () => {
     const empresaIdQ = searchParams.get('empresaId') ? Number(searchParams.get('empresaId')) : undefined;
     const clienteIdQ = searchParams.get('clienteId') ? Number(searchParams.get('clienteId')) : undefined;
     const empresaTranspIdQ = searchParams.get('empresaTranspId') ? Number(searchParams.get('empresaTranspId')) : undefined;
-    const dniQ = searchParams.get('dni') || undefined;
-    const truckQ = searchParams.get('truckPlate') || undefined;
-    const trailerQ = searchParams.get('trailerPlate') || undefined;
+    const dniQ = searchParams.get('dni') ?? undefined;
+    const truckQ = searchParams.get('truckPlate') ?? undefined;
+    const trailerQ = searchParams.get('trailerPlate') ?? undefined;
     
     if (empresaIdQ || clienteIdQ || empresaTranspIdQ || dniQ || truckQ || trailerQ) {
       // Restaurar valores en los selectores y campos
@@ -245,9 +245,9 @@ export const ConsultaPage: React.FC = () => {
         setSelectedEmpresaTranspId(empresaTranspIdQ);
         setFilterType('empresa');
       }
-      setDni(dniQ || '');
-      setTruckPlate(truckQ || '');
-      setTrailerPlate(trailerQ || '');
+      setDni(dniQ ?? '');
+      setTruckPlate(truckQ ?? '');
+      setTrailerPlate(trailerQ ?? '');
       
       // Solo ejecutar búsqueda si viene con flag explícito
       if (autoSearch) {
@@ -287,7 +287,7 @@ export const ConsultaPage: React.FC = () => {
   const [editFormData, setEditFormData] = useState<Record<string, string>>({});
   
   // Verificar si el usuario puede ver datos IA
-  const canViewIAData = ['SUPERADMIN', 'ADMIN_INTERNO'].includes(userRole || '');
+  const canViewIAData = ['SUPERADMIN', 'ADMIN_INTERNO'].includes(userRole ?? '');
   
   const fetchIAData = async (equipo: any) => {
     setIaDataEquipo(equipo);
@@ -295,7 +295,7 @@ export const ConsultaPage: React.FC = () => {
     setIaDataLoading(true);
     setIaData({ empresaTransportista: null, chofer: null, camion: null, acoplado: null });
     
-    const baseUrl = import.meta.env.VITE_DOCUMENTOS_API_URL || '';
+    const baseUrl = import.meta.env.VITE_DOCUMENTOS_API_URL ?? '';
     const headers = { Authorization: `Bearer ${authToken}` };
     
     try {
@@ -352,7 +352,7 @@ export const ConsultaPage: React.FC = () => {
   };
   
   const handleDeleteIAData = async (entityType: string, entityId: number) => {
-    const baseUrl = import.meta.env.VITE_DOCUMENTOS_API_URL || '';
+    const baseUrl = import.meta.env.VITE_DOCUMENTOS_API_URL ?? '';
     try {
       const resp = await fetch(`${baseUrl}/api/docs/entities/${entityType}/${entityId}/extracted-data`, {
         method: 'DELETE',
@@ -373,7 +373,7 @@ export const ConsultaPage: React.FC = () => {
   
   const handleSaveEdit = async () => {
     if (!editingEntity) return;
-    const baseUrl = import.meta.env.VITE_DOCUMENTOS_API_URL || '';
+    const baseUrl = import.meta.env.VITE_DOCUMENTOS_API_URL ?? '';
     try {
       const resp = await fetch(`${baseUrl}/api/docs/entities/${editingEntity.entityType}/${editingEntity.entityId}/extracted-data`, {
         method: 'PUT',
@@ -730,7 +730,7 @@ export const ConsultaPage: React.FC = () => {
                 <Label className='text-sm mb-1 block'>Dador de Carga</Label>
                 <select
                   className='w-full border rounded px-3 py-2 text-sm'
-                  value={selectedDadorId || ''}
+                  value={selectedDadorId ?? ''}
                   onChange={(e) => setSelectedDadorId(e.target.value ? Number(e.target.value) : undefined)}
                   disabled={isDadorDeCarga}
                 >
@@ -751,7 +751,7 @@ export const ConsultaPage: React.FC = () => {
                 <Label className='text-sm mb-1 block'>Cliente</Label>
                 <select
                   className='w-full border rounded px-3 py-2 text-sm'
-                  value={selectedClienteId || ''}
+                  value={selectedClienteId ?? ''}
                   onChange={(e) => setSelectedClienteId(e.target.value ? Number(e.target.value) : undefined)}
                 >
                   <option value=''>Seleccione un cliente</option>
@@ -774,7 +774,7 @@ export const ConsultaPage: React.FC = () => {
                 />
                 <select
                   className='w-full border rounded px-3 py-2 text-sm'
-                  value={selectedEmpresaTranspId || ''}
+                  value={selectedEmpresaTranspId ?? ''}
                   onChange={(e) => setSelectedEmpresaTranspId(e.target.value ? Number(e.target.value) : undefined)}
                 >
                   <option value=''>Seleccione una empresa transportista ({(empresasTransp as any[]).length} encontradas)</option>
@@ -806,9 +806,9 @@ export const ConsultaPage: React.FC = () => {
               type='button' 
               onClick={() => {
                 const p: any = {
-                  dni: dni || undefined,
-                  truckPlate: truckPlate || undefined,
-                  trailerPlate: trailerPlate || undefined
+                  dni: dni ?? undefined,
+                  truckPlate: truckPlate ?? undefined,
+                  trailerPlate: trailerPlate ?? undefined
                 };
                 if (isChofer) {
                   // Para CHOFER el backend filtra automáticamente por choferId
@@ -870,7 +870,7 @@ export const ConsultaPage: React.FC = () => {
               type='button' 
               variant='outline' 
               onClick={downloadAllVigentes} 
-              disabled={(displayResults || []).length === 0 || isDownloading} 
+              disabled={(displayResults ?? []).length === 0 || isDownloading} 
               size='sm'
             >
               {isDownloading ? '⏳ Preparando...' : '📦 Documentación (ZIP)'}
@@ -879,7 +879,7 @@ export const ConsultaPage: React.FC = () => {
               type='button' 
               variant='outline' 
               onClick={downloadExcelOnly} 
-              disabled={(displayResults || []).length === 0 || isDownloading} 
+              disabled={(displayResults ?? []).length === 0 || isDownloading} 
               size='sm'
             >
               {isDownloading ? '⏳ Preparando...' : '📊 Solo Excel'}
@@ -1155,7 +1155,7 @@ export const ConsultaPage: React.FC = () => {
                   </label>
                   <input
                     type='text'
-                    value={value || ''}
+                    value={value ?? ''}
                     onChange={(e) => setEditFormData(prev => ({ ...prev, [key]: e.target.value }))}
                     className='w-full px-3 py-2 border rounded-md text-sm focus:ring-2 focus:ring-blue-500'
                   />
@@ -1250,7 +1250,7 @@ export const ConsultaPage: React.FC = () => {
                   onClick={async ()=>{
                     try {
                       setIsDownloadingSingle(eq.id);
-                      const baseUrl = import.meta.env.VITE_DOCUMENTOS_API_URL || '';
+                      const baseUrl = import.meta.env.VITE_DOCUMENTOS_API_URL ?? '';
                       const zipUrl = `${baseUrl}/api/docs/clients/equipos/${eq.id}/zip`;
                       const resp = await fetch(zipUrl, { headers: { 'Authorization': `Bearer ${authToken}` } });
                       if (!resp.ok) { show('Error al descargar documentación'); return; }
@@ -1334,13 +1334,13 @@ const EquipoSemaforo: React.FC<{ equipoId: number }> = ({ equipoId }) => {
   const processedTemplates = new Set<string>();
 
   try {
-    for (const c of (data?.clientes || [])) {
-      for (const r of (c?.compliance || [])) {
+    for (const c of (data?.clientes ?? [])) {
+      for (const r of (c?.compliance ?? [])) {
         const key = `${r.entityType}-${r.templateId}`;
         if (processedTemplates.has(key)) continue;
         processedTemplates.add(key);
         
-        const state = String(r.state || '').toUpperCase();
+        const state = String(r.state ?? '').toUpperCase();
         if (state === 'OK' || state === 'VIGENTE') { vigentes++; }
         else if (state === 'PROXIMO') { porVencer++; }
         else if (state === 'VENCIDO') { vencidos++; }

@@ -6,7 +6,7 @@ export const empresasApiSlice = apiSlice.injectEndpoints({
     getEmpresas: builder.query<Empresa[], void>({
       query: () => '/empresas',
       transformResponse: (response: { success: boolean; data: Empresa[] }) => {
-        return response.data || [];
+        return response.data ?? [];
       },
       providesTags: result => {
         if (!Array.isArray(result)) {

@@ -88,7 +88,7 @@ export const DocumentUploadModal: React.FC<DocumentUploadModalProps> = ({
       entityType,
       entityId,
       files,
-      expiresAt: expiresAt || undefined,
+      expiresAt: expiresAt ?? undefined,
     });
 
     // Reset form
@@ -322,7 +322,7 @@ export const DocumentUploadModal: React.FC<DocumentUploadModalProps> = ({
                   input.multiple = true;
                   input.accept = '.pdf,.jpg,.jpeg,.png,.webp,.doc,.docx';
                   input.onchange = async () => {
-                    const selected = Array.from(input.files || []);
+                    const selected = Array.from(input.files ?? []);
                     if (selected.length === 0) return;
                     try {
                       const resp = await uploadBatch({ files: selected, skipDedupe }).unwrap();

@@ -31,7 +31,7 @@ export const DocumentosPage: React.FC = () => {
   // Queries
   // Filtros vía querystring
   const qs = useMemo(() => new URLSearchParams(location.search), [location.search]);
-  const statusFilter = (qs.get('status') || '').toUpperCase() || undefined;
+  const statusFilter = (qs.get('status') ?? '').toUpperCase() ?? undefined;
   const dueSoon = qs.get('due') === 'soon';
 
   const [page, setPage] = useState<number>(1);

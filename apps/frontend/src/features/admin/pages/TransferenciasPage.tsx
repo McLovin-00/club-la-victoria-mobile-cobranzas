@@ -32,8 +32,8 @@ const TransferenciasPage: React.FC = () => {
   const [aprobar, { isLoading: aprobando }] = useAprobarTransferenciaMutation();
   const [rechazar, { isLoading: rechazando }] = useRechazarTransferenciaMutation();
 
-  const solicitudesPendientes = pendientesData?.solicitudes || [];
-  const solicitudesHistorial = historialData?.solicitudes || [];
+  const solicitudesPendientes = pendientesData?.solicitudes ?? [];
+  const solicitudesHistorial = historialData?.solicitudes ?? [];
 
   const handleAprobar = async (id: number) => {
     try {
@@ -181,7 +181,7 @@ const TransferenciasPage: React.FC = () => {
                   <div className="mb-4">
                     <p className="text-sm text-gray-500 mb-2">Entidades a transferir:</p>
                     <div className="flex flex-wrap gap-2">
-                      {(sol.entidades || []).map((ent: any, idx: number) => (
+                      {(sol.entidades ?? []).map((ent: any, idx: number) => (
                         <span 
                           key={idx}
                           className="inline-flex items-center gap-1 px-3 py-1 bg-gray-100 rounded-full text-sm"

@@ -31,7 +31,7 @@ export const AlertasUrgentes: React.FC<AlertasUrgentesProps> = ({ alertas }) => 
   const [expanded, setExpanded] = useState(false);
 
   // Ordenar alertas por prioridad y días de vencimiento
-  const sortedAlertas = [...(alertas || [])].sort((a, b) => {
+  const sortedAlertas = [...(alertas ?? [])].sort((a, b) => {
     const prioridadOrder = { alta: 0, media: 1, baja: 2 };
     if (prioridadOrder[a.prioridad] !== prioridadOrder[b.prioridad]) {
       return prioridadOrder[a.prioridad] - prioridadOrder[b.prioridad];

@@ -86,23 +86,23 @@ export function RemitoDetail({ remito: initialRemito, onBack, canApprove = false
   useEffect(() => {
     if (remito) {
       setEditData({
-        numeroRemito: remito.numeroRemito || '',
+        numeroRemito: remito.numeroRemito ?? '',
         fechaOperacion: remito.fechaOperacion ? new Date(remito.fechaOperacion).toISOString().split('T')[0] : '',
-        emisorNombre: remito.emisorNombre || '',
-        emisorDetalle: remito.emisorDetalle || '',
-        clienteNombre: remito.clienteNombre || '',
-        producto: remito.producto || '',
-        transportistaNombre: remito.transportistaNombre || '',
-        choferNombre: remito.choferNombre || '',
-        choferDni: remito.choferDni || '',
-        patenteChasis: remito.patenteChasis || '',
-        patenteAcoplado: remito.patenteAcoplado || '',
-        pesoOrigenBruto: remito.pesoOrigenBruto?.toString() || '',
-        pesoOrigenTara: remito.pesoOrigenTara?.toString() || '',
-        pesoOrigenNeto: remito.pesoOrigenNeto?.toString() || '',
-        pesoDestinoBruto: remito.pesoDestinoBruto?.toString() || '',
-        pesoDestinoTara: remito.pesoDestinoTara?.toString() || '',
-        pesoDestinoNeto: remito.pesoDestinoNeto?.toString() || '',
+        emisorNombre: remito.emisorNombre ?? '',
+        emisorDetalle: remito.emisorDetalle ?? '',
+        clienteNombre: remito.clienteNombre ?? '',
+        producto: remito.producto ?? '',
+        transportistaNombre: remito.transportistaNombre ?? '',
+        choferNombre: remito.choferNombre ?? '',
+        choferDni: remito.choferDni ?? '',
+        patenteChasis: remito.patenteChasis ?? '',
+        patenteAcoplado: remito.patenteAcoplado ?? '',
+        pesoOrigenBruto: remito.pesoOrigenBruto?.toString() ?? '',
+        pesoOrigenTara: remito.pesoOrigenTara?.toString() ?? '',
+        pesoOrigenNeto: remito.pesoOrigenNeto?.toString() ?? '',
+        pesoDestinoBruto: remito.pesoDestinoBruto?.toString() ?? '',
+        pesoDestinoTara: remito.pesoDestinoTara?.toString() ?? '',
+        pesoDestinoNeto: remito.pesoDestinoNeto?.toString() ?? '',
       });
     }
   }, [remito]);
@@ -189,23 +189,23 @@ export function RemitoDetail({ remito: initialRemito, onBack, canApprove = false
   const handleCancelEdit = () => {
     // Restaurar datos originales
     setEditData({
-      numeroRemito: remito.numeroRemito || '',
+      numeroRemito: remito.numeroRemito ?? '',
       fechaOperacion: remito.fechaOperacion ? new Date(remito.fechaOperacion).toISOString().split('T')[0] : '',
-      emisorNombre: remito.emisorNombre || '',
-      emisorDetalle: remito.emisorDetalle || '',
-      clienteNombre: remito.clienteNombre || '',
-      producto: remito.producto || '',
-      transportistaNombre: remito.transportistaNombre || '',
-      choferNombre: remito.choferNombre || '',
-      choferDni: remito.choferDni || '',
-      patenteChasis: remito.patenteChasis || '',
-      patenteAcoplado: remito.patenteAcoplado || '',
-      pesoOrigenBruto: remito.pesoOrigenBruto?.toString() || '',
-      pesoOrigenTara: remito.pesoOrigenTara?.toString() || '',
-      pesoOrigenNeto: remito.pesoOrigenNeto?.toString() || '',
-      pesoDestinoBruto: remito.pesoDestinoBruto?.toString() || '',
-      pesoDestinoTara: remito.pesoDestinoTara?.toString() || '',
-      pesoDestinoNeto: remito.pesoDestinoNeto?.toString() || '',
+      emisorNombre: remito.emisorNombre ?? '',
+      emisorDetalle: remito.emisorDetalle ?? '',
+      clienteNombre: remito.clienteNombre ?? '',
+      producto: remito.producto ?? '',
+      transportistaNombre: remito.transportistaNombre ?? '',
+      choferNombre: remito.choferNombre ?? '',
+      choferDni: remito.choferDni ?? '',
+      patenteChasis: remito.patenteChasis ?? '',
+      patenteAcoplado: remito.patenteAcoplado ?? '',
+      pesoOrigenBruto: remito.pesoOrigenBruto?.toString() ?? '',
+      pesoOrigenTara: remito.pesoOrigenTara?.toString() ?? '',
+      pesoOrigenNeto: remito.pesoOrigenNeto?.toString() ?? '',
+      pesoDestinoBruto: remito.pesoDestinoBruto?.toString() ?? '',
+      pesoDestinoTara: remito.pesoDestinoTara?.toString() ?? '',
+      pesoDestinoNeto: remito.pesoDestinoNeto?.toString() ?? '',
     });
     setIsEditing(false);
   };
@@ -479,7 +479,7 @@ export function RemitoDetail({ remito: initialRemito, onBack, canApprove = false
                 <InfoRow 
                   icon={UserIcon} 
                   label="Nombre" 
-                  value={`${remito.choferCargadorNombre || ''} ${remito.choferCargadorApellido || ''}`.trim() || '-'} 
+                  value={`${remito.choferCargadorNombre ?? ''} ${remito.choferCargadorApellido ?? ''}`.trim() || '-'} 
                 />
                 <InfoRow 
                   label="DNI" 
@@ -826,7 +826,7 @@ function EditableRow({
               focus:ring-2 focus:ring-amber-500 focus:border-amber-500
               ${small ? 'text-sm' : 'text-base'}
               ${highlight ? 'font-semibold' : ''}
-              ${className || ''}
+              ${className ?? ''}
             `}
           />
           {suffix && (

@@ -14,7 +14,7 @@ export const Pagination: React.FC<PaginationProps> = ({ currentPage, totalItems,
   const canNext = currentPage < totalPages;
 
   return (
-    <div className={`flex items-center gap-2 ${className || ''}`}>
+    <div className={`flex items-center gap-2 ${className ?? ''}`}>
       <button
         className="border border-gray-300 text-gray-600 hover:bg-gray-50 font-medium px-4 py-2 rounded-lg transition-all duration-200 disabled:opacity-50"
         onClick={() => onPageChange(currentPage - 1)}

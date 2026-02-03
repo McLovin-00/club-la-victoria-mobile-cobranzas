@@ -32,14 +32,14 @@ const EndUserModal: React.FC<Props> = ({ isOpen, onClose, initial, onSubmit }) =
       setValues({
         identifierType: initial.identifierType,
         identifierValue: initial.identifier_value,
-        empresaId: initial.empresaId || undefined,
-        nombre: initial.nombre || '',
-        apellido: initial.apellido || '',
-        direccion: initial.direccion || '',
-        localidad: initial.localidad || '',
-        provincia: initial.provincia || '',
-        pais: initial.pais || '',
-        contacto: initial.contacto || '',
+        empresaId: initial.empresaId ?? undefined,
+        nombre: initial.nombre ?? '',
+        apellido: initial.apellido ?? '',
+        direccion: initial.direccion ?? '',
+        localidad: initial.localidad ?? '',
+        provincia: initial.provincia ?? '',
+        pais: initial.pais ?? '',
+        contacto: initial.contacto ?? '',
         metadata: initial.metadata ? JSON.stringify(initial.metadata, null, 2) : '',
         isActive: initial.is_active,
       });
@@ -98,7 +98,7 @@ const EndUserModal: React.FC<Props> = ({ isOpen, onClose, initial, onSubmit }) =
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="text-sm">Empresa</label>
-              <select name="empresaId" value={values.empresaId || ''} onChange={handleChange} className="w-full border rounded px-2 py-2">
+              <select name="empresaId" value={values.empresaId ?? ''} onChange={handleChange} className="w-full border rounded px-2 py-2">
                 <option value="">Sin empresa</option>
                 {empresas.map((e: any) => (
                   <option key={e.id} value={e.id}>{e.nombre}</option>

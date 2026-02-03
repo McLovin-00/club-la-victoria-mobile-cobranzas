@@ -9,7 +9,7 @@ import { useGetEquipoComplianceQuery, useGetTemplatesQuery } from '../api/docume
 import { useState } from 'react';
 
 const getStatusConfig = (state?: string) => {
-  const v = String(state || '').toUpperCase();
+  const v = String(state ?? '').toUpperCase();
   switch (v) {
     case 'OK':
     case 'VIGENTE':
@@ -127,7 +127,7 @@ export const EstadoEquipoPage: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { goBack } = useRoleBasedNavigation();
-  const token = typeof localStorage !== 'undefined' ? (localStorage.getItem('token') || '') : '';
+  const token = typeof localStorage !== 'undefined' ? (localStorage.getItem('token') ?? '') : '';
   const [textFilter, setTextFilter] = useState('');
   const [previewDocId, setPreviewDocId] = useState<number | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
@@ -153,7 +153,7 @@ export const EstadoEquipoPage: React.FC = () => {
       setPreviewUrl(null);
       try {
         const resp = await fetch(
-          `${import.meta.env.VITE_DOCUMENTOS_API_URL || ''}/api/docs/documents/${previewDocId}/download?inline=1`,
+          `${import.meta.env.VITE_DOCUMENTOS_API_URL ?? ''}/api/docs/documents/${previewDocId}/download?inline=1`,
           { headers: { Authorization: `Bearer ${token}` } }
         );
         if (!resp.ok) throw new Error('Error cargando documento');
@@ -174,7 +174,7 @@ export const EstadoEquipoPage: React.FC = () => {
     return () => { cancelled = true; };
   }, [previewDocId, token]);
   const onlyParam = useMemo(()=> {
-    try { return new URLSearchParams(location.search).get('only') || ''; } catch { return ''; }
+    try { return new URLSearchParams(location.search).get('only') ?? ''; } catch { return ''; }
   }, [location.search]);
   const setOnlyParam = (val: string) => {
     try {
@@ -230,7 +230,7 @@ export const EstadoEquipoPage: React.FC = () => {
   }, [templates]);
   const getTemplateName = useCallback((templateId?: number) => {
     if (!templateId) return '';
-    return templateNameById.get(templateId) || '';
+    return templateNameById.get(templateId) ?? '';
   }, [templateNameById]);
 
   const complianceByEntidad = useMemo(() => {
@@ -238,10 +238,10 @@ export const EstadoEquipoPage: React.FC = () => {
     // Set para deduplicar por entityType + templateId
     const seen: Record<string, Set<number>> = { EMPRESA_TRANSPORTISTA: new Set(), CHOFER: new Set(), CAMION: new Set(), ACOPLADO: new Set() };
     try {
-      const clientes = (data?.clientes || []) as Array<{ clienteId: number; compliance: any[] }>;
+      const clientes = (data?.clientes ?? []) as Array<{ clienteId: number; compliance: any[] }>;
       for (const c of clientes) {
-        for (const r of c.compliance || []) {
-          const list = (map[r.entityType] = map[r.entityType] || []);
+        for (const r of c.compliance ?? []) {
+          const list = (map[r.entityType] = map[r.entityType] ?? []);
           const seenSet = (seen[r.entityType] = seen[r.entityType] || new Set());
           // Solo agregar si no hemos visto este templateId para esta entidad
           if (!seenSet.has(r.templateId)) {
@@ -252,17 +252,17 @@ export const EstadoEquipoPage: React.FC = () => {
       }
     } catch (e) { /* noop */ }
     // Filtrado opcional por estado
-    const only = String(onlyParam || '').toUpperCase().trim();
+    const only = String(onlyParam ?? '').toUpperCase().trim();
     const filterFn = (arr: any[]) => {
       if (!only || only === 'ALL' || only === 'TODOS') return arr;
-      const state = (x: any) => String(x.state || '').toUpperCase();
+      const state = (x: any) => String(x.state ?? '').toUpperCase();
       if (only === 'VENCIDOS' || only === 'VENCIDO') return arr.filter((x) => state(x) === 'VENCIDO');
       if (only === 'VIGENTES' || only === 'OK' || only === 'VIGENTE') return arr.filter((x) => ['OK', 'VIGENTE'].includes(state(x)));
       if (only === 'POR_VENCER' || only === 'PROXIMO' || only === 'PRÓXIMO') return arr.filter((x) => state(x) === 'PROXIMO');
       if (only === 'FALTANTES' || only === 'FALTANTE') return arr.filter((x) => state(x) === 'FALTANTE');
       return arr;
     };
-    const text = String(textFilter || '').toLowerCase().trim();
+    const text = String(textFilter ?? '').toLowerCase().trim();
     const filterByText = (arr: any[]) => {
       if (!text) return arr;
       return arr.filter((x) => getTemplateName(x.templateId).toLowerCase().includes(text));
@@ -380,10 +380,10 @@ export const EstadoEquipoPage: React.FC = () => {
         {/* Secciones por entidad */}
         {!isLoading && data && (
           <div className='grid grid-cols-1 xl:grid-cols-2 gap-4 sm:gap-6'>
-            <Section title='Empresa Transportista' items={(complianceByEntidad['EMPRESA_TRANSPORTISTA'] || []).map((r: any)=> ({ ...r, templateName: templateNameById.get(r.templateId) }))} onPreview={setPreviewDocId} />
-            <Section title='Chofer' items={(complianceByEntidad['CHOFER'] || []).map((r: any)=> ({ ...r, templateName: templateNameById.get(r.templateId) }))} onPreview={setPreviewDocId} />
-            <Section title='Camión' items={(complianceByEntidad['CAMION'] || []).map((r: any)=> ({ ...r, templateName: templateNameById.get(r.templateId) }))} onPreview={setPreviewDocId} />
-            <Section title='Acoplado' items={(complianceByEntidad['ACOPLADO'] || []).map((r: any)=> ({ ...r, templateName: templateNameById.get(r.templateId) }))} onPreview={setPreviewDocId} />
+            <Section title='Empresa Transportista' items={(complianceByEntidad['EMPRESA_TRANSPORTISTA'] ?? []).map((r: any)=> ({ ...r, templateName: templateNameById.get(r.templateId) }))} onPreview={setPreviewDocId} />
+            <Section title='Chofer' items={(complianceByEntidad['CHOFER'] ?? []).map((r: any)=> ({ ...r, templateName: templateNameById.get(r.templateId) }))} onPreview={setPreviewDocId} />
+            <Section title='Camión' items={(complianceByEntidad['CAMION'] ?? []).map((r: any)=> ({ ...r, templateName: templateNameById.get(r.templateId) }))} onPreview={setPreviewDocId} />
+            <Section title='Acoplado' items={(complianceByEntidad['ACOPLADO'] ?? []).map((r: any)=> ({ ...r, templateName: templateNameById.get(r.templateId) }))} onPreview={setPreviewDocId} />
           </div>
         )}
         

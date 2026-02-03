@@ -11,7 +11,7 @@ export function useFormValidation<TValues extends Record<string, unknown>>(
   const [errors, setErrors] = useState<Partial<Record<keyof TValues, FieldError>>>({});
 
   const validateField = useCallback(<K extends keyof TValues>(key: K, value: TValues[K]): FieldError => {
-    const fns = validators[key] || [];
+    const fns = validators[key] ?? [];
     for (const fn of fns) {
       const err = fn(value, values);
       if (err) return err;

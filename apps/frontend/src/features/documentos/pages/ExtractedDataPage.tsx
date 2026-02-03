@@ -54,17 +54,17 @@ export default function ExtractedDataPage() {
   const limit = 20;
 
   const user = useAppSelector((state) => state.auth?.user);
-  const userRole = user?.role || '';
+  const userRole = user?.role ?? '';
   
   // Solo admins pueden ver esta página
   const canView = ['SUPERADMIN', 'ADMIN_INTERNO'].includes(userRole);
 
   const { data, isLoading, isFetching } = useGetExtractedDataListQuery(
-    { entityType: entityType || undefined, page, limit },
+    { entityType: entityType ?? undefined, page, limit },
     { skip: !canView }
   );
 
-  const items = data?.data || [];
+  const items = data?.data ?? [];
   const pagination = data?.pagination;
 
   if (!canView) {

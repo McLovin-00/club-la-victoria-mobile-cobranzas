@@ -208,7 +208,7 @@ class WebSocketService {
         // Mostrar toast según prioridad
         if (notif?.priority === 'urgent' || notif?.priority === 'high') {
           showToast(
-            `${notif.title}: ${notif.message?.slice(0, 100) || ''}`,
+            `${notif.title}: ${notif.message?.slice(0, 100) ?? ''}`,
             notif.priority === 'urgent' ? 'error' : 'default',
             6000
           );

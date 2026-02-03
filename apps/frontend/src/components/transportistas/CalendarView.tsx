@@ -74,7 +74,7 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
   // Obtener eventos para una fecha específica
   const getEventsForDate = (date: Date): CalendarEvent[] => {
     const dateKey = format(date, 'yyyy-MM-dd');
-    return eventsByDate[dateKey] || [];
+    return eventsByDate[dateKey] ?? [];
   };
 
   // Obtener indicador de prioridad para una fecha

@@ -172,7 +172,7 @@ export const WhatsAppNotificationManager: React.FC<WhatsAppNotificationManagerPr
 
   if (isLoading) {
     return (
-      <Card className={`p-6 text-center ${className || ''}`}>
+      <Card className={`p-6 text-center ${className ?? ''}`}>
         <div className="animate-spin rounded-full h-8 w-8 border-4 border-blue-500 border-t-transparent mx-auto mb-4"></div>
         <p className="text-gray-600">Cargando configuración de WhatsApp...</p>
       </Card>
@@ -181,7 +181,7 @@ export const WhatsAppNotificationManager: React.FC<WhatsAppNotificationManagerPr
 
   if (error) {
     return (
-      <Card className={`p-6 text-center border-red-200 bg-red-50 ${className || ''}`}>
+      <Card className={`p-6 text-center border-red-200 bg-red-50 ${className ?? ''}`}>
         <XCircleIcon className="h-8 w-8 text-red-500 mx-auto mb-4" />
         <p className="text-red-700">{error}</p>
         <Button 
@@ -196,7 +196,7 @@ export const WhatsAppNotificationManager: React.FC<WhatsAppNotificationManagerPr
   }
 
   return (
-    <div className={`space-y-6 ${className || ''}`}>
+    <div className={`space-y-6 ${className ?? ''}`}>
       {/* Main Configuration */}
       <Card className="bg-white rounded-2xl shadow-lg border-0 overflow-hidden">
         <div className="bg-gradient-to-r from-green-500 to-teal-500 p-6 text-white">

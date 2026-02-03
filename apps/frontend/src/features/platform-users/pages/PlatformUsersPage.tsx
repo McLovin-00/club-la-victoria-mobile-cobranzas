@@ -29,7 +29,7 @@ const PlatformUsersPage: React.FC = () => {
   const handleRegister = () => setRegisterOpen(true);
   const handleSearch = () => { setPage(1); refetch(); };
 
-  const users = data?.data || [];
+  const users = data?.data ?? [];
   const total = data?.total || 0;
   const totalPages = data?.totalPages || 1;
 

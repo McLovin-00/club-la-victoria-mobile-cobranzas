@@ -46,10 +46,10 @@ export default function EmpresasTransportistasPage() {
     if (!editing) return;
     const payload = {
       dadorCargaId: Number(editing.dadorCargaId),
-      razonSocial: String(editing.razonSocial || ''),
-      cuit: String(editing.cuit || ''),
+      razonSocial: String(editing.razonSocial ?? ''),
+      cuit: String(editing.cuit ?? ''),
       activo: Boolean(editing.activo ?? true),
-      notas: editing.notas || '',
+      notas: editing.notas ?? '',
     };
     if (!payload.razonSocial || !payload.cuit || !payload.dadorCargaId) { show('Completá Razón Social, CUIT y Dador', 'error'); return; }
     if (editing.id) {
@@ -82,7 +82,7 @@ export default function EmpresasTransportistasPage() {
         <div className="flex items-center gap-2">
           <button 
             className="bg-gradient-to-r from-indigo-500 to-blue-500 hover:from-indigo-600 hover:to-blue-600 text-white font-medium px-6 py-2 rounded-lg shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105"
-            onClick={() => { setEditing({ dadorCargaId: (typeof dadorCargaId === 'number' ? dadorCargaId : effectiveDadorId) || '', razonSocial: '', cuit: '', activo: true, notas: '' }); setShowModal(true); }}
+            onClick={() => { setEditing({ dadorCargaId: (typeof dadorCargaId === 'number' ? dadorCargaId : effectiveDadorId) ?? '', razonSocial: '', cuit: '', activo: true, notas: '' }); setShowModal(true); }}
           >
             Nueva Empresa
           </button>
@@ -171,18 +171,18 @@ export default function EmpresasTransportistasPage() {
             <div className="space-y-3">
               <div className="space-y-1">
                 <label className="text-sm font-medium">Dador de Carga</label>
-                <select className="input input-bordered py-2 px-3 rounded-md bg-background border w-full" value={editing?.dadorCargaId || ''} onChange={(e) => setEditing((s) => ({ ...(s as EmpresaTransportista), dadorCargaId: Number(e.target.value) }))}>
+                <select className="input input-bordered py-2 px-3 rounded-md bg-background border w-full" value={editing?.dadorCargaId ?? ''} onChange={(e) => setEditing((s) => ({ ...(s as EmpresaTransportista), dadorCargaId: Number(e.target.value) }))}>
                   <option value="">Seleccionar…</option>
                   {dadores.map((d) => <option key={d.id} value={d.id}>{d.razonSocial}</option>)}
                 </select>
               </div>
               <div className="space-y-1">
                 <label className="text-sm font-medium">Razón Social</label>
-                <input className="input input-bordered py-2 px-3 rounded-md bg-background border w-full" value={editing?.razonSocial || ''} onChange={(e) => setEditing((s) => ({ ...(s as EmpresaTransportista), razonSocial: e.target.value }))} />
+                <input className="input input-bordered py-2 px-3 rounded-md bg-background border w-full" value={editing?.razonSocial ?? ''} onChange={(e) => setEditing((s) => ({ ...(s as EmpresaTransportista), razonSocial: e.target.value }))} />
               </div>
               <div className="space-y-1">
                 <label className="text-sm font-medium">CUIT</label>
-                <input className="input input-bordered py-2 px-3 rounded-md bg-background border w-full" value={editing?.cuit || ''} onChange={(e) => setEditing((s) => ({ ...(s as EmpresaTransportista), cuit: e.target.value }))} />
+                <input className="input input-bordered py-2 px-3 rounded-md bg-background border w-full" value={editing?.cuit ?? ''} onChange={(e) => setEditing((s) => ({ ...(s as EmpresaTransportista), cuit: e.target.value }))} />
               </div>
               <div className="space-y-1">
                 <label className="text-sm font-medium">Activo</label>
@@ -193,7 +193,7 @@ export default function EmpresasTransportistasPage() {
               </div>
               <div className="space-y-1">
                 <label className="text-sm font-medium">Notas</label>
-                <textarea className="input input-bordered py-2 px-3 rounded-md bg-background border w-full min-h-[80px]" value={editing?.notas || ''} onChange={(e) => setEditing((s) => ({ ...(s as EmpresaTransportista), notas: e.target.value }))} />
+                <textarea className="input input-bordered py-2 px-3 rounded-md bg-background border w-full min-h-[80px]" value={editing?.notas ?? ''} onChange={(e) => setEditing((s) => ({ ...(s as EmpresaTransportista), notas: e.target.value }))} />
               </div>
             </div>
             <div className="mt-4 flex items-center justify-end gap-2">

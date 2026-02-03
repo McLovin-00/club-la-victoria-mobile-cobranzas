@@ -60,7 +60,7 @@ const DashboardDadoresPage: React.FC = () => {
         const res = await fetch(`${baseUrl}/dashboard/semaforos`, { headers, credentials: 'include' });
         const json = await res.json();
         if (!res.ok) throw new Error(json?.message || 'Error de servidor');
-        if (!cancelled) setData({ semaforos: (json.semaforos || []) as Semaforo[], userRole: json.userRole ?? null, userEmpresaId: json.userEmpresaId ?? null });
+        if (!cancelled) setData({ semaforos: (json.semaforos ?? []) as Semaforo[], userRole: json.userRole ?? null, userEmpresaId: json.userEmpresaId ?? null });
       } catch (e: any) {
         if (!cancelled) setError(e?.message || 'Error cargando dashboard');
       } finally {

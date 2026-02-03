@@ -21,7 +21,7 @@ export const WebSocketStatus: React.FC = () => {
 
     const checkConnection = () => {
       const connected = webSocketService.isConnected();
-      const socketId = webSocketService.getSocketId() || '';
+      const socketId = webSocketService.getSocketId() ?? '';
       
       setIsConnected(connected);
       setConnectionId(socketId);

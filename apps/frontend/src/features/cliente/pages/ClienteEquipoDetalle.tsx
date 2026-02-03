@@ -254,7 +254,7 @@ const ClienteEquipoDetalle: React.FC = () => {
             <span className='text-gray-500 text-sm'>Camión:</span>
             <div className='font-medium'>
               {equipo.camion?.patente || '-'}
-              {equipo.camion?.marca && ` (${equipo.camion.marca} ${equipo.camion.modelo || ''})`}
+              {equipo.camion?.marca && ` (${equipo.camion.marca} ${equipo.camion.modelo ?? ''})`}
             </div>
           </div>
           <div>
@@ -265,7 +265,7 @@ const ClienteEquipoDetalle: React.FC = () => {
             <span className='text-gray-500 text-sm'>Chofer:</span>
             <div className='font-medium'>
               {equipo.chofer 
-                ? `${equipo.chofer.nombre || ''} ${equipo.chofer.apellido || ''} - DNI ${equipo.chofer.dni}`
+                ? `${equipo.chofer.nombre ?? ''} ${equipo.chofer.apellido ?? ''} - DNI ${equipo.chofer.dni}`
                 : '-'}
             </div>
           </div>

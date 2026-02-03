@@ -44,7 +44,7 @@ export function RemitosPage() {
   // Query params
   const queryParams = {
     estado: activeFilter !== 'todos' ? activeFilter as RemitoEstado : undefined,
-    numeroRemito: search || undefined,
+    numeroRemito: search ?? undefined,
     page,
     limit: 20,
   };
@@ -53,7 +53,7 @@ export function RemitosPage() {
     refetchOnMountOrArgChange: true,
   });
   
-  const remitos = remitosData?.data || [];
+  const remitos = remitosData?.data ?? [];
   const pagination = remitosData?.pagination;
   const stats = remitosData?.stats; // Stats vienen incluidos en la misma respuesta (optimizado)
   

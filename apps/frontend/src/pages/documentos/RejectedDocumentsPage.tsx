@@ -14,7 +14,7 @@ export const RejectedDocumentsPage = () => {
   const { data: rejectedData, isLoading, error } = useGetRejectedDocumentsQuery({
     page,
     limit,
-    entityType: entityTypeFilter || undefined,
+    entityType: entityTypeFilter ?? undefined,
     dadorId: _dadorFilter,
   });
 

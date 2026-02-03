@@ -86,7 +86,7 @@ const AltaEquipoCompletaPage: React.FC = () => {
   const { verify, getResult, clearResult } = useEntityVerification({ dadorCargaId });
 
   // Permisos
-  const canUpload = ['SUPERADMIN', 'ADMIN', 'OPERATOR', 'ADMIN_INTERNO', 'DADOR_DE_CARGA', 'TRANSPORTISTA'].includes(role || '');
+  const canUpload = ['SUPERADMIN', 'ADMIN', 'OPERATOR', 'ADMIN_INTERNO', 'DADOR_DE_CARGA', 'TRANSPORTISTA'].includes(role ?? '');
   const isAdminInterno = role === 'ADMIN_INTERNO';
   const isTransportista = role === 'TRANSPORTISTA';
   
@@ -99,12 +99,12 @@ const AltaEquipoCompletaPage: React.FC = () => {
   
   // Listas de dadores y clientes
   const dadoresList = useMemo(() => {
-    const raw = (dadoresResp as any)?.data || (dadoresResp as any)?.list || [];
+    const raw = (dadoresResp as any)?.data || (dadoresResp as any)?.list ?? [];
     return Array.isArray(raw) ? raw : [];
   }, [dadoresResp]);
   
   const clientesList = useMemo(() => {
-    const raw = (clientsResp as any)?.data || (clientsResp as any)?.list || [];
+    const raw = (clientsResp as any)?.data || (clientsResp as any)?.list ?? [];
     return Array.isArray(raw) ? raw : [];
   }, [clientsResp]);
   
@@ -134,8 +134,8 @@ const AltaEquipoCompletaPage: React.FC = () => {
   // Si el usuario es TRANSPORTISTA, auto-completar datos de su empresa transportista
   useEffect(() => {
     if (isTransportista && empresaTransportistaData) {
-      const nombre = empresaTransportistaData.razonSocial || empresaTransportistaData.nombre || '';
-      const cuit = empresaTransportistaData.cuit || '';
+      const nombre = empresaTransportistaData.razonSocial || empresaTransportistaData.nombre ?? '';
+      const cuit = empresaTransportistaData.cuit ?? '';
       setEmpresaTransportista(nombre);
       setCuitTransportista(cuit);
       // También usar el dadorCargaId de la empresa transportista si está disponible
@@ -166,25 +166,25 @@ const AltaEquipoCompletaPage: React.FC = () => {
     if (usePlantillas && plantillaIds.length > 0 && consolidatedPlantillasData?.byEntityType) {
       const byType = consolidatedPlantillasData.byEntityType;
       return {
-        EMPRESA_TRANSPORTISTA: (byType.EMPRESA_TRANSPORTISTA || []).map((t: any) => ({
+        EMPRESA_TRANSPORTISTA: (byType.EMPRESA_TRANSPORTISTA ?? []).map((t: any) => ({
           id: t.templateId,
           name: t.templateName,
           entityType: 'EMPRESA_TRANSPORTISTA',
           active: true,
         })),
-        CHOFER: (byType.CHOFER || []).map((t: any) => ({
+        CHOFER: (byType.CHOFER ?? []).map((t: any) => ({
           id: t.templateId,
           name: t.templateName,
           entityType: 'CHOFER',
           active: true,
         })),
-        CAMION: (byType.CAMION || []).map((t: any) => ({
+        CAMION: (byType.CAMION ?? []).map((t: any) => ({
           id: t.templateId,
           name: t.templateName,
           entityType: 'CAMION',
           active: true,
         })),
-        ACOPLADO: (byType.ACOPLADO || []).map((t: any) => ({
+        ACOPLADO: (byType.ACOPLADO ?? []).map((t: any) => ({
           id: t.templateId,
           name: t.templateName,
           entityType: 'ACOPLADO',
@@ -196,25 +196,25 @@ const AltaEquipoCompletaPage: React.FC = () => {
     if (!usePlantillas && clienteIds.length > 0 && consolidatedData?.byEntityType) {
       const byType = consolidatedData.byEntityType;
       return {
-        EMPRESA_TRANSPORTISTA: (byType.EMPRESA_TRANSPORTISTA || []).map((t) => ({
+        EMPRESA_TRANSPORTISTA: (byType.EMPRESA_TRANSPORTISTA ?? []).map((t) => ({
           id: t.templateId,
           name: t.templateName,
           entityType: t.entityType,
           clienteNames: t.clienteNames, // Info adicional para mostrar qué cliente requiere cada doc
         })),
-        CHOFER: (byType.CHOFER || []).map((t) => ({
+        CHOFER: (byType.CHOFER ?? []).map((t) => ({
           id: t.templateId,
           name: t.templateName,
           entityType: t.entityType,
           clienteNames: t.clienteNames,
         })),
-        CAMION: (byType.CAMION || []).map((t) => ({
+        CAMION: (byType.CAMION ?? []).map((t) => ({
           id: t.templateId,
           name: t.templateName,
           entityType: t.entityType,
           clienteNames: t.clienteNames,
         })),
-        ACOPLADO: (byType.ACOPLADO || []).map((t) => ({
+        ACOPLADO: (byType.ACOPLADO ?? []).map((t) => ({
           id: t.templateId,
           name: t.templateName,
           entityType: t.entityType,
@@ -224,7 +224,7 @@ const AltaEquipoCompletaPage: React.FC = () => {
     }
 
     // Sin clientes seleccionados: usar todos los templates globales
-    const rawTemplates = (templatesResp as any)?.data || (templatesResp as any) || [];
+    const rawTemplates = (templatesResp as any)?.data || (templatesResp as any) ?? [];
     
     // Mapear 'nombre' del backend a 'name' esperado por el componente
     const allTemplates = rawTemplates.map((t: any) => ({
@@ -357,7 +357,7 @@ const AltaEquipoCompletaPage: React.FC = () => {
       entidades.push({
         entityType: 'CAMION',
         identificador: tractorPatente.toUpperCase(),
-        nombre: `${tractorMarca} ${tractorModelo}`.trim() || undefined,
+        nombre: `${tractorMarca} ${tractorModelo}`.trim() ?? undefined,
       });
     }
     
@@ -366,7 +366,7 @@ const AltaEquipoCompletaPage: React.FC = () => {
       entidades.push({
         entityType: 'ACOPLADO',
         identificador: semiPatente.toUpperCase(),
-        nombre: semiTipo || undefined,
+        nombre: semiTipo ?? undefined,
       });
     }
     
@@ -556,18 +556,18 @@ const AltaEquipoCompletaPage: React.FC = () => {
         
         // Chofer
         choferDni: choferDni,
-        choferNombre: choferNombre || undefined,
-        choferApellido: choferApellido || undefined,
+        choferNombre: choferNombre ?? undefined,
+        choferApellido: choferApellido ?? undefined,
         choferPhones: choferPhones ? choferPhones.split(',').map((p) => p.trim()) : undefined,
         
         // Camión
         camionPatente: tractorPatente,
-        camionMarca: tractorMarca || undefined,
-        camionModelo: tractorModelo || undefined,
+        camionMarca: tractorMarca ?? undefined,
+        camionModelo: tractorModelo ?? undefined,
         
         // Acoplado (opcional)
         acopladoPatente: semiPatente || null,
-        acopladoTipo: semiTipo || undefined,
+        acopladoTipo: semiTipo ?? undefined,
         
         // Clientes a asociar
         clienteIds: clienteIds.length > 0 ? clienteIds : undefined,
@@ -645,7 +645,7 @@ const AltaEquipoCompletaPage: React.FC = () => {
             choferApellido,
             choferDni,
             tractorPatente,
-            semiPatente: semiPatente || undefined,
+            semiPatente: semiPatente ?? undefined,
           });
           formData.append('planilla', planilla);
 
@@ -824,7 +824,7 @@ const AltaEquipoCompletaPage: React.FC = () => {
                 Seleccionar Dador de Carga *
               </label>
               <select
-                value={dadorCargaId || ''}
+                value={dadorCargaId ?? ''}
                 onChange={(e) => setDadorCargaId(e.target.value ? Number(e.target.value) : null)}
                 className='w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500'
               >
@@ -862,7 +862,7 @@ const AltaEquipoCompletaPage: React.FC = () => {
                 Object.entries(
                   plantillasData.reduce((acc: Record<string, any[]>, p: any) => {
                     const clienteName = p.cliente?.razonSocial || 'Sin cliente';
-                    acc[clienteName] = acc[clienteName] || [];
+                    acc[clienteName] = acc[clienteName] ?? [];
                     acc[clienteName].push(p);
                     return acc;
                   }, {})

@@ -59,7 +59,7 @@ export const EquiposPage: React.FC = () => {
   const [dniSearch, setDniSearch] = useState('');
   const [truckSearch, setTruckSearch] = useState('');
   const [trailerSearch, setTrailerSearch] = useState('');
-  const normalizePlate = (s: string) => (s || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
+  const normalizePlate = (s: string) => (s ?? '').toUpperCase().replace(/[^A-Z0-9]/g, '');
   const dniQ = dniSearch.trim();
   const truckQ = normalizePlate(truckSearch);
   const trailerQ = normalizePlate(trailerSearch);
@@ -96,7 +96,7 @@ export const EquiposPage: React.FC = () => {
   const [createCamion] = useCreateCamionMutation();
   const [createAcoplado] = useCreateAcopladoMutation();
   const [getEquipoComplianceLazy] = useLazyGetEquipoComplianceQuery();
-  const authToken = useSelector((s: RootState) => s.auth?.token) || (typeof localStorage !== 'undefined' ? localStorage.getItem('token') || '' : '');
+  const authToken = useSelector((s: RootState) => s.auth?.token) || (typeof localStorage !== 'undefined' ? localStorage.getItem('token') ?? '' : '');
 
   // Catálogos para selección (dropdowns)
   // Paginación de maestros: choferes, camiones, acoplados
@@ -452,9 +452,9 @@ export const EquiposPage: React.FC = () => {
                   driverId: Number(driverIdSel),
                   truckId: Number(truckIdSel),
                   trailerId: trailerIdSel ? Number(trailerIdSel) : undefined,
-                  empresaTransportistaId: empresaTransportistaId || undefined,
-                  driverDni: ch?.dni || '',
-                  truckPlate: tr?.patente || '',
+                  empresaTransportistaId: empresaTransportistaId ?? undefined,
+                  driverDni: ch?.dni ?? '',
+                  truckPlate: tr?.patente ?? '',
                   trailerPlate: ac?.patente,
                   validFrom: new Date().toISOString(),
                 }).unwrap();
@@ -475,9 +475,9 @@ export const EquiposPage: React.FC = () => {
                       driverId: Number(driverIdSel),
                       truckId: Number(truckIdSel),
                       trailerId: trailerIdSel ? Number(trailerIdSel) : undefined,
-                      empresaTransportistaId: empresaTransportistaId || undefined,
-                      driverDni: ch?.dni || '',
-                      truckPlate: tr?.patente || '',
+                      empresaTransportistaId: empresaTransportistaId ?? undefined,
+                      driverDni: ch?.dni ?? '',
+                      truckPlate: tr?.patente ?? '',
                       trailerPlate: ac?.patente,
                       validFrom: new Date().toISOString(),
                       forceMove: true as any,
@@ -871,23 +871,23 @@ const EquipoSemaforo: React.FC<{ equipoId: number }> = ({ equipoId }) => {
   const docsByEntity: Record<string, any[]> = data?.documents || {};
 
   const bumpFromCompliance = (entityType: 'EMPRESA_TRANSPORTISTA'|'CHOFER'|'CAMION'|'ACOPLADO', r: any) => {
-    const state = String(r.state || '').toUpperCase();
+    const state = String(r.state ?? '').toUpperCase();
     if (state === 'OK') { vigentes++; return; }
     if (state === 'PROXIMO') { porVencer++; return; }
     // FALTANTE: decidir si es vencido o faltante puro
-    const list = (docsByEntity[entityType] || []) as Array<any>;
+    const list = (docsByEntity[entityType] ?? []) as Array<any>;
     const latest = list.find((d: any) => d.templateId === r.templateId);
     if (latest) {
       const expired = latest.expiresAt && new Date(latest.expiresAt).getTime() <= now;
-      const statusExpired = String(latest.status || '').toUpperCase() === 'VENCIDO';
+      const statusExpired = String(latest.status ?? '').toUpperCase() === 'VENCIDO';
       if (expired || statusExpired) { vencidos++; return; }
     }
     faltantes++;
   };
 
   try {
-    for (const c of (data?.clientes || [])) {
-      for (const r of (c?.compliance || [])) {
+    for (const c of (data?.clientes ?? [])) {
+      for (const r of (c?.compliance ?? [])) {
         bumpFromCompliance(r.entityType as any, r);
       }
     }

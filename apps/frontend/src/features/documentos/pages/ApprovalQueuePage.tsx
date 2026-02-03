@@ -40,7 +40,7 @@ export default function ApprovalQueuePage() {
 
   const { data: kpis } = useGetApprovalKpisQuery();
   const { data: pendingResp, isFetching, refetch } = useGetApprovalPendingQuery(
-    { page, limit, entityType: entityType || undefined },
+    { page, limit, entityType: entityType ?? undefined },
     { refetchOnMountOrArgChange: true }
   );
 

@@ -269,7 +269,7 @@ const RegistroEquipoTab: React.FC<any> = ({
                   <label className="block text-sm font-medium text-gray-700 mb-2">Dador de Carga</label>
                   <select 
                     className="w-full h-12 text-base rounded-xl border-2 border-gray-200 bg-white text-gray-900 focus:outline-none focus:ring-0 focus:border-blue-500 transition-colors" 
-                    value={defaultDadorId || ''} 
+                    value={defaultDadorId ?? ''} 
                     onChange={(e)=>setDefaultDadorId(Number(e.target.value))}
                   >
                     {dadores.map((d:any)=> (
@@ -286,7 +286,7 @@ const RegistroEquipoTab: React.FC<any> = ({
                     if (validPhones.length>0 && !validPhones.every(p=>phoneRegex.test(p))) {
                       return showToast('Teléfonos inválidos. Use formato WhatsApp.', 'error');
                     }
-                    await createMinimal({ dadorCargaId: defaultDadorId, dniChofer: dni, patenteTractor: tractor, patenteAcoplado: acoplado || undefined, choferPhones: validPhones } as any);
+                    await createMinimal({ dadorCargaId: defaultDadorId, dniChofer: dni, patenteTractor: tractor, patenteAcoplado: acoplado ?? undefined, choferPhones: validPhones } as any);
                     setDni(''); setTractor(''); setAcoplado('');
                     setPhones(['']);
                   }}
@@ -356,7 +356,7 @@ const TransportistaBatchUploader: React.FC = () => {
   const [files, setFiles] = useState<FileList | null>(null);
   const [start, { data: job, isLoading }] = useUploadBatchDocsTransportistasMutation();
   const jobId = job?.jobId;
-  const { data: status } = useGetJobStatusQuery({ jobId: jobId || '' }, { skip: !jobId, pollingInterval: 1500 });
+  const { data: status } = useGetJobStatusQuery({ jobId: jobId ?? '' }, { skip: !jobId, pollingInterval: 1500 });
   const progress = Math.round((status?.job?.progress ?? 0) * 100);
   const state = status?.job?.status || (isLoading ? 'queued' : 'idle');
   const navigate = useNavigate();

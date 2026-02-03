@@ -48,7 +48,7 @@ const CamionesPage: React.FC = () => {
         <div className='grid grid-cols-1 md:grid-cols-6 gap-2 items-end'>
           <select
             className='p-2 border rounded-md md:col-span-2 bg-background text-foreground'
-            value={dadorId || ''}
+            value={dadorId ?? ''}
             onChange={(e) => setDadorId(Number(e.target.value))}
           >
             <option value='' disabled>
@@ -72,7 +72,7 @@ const CamionesPage: React.FC = () => {
           <Button disabled={!dadorId || !patente} onClick={async () => { 
             if (!dadorId || !patente) return; 
             try {
-              await createCamion({ dadorCargaId: dadorId, patente, marca: marca || undefined, modelo: modelo || undefined }).unwrap(); 
+              await createCamion({ dadorCargaId: dadorId, patente, marca: marca ?? undefined, modelo: modelo ?? undefined }).unwrap(); 
               show('Camión creado', 'success'); 
               setPatente(''); setMarca(''); setModelo('');
             } catch (error: any) {
@@ -83,7 +83,7 @@ const CamionesPage: React.FC = () => {
                 error?.error ||
                 ''
               ) as string;
-              const msg = (rawMsg || '').toString();
+              const msg = (rawMsg ?? '').toString();
               const isDuplicate =
                 msg.includes('Unique constraint failed') ||
                 msg.includes('P2002') ||
@@ -148,9 +148,9 @@ export default CamionesPage;
 // Editor inline para un camión (patente, marca, modelo + acciones)
 const CamionEditInline: React.FC<{ camion: Camion; onSave: (p: { patente?: string; marca?: string; modelo?: string })=>Promise<void>; onToggleActivo: ()=>Promise<void>; onDelete: ()=>void }>=({ camion, onSave, onToggleActivo, onDelete })=>{
   const [editing, setEditing] = useState(false);
-  const [patente, setPatente] = useState(camion.patente || '');
-  const [marca, setMarca] = useState((camion as any).marca || '');
-  const [modelo, setModelo] = useState((camion as any).modelo || '');
+  const [patente, setPatente] = useState(camion.patente ?? '');
+  const [marca, setMarca] = useState((camion as any).marca ?? '');
+  const [modelo, setModelo] = useState((camion as any).modelo ?? '');
   return (
     <div className='mt-2 grid grid-cols-1 md:grid-cols-8 gap-2 items-end'>
       {editing ? (
@@ -159,8 +159,8 @@ const CamionEditInline: React.FC<{ camion: Camion; onSave: (p: { patente?: strin
           <Input className='md:col-span-3' placeholder='Marca' value={marca} onChange={(e)=> setMarca(e.target.value)} />
           <Input className='md:col-span-3' placeholder='Modelo' value={modelo} onChange={(e)=> setModelo(e.target.value)} />
           <div className='md:col-span-8 flex gap-2 justify-end'>
-            <Button variant='outline' onClick={()=> { setEditing(false); setPatente(camion.patente || ''); setMarca((camion as any).marca || ''); setModelo((camion as any).modelo || ''); }}>Cancelar</Button>
-            <Button onClick={async ()=> { await onSave({ patente, marca: marca || undefined, modelo: modelo || undefined }); setEditing(false); }}>Guardar</Button>
+            <Button variant='outline' onClick={()=> { setEditing(false); setPatente(camion.patente ?? ''); setMarca((camion as any).marca ?? ''); setModelo((camion as any).modelo ?? ''); }}>Cancelar</Button>
+            <Button onClick={async ()=> { await onSave({ patente, marca: marca ?? undefined, modelo: modelo ?? undefined }); setEditing(false); }}>Guardar</Button>
           </div>
         </>
       ) : (

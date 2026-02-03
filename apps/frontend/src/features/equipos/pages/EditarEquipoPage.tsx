@@ -153,14 +153,14 @@ const EditarEquipoPage: React.FC = () => {
   } | null>(null);
   
   // Listas de datos
-  const clientes = useMemo(() => (clientsResp as any)?.list || [], [clientsResp]);
-  const choferes = useMemo(() => (choferesResp as any)?.data || [], [choferesResp]);
-  const camiones = useMemo(() => (camionesResp as any)?.data || [], [camionesResp]);
-  const acoplados = useMemo(() => (acopladosResp as any)?.data || [], [acopladosResp]);
+  const clientes = useMemo(() => (clientsResp as any)?.list ?? [], [clientsResp]);
+  const choferes = useMemo(() => (choferesResp as any)?.data ?? [], [choferesResp]);
+  const camiones = useMemo(() => (camionesResp as any)?.data ?? [], [camionesResp]);
+  const acoplados = useMemo(() => (acopladosResp as any)?.data ?? [], [acopladosResp]);
   
   // Asegurar que la empresa actual del equipo esté siempre en el listado
   const empresas = useMemo(() => {
-    const listaEmpresas = empresasResp || [];
+    const listaEmpresas = empresasResp ?? [];
     // Si el equipo tiene una empresa transportista asignada y no está en la lista, agregarla
     if (equipo?.empresaTransportista && equipo.empresaTransportistaId) {
       const yaExiste = listaEmpresas.some((e: any) => e.id === equipo.empresaTransportistaId);
@@ -173,7 +173,7 @@ const EditarEquipoPage: React.FC = () => {
   
   // Clientes actuales del equipo
   const clientesActuales = useMemo(() => {
-    return (equipo?.clientes || []).map((ec: any) => ({
+    return (equipo?.clientes ?? []).map((ec: any) => ({
       id: ec.clienteId,
       nombre: ec.cliente?.razonSocial || `Cliente ${ec.clienteId}`,
     }));
@@ -188,10 +188,10 @@ const EditarEquipoPage: React.FC = () => {
   // Inicializar selecciones con datos actuales
   useEffect(() => {
     if (equipo) {
-      setSelectedChoferId(equipo.driverId || '');
-      setSelectedCamionId(equipo.truckId || '');
-      setSelectedAcopladoId(equipo.trailerId || '');
-      setSelectedEmpresaId(equipo.empresaTransportistaId || '');
+      setSelectedChoferId(equipo.driverId ?? '');
+      setSelectedCamionId(equipo.truckId ?? '');
+      setSelectedAcopladoId(equipo.trailerId ?? '');
+      setSelectedEmpresaId(equipo.empresaTransportistaId ?? '');
     }
   }, [equipo]);
   
@@ -263,8 +263,8 @@ const EditarEquipoPage: React.FC = () => {
       const created = await createCamion({
         dadorCargaId: dadorId,
         patente: newCamionData.patente.toUpperCase().trim(),
-        marca: newCamionData.marca || undefined,
-        modelo: newCamionData.modelo || undefined,
+        marca: newCamionData.marca ?? undefined,
+        modelo: newCamionData.modelo ?? undefined,
       }).unwrap();
       setMessage({ type: 'success', text: `Camión ${newCamionData.patente} creado exitosamente` });
       setNewCamionData({ patente: '', marca: '', modelo: '' });
@@ -288,7 +288,7 @@ const EditarEquipoPage: React.FC = () => {
       const created = await createAcoplado({
         dadorCargaId: dadorId,
         patente: newAcopladoData.patente.toUpperCase().trim(),
-        tipo: newAcopladoData.tipo || undefined,
+        tipo: newAcopladoData.tipo ?? undefined,
       }).unwrap();
       setMessage({ type: 'success', text: `Acoplado ${newAcopladoData.patente} creado exitosamente` });
       setNewAcopladoData({ patente: '', tipo: '' });
@@ -317,8 +317,8 @@ const EditarEquipoPage: React.FC = () => {
       const created = await createChofer({
         dadorCargaId: dadorId,
         dni: newChoferData.dni.trim(),
-        nombre: newChoferData.nombre || undefined,
-        apellido: newChoferData.apellido || undefined,
+        nombre: newChoferData.nombre ?? undefined,
+        apellido: newChoferData.apellido ?? undefined,
         activo: true,
         phones: [],
       }).unwrap();
@@ -328,8 +328,8 @@ const EditarEquipoPage: React.FC = () => {
         try {
           const userResp = await registerChoferWizard({
             email: newChoferData.email,
-            nombre: newChoferData.nombre || undefined,
-            apellido: newChoferData.apellido || undefined,
+            nombre: newChoferData.nombre ?? undefined,
+            apellido: newChoferData.apellido ?? undefined,
             choferId: created.id,
           }).unwrap();
           setTempPasswordChofer(userResp.tempPassword);
@@ -373,7 +373,7 @@ const EditarEquipoPage: React.FC = () => {
         dadorCargaId: dadorId,
         razonSocial: newTransportistaData.razonSocial.trim(),
         cuit: newTransportistaData.cuit.trim(),
-        notas: newTransportistaData.notas || undefined,
+        notas: newTransportistaData.notas ?? undefined,
         activo: true,
       }).unwrap();
       
@@ -382,8 +382,8 @@ const EditarEquipoPage: React.FC = () => {
         try {
           const userResp = await registerTransportistaWizard({
             email: newTransportistaData.email,
-            nombre: newTransportistaData.nombre || undefined,
-            apellido: newTransportistaData.apellido || undefined,
+            nombre: newTransportistaData.nombre ?? undefined,
+            apellido: newTransportistaData.apellido ?? undefined,
             empresaTransportistaId: created.id,
           }).unwrap();
           setTempPasswordTransportista(userResp.tempPassword);
@@ -782,7 +782,7 @@ const EditarEquipoPage: React.FC = () => {
           <div>
             <span className='text-gray-500'>Chofer:</span>
             <div className='font-medium'>
-              {equipo.chofer?.nombre || ''} {equipo.chofer?.apellido || ''}
+              {equipo.chofer?.nombre ?? ''} {equipo.chofer?.apellido ?? ''}
               <span className='text-gray-500 ml-1'>DNI: {equipo.chofer?.dni || equipo.driverDniNorm}</span>
             </div>
           </div>
@@ -1250,7 +1250,7 @@ const EditarEquipoPage: React.FC = () => {
                               <input
                                 type='date'
                                 className={`border rounded px-2 py-1 text-sm ${!selectedFile.expiresAt ? 'border-red-300 bg-red-50' : 'border-gray-300'}`}
-                                value={selectedFile.expiresAt || ''}
+                                value={selectedFile.expiresAt ?? ''}
                                 onChange={(e) => req.entityId && handleExpiresAtChange(req.templateId, req.entityType, req.entityId, e.target.value)}
                                 required
                               />

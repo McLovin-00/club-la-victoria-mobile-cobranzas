@@ -31,7 +31,7 @@ export const UserModal: React.FC<UserModalProps> = ({ isOpen, mode, user, onClos
   const [createUser, { isLoading: isCreating }] = useCreateUserMutation();
   const [updateUser, { isLoading: isUpdating }] = useUpdateUserMutation();
 
-  const empresas = empresasResponse || [];
+  const empresas = empresasResponse ?? [];
   const isLoading = isCreating || isUpdating;
 
   const handleSubmit = async (data: CreateUserPayload | UpdateUserPayload) => {

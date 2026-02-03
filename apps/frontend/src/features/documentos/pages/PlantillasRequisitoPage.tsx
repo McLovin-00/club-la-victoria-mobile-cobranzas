@@ -101,7 +101,7 @@ export const PlantillasRequisitoPage: React.FC = () => {
     await createPlantilla({
       clienteId: selectedClienteId,
       nombre: newPlantillaNombre.trim(),
-      descripcion: newPlantillaDescripcion.trim() || undefined,
+      descripcion: newPlantillaDescripcion.trim() ?? undefined,
     });
     setNewPlantillaNombre('');
     setNewPlantillaDescripcion('');
@@ -113,7 +113,7 @@ export const PlantillasRequisitoPage: React.FC = () => {
     await updatePlantilla({
       id,
       nombre: editNombre.trim(),
-      descripcion: editDescripcion.trim() || undefined,
+      descripcion: editDescripcion.trim() ?? undefined,
     });
     setEditingPlantilla(null);
     refetchPlantillas();
@@ -283,7 +283,7 @@ export const PlantillasRequisitoPage: React.FC = () => {
                       onClick={() => {
                         setEditingPlantilla(p.id);
                         setEditNombre(p.nombre);
-                        setEditDescripcion(p.descripcion || '');
+                        setEditDescripcion(p.descripcion ?? '');
                       }}
                     >
                       <PencilIcon className="h-4 w-4" />

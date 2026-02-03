@@ -132,7 +132,7 @@ const DadoresPage: React.FC = () => {
               {/* Detalle inline con teléfonos */}
               <div className='mt-2 pl-1'>
                 <span className='text-sm font-medium'>Teléfonos (WhatsApp):</span>
-                <DadorPhonesInline dadorId={d.id} initial={d.phones || []} onSave={async (phones)=>{ await updateDador({ id: d.id, phones }); }} />
+                <DadorPhonesInline dadorId={d.id} initial={d.phones ?? []} onSave={async (phones)=>{ await updateDador({ id: d.id, phones }); }} />
               </div>
               <div className='mt-2 pl-1 flex gap-6 items-center'>
                 <div className='flex items-center gap-2'>
@@ -178,8 +178,8 @@ const DadorEditInline: React.FC<{
   authHeaders: HeadersInit;
 }>=({ dador, isDefault, onSave, onToggleDefault, onToggleActivo, onDelete, authHeaders })=>{
   const [editing, setEditing] = useState(false);
-  const [razonSocial, setRazonSocial] = useState(dador.razonSocial || '');
-  const [cuit, setCuit] = useState(dador.cuit || '');
+  const [razonSocial, setRazonSocial] = useState(dador.razonSocial ?? '');
+  const [cuit, setCuit] = useState(dador.cuit ?? '');
   
   return (
     <div className='flex flex-col gap-2'>
@@ -190,7 +190,7 @@ const DadorEditInline: React.FC<{
             <Input placeholder='CUIT (11 dígitos)' value={cuit} onChange={(e)=> setCuit(e.target.value.replace(/\D+/g,''))} />
           </div>
           <div className='flex gap-2 justify-end'>
-            <Button variant='outline' onClick={()=> { setEditing(false); setRazonSocial(dador.razonSocial || ''); setCuit(dador.cuit || ''); }}>Cancelar</Button>
+            <Button variant='outline' onClick={()=> { setEditing(false); setRazonSocial(dador.razonSocial ?? ''); setCuit(dador.cuit ?? ''); }}>Cancelar</Button>
             <Button onClick={async ()=> { 
               if (!razonSocial || cuit.length !== 11) return;
               await onSave({ razonSocial, cuit }); 

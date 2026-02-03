@@ -108,7 +108,7 @@ export const DocumentoField: React.FC<DocumentoFieldProps> = ({
       await uploadMutation(formData).unwrap();
 
       setUploaded(true);
-      onUploadSuccess(templateId, expiryDate || undefined);
+      onUploadSuccess(templateId, expiryDate ?? undefined);
 
       // Limpiar input
       if (fileInputRef.current) {
