@@ -410,21 +410,23 @@ services:
       context: ../..
       dockerfile: ./deploy/stack-ip-10.3.0.243/Dockerfile.frontend
       args:
-        VITE_API_URL: http://10.3.0.243:4800
-        VITE_API_BASE_URL: http://10.3.0.243:4800
-        VITE_DOCUMENTOS_API_URL: http://10.3.0.243:4802
-        VITE_DOCUMENTOS_WS_URL: http://10.3.0.243:4802
-        VITE_REMITOS_API_URL: http://10.3.0.243:4803/api/remitos
+        # URLs relativas - nginx hace proxy a los servicios internos
+        VITE_API_URL: ""
+        VITE_API_BASE_URL: ""
+        VITE_DOCUMENTOS_API_URL: ""
+        VITE_DOCUMENTOS_WS_URL: ""
+        VITE_REMITOS_API_URL: ""
         VITE_APP_TITLE: Empresa Management System
     image: bca/frontend:latest
     container_name: bca_frontend
     restart: always
-    # nginx usa su propia config, no necesita command
+    # nginx usa su propia config con proxy a servicios internos
     ports:
       - "8550:8550"
     depends_on:
       - backend
       - documentos
+      - remitos
     deploy:
       resources:
         reservations:
@@ -441,5 +443,6 @@ services:
       start_period: 10s
     networks:
       - edge_net
+      - core_net
 
 
