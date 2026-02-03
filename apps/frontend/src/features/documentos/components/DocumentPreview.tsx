@@ -12,6 +12,46 @@ import {
   EyeIcon,
 } from '@heroicons/react/24/outline';
 
+// Helper para fetch con reintentos y backoff exponencial
+async function fetchWithRetry(
+  url: string, 
+  options: RequestInit, 
+  maxAttempts = 3,
+  timeoutMs = 15000
+): Promise<Response> {
+  let lastError: Error | null = null;
+  
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+      
+      const response = await fetch(url, { ...options, signal: controller.signal });
+      clearTimeout(timeoutId);
+
+      // Si es 429 (rate limit), esperar y reintentar
+      if (response.status === 429 && attempt < maxAttempts) {
+        const waitTime = Math.pow(2, attempt) * 1000;
+        await new Promise(resolve => setTimeout(resolve, waitTime));
+        continue;
+      }
+      
+      return response;
+    } catch (e: any) {
+      lastError = e;
+      
+      // Si es el último intento, lanzar
+      if (attempt === maxAttempts) break;
+      
+      // Calcular backoff y esperar
+      const waitTime = Math.pow(2, attempt - 1) * 1000;
+      await new Promise(resolve => setTimeout(resolve, waitTime));
+    }
+  }
+  
+  throw lastError ?? new Error('Fetch failed after retries');
+}
+
 interface DocumentPreviewProps {
   isOpen: boolean;
   onClose: () => void;
@@ -51,114 +91,31 @@ export const DocumentPreview: React.FC<DocumentPreviewProps> = ({
     setError(null);
 
     try {
-      // Llamar al endpoint de preview del backend
-      const response = await fetch(
-        `${import.meta.env.VITE_DOCUMENTOS_API_URL}/api/docs/documents/${document.id}/preview`,
-        {
-          headers: {
-            'Authorization': `Bearer ${localStorage.getItem('token')}`,
-          },
-        }
-      );
-
+      const baseUrl = import.meta.env.VITE_DOCUMENTOS_API_URL ?? '';
+      const authHeader = { 'Authorization': `Bearer ${localStorage.getItem('token')}` };
+      
+      // Obtener URL de preview
+      const response = await fetch(`${baseUrl}/api/docs/documents/${document.id}/preview`, { headers: authHeader });
+      
       if (!response.ok) {
-        // Leer cuerpo para mensajes de error más claros
-        let message = 'Error al cargar preview del documento';
-        try {
-          const errBody = await response.json();
-          const serverMsg = errBody?.message || errBody?.error;
-          const code = errBody?.code;
-          // Mensajes específicos para 404 de MinIO
-          if (response.status === 404 && (code === 'MINIO_BUCKET_NOT_FOUND' || code === 'MINIO_OBJECT_NOT_FOUND')) {
-            message = code === 'MINIO_BUCKET_NOT_FOUND'
-              ? 'El repositorio de archivos aún no está inicializado para esta empresa. Subí un documento para crear el bucket automáticamente.'
-              : 'El archivo del documento no existe en almacenamiento. Puede haberse eliminado o la referencia es inválida.';
-          } else if (serverMsg) {
-            message = serverMsg;
-          }
-        } catch {
-          // ignore parse errors
-        }
-        throw new Error(message);
+        const errorMsg = await parsePreviewError(response);
+        throw new Error(errorMsg);
       }
 
       const data = await response.json();
-      // Soportar dos formatos de respuesta: directo o anidado en data
-      const serverUrl: string | undefined = data.previewUrl || data.data?.previewUrl || data.data?.url;
-      // Fallback profesional: si el backend (o una versión intermedia) retorna un enlace directo a MinIO
-      // (e.g., http://minio:9000/...), forzamos el uso del endpoint del backend para evitar dependencias de DNS internos.
-      const backendBase = import.meta.env.VITE_DOCUMENTOS_API_URL;
-      const minioRegex = /:\/\/minio(?::|\/)/i;
-      const preferBackendDownload = !serverUrl || minioRegex.test(serverUrl);
-      const finalUrl = preferBackendDownload
-        ? `${backendBase}/api/docs/documents/${document.id}/download?inline=1`
-        : serverUrl;
+      const finalUrl = resolvePreviewUrl(data, baseUrl, document.id);
       if (!finalUrl) throw new Error('URL de preview no disponible');
 
-      // Descargar con Authorization y mostrar como blob (evita 401 en iframe)
-      // Reintentar hasta 3 veces con backoff exponencial
-      let lastError: Error | null = null;
+      // Descargar archivo con reintentos
+      const fileResp = await fetchWithRetry(finalUrl, { headers: authHeader });
       
-      for (let attempt = 1; attempt <= 3; attempt++) {
-        try {
-          const controller = new AbortController();
-          const timeoutId = setTimeout(() => controller.abort(), 15000); // 15s timeout por intento
-          
-          const fileResp = await fetch(finalUrl, {
-            headers: {
-              'Authorization': `Bearer ${localStorage.getItem('token')}`,
-            },
-            signal: controller.signal,
-          });
-          
-          clearTimeout(timeoutId);
-
-          if (!fileResp.ok) {
-            // Si es 429 (rate limit), esperar más tiempo antes de reintentar
-            if (fileResp.status === 429 && attempt < 3) {
-              const waitTime = Math.pow(2, attempt) * 1000; // 2s, 4s, 8s
-              await new Promise(resolve => setTimeout(resolve, waitTime));
-              continue;
-            }
-            
-            let msg = `Error ${fileResp.status}: ${fileResp.statusText}`;
-            try { const t = await fileResp.text(); if (t) msg = t; } catch (e) { /* noop */ }
-            throw new Error(msg);
-          }
-
-          const blob = await fileResp.blob();
-          const blobUrl = window.URL.createObjectURL(blob);
-          setPreviewUrl(blobUrl);
-          return; // Éxito, salir del callback
-          
-        } catch (e: any) {
-          lastError = e;
-          
-          // Si es abort o timeout, reintentar
-          if (e.name === 'AbortError' && attempt < 3) {
-            const waitTime = Math.pow(2, attempt - 1) * 1000; // 1s, 2s
-            await new Promise(resolve => setTimeout(resolve, waitTime));
-            continue;
-          }
-          
-          // Para otros errores de red, reintentar con backoff
-          if (attempt < 3 && (e.message?.includes('fetch') || e.message?.includes('network'))) {
-            const waitTime = Math.pow(2, attempt - 1) * 1000; // 1s, 2s
-            await new Promise(resolve => setTimeout(resolve, waitTime));
-            continue;
-          }
-          
-          // Si es el último intento, lanzar
-          if (attempt === 3) {
-            throw lastError;
-          }
-        }
+      if (!fileResp.ok) {
+        const msg = await fileResp.text().catch(() => `Error ${fileResp.status}`);
+        throw new Error(msg);
       }
-      
-      // Si llegamos aquí, falló después de todos los intentos
-      if (lastError) {
-        throw lastError;
-      }
+
+      const blob = await fileResp.blob();
+      setPreviewUrl(window.URL.createObjectURL(blob));
       
     } catch (err) {
       setError((err instanceof Error ? err.message : 'Error desconocido') + ' (después de 3 intentos)');
@@ -166,6 +123,33 @@ export const DocumentPreview: React.FC<DocumentPreviewProps> = ({
       setIsLoading(false);
     }
   }, [document]);
+
+  // Helper para parsear errores de preview
+  async function parsePreviewError(response: Response): Promise<string> {
+    let message = 'Error al cargar preview del documento';
+    try {
+      const errBody = await response.json();
+      const serverMsg = errBody?.message ?? errBody?.error;
+      const code = errBody?.code;
+      
+      if (response.status === 404 && code === 'MINIO_BUCKET_NOT_FOUND') {
+        return 'El repositorio de archivos aún no está inicializado para esta empresa. Subí un documento para crear el bucket automáticamente.';
+      }
+      if (response.status === 404 && code === 'MINIO_OBJECT_NOT_FOUND') {
+        return 'El archivo del documento no existe en almacenamiento. Puede haberse eliminado o la referencia es inválida.';
+      }
+      if (serverMsg) return serverMsg;
+    } catch { /* ignore parse errors */ }
+    return message;
+  }
+
+  // Helper para resolver la URL final de preview
+  function resolvePreviewUrl(data: any, baseUrl: string, docId: number): string | undefined {
+    const serverUrl = data.previewUrl ?? data.data?.previewUrl ?? data.data?.url;
+    const minioRegex = /:\/\/minio(?::|\/)/i;
+    const preferBackend = !serverUrl || minioRegex.test(serverUrl);
+    return preferBackend ? `${baseUrl}/api/docs/documents/${docId}/download?inline=1` : serverUrl;
+  }
 
   useEffect(() => {
     if (isOpen && document) {

@@ -68,7 +68,7 @@ export class PdfRasterizeService {
       const files = await fs.readdir(tmpDir);
       const imageFiles = files
         .filter(f => f.startsWith('page') && (f.endsWith('.jpg') || f.endsWith('.jpeg')))
-        .sort(); // Ordenar por nombre para mantener orden de páginas
+        .sort((a, b) => a.localeCompare(b)); // Ordenar por nombre para mantener orden de páginas
       
       const imageBuffers: Buffer[] = [];
       for (const file of imageFiles) {

@@ -68,6 +68,295 @@ type FormData = {
   clienteId?: number | '';
 };
 
+// Helper types para handlers de submit
+type SubmitContext = {
+  currentUser: any;
+  clienteMode: 'existing' | 'new';
+  dadorMode: 'existing' | 'new';
+  transportistaMode: 'existing' | 'new';
+  choferMode: 'existing' | 'new';
+  isDadorDeCargeUser: boolean;
+  isTransportistaUser: boolean;
+  currentUserDadorId?: number;
+  currentUserTransportistaId?: number;
+  createClient: any;
+  createDador: any;
+  createEmpresaTransportista: any;
+  createChofer: any;
+  registerClientWizard: any;
+  registerDadorWizard: any;
+  registerTransportistaWizard: any;
+  registerChoferWizard: any;
+  registerUser: any;
+  setTempPasswordToShow: (pw: string | null) => void;
+  reset: () => void;
+  onClose: () => void;
+};
+
+// Handler para crear usuario CLIENTE
+async function handleClienteSubmit(data: FormData, ctx: SubmitContext): Promise<boolean> {
+  const { currentUser, clienteMode, createClient, registerClientWizard, setTempPasswordToShow } = ctx;
+  
+  const actorRole = currentUser?.role;
+  if (!actorRole || !['SUPERADMIN', 'ADMIN', 'ADMIN_INTERNO'].includes(actorRole)) {
+    showToast('No tiene permisos para crear usuarios CLIENTE', 'error');
+    return false;
+  }
+
+  let clienteIdFinal: number | undefined;
+  if (clienteMode === 'new') {
+    if (!data.clienteRazonSocial || !data.clienteCuit) {
+      showToast('Razón social y CUIT del cliente son obligatorios', 'error');
+      return false;
+    }
+    const created = await createClient({
+      razonSocial: data.clienteRazonSocial,
+      cuit: data.clienteCuit,
+      notas: data.clienteNotas ?? undefined,
+      activo: true,
+    }).unwrap();
+    clienteIdFinal = created?.id;
+  } else {
+    if (!data.clienteId) {
+      showToast('Debe seleccionar un cliente', 'error');
+      return false;
+    }
+    clienteIdFinal = Number(data.clienteId);
+  }
+
+  if (!clienteIdFinal) {
+    showToast('No se pudo determinar el cliente a asociar', 'error');
+    return false;
+  }
+
+  const resp = await registerClientWizard({
+    email: data.email,
+    nombre: data.nombre ?? undefined,
+    apellido: data.apellido ?? undefined,
+    empresaId: data.empresaId ? Number(data.empresaId) : undefined,
+    clienteId: clienteIdFinal,
+  }).unwrap();
+
+  setTempPasswordToShow(resp.tempPassword);
+  showToast('Usuario CLIENTE creado. Copie la contraseña temporal.', 'success');
+  return true;
+}
+
+// Handler para crear usuario DADOR_DE_CARGA
+async function handleDadorSubmit(data: FormData, ctx: SubmitContext): Promise<boolean> {
+  const { currentUser, dadorMode, createDador, registerDadorWizard, setTempPasswordToShow } = ctx;
+  
+  const actorRole = currentUser?.role;
+  if (!actorRole || !['SUPERADMIN', 'ADMIN', 'ADMIN_INTERNO'].includes(actorRole)) {
+    showToast('No tiene permisos para crear usuarios DADOR DE CARGA', 'error');
+    return false;
+  }
+
+  let dadorIdFinal: number | undefined;
+  if (dadorMode === 'new') {
+    if (!data.dadorRazonSocial || !data.dadorCuit) {
+      showToast('Razón social y CUIT del dador son obligatorios', 'error');
+      return false;
+    }
+    try {
+      const created = await createDador({
+        razonSocial: data.dadorRazonSocial,
+        cuit: data.dadorCuit,
+        notas: data.dadorNotas ?? undefined,
+        activo: true,
+      }).unwrap();
+      dadorIdFinal = created?.id;
+    } catch (err: any) {
+      if (err?.status === 409 && err?.data?.code === 'DUPLICATE_CUIT') {
+        const existing = err.data.existingDador;
+        const useExisting = window.confirm(
+          `El CUIT ${data.dadorCuit} ya está registrado como "${existing.razonSocial}".\n\n` +
+          `¿Desea asociar el nuevo usuario a este dador existente?`
+        );
+        if (useExisting) {
+          dadorIdFinal = existing.id;
+        } else {
+          showToast('Operación cancelada. Corrija el CUIT o seleccione un dador existente.', 'warning');
+          return false;
+        }
+      } else {
+        throw err;
+      }
+    }
+  } else {
+    if (!data.dadorCargaId) {
+      showToast('Debe seleccionar un dador de carga', 'error');
+      return false;
+    }
+    dadorIdFinal = Number(data.dadorCargaId);
+  }
+
+  if (!dadorIdFinal) {
+    showToast('No se pudo determinar el dador a asociar', 'error');
+    return false;
+  }
+
+  const resp = await registerDadorWizard({
+    email: data.email,
+    nombre: data.nombre ?? undefined,
+    apellido: data.apellido ?? undefined,
+    empresaId: data.empresaId ? Number(data.empresaId) : undefined,
+    dadorCargaId: dadorIdFinal,
+  }).unwrap();
+
+  setTempPasswordToShow(resp.tempPassword);
+  showToast('Usuario DADOR DE CARGA creado. Copie la contraseña temporal.', 'success');
+  return true;
+}
+
+// Handler para crear usuario TRANSPORTISTA
+async function handleTransportistaSubmit(data: FormData, ctx: SubmitContext): Promise<boolean> {
+  const { currentUser, transportistaMode, isDadorDeCargeUser, currentUserDadorId,
+          createEmpresaTransportista, registerTransportistaWizard, setTempPasswordToShow } = ctx;
+  
+  const actorRole = currentUser?.role;
+  if (!actorRole || !['SUPERADMIN', 'ADMIN', 'ADMIN_INTERNO', 'DADOR_DE_CARGA'].includes(actorRole)) {
+    showToast('No tiene permisos para crear usuarios TRANSPORTISTA', 'error');
+    return false;
+  }
+
+  const effectiveDadorId = isDadorDeCargeUser && currentUserDadorId 
+    ? currentUserDadorId 
+    : data.transportistaDadorId;
+
+  let transportistaIdFinal: number | undefined;
+  if (transportistaMode === 'new') {
+    if (!data.transportistaRazonSocial || !data.transportistaCuit || !effectiveDadorId) {
+      showToast('Razón social, CUIT y Dador de Carga son obligatorios', 'error');
+      return false;
+    }
+    const created = await createEmpresaTransportista({
+      dadorCargaId: Number(effectiveDadorId),
+      razonSocial: data.transportistaRazonSocial,
+      cuit: data.transportistaCuit,
+      notas: data.transportistaNotas ?? undefined,
+      activo: true,
+    }).unwrap();
+    transportistaIdFinal = created?.id;
+  } else {
+    if (!data.empresaTransportistaId) {
+      showToast('Debe seleccionar una empresa transportista', 'error');
+      return false;
+    }
+    transportistaIdFinal = Number(data.empresaTransportistaId);
+  }
+
+  if (!transportistaIdFinal) {
+    showToast('No se pudo determinar la transportista a asociar', 'error');
+    return false;
+  }
+
+  const resp = await registerTransportistaWizard({
+    email: data.email,
+    nombre: data.nombre ?? undefined,
+    apellido: data.apellido ?? undefined,
+    empresaId: data.empresaId ? Number(data.empresaId) : undefined,
+    empresaTransportistaId: transportistaIdFinal,
+  }).unwrap();
+
+  setTempPasswordToShow(resp.tempPassword);
+  showToast('Usuario TRANSPORTISTA creado. Copie la contraseña temporal.', 'success');
+  return true;
+}
+
+// Handler para crear usuario CHOFER
+async function handleChoferSubmit(data: FormData, ctx: SubmitContext): Promise<boolean> {
+  const { currentUser, choferMode, isDadorDeCargeUser, isTransportistaUser, currentUserDadorId,
+          createChofer, registerChoferWizard, setTempPasswordToShow } = ctx;
+  
+  const actorRole = currentUser?.role;
+  if (!actorRole || !['SUPERADMIN', 'ADMIN', 'ADMIN_INTERNO', 'DADOR_DE_CARGA', 'TRANSPORTISTA'].includes(actorRole)) {
+    showToast('No tiene permisos para crear usuarios CHOFER', 'error');
+    return false;
+  }
+
+  const effectiveChoferDadorId = (isDadorDeCargeUser || isTransportistaUser) && currentUserDadorId 
+    ? currentUserDadorId 
+    : data.choferDadorId;
+
+  let choferIdFinal: number | undefined;
+  if (choferMode === 'new') {
+    if (!data.choferDni || !effectiveChoferDadorId) {
+      showToast('DNI y Dador de Carga del chofer son obligatorios', 'error');
+      return false;
+    }
+    const created = await createChofer({
+      dadorCargaId: Number(effectiveChoferDadorId),
+      dni: data.choferDni,
+      nombre: data.choferNombre ?? undefined,
+      apellido: data.choferApellido ?? undefined,
+      activo: true,
+      phones: [],
+    }).unwrap();
+    choferIdFinal = created?.id;
+  } else {
+    if (!data.choferId) {
+      showToast('Debe seleccionar un chofer', 'error');
+      return false;
+    }
+    choferIdFinal = Number(data.choferId);
+  }
+
+  if (!choferIdFinal) {
+    showToast('No se pudo determinar el chofer a asociar', 'error');
+    return false;
+  }
+
+  const finalNombre = choferMode === 'new' ? (data.choferNombre ?? undefined) : (data.nombre ?? undefined);
+  const finalApellido = choferMode === 'new' ? (data.choferApellido ?? undefined) : (data.apellido ?? undefined);
+  
+  const resp = await registerChoferWizard({
+    email: data.email,
+    nombre: finalNombre,
+    apellido: finalApellido,
+    empresaId: data.empresaId ? Number(data.empresaId) : undefined,
+    choferId: choferIdFinal,
+  }).unwrap();
+
+  setTempPasswordToShow(resp.tempPassword);
+  showToast('Usuario CHOFER creado. Copie la contraseña temporal.', 'success');
+  return true;
+}
+
+// Handler para roles genéricos (ADMIN, OPERATOR, etc.)
+async function handleGenericSubmit(data: FormData, ctx: SubmitContext): Promise<boolean> {
+  const { registerUser, reset, onClose } = ctx;
+  
+  const payload: any = {
+    email: data.email,
+    password: data.password,
+    role: data.role,
+    empresaId: data.empresaId ? Number(data.empresaId) : undefined,
+    nombre: data.nombre ?? undefined,
+    apellido: data.apellido ?? undefined,
+  };
+  
+  // Agregar asociación según rol
+  if (data.role === 'DADOR_DE_CARGA' && data.dadorCargaId) {
+    payload.dadorCargaId = Number(data.dadorCargaId);
+  }
+  if (data.role === 'TRANSPORTISTA' && data.empresaTransportistaId) {
+    payload.empresaTransportistaId = Number(data.empresaTransportistaId);
+  }
+  if (data.role === 'CHOFER' && data.choferId) {
+    payload.choferId = Number(data.choferId);
+  }
+  if (data.role === 'CLIENTE' && data.clienteId) {
+    payload.clienteId = Number(data.clienteId);
+  }
+  
+  await registerUser(payload).unwrap();
+  showToast('Usuario creado exitosamente', 'success');
+  reset();
+  onClose();
+  return true;
+}
+
 export const RegisterUserModal: React.FC<RegisterUserModalProps> = ({ isOpen, onClose }) => {
   const currentUser = useAppSelector(selectCurrentUser);
   // Solo SUPERADMIN necesita la lista de empresas
@@ -230,267 +519,59 @@ export const RegisterUserModal: React.FC<RegisterUserModalProps> = ({ isOpen, on
 
   if (!isOpen) return null;
 
+  // Contexto compartido para los handlers de submit
+  const submitContext: SubmitContext = {
+    currentUser,
+    clienteMode,
+    dadorMode,
+    transportistaMode,
+    choferMode,
+    isDadorDeCargeUser,
+    isTransportistaUser,
+    currentUserDadorId,
+    currentUserTransportistaId,
+    createClient,
+    createDador,
+    createEmpresaTransportista,
+    createChofer,
+    registerClientWizard,
+    registerDadorWizard,
+    registerTransportistaWizard,
+    registerChoferWizard,
+    registerUser,
+    setTempPasswordToShow,
+    reset,
+    onClose,
+  };
+
   const onSubmit = async (data: FormData) => {
     try {
-      // Validar que todos los usuarios tengan empresa asignada
-      const finalEmpresaId = canSelectEmpresa ? (data.empresaId ? Number(data.empresaId) : undefined) : currentUser?.empresaId;
+      // Validar empresa asignada
+      const finalEmpresaId = canSelectEmpresa 
+        ? (data.empresaId ? Number(data.empresaId) : undefined) 
+        : currentUser?.empresaId;
+      
       if (!finalEmpresaId) {
         showToast('Debe seleccionar una empresa para el usuario', 'error');
         return;
       }
       
-      // CLIENTE (wizard): permite crear el cliente (entidad) y luego el usuario con contraseña temporal.
-      if (data.role === 'CLIENTE') {
-        const actorRole = currentUser?.role;
-        if (!actorRole || !['SUPERADMIN', 'ADMIN', 'ADMIN_INTERNO'].includes(actorRole)) {
-          showToast('No tiene permisos para crear usuarios CLIENTE', 'error');
-          return;
-        }
-
-        let clienteIdFinal: number | undefined;
-        if (clienteMode === 'new') {
-          if (!data.clienteRazonSocial || !data.clienteCuit) {
-            showToast('Razón social y CUIT del cliente son obligatorios', 'error');
-            return;
-          }
-          const created = await createClient({
-            razonSocial: data.clienteRazonSocial,
-            cuit: data.clienteCuit,
-            notas: data.clienteNotas || undefined,
-            activo: true,
-          }).unwrap();
-          clienteIdFinal = created?.id;
-        } else {
-          if (!data.clienteId) {
-            showToast('Debe seleccionar un cliente', 'error');
-            return;
-          }
-          clienteIdFinal = Number(data.clienteId);
-        }
-
-        if (!clienteIdFinal) {
-          showToast('No se pudo determinar el cliente a asociar', 'error');
-          return;
-        }
-
-        const resp = await registerClientWizard({
-          email: data.email,
-          nombre: data.nombre || undefined,
-          apellido: data.apellido || undefined,
-          empresaId: data.empresaId ? Number(data.empresaId) : undefined,
-          clienteId: clienteIdFinal,
-        }).unwrap();
-
-        setTempPasswordToShow(resp.tempPassword);
-        showToast('Usuario CLIENTE creado. Copie la contraseña temporal.', 'success');
-        return;
-      }
-
-      // DADOR_DE_CARGA (wizard): permite crear el dador (entidad) y luego el usuario con contraseña temporal.
-      if (data.role === 'DADOR_DE_CARGA') {
-        const actorRole = currentUser?.role;
-        if (!actorRole || !['SUPERADMIN', 'ADMIN', 'ADMIN_INTERNO'].includes(actorRole)) {
-          showToast('No tiene permisos para crear usuarios DADOR DE CARGA', 'error');
-          return;
-        }
-
-        let dadorIdFinal: number | undefined;
-        if (dadorMode === 'new') {
-          if (!data.dadorRazonSocial || !data.dadorCuit) {
-            showToast('Razón social y CUIT del dador son obligatorios', 'error');
-            return;
-          }
-          try {
-            const created = await createDador({
-              razonSocial: data.dadorRazonSocial,
-              cuit: data.dadorCuit,
-              notas: data.dadorNotas || undefined,
-              activo: true,
-            }).unwrap();
-            dadorIdFinal = created?.id;
-          } catch (err: any) {
-            if (err?.status === 409 && err?.data?.code === 'DUPLICATE_CUIT') {
-              const existing = err.data.existingDador;
-              const useExisting = window.confirm(
-                `El CUIT ${data.dadorCuit} ya está registrado como "${existing.razonSocial}".\n\n` +
-                `¿Desea asociar el nuevo usuario a este dador existente?`
-              );
-              if (useExisting) {
-                dadorIdFinal = existing.id;
-              } else {
-                showToast('Operación cancelada. Corrija el CUIT o seleccione un dador existente.', 'warning');
-                return;
-              }
-            } else {
-              throw err;
-            }
-          }
-        } else {
-          if (!data.dadorCargaId) {
-            showToast('Debe seleccionar un dador de carga', 'error');
-            return;
-          }
-          dadorIdFinal = Number(data.dadorCargaId);
-        }
-
-        if (!dadorIdFinal) {
-          showToast('No se pudo determinar el dador a asociar', 'error');
-          return;
-        }
-
-        const resp = await registerDadorWizard({
-          email: data.email,
-          nombre: data.nombre || undefined,
-          apellido: data.apellido || undefined,
-          empresaId: data.empresaId ? Number(data.empresaId) : undefined,
-          dadorCargaId: dadorIdFinal,
-        }).unwrap();
-
-        setTempPasswordToShow(resp.tempPassword);
-        showToast('Usuario DADOR DE CARGA creado. Copie la contraseña temporal.', 'success');
-        return;
-      }
-
-      // TRANSPORTISTA (wizard): permite crear la empresa transportista (entidad) y luego el usuario con contraseña temporal.
-      if (data.role === 'TRANSPORTISTA') {
-        const actorRole = currentUser?.role;
-        if (!actorRole || !['SUPERADMIN', 'ADMIN', 'ADMIN_INTERNO', 'DADOR_DE_CARGA'].includes(actorRole)) {
-          showToast('No tiene permisos para crear usuarios TRANSPORTISTA', 'error');
-          return;
-        }
-
-        // Usar dadorCargaId automático si el usuario es DADOR_DE_CARGA
-        const effectiveDadorId = isDadorDeCargeUser && currentUserDadorId 
-          ? currentUserDadorId 
-          : data.transportistaDadorId;
-
-        let transportistaIdFinal: number | undefined;
-        if (transportistaMode === 'new') {
-          if (!data.transportistaRazonSocial || !data.transportistaCuit || !effectiveDadorId) {
-            showToast('Razón social, CUIT y Dador de Carga son obligatorios', 'error');
-            return;
-          }
-          const created = await createEmpresaTransportista({
-            dadorCargaId: Number(effectiveDadorId),
-            razonSocial: data.transportistaRazonSocial,
-            cuit: data.transportistaCuit,
-            notas: data.transportistaNotas || undefined,
-            activo: true,
-          }).unwrap();
-          transportistaIdFinal = created?.id;
-        } else {
-          if (!data.empresaTransportistaId) {
-            showToast('Debe seleccionar una empresa transportista', 'error');
-            return;
-          }
-          transportistaIdFinal = Number(data.empresaTransportistaId);
-        }
-
-        if (!transportistaIdFinal) {
-          showToast('No se pudo determinar la transportista a asociar', 'error');
-          return;
-        }
-
-        const resp = await registerTransportistaWizard({
-          email: data.email,
-          nombre: data.nombre || undefined,
-          apellido: data.apellido || undefined,
-          empresaId: data.empresaId ? Number(data.empresaId) : undefined,
-          empresaTransportistaId: transportistaIdFinal,
-        }).unwrap();
-
-        setTempPasswordToShow(resp.tempPassword);
-        showToast('Usuario TRANSPORTISTA creado. Copie la contraseña temporal.', 'success');
-        return;
-      }
-
-      // CHOFER (wizard): permite crear el chofer (entidad) y luego el usuario con contraseña temporal.
-      if (data.role === 'CHOFER') {
-        const actorRole = currentUser?.role;
-        if (!actorRole || !['SUPERADMIN', 'ADMIN', 'ADMIN_INTERNO', 'DADOR_DE_CARGA', 'TRANSPORTISTA'].includes(actorRole)) {
-          showToast('No tiene permisos para crear usuarios CHOFER', 'error');
-          return;
-        }
-
-        // Usar dadorCargaId automático si el usuario es DADOR_DE_CARGA o TRANSPORTISTA
-        const effectiveChoferDadorId = (isDadorDeCargeUser || isTransportistaUser) && currentUserDadorId 
-          ? currentUserDadorId 
-          : data.choferDadorId;
-
-        let choferIdFinal: number | undefined;
-        if (choferMode === 'new') {
-          if (!data.choferDni || !effectiveChoferDadorId) {
-            showToast('DNI y Dador de Carga del chofer son obligatorios', 'error');
-            return;
-          }
-          const created = await createChofer({
-            dadorCargaId: Number(effectiveChoferDadorId),
-            dni: data.choferDni,
-            nombre: data.choferNombre || undefined,
-            apellido: data.choferApellido || undefined,
-            activo: true,
-            phones: [],
-          }).unwrap();
-          choferIdFinal = created?.id;
-        } else {
-          if (!data.choferId) {
-            showToast('Debe seleccionar un chofer', 'error');
-            return;
-          }
-          choferIdFinal = Number(data.choferId);
-        }
-
-        if (!choferIdFinal) {
-          showToast('No se pudo determinar el chofer a asociar', 'error');
-          return;
-        }
-
-        // Si se creó un chofer nuevo, usar los datos del chofer para el usuario
-        const finalNombre = choferMode === 'new' ? (data.choferNombre || undefined) : (data.nombre || undefined);
-        const finalApellido = choferMode === 'new' ? (data.choferApellido || undefined) : (data.apellido || undefined);
-        
-        const resp = await registerChoferWizard({
-          email: data.email,
-          nombre: finalNombre,
-          apellido: finalApellido,
-          empresaId: data.empresaId ? Number(data.empresaId) : undefined,
-          choferId: choferIdFinal,
-        }).unwrap();
-
-        setTempPasswordToShow(resp.tempPassword);
-        showToast('Usuario CHOFER creado. Copie la contraseña temporal.', 'success');
-        return;
-      }
-
-      const payload: any = {
-        email: data.email,
-        password: data.password,
-        role: data.role,
-        empresaId: data.empresaId ? Number(data.empresaId) : undefined,
-        nombre: data.nombre || undefined,
-        apellido: data.apellido || undefined,
+      // Dispatch según rol usando handlers extraídos
+      const roleHandlers: Record<string, (d: FormData, c: SubmitContext) => Promise<boolean>> = {
+        'CLIENTE': handleClienteSubmit,
+        'DADOR_DE_CARGA': handleDadorSubmit,
+        'TRANSPORTISTA': handleTransportistaSubmit,
+        'CHOFER': handleChoferSubmit,
       };
       
-      // Agregar asociación según rol
-      if (data.role === 'DADOR_DE_CARGA' && data.dadorCargaId) {
-        payload.dadorCargaId = Number(data.dadorCargaId);
+      const handler = roleHandlers[data.role];
+      if (handler) {
+        await handler(data, submitContext);
+      } else {
+        await handleGenericSubmit(data, submitContext);
       }
-      if (data.role === 'TRANSPORTISTA' && data.empresaTransportistaId) {
-        payload.empresaTransportistaId = Number(data.empresaTransportistaId);
-      }
-      if (data.role === 'CHOFER' && data.choferId) {
-        payload.choferId = Number(data.choferId);
-      }
-      if (data.role === 'CLIENTE' && data.clienteId) {
-        payload.clienteId = Number(data.clienteId);
-      }
-      
-      await registerUser(payload).unwrap();
-      showToast('Usuario creado exitosamente', 'success');
-      reset();
-      onClose();
     } catch (e: any) {
-      showToast(e?.data?.message || 'No se pudo crear el usuario', 'error');
+      showToast(e?.data?.message ?? 'No se pudo crear el usuario', 'error');
     }
   };
 
