@@ -181,6 +181,7 @@ const SidebarContent = ({ closeSidebar }: SidebarContentProps) => {
   const isAdminInterno = user?.role === 'ADMIN_INTERNO';
   const isDadorDeCarga = user?.role === 'DADOR_DE_CARGA';
   const isTransportista = user?.role === 'TRANSPORTISTA';
+  const isChofer = user?.role === 'CHOFER';
   
   // SUPERADMIN tiene acceso a las mismas funcionalidades que ADMIN_INTERNO
   const hasAdminInternoAccess = isAdminInterno || isSuperAdmin || isAdmin;
@@ -256,8 +257,8 @@ const SidebarContent = ({ closeSidebar }: SidebarContentProps) => {
           </div>
         )}
 
-        {/* Sección de usuarios - Para roles que pueden crear usuarios pero no son admin ni admin_interno */}
-        {canManageUsers && !isAdmin && !isAdminInterno && (
+        {/* Sección de gestión - Para DADOR_DE_CARGA y TRANSPORTISTA */}
+        {(isDadorDeCarga || isTransportista) && (
           <div>
             <h3 className='px-4 text-xs font-semibold text-muted-foreground uppercase tracking-wider'>
               Gestión
@@ -270,6 +271,24 @@ const SidebarContent = ({ closeSidebar }: SidebarContentProps) => {
                 closeSidebar={closeSidebar}
               />
               {/* Remitos - visible para todos los roles que suben remitos */}
+              <NavItem
+                to='/remitos'
+                icon={ClipboardDocumentCheckIcon}
+                text='Remitos'
+                closeSidebar={closeSidebar}
+              />
+            </div>
+          </div>
+        )}
+
+        {/* Sección para CHOFER - Solo Remitos (acceso a equipos desde Dashboard) */}
+        {isChofer && (
+          <div>
+            <h3 className='px-4 text-xs font-semibold text-muted-foreground uppercase tracking-wider'>
+              Gestión
+            </h3>
+            <div className='mt-3 space-y-1'>
+              {/* Remitos - visible para CHOFER */}
               <NavItem
                 to='/remitos'
                 icon={ClipboardDocumentCheckIcon}
