@@ -574,14 +574,9 @@ export class PlatformAuthService {
       return { success: false, message: 'El email ya está en uso' };
     }
 
-    // Obtener el tenantEmpresaId del chofer para asegurar consistencia multi-tenant
-    const chofer = await prisma.chofer.findUnique({
-      where: { id: input.choferId },
-      select: { tenantEmpresaId: true },
-    });
-    
-    // Usar tenantEmpresaId del chofer, con fallback a la lógica original
-    const finalEmpresaId = chofer?.tenantEmpresaId ?? this.determineFinalEmpresaId('CHOFER', input.empresaId ?? null, createdBy);
+    // Determinar empresaId usando la lógica estándar multi-tenant
+    // El chofer está en el microservicio documentos, usamos empresaId del input o del creador
+    const finalEmpresaId = this.determineFinalEmpresaId('CHOFER', input.empresaId ?? null, createdBy);
 
     const tempPassword = this.generateTempPassword();
     const hashedPassword = await this.hashPassword(tempPassword);
