@@ -244,7 +244,7 @@ services:
       FLOWISE_ENDPOINT: http://10.3.0.243:3005/api/v1/extract
       FLOWISE_API_KEY: ""
       # Validación de documentos con IA
-      FLOWISE_VALIDATION_ENABLED: "false"
+      FLOWISE_VALIDATION_ENABLED: "true"
       FLOWISE_VALIDATION_BASE_URL: http://10.3.0.243:3005
       FLOWISE_VALIDATION_FLOW_ID: bf6fc420-6e91-4886-a9ca-a86c285ee49a
       FLOWISE_VALIDATION_TIMEOUT: "60000"
