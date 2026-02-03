@@ -36,36 +36,48 @@ export const uploadMiddleware = multer({
 // ============================================================================
 
 /**
+ * Valida y retorna una fecha, o null si es inválida.
+ */
+function toValidDate(dateStr: string): Date | null {
+  const parsed = new Date(dateStr);
+  return isNaN(parsed.getTime()) ? null : parsed;
+}
+
+/**
+ * Parsea formato ISO (YYYY-MM-DD o YYYY-MM-DDTHH:mm:ss).
+ */
+function parseIsoDate(rawDate: string): Date | null {
+  if (rawDate.includes('T')) {
+    return toValidDate(rawDate);
+  }
+  return toValidDate(`${rawDate.slice(0, 10)}T12:00:00Z`);
+}
+
+/**
+ * Parsea formato DD/MM/YYYY.
+ */
+function parseDdMmYyyy(rawDate: string): Date | null {
+  const [dd, mm, yyyy] = rawDate.split('/');
+  return toValidDate(`${yyyy}-${mm}-${dd}T12:00:00Z`);
+}
+
+/**
+ * Parsea formato DD/MM/YY.
+ */
+function parseDdMmYy(rawDate: string): Date | null {
+  const [dd, mm, yy] = rawDate.split('/');
+  const year = parseInt(yy, 10) < 50 ? `20${yy}` : `19${yy}`;
+  return toValidDate(`${year}-${mm}-${dd}T12:00:00Z`);
+}
+
+/**
  * Parsea una fecha en múltiples formatos.
- * Usa mediodía UTC (T12:00:00Z) para evitar problemas de zona horaria
- * que causan que la fecha aparezca 1 día antes en zonas negativas (ej: Argentina UTC-3).
+ * Usa mediodía UTC (T12:00:00Z) para evitar problemas de zona horaria.
  */
 function parseDateString(rawDate: string): Date | null {
-  // Formato ISO: YYYY-MM-DD o YYYY-MM-DDTHH:mm:ss...
-  if (/^\d{4}-\d{2}-\d{2}/.test(rawDate)) {
-    // Si ya tiene hora, usarla tal cual
-    if (rawDate.includes('T')) {
-      const parsed = new Date(rawDate);
-      return isNaN(parsed.getTime()) ? null : parsed;
-    }
-    // Si solo es fecha, agregar mediodía UTC para evitar desfase de zona horaria
-    const dateOnly = rawDate.slice(0, 10);
-    const parsed = new Date(`${dateOnly}T12:00:00Z`);
-    return isNaN(parsed.getTime()) ? null : parsed;
-  }
-  // Formato DD/MM/YYYY
-  if (/^\d{2}\/\d{2}\/\d{4}$/.test(rawDate)) {
-    const [dd, mm, yyyy] = rawDate.split('/');
-    const parsed = new Date(`${yyyy}-${mm}-${dd}T12:00:00Z`);
-    return isNaN(parsed.getTime()) ? null : parsed;
-  }
-  // Formato DD/MM/YY
-  if (/^\d{2}\/\d{2}\/\d{2}$/.test(rawDate)) {
-    const [dd, mm, yy] = rawDate.split('/');
-    const year = parseInt(yy, 10) < 50 ? `20${yy}` : `19${yy}`;
-    const parsed = new Date(`${year}-${mm}-${dd}T12:00:00Z`);
-    return isNaN(parsed.getTime()) ? null : parsed;
-  }
+  if (/^\d{4}-\d{2}-\d{2}/.test(rawDate)) return parseIsoDate(rawDate);
+  if (/^\d{2}\/\d{2}\/\d{4}$/.test(rawDate)) return parseDdMmYyyy(rawDate);
+  if (/^\d{2}\/\d{2}\/\d{2}$/.test(rawDate)) return parseDdMmYy(rawDate);
   return null;
 }
 

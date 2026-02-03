@@ -33,6 +33,62 @@ function canModifyUser(currentUser: any, targetUser: any): boolean {
   return false;
 }
 
+/** Construye condiciones de filtro por rol del usuario actual */
+function buildRoleConditions(user: any): any[] {
+  const conditions: any[] = [];
+  
+  switch (user.role) {
+    case 'ADMIN':
+      conditions.push({ empresaId: user.empresaId });
+      conditions.push({ role: { not: 'SUPERADMIN' } });
+      break;
+    case 'ADMIN_INTERNO':
+      conditions.push({ empresaId: user.empresaId });
+      conditions.push({ role: { notIn: ['SUPERADMIN', 'ADMIN'] } });
+      break;
+    case 'DADOR_DE_CARGA':
+      conditions.push({
+        OR: [
+          { creadoPorId: user.userId },
+          { dadorCargaId: (user as any).dadorCargaId },
+        ]
+      });
+      conditions.push({ role: { in: ['TRANSPORTISTA', 'CHOFER'] } });
+      break;
+    case 'TRANSPORTISTA':
+      conditions.push({
+        OR: [
+          { creadoPorId: user.userId },
+          { empresaTransportistaId: (user as any).empresaTransportistaId },
+        ]
+      });
+      conditions.push({ role: 'CHOFER' });
+      break;
+  }
+  
+  return conditions;
+}
+
+/** Construye condiciones de búsqueda por texto */
+function buildSearchConditions(search: string): any {
+  const searchTerm = search.trim();
+  const searchUpper = searchTerm.toUpperCase();
+  const rolesMatch = ['SUPERADMIN', 'ADMIN', 'ADMIN_INTERNO', 'OPERATOR', 'OPERADOR_INTERNO', 
+    'DADOR_DE_CARGA', 'TRANSPORTISTA', 'CHOFER', 'CLIENTE'].filter(r => r.includes(searchUpper));
+  
+  const searchConditions: any[] = [
+    { email: { contains: searchTerm, mode: 'insensitive' } },
+    { nombre: { contains: searchTerm, mode: 'insensitive' } },
+    { apellido: { contains: searchTerm, mode: 'insensitive' } },
+  ];
+  
+  if (rolesMatch.length > 0) {
+    searchConditions.push({ role: { in: rolesMatch } });
+  }
+  
+  return { OR: searchConditions };
+}
+
 // ============================================================================
 // ROUTES
 // ============================================================================
@@ -319,26 +375,9 @@ router.get(
       // Construir filtros usando AND para combinar correctamente
       const conditions: any[] = [];
 
-      // Filtro por texto de búsqueda (email, nombre, apellido o rol)
+      // Filtro por texto de búsqueda
       if (search && typeof search === 'string' && search.trim()) {
-        const searchTerm = search.trim();
-        const searchUpper = searchTerm.toUpperCase();
-        // Verificar si busca por rol
-        const rolesMatch = ['SUPERADMIN', 'ADMIN', 'ADMIN_INTERNO', 'OPERATOR', 'OPERADOR_INTERNO', 
-          'DADOR_DE_CARGA', 'TRANSPORTISTA', 'CHOFER', 'CLIENTE'].filter(r => r.includes(searchUpper));
-        
-        const searchConditions: any[] = [
-          { email: { contains: searchTerm, mode: 'insensitive' } },
-          { nombre: { contains: searchTerm, mode: 'insensitive' } },
-          { apellido: { contains: searchTerm, mode: 'insensitive' } },
-        ];
-        
-        // Si el término coincide con roles, incluirlos
-        if (rolesMatch.length > 0) {
-          searchConditions.push({ role: { in: rolesMatch } });
-        }
-        
-        conditions.push({ OR: searchConditions });
+        conditions.push(buildSearchConditions(search));
       }
 
       // Filtro por rol específico (del query param)
@@ -352,35 +391,7 @@ router.get(
       }
 
       // Restricciones según el rol del usuario actual
-      if (user.role === 'ADMIN') {
-        // Admin solo puede ver usuarios de su empresa y no puede ver otros superadmins
-        conditions.push({ empresaId: user.empresaId });
-        conditions.push({ role: { not: 'SUPERADMIN' } });
-      } else if (user.role === 'ADMIN_INTERNO') {
-        // Admin Interno solo puede ver usuarios de su empresa (tenant)
-        conditions.push({ empresaId: user.empresaId });
-        // No puede ver SUPERADMIN ni ADMIN de otras empresas
-        conditions.push({ role: { notIn: ['SUPERADMIN', 'ADMIN'] } });
-      } else if (user.role === 'DADOR_DE_CARGA') {
-        // Dador de carga solo puede ver usuarios que él creó o que tienen su dadorCargaId
-        conditions.push({
-          OR: [
-            { creadoPorId: user.userId },
-            { dadorCargaId: (user as any).dadorCargaId },
-          ]
-        });
-        // Solo puede ver roles TRANSPORTISTA y CHOFER
-        conditions.push({ role: { in: ['TRANSPORTISTA', 'CHOFER'] } });
-      } else if (user.role === 'TRANSPORTISTA') {
-        // Transportista: igual que dador pero con empresaTransportistaId
-        conditions.push({
-          OR: [
-            { creadoPorId: user.userId },
-            { empresaTransportistaId: (user as any).empresaTransportistaId },
-          ]
-        });
-        conditions.push({ role: 'CHOFER' });
-      }
+      conditions.push(...buildRoleConditions(user));
       
       // Construir where final
       const where = conditions.length > 0 ? { AND: conditions } : {};
