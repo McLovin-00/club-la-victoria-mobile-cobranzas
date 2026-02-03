@@ -8,6 +8,12 @@ import { createError } from '../middlewares/error.middleware';
 import { AppLogger } from '../config/logger';
 import { parseParamId } from '../utils/params';
 
+// Workaround Express 5 charset bug
+function sendJson(res: Response, status: number, data: object): void {
+  res.setHeader('Content-Type', 'application/json; charset=utf-8');
+  res.status(status).send(JSON.stringify(data));
+}
+
 // ============================================================================
 // HELPERS
 // ============================================================================
@@ -137,11 +143,13 @@ function getChoferCargadorData(req: AuthRequest): ChoferCargadorData {
 function sendError(res: Response, error: any): void {
   AppLogger.error('Error en RemitosController:', error);
   const status = error.statusCode || 500;
-  res.status(status).json({
+  // Workaround Express 5 charset bug
+  res.setHeader('Content-Type', 'application/json; charset=utf-8');
+  res.status(status).send(JSON.stringify({
     success: false,
     error: error.code || 'ERROR',
     message: error.message,
-  });
+  }));
 }
 
 // ============================================================================
@@ -214,7 +222,7 @@ export class RemitosController {
         limit: limit ? parseInt(limit as string) : 20,
       });
 
-      res.json({ success: true, data: result.items, pagination: result.pagination, stats: result.stats });
+      sendJson(res, 200, { success: true, data: result.items, pagination: result.pagination, stats: result.stats });
     } catch (error: any) {
       sendError(res, error);
     }
@@ -239,7 +247,7 @@ export class RemitosController {
         }))
       );
 
-      res.json({ success: true, data: { ...remito, imagenes: imagenesConUrls } });
+      sendJson(res, 200, { success: true, data: { ...remito, imagenes: imagenesConUrls } });
     } catch (error: any) {
       sendError(res, error);
     }
@@ -291,7 +299,7 @@ export class RemitosController {
         pesoDestinoNeto: parseWeight(pesoDestinoNeto),
       });
 
-      res.json({ success: true, message: 'Remito actualizado', data: remito });
+      sendJson(res, 200, { success: true, message: 'Remito actualizado', data: remito });
     } catch (error: any) {
       sendError(res, error);
     }
@@ -304,7 +312,7 @@ export class RemitosController {
     try {
       const id = parseParamId(req.params, 'id');
       const remito = await RemitoService.approve(id, req.user!.userId);
-      res.json({ success: true, message: 'Remito aprobado', data: remito });
+      sendJson(res, 200, { success: true, message: 'Remito aprobado', data: remito });
     } catch (error: any) {
       sendError(res, error);
     }
@@ -323,7 +331,7 @@ export class RemitosController {
       }
 
       const remito = await RemitoService.reject(id, req.user!.userId, motivo.trim());
-      res.json({ success: true, message: 'Remito rechazado', data: remito });
+      sendJson(res, 200, { success: true, message: 'Remito rechazado', data: remito });
     } catch (error: any) {
       sendError(res, error);
     }
@@ -337,7 +345,7 @@ export class RemitosController {
       const tenantId = req.user?.tenantId || 1;
       const dadorId = req.user?.dadorId;
       const stats = await RemitoService.getStats(tenantId, dadorId);
-      res.json({ success: true, data: stats });
+      sendJson(res, 200, { success: true, data: stats });
     } catch (error: any) {
       sendError(res, error);
     }
@@ -363,7 +371,7 @@ export class RemitosController {
       }
 
       const url = await minioService.getSignedUrl(imagen.bucketName, imagen.objectKey, 3600);
-      res.json({ success: true, data: { url } });
+      sendJson(res, 200, { success: true, data: { url } });
     } catch (error: any) {
       sendError(res, error);
     }
@@ -376,7 +384,7 @@ export class RemitosController {
     try {
       const id = parseParamId(req.params, 'id');
       const result = await RemitoService.reprocess(id, req.user!.userId);
-      res.json({ success: true, message: 'Remito encolado para reprocesamiento', data: result });
+      sendJson(res, 200, { success: true, message: 'Remito encolado para reprocesamiento', data: result });
     } catch (error: any) {
       sendError(res, error);
     }
@@ -463,7 +471,7 @@ export class RemitosController {
         10
       );
 
-      res.json({ success: true, data: suggestions });
+      sendJson(res, 200, { success: true, data: suggestions });
     } catch (error: any) {
       sendError(res, error);
     }
