@@ -888,8 +888,8 @@ export const ConsultaPage: React.FC = () => {
           
           {/* Modal de búsqueda por texto */}
           {showSearchModal && (
-            <div className='fixed inset-0 bg-black/50 flex items-center justify-center z-50' onClick={() => setShowSearchModal(false)}>
-              <div className='bg-white dark:bg-slate-900 rounded-lg p-6 w-full max-w-md shadow-xl' onClick={(e) => e.stopPropagation()}>
+            <div className='fixed inset-0 bg-black/50 flex items-center justify-center z-50' onClick={() => setShowSearchModal(false)} onKeyDown={(e) => e.key === 'Escape' && setShowSearchModal(false)} role='button' tabIndex={0}>
+              <div className='bg-white dark:bg-slate-900 rounded-lg p-6 w-full max-w-md shadow-xl' onClick={(e) => e.stopPropagation()} onKeyDown={(e) => e.stopPropagation()} role='dialog'>
                 <h3 className='text-lg font-semibold mb-4'>Buscar Equipos por DNIs o Patentes</h3>
                 <p className='text-sm text-muted-foreground mb-3'>
                   Ingrese uno o más DNIs de choferes o patentes de camiones, separados por coma, espacio o salto de línea.
@@ -1035,8 +1035,8 @@ export const ConsultaPage: React.FC = () => {
       
       {/* Modal de Datos Extraídos por IA */}
       {showIADataModal && (
-        <div className='fixed inset-0 bg-black/50 flex items-center justify-center z-50' onClick={() => setShowIADataModal(false)}>
-          <div className='bg-white dark:bg-slate-900 rounded-lg p-6 w-full max-w-2xl shadow-xl max-h-[80vh] overflow-y-auto' onClick={(e) => e.stopPropagation()}>
+        <div className='fixed inset-0 bg-black/50 flex items-center justify-center z-50' onClick={() => setShowIADataModal(false)} onKeyDown={(e) => e.key === 'Escape' && setShowIADataModal(false)} role='button' tabIndex={0}>
+          <div className='bg-white dark:bg-slate-900 rounded-lg p-6 w-full max-w-2xl shadow-xl max-h-[80vh] overflow-y-auto' onClick={(e) => e.stopPropagation()} onKeyDown={(e) => e.stopPropagation()} role='dialog'>
             <div className='flex items-center justify-between mb-4'>
               <h3 className='text-lg font-semibold flex items-center gap-2'>
                 <SparklesIcon className='h-5 w-5 text-purple-600' />
@@ -1117,8 +1117,8 @@ export const ConsultaPage: React.FC = () => {
       
       {/* Modal de confirmación de borrado */}
       {confirmDelete && (
-        <div className='fixed inset-0 bg-black/60 flex items-center justify-center z-[60]' onClick={() => setConfirmDelete(null)}>
-          <div className='bg-white dark:bg-slate-900 rounded-lg p-6 w-full max-w-md shadow-xl' onClick={(e) => e.stopPropagation()}>
+        <div className='fixed inset-0 bg-black/60 flex items-center justify-center z-[60]' onClick={() => setConfirmDelete(null)} onKeyDown={(e) => e.key === 'Escape' && setConfirmDelete(null)} role='button' tabIndex={0}>
+          <div className='bg-white dark:bg-slate-900 rounded-lg p-6 w-full max-w-md shadow-xl' onClick={(e) => e.stopPropagation()} onKeyDown={(e) => e.stopPropagation()} role='dialog'>
             <h4 className='text-lg font-semibold mb-4 text-red-600'>⚠️ Confirmar eliminación</h4>
             <p className='text-sm text-gray-600 mb-4'>
               ¿Estás seguro de que deseas eliminar todos los datos extraídos por IA de esta entidad?
@@ -1141,8 +1141,8 @@ export const ConsultaPage: React.FC = () => {
       
       {/* Modal de edición */}
       {editingEntity && (
-        <div className='fixed inset-0 bg-black/60 flex items-center justify-center z-[60]' onClick={() => setEditingEntity(null)}>
-          <div className='bg-white dark:bg-slate-900 rounded-lg p-6 w-full max-w-lg shadow-xl max-h-[80vh] overflow-y-auto' onClick={(e) => e.stopPropagation()}>
+        <div className='fixed inset-0 bg-black/60 flex items-center justify-center z-[60]' onClick={() => setEditingEntity(null)} onKeyDown={(e) => e.key === 'Escape' && setEditingEntity(null)} role='button' tabIndex={0}>
+          <div className='bg-white dark:bg-slate-900 rounded-lg p-6 w-full max-w-lg shadow-xl max-h-[80vh] overflow-y-auto' onClick={(e) => e.stopPropagation()} onKeyDown={(e) => e.stopPropagation()} role='dialog'>
             <h4 className='text-lg font-semibold mb-4'>✏️ Editar datos extraídos</h4>
             <p className='text-xs text-gray-500 mb-4'>
               {editingEntity.entityType} #{editingEntity.entityId}

@@ -1294,7 +1294,7 @@ const EditarEquipoPage: React.FC = () => {
       {/* Modal: Crear Camión */}
       {showNewCamionModal && (
         <div className='fixed inset-0 z-50 overflow-y-auto'>
-          <div className='fixed inset-0 bg-black/40' onClick={() => setShowNewCamionModal(false)} />
+          <div className='fixed inset-0 bg-black/40' onClick={() => setShowNewCamionModal(false)} onKeyDown={(e) => e.key === 'Escape' && setShowNewCamionModal(false)} role='button' tabIndex={0} />
           <div className='flex min-h-full items-center justify-center p-4'>
             <div className='relative bg-background rounded-lg shadow-xl w-full max-w-md p-6'>
               <h3 className='text-lg font-medium mb-4'>Crear Nuevo Camión</h3>
@@ -1345,7 +1345,7 @@ const EditarEquipoPage: React.FC = () => {
       {/* Modal: Crear Acoplado */}
       {showNewAcopladoModal && (
         <div className='fixed inset-0 z-50 overflow-y-auto'>
-          <div className='fixed inset-0 bg-black/40' onClick={() => setShowNewAcopladoModal(false)} />
+          <div className='fixed inset-0 bg-black/40' onClick={() => setShowNewAcopladoModal(false)} onKeyDown={(e) => e.key === 'Escape' && setShowNewAcopladoModal(false)} role='button' tabIndex={0} />
           <div className='flex min-h-full items-center justify-center p-4'>
             <div className='relative bg-background rounded-lg shadow-xl w-full max-w-md p-6'>
               <h3 className='text-lg font-medium mb-4'>Crear Nuevo Acoplado</h3>
@@ -1386,7 +1386,7 @@ const EditarEquipoPage: React.FC = () => {
       {/* Modal: Crear Chofer */}
       {showNewChoferModal && (
         <div className='fixed inset-0 z-50 overflow-y-auto'>
-          <div className='fixed inset-0 bg-black/40' onClick={() => { setShowNewChoferModal(false); setTempPasswordChofer(null); }} />
+          <div className='fixed inset-0 bg-black/40' onClick={() => { setShowNewChoferModal(false); setTempPasswordChofer(null); }} onKeyDown={(e) => e.key === 'Escape' && setShowNewChoferModal(false)} role='button' tabIndex={0} />
           <div className='flex min-h-full items-center justify-center p-4'>
             <div className='relative bg-background rounded-lg shadow-xl w-full max-w-lg p-6'>
               <h3 className='text-lg font-medium mb-4'>Crear Nuevo Chofer</h3>
@@ -1482,7 +1482,7 @@ const EditarEquipoPage: React.FC = () => {
       {/* Modal: Crear Empresa Transportista */}
       {showNewTransportistaModal && (
         <div className='fixed inset-0 z-50 overflow-y-auto'>
-          <div className='fixed inset-0 bg-black/40' onClick={() => { setShowNewTransportistaModal(false); setTempPasswordTransportista(null); }} />
+          <div className='fixed inset-0 bg-black/40' onClick={() => { setShowNewTransportistaModal(false); setTempPasswordTransportista(null); }} onKeyDown={(e) => e.key === 'Escape' && setShowNewTransportistaModal(false)} role='button' tabIndex={0} />
           <div className='flex min-h-full items-center justify-center p-4'>
             <div className='relative bg-background rounded-lg shadow-xl w-full max-w-lg p-6'>
               <h3 className='text-lg font-medium mb-4'>Crear Nueva Empresa Transportista</h3>
