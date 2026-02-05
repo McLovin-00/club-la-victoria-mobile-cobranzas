@@ -49,7 +49,7 @@ class DatabaseConfigurationService {
     }
 
     // Asegurar carga de env normalizado
-    try { getEnvironment(); } catch {}
+    try { getEnvironment(); } catch { /* Env ya cargado o error ignorado */ }
 
     const requiredVars = [
       'DB_HOST',

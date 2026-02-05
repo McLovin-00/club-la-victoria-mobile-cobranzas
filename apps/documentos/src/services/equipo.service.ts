@@ -1190,7 +1190,7 @@ export class EquipoService {
     try {
       const { queueService } = await import('./queue.service');
       await queueService.addMissingCheckForEquipo(tenantEmpresaId, equipoId);
-    } catch {}
+    } catch { /* Encolar es best-effort */ }
     return updated;
   }
 
@@ -1450,7 +1450,7 @@ export class EquipoService {
     try {
       const { queueService } = await import('./queue.service');
       await queueService.addMissingCheckForEquipo(tenantEmpresaId, equipoId, 15 * 60 * 1000);
-    } catch {}
+    } catch { /* Encolar es best-effort */ }
     return assoc;
   }
 
@@ -1481,7 +1481,7 @@ export class EquipoService {
       // Registrar eliminación (nota: será eliminado al purgar history por FK)
       try {
         await tx.equipoHistory.create({ data: { equipoId, action: 'delete', component: 'system', originEquipoId: null, payload: { reason: 'user' } as any } });
-      } catch {}
+      } catch { /* History log no bloquea eliminación */ }
 
       // Borra asociaciones cliente vigentes
       await tx.equipoCliente.deleteMany({ where: { equipoId } });

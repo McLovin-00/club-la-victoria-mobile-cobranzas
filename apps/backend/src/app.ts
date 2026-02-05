@@ -106,17 +106,17 @@ const setupMiddlewares = (): void => {
   try {
     const helmet = require('helmet');
     app.use(helmet());
-  } catch {}
+  } catch { /* Helmet opcional */ }
   try {
     const compression = require('compression');
     app.use(compression());
-  } catch {}
+  } catch { /* Compression opcional */ }
   try {
     const rateLimit = require('express-rate-limit');
     const windowMs = env.RATE_LIMIT_WINDOW_MS ?? 60_000;
     const max = env.RATE_LIMIT_MAX ?? 300;
     app.use(rateLimit({ windowMs, max, standardHeaders: true, legacyHeaders: false }));
-  } catch {}
+  } catch { /* Rate limit opcional */ }
 
   // Middleware de logging para todas las peticiones
   app.use(httpLogger);

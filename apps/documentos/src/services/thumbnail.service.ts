@@ -64,7 +64,7 @@ export class ThumbnailService {
     await minioService.uploadObject(tenantId, thumbPath, thumb, 'image/jpeg');
     try {
       AppLogger.debug('🖼️ Thumbnail generado', { documentId, thumbPath });
-    } catch {}
+    } catch { /* Limpieza de archivo temporal no crítica */ }
   }
 }
 

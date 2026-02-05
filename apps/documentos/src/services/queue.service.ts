@@ -54,10 +54,10 @@ class QueueService {
 
     // Contadores diarios: incrementar al completar / fallar
     (this.documentValidationQueue as any).on('completed', async () => {
-      try { await this.incrementDailyCounter('completed'); } catch {}
+      try { await this.incrementDailyCounter('completed'); } catch { /* Métrica no crítica */ }
     });
     (this.documentValidationQueue as any).on('failed', async () => {
-      try { await this.incrementDailyCounter('failed'); } catch {}
+      try { await this.incrementDailyCounter('failed'); } catch { /* Métrica no crítica */ }
     });
 
     // Crear cola de validación IA (control de documentos)

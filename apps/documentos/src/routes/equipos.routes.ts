@@ -217,7 +217,7 @@ async function streamVigentesZip(equipoIdsInput: number[], res: any) {
   } catch (err) {
     AppLogger.error('💥 Error generando ZIP masivo', err);
     if (!res.headersSent) res.status(500).end('Error generando ZIP');
-    try { archive.abort(); } catch {}
+    try { archive.abort(); } catch { /* Abortar stream es best-effort */ }
     return;
   }
 

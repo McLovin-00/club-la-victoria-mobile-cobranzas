@@ -383,7 +383,8 @@ class AuthService extends BaseService<User, UserCreateInput, UserUpdateInput> {
       if (this.JWT_LEGACY_SECRET) {
         try {
           return jwt.verify(token, this.JWT_LEGACY_SECRET, { algorithms: ['HS256'] }) as TokenPayload;
-        } catch (_e) {
+        } catch {
+          /* Fallback HS256 también falló */
           return null;
         }
       }
@@ -397,7 +398,7 @@ class AuthService extends BaseService<User, UserCreateInput, UserUpdateInput> {
       try {
         const fs = require('fs');
         raw = fs.readFileSync(pathVar, 'utf8');
-      } catch (_e) {}
+      } catch { /* Archivo no accesible, se usará inline */ }
     }
     if (!raw) {
       throw new Error(`JWT_${label}_KEY or JWT_${label}_KEY_PATH is required`);

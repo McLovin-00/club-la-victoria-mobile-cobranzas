@@ -455,9 +455,9 @@ export class DocumentsController {
           entityId: document.id,
           details: { templateId: (document as any).templateId, entityType: document.entityType, entityId: document.entityId, fileName: document.fileName, fileSize: document.fileSize },
         });
-      } catch {}
+      } catch { /* Notificación no crítica */ }
       // Refrescar vista materializada (best-effort)
-      try { (await import('../services/performance.service')).performanceService.refreshMaterializedView(); } catch {}
+      try { (await import('../services/performance.service')).performanceService.refreshMaterializedView(); } catch { /* Refresh async */ }
 
       res.status(201).json(document);
     } catch (error) {
@@ -736,7 +736,7 @@ export class DocumentsController {
       if (document.tenantEmpresaId) {
         try {
           await minioService.ensureBucketExists(document.tenantEmpresaId);
-        } catch (_) {}
+        } catch { /* Parseo de entityData opcional */ }
       }
 
       // Obtener el archivo de MinIO como stream
@@ -832,7 +832,7 @@ export class DocumentsController {
         requestedBy: (req.user as any)?.userId,
       });
       res.status(201).json({ success: true, data: next });
-      try { (await import('../services/performance.service')).performanceService.refreshMaterializedView(); } catch {}
+      try { (await import('../services/performance.service')).performanceService.refreshMaterializedView(); } catch { /* Refresh async */ }
     } catch (error) {
       AppLogger.error('💥 Error renovando documento:', error);
       throw createError('Error al renovar documento', 500, 'DOCUMENT_RENEW_ERROR');
@@ -923,7 +923,7 @@ export class DocumentsController {
         entityId: document.id,
         details: { fileName: document.fileName, templateName: document.template.name },
       });
-      try { (await import('../services/performance.service')).performanceService.refreshMaterializedView(); } catch {}
+      try { (await import('../services/performance.service')).performanceService.refreshMaterializedView(); } catch { /* Refresh async */ }
 
       res.json({
         success: true,

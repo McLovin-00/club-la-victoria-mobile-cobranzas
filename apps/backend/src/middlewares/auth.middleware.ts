@@ -13,7 +13,7 @@ const getPublicKey = (): string => {
       try {
         const fs = require('fs');
         raw = fs.readFileSync(process.env.JWT_PUBLIC_KEY_PATH, 'utf8');
-      } catch (_e) {}
+      } catch { /* Archivo no accesible */ }
     }
     if (!raw) throw new Error('JWT_PUBLIC_KEY or JWT_PUBLIC_KEY_PATH is required');
     CACHED_PUBLIC_KEY = raw.includes('-----BEGIN') ? raw : raw.replace(/\n/g, '\n');
@@ -34,7 +34,8 @@ export const verifyToken = (token: string): TokenPayload | null => {
     if (legacy) {
       try {
         return jwt.verify(token, legacy, { algorithms: ['HS256'] }) as TokenPayload;
-      } catch (_e) {
+      } catch {
+        /* Fallback HS256 también falló */
         return null;
       }
     }

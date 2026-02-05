@@ -224,7 +224,7 @@ router.get('/jobs/:jobId', async (req, res) => {
     try {
       const url = await (await import('../services/minio.service')).minioService.getSignedUrlInternal(job.artifact.bucketName, job.artifact.objectPath, 60 * 30);
       signedUrl = url;
-    } catch {}
+    } catch { /* Error de conteo no bloquea respuesta */ }
   }
   res.json({ success: true, job: { ...job, signedUrl } });
 });

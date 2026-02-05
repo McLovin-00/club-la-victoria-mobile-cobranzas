@@ -14,7 +14,7 @@ const getPrivateKey = (): string => {
       try {
         const fs = require('fs');
         raw = fs.readFileSync(process.env.JWT_PRIVATE_KEY_PATH, 'utf8');
-      } catch (_e) {}
+      } catch { /* Archivo no accesible */ }
     }
     if (!raw) throw new Error('JWT_PRIVATE_KEY or JWT_PRIVATE_KEY_PATH is required');
     CACHED_PRIVATE_KEY = raw.includes('-----BEGIN') ? raw : raw.replace(/\n/g, '\n');

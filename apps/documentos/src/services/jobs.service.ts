@@ -158,7 +158,7 @@ export class JobsService {
     // Simulación básica: procesar async y actualizar progreso
     setTimeout(() => this.runDocumentsBatch(id, payload).catch(() => {}), 10);
     // Métrica simple en memoria
-    try { (globalThis as any).__DOCS_METRICS = (globalThis as any).__DOCS_METRICS || {}; (globalThis as any).__DOCS_METRICS.batch_total = ((globalThis as any).__DOCS_METRICS.batch_total || 0) + 1; } catch {}
+    try { (globalThis as any).__DOCS_METRICS = (globalThis as any).__DOCS_METRICS || {}; (globalThis as any).__DOCS_METRICS.batch_total = ((globalThis as any).__DOCS_METRICS.batch_total || 0) + 1; } catch { /* Métrica no crítica */ }
     return id;
   }
 
