@@ -1,4 +1,4 @@
-import { Router, Response } from 'express';
+import { Router, Response, RequestHandler } from 'express';
 import { PlatformAuthController, platformAuthValidation } from '../controllers/platformAuth.controller';
 import { z } from 'zod';
 import { ValidationMiddleware } from '../middlewares/validation.middleware';
@@ -132,7 +132,8 @@ const router = Router();
  */
 router.post(
   '/login',
-  loginRateLimiter, // Rate limiting para prevenir ataques de fuerza bruta
+  // Cast requerido: incompatibilidad entre express-rate-limit y @types/express-serve-static-core
+  loginRateLimiter as unknown as RequestHandler,
   ValidationMiddleware.validateBody(z.object({
     email: z.string().email(),
     password: z.string().min(6),
@@ -281,7 +282,8 @@ router.get(
  */
 router.post(
   '/change-password',
-  passwordChangeRateLimiter, // Rate limiting más estricto para cambio de contraseña
+  // Cast requerido: incompatibilidad entre express-rate-limit y @types/express-serve-static-core
+  passwordChangeRateLimiter as unknown as RequestHandler,
   authenticateUser,
   ValidationMiddleware.validateBody(z.object({
     currentPassword: z.string().min(8),
