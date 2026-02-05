@@ -52,10 +52,10 @@ function parseFilePath(filePath: string, tenantEmpresaId: number): { bucketName:
 }
 
 function buildSubfolders(equipo: any): Record<string, string> {
-  const cuit = equipo.empresaTransportista?.cuit || 'SIN_CUIT';
-  const dni = equipo.driverDniNorm || 'SIN_DNI';
-  const tractor = equipo.truckPlateNorm || 'SIN_PATENTE';
-  const acoplado = equipo.trailerPlateNorm || 'SIN_PATENTE';
+  const cuit = equipo.empresaTransportista?.cuit ?? 'SIN_CUIT';
+  const dni = equipo.driverDniNorm ?? 'SIN_DNI';
+  const tractor = equipo.truckPlateNorm ?? 'SIN_PATENTE';
+  const acoplado = equipo.trailerPlateNorm ?? 'SIN_PATENTE';
   return {
     EMPRESA_TRANSPORTISTA: `1_Empresa_Transportista_${cuit}`,
     CHOFER: `2_Chofer_${dni}`,
@@ -92,9 +92,9 @@ async function appendDocsToArchive(equipo: any, docs: any[], archive: any, mainF
     const { bucketName, objectPath } = parseFilePath(d.filePath, equipo.tenantEmpresaId);
     try {
       const stream = await minioService.getObject(bucketName, objectPath);
-      const subfolder = subfolders[d.entityType] || 'otros';
-      const safeTpl = String(d.template?.name || 'documento').replace(/[^a-z0-9_-]/gi, '_');
-      const ext = (d.fileName || '').split('.').pop() || 'pdf';
+      const subfolder = subfolders[d.entityType] ?? 'otros';
+      const safeTpl = String(d.template?.name ?? 'documento').replace(/[^a-z0-9_-]/gi, '_');
+      const ext = (d.fileName ?? '').split('.').pop() ?? 'pdf';
       archive.append(stream as any, { name: `${mainFolder}/${subfolder}/${safeTpl}.${ext}` });
     } catch (err: any) {
       // Si el archivo no existe en MinIO, lo omitimos y continuamos

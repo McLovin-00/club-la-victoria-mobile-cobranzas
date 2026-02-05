@@ -62,13 +62,13 @@ async function buildExcelRowsOnly(equipoIds: number[]): Promise<ExcelRow[]> {
 
     rows.push({
       equipoId: equipo.id,
-      empresaCuit: equipo.empresaTransportista?.cuit || '',
-      empresaRazonSocial: equipo.empresaTransportista?.razonSocial || '',
-      choferDni: chofer?.dni || equipo.driverDniNorm || '',
-      choferNombre: chofer?.nombre || '',
-      choferApellido: chofer?.apellido || '',
-      camionPatente: camion?.patente || equipo.truckPlateNorm || '',
-      acopladoPatente: acoplado?.patente || equipo.trailerPlateNorm || '',
+      empresaCuit: equipo.empresaTransportista?.cuit ?? '',
+      empresaRazonSocial: equipo.empresaTransportista?.razonSocial ?? '',
+      choferDni: chofer?.dni ?? equipo.driverDniNorm ?? '',
+      choferNombre: chofer?.nombre ?? '',
+      choferApellido: chofer?.apellido ?? '',
+      camionPatente: camion?.patente ?? equipo.truckPlateNorm ?? '',
+      acopladoPatente: acoplado?.patente ?? equipo.trailerPlateNorm ?? '',
     });
   }
   return rows;
