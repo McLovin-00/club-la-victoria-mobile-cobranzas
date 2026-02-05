@@ -363,7 +363,7 @@ const EditPlatformUserModal: React.FC<Props> = ({ isOpen, onClose, user }) => {
 
   return (
     <div className="fixed inset-0 z-50 overflow-y-auto">
-      <div className="fixed inset-0 bg-black/40" onClick={onClose} />
+      <div className="fixed inset-0 bg-black/40" onClick={onClose} onKeyDown={(e) => e.key === 'Escape' && onClose()} role="button" tabIndex={0} aria-label="Cerrar modal" />
       <div className="flex min-h-full items-center justify-center p-4">
         <div className="relative bg-background rounded-lg shadow-xl w-full max-w-xl p-6">
           <h3 className="text-lg font-medium mb-6">Editar Usuario de Plataforma</h3>

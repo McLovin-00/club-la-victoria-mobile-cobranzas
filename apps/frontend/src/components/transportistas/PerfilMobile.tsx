@@ -95,6 +95,9 @@ export const PerfilMobile: React.FC = () => {
   }> = ({ icon: Icon, title, description, section, gradient }) => (
     <div
       onClick={() => setActiveSection(activeSection === section ? null : section)}
+      onKeyDown={(e) => e.key === 'Enter' && setActiveSection(activeSection === section ? null : section)}
+      role="button"
+      tabIndex={0}
       className="cursor-pointer"
     >
       <Card className="bg-white rounded-2xl shadow-lg border-0 overflow-hidden hover:shadow-xl transition-all duration-300">

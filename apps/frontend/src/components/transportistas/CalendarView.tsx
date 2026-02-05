@@ -234,6 +234,9 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
                 <TouchFeedback key={event.id}>
                   <div
                     onClick={() => onEventClick(event)}
+                    onKeyDown={(e) => e.key === 'Enter' && onEventClick(event)}
+                    role="button"
+                    tabIndex={0}
                     className="flex items-center justify-between p-3 rounded-xl bg-gray-50 hover:bg-gray-100 transition-colors cursor-pointer"
                   >
                     <div className="flex-1 min-w-0">

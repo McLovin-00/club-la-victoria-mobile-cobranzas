@@ -33,6 +33,9 @@ export function RemitoCard({ remito, onClick }: RemitoCardProps) {
   return (
     <div
       onClick={onClick}
+      onKeyDown={(e) => e.key === 'Enter' && onClick?.()}
+      role="button"
+      tabIndex={0}
       className="rounded-lg border bg-white dark:bg-slate-900 p-3 grid gap-3 md:grid-cols-[1fr,auto,auto] items-center hover:shadow-md transition-shadow cursor-pointer"
     >
       {/* Info principal */}

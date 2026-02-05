@@ -41,7 +41,7 @@ const DeleteConfirmation: React.FC<DeleteConfirmationProps> = ({
 
   return (
     <div className='fixed inset-0 z-50 overflow-y-auto'>
-      <div className='fixed inset-0 bg-black bg-opacity-50 transition-opacity' onClick={onCancel} />
+      <div className='fixed inset-0 bg-black bg-opacity-50 transition-opacity' onClick={onCancel} onKeyDown={(e) => e.key === 'Escape' && onCancel()} role="button" tabIndex={0} aria-label="Cerrar confirmación" />
       <div className='flex min-h-full items-center justify-center p-4'>
         <div className='relative bg-background rounded-lg shadow-xl max-w-md w-full p-6'>
           <div className='flex items-center gap-3 mb-4'>

@@ -304,6 +304,9 @@ export const CalendarioInteligente: React.FC = () => {
                   <TouchFeedback key={event.id}>
                     <div
                       onClick={() => handleEventClick(event)}
+                      onKeyDown={(e) => e.key === 'Enter' && handleEventClick(event)}
+                      role="button"
+                      tabIndex={0}
                       className="flex items-center justify-between p-4 rounded-xl border border-gray-200 hover:border-gray-300 hover:bg-gray-50 transition-colors cursor-pointer"
                     >
                       <div className="flex-1 min-w-0">

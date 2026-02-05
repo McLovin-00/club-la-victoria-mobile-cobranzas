@@ -101,10 +101,11 @@ export const CalendarFilters: React.FC<CalendarFiltersProps> = ({
   ];
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm" onClick={onClose}>
+    <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm" onClick={onClose} onKeyDown={(e) => e.key === 'Escape' && onClose()} role="button" tabIndex={0} aria-label="Cerrar filtros">
       <div 
         className="fixed inset-x-0 bottom-0 bg-white rounded-t-3xl shadow-2xl max-h-[85vh] overflow-hidden"
         onClick={e => e.stopPropagation()}
+        role="dialog"
       >
         {/* Header */}
         <div className="flex items-center justify-between p-4 border-b border-gray-200 bg-gradient-to-r from-blue-50 to-blue-100">

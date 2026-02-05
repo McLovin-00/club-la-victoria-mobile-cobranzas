@@ -530,7 +530,7 @@ const EquipoActions: React.FC<{ dadorId?: number }> = ({ dadorId }) => {
   };
   return (
     <div className='flex flex-wrap items-end gap-2'>
-      <select className='border rounded px-2 py-2' value={equipoId as any} onChange={(e)=> setEquipoId(Number(e.target.value) ?? '' as any)}>
+      <select className='border rounded px-2 py-2' value={equipoId as any} onChange={(e)=> setEquipoId(e.target.value ? Number(e.target.value) : '')}>
         {equipos.map((e:any)=> (
           <option key={e.id} value={e.id}>#{e.id} · DNI {e.driverDniNorm} · {e.truckPlateNorm}</option>
         ))}

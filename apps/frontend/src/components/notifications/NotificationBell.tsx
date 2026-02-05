@@ -229,6 +229,9 @@ export const NotificationBell = () => {
                         !notification.read ? 'bg-blue-50/50' : ''
                       } ${priorityStyles.bg}`}
                       onClick={() => handleNotificationClick(notification)}
+                      onKeyDown={(e) => e.key === 'Enter' && handleNotificationClick(notification)}
+                      role="button"
+                      tabIndex={0}
                     >
                       <div className="px-4 py-3">
                         {notification.link ? (

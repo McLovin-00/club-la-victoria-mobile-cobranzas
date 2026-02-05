@@ -272,6 +272,9 @@ export const WhatsAppNotificationManager: React.FC<WhatsAppNotificationManagerPr
                       }
                     `}
                     onClick={() => handleInstanceChange(instance.id)}
+                    onKeyDown={(e) => e.key === 'Enter' && handleInstanceChange(instance.id)}
+                    role="button"
+                    tabIndex={0}
                   >
                     <div className="flex items-center justify-between mb-2">
                       <h4 className="font-semibold text-gray-800">{instance.name}</h4>

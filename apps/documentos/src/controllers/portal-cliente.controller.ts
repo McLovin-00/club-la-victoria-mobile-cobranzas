@@ -52,10 +52,11 @@ function determineComplianceState(compliance: ReturnType<typeof ComplianceServic
     estadoCompliance = 'INCOMPLETO';
   } else if (tieneProximos) {
     estadoCompliance = 'PROXIMO_VENCER';
-    const proximos = compliance?.requirements.filter(r => r.state === 'PROXIMO' && r.expiresAt) || [];
+    const proximos = compliance?.requirements.filter(r => r.state === 'PROXIMO' && r.expiresAt) ?? [];
     if (proximos.length > 0) {
       const fechas = proximos.map(r => new Date(r.expiresAt!));
-      proximoVencimiento = fechas.reduce((a, b) => a < b ? a : b);
+      // Usar el primer elemento como valor inicial para evitar error en reduce vacío
+      proximoVencimiento = fechas.reduce((a, b) => (a < b ? a : b), fechas[0]);
     }
   }
 

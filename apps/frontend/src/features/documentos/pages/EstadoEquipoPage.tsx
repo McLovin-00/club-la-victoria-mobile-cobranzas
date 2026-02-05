@@ -389,8 +389,8 @@ export const EstadoEquipoPage: React.FC = () => {
         
         {/* Modal de vista previa simple por ID */}
         {previewDocId && (
-          <div className='fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4' onClick={() => setPreviewDocId(null)}>
-            <div className='bg-white rounded-lg shadow-xl max-w-5xl w-full h-[85vh] flex flex-col' onClick={(e) => e.stopPropagation()}>
+          <div className='fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4' onClick={() => setPreviewDocId(null)} onKeyDown={(e) => e.key === 'Escape' && setPreviewDocId(null)} role="button" tabIndex={0} aria-label="Cerrar preview">
+            <div className='bg-white rounded-lg shadow-xl max-w-5xl w-full h-[85vh] flex flex-col' onClick={(e) => e.stopPropagation()} role="dialog">
               <div className='flex items-center justify-between p-4 border-b bg-gray-50'>
                 <h2 className='font-semibold text-gray-900'>Vista Previa del Documento</h2>
                 <button onClick={() => setPreviewDocId(null)} className='p-2 hover:bg-gray-200 rounded-full text-xl'>

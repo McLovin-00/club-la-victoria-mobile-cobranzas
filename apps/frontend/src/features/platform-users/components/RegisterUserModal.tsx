@@ -618,7 +618,7 @@ export const RegisterUserModal: React.FC<RegisterUserModalProps> = ({ isOpen, on
 
   return (
     <div className="fixed inset-0 z-50 overflow-y-auto">
-      <div className="fixed inset-0 bg-black/40" onClick={onClose} />
+      <div className="fixed inset-0 bg-black/40" onClick={onClose} onKeyDown={(e) => e.key === 'Escape' && onClose()} role="button" tabIndex={0} aria-label="Cerrar modal" />
       <div className="flex min-h-full items-center justify-center p-4">
         <div className="relative bg-background rounded-lg shadow-xl w-full max-w-xl p-6">
           <h3 className="text-lg font-medium mb-6">Nuevo Usuario</h3>
@@ -1163,9 +1163,14 @@ export const RegisterUserModal: React.FC<RegisterUserModalProps> = ({ isOpen, on
                   />
                   <Button
                     type="button"
-                    onClick={() => {
-                      try { navigator.clipboard.writeText(tempPasswordToShow); } catch { /* Clipboard no disponible */ }
-                      showToast('Contraseña copiada', 'success');
+                    onClick={async () => {
+                      try { 
+                        await navigator.clipboard.writeText(tempPasswordToShow); 
+                        showToast('Contraseña copiada', 'success');
+                      } catch { 
+                        // Clipboard no disponible - intentar fallback
+                        showToast('No se pudo copiar automáticamente', 'warning');
+                      }
                     }}
                   >
                     Copiar

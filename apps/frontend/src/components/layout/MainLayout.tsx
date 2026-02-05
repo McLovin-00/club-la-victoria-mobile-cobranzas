@@ -77,6 +77,10 @@ export const MainLayout = () => {
           <div
             className='fixed inset-0 bg-foreground/20 backdrop-blur-sm z-10 lg:hidden'
             onClick={() => setSidebarOpen(false)}
+            onKeyDown={(e) => e.key === 'Escape' && setSidebarOpen(false)}
+            role="button"
+            tabIndex={0}
+            aria-label="Cerrar menú"
           />
         )}
 
@@ -139,7 +143,7 @@ const UserMenu = () => {
 
       {menuOpen && (
         <>
-          <div className='fixed inset-0 z-40' onClick={() => setMenuOpen(false)}></div>
+          <div className='fixed inset-0 z-40' onClick={() => setMenuOpen(false)} onKeyDown={(e) => e.key === 'Escape' && setMenuOpen(false)} role="button" tabIndex={0} aria-label="Cerrar menú de usuario"></div>
           <div className='absolute right-0 mt-2 w-64 bg-card rounded-lg shadow-sm border border-border z-50 top-full'>
             <div className='p-4 border-b border-border bg-muted'>
               <p className='text-sm font-medium text-foreground'>{user?.email}</p>

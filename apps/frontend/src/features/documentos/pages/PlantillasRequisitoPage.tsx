@@ -242,6 +242,9 @@ export const PlantillasRequisitoPage: React.FC = () => {
                 <div
                   className="p-4 flex items-center justify-between cursor-pointer hover:bg-muted/50"
                   onClick={() => setExpandedPlantilla(expandedPlantilla === p.id ? null : p.id)}
+                  onKeyDown={(e) => e.key === 'Enter' && setExpandedPlantilla(expandedPlantilla === p.id ? null : p.id)}
+                  role="button"
+                  tabIndex={0}
                 >
                   <div className="flex items-center gap-3">
                     {expandedPlantilla === p.id ? (
@@ -251,7 +254,7 @@ export const PlantillasRequisitoPage: React.FC = () => {
                     )}
                     <div>
                       {editingPlantilla === p.id ? (
-                        <div className="flex gap-2" onClick={(e) => e.stopPropagation()}>
+                        <div className="flex gap-2" onClick={(e) => e.stopPropagation()} role="group">
                           <input
                             type="text"
                             className="border rounded px-2 py-1"
@@ -273,7 +276,7 @@ export const PlantillasRequisitoPage: React.FC = () => {
                       )}
                     </div>
                   </div>
-                  <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
+                  <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()} role="group">
                     <span className="text-sm text-muted-foreground">
                       {p._count.templates} docs | {p._count.equipos} equipos
                     </span>

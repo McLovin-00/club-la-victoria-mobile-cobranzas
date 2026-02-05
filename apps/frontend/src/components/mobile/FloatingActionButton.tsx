@@ -84,6 +84,10 @@ export const FloatingActionButton: React.FC<FloatingActionButtonProps> = ({
         <div
           className="fixed inset-0 bg-black/20 z-40 transition-opacity duration-200"
           onClick={() => setIsExpanded(false)}
+          onKeyDown={(e) => e.key === 'Escape' && setIsExpanded(false)}
+          role="button"
+          tabIndex={0}
+          aria-label="Cerrar acciones"
         />
       )}
 

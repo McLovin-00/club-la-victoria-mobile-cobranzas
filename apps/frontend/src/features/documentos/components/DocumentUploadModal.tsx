@@ -203,6 +203,9 @@ export const DocumentUploadModal: React.FC<DocumentUploadModalProps> = ({
                         : 'border-gray-300 hover:border-gray-400'
                     }`}
                     onClick={() => setSelectedTemplate(template.id)}
+                    onKeyDown={(e) => e.key === 'Enter' && setSelectedTemplate(template.id)}
+                    role="button"
+                    tabIndex={0}
                   >
                     <div className='flex items-center space-x-3'>
                       <DocumentTextIcon className='h-5 w-5 text-blue-600' />
