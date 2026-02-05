@@ -36,7 +36,7 @@ export const EquiposPage: React.FC = () => {
   const { data: equipoKpis } = useGetEquipoKpisQuery({});
   const { data: equipos = [] } = useGetEquiposQuery({ empresaId: dadorId });
   // Import CSV state
-  const [csvOpen, setCsvOpen] = useState(false);
+  const [_csvOpen, _setCsvOpen] = useState(false);
   const [csvFile, setCsvFile] = useState<File | null>(null);
   const csvInputRef = React.useRef<HTMLInputElement>(null);
   const [dryRun, setDryRun] = useState(true);
@@ -159,9 +159,9 @@ export const EquiposPage: React.FC = () => {
   const [trailerIdSel, setTrailerIdSel] = useState<number | ''>('');
 
   // Para compatibilidad con alta mínima, mantenemos campos opcionales
-  const [dni, setDni] = useState('');
-  const [truckPlate, setTruckPlate] = useState('');
-  const [trailerPlate, setTrailerPlate] = useState('');
+  const [dni, _setDni] = useState('');
+  const [truckPlate, _setTruckPlate] = useState('');
+  const [trailerPlate, _setTrailerPlate] = useState('');
   const [clienteId, setClienteId] = useState<number | undefined>(initialClienteId);
   useEffect(()=>{ if (initialClienteId && (clienteId === undefined || clienteId === null)) setClienteId(initialClienteId); }, [initialClienteId, clienteId]);
   const [equipoId, setEquipoId] = useState<number | undefined>(equipos[0]?.id);
@@ -419,7 +419,7 @@ export const EquiposPage: React.FC = () => {
           <Label>Teléfonos del Chofer (WhatsApp)</Label>
           <div className='flex flex-col gap-2 max-w-md mt-1'>
             {phones.map((p, idx)=> (
-              <div key={idx} className='flex gap-2'>
+              <div key={`phone-input-${idx}`} className='flex gap-2'>
                 <Input placeholder='+54911...' value={p} onChange={(e)=>{ const arr=[...phones]; arr[idx]=e.target.value; setPhones(arr); }} />
                 <Button variant='outline' onClick={()=> setPhones(arr=> arr.filter((_,i)=> i!==idx))} disabled={phones.length<=1}>Quitar</Button>
               </div>
@@ -863,7 +863,7 @@ const Dot: React.FC<{ color: string }> = ({ color }) => (
 );
 
 const EquipoSemaforo: React.FC<{ equipoId: number }> = ({ equipoId }) => {
-  const navigate = useNavigate();
+  const _navigate = useNavigate();
   const { data } = useGetEquipoComplianceQuery({ id: equipoId }, { skip: !equipoId });
   if (!data) return null;
   const now = Date.now();

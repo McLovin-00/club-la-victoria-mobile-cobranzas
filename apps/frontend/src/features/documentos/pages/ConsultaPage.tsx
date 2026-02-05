@@ -15,6 +15,16 @@ import { ArrowLeftIcon, ChevronLeftIcon, ChevronRightIcon, ExclamationTriangleIc
 type FilterType = 'todos' | 'dador' | 'cliente' | 'empresa';
 type ComplianceFilter = 'all' | 'faltantes' | 'vencidos' | 'por_vencer';
 
+const SEVERIDAD_CLASSES: Record<string, string> = {
+  critica: 'bg-red-50 text-red-700',
+  advertencia: 'bg-yellow-50 text-yellow-700',
+  default: 'bg-blue-50 text-blue-700',
+};
+
+function getSeveridadClass(severidad: string | undefined): string {
+  return SEVERIDAD_CLASSES[severidad || 'default'] || SEVERIDAD_CLASSES.default;
+}
+
 // Helper para construir query params de búsqueda de equipos
 function buildEquipoSearchParams(
   params: { empresaId?: number; clienteId?: number; empresaTransportistaId?: number; search?: string; dni?: string; truckPlate?: string; trailerPlate?: string },
@@ -205,13 +215,13 @@ export const ConsultaPage: React.FC = () => {
   const serverStats = pagedData?.stats;
   
   // Para compatibilidad con código existente
-  const [trigger] = useLazySearchEquiposQuery();
-  const [getCompliance] = useLazyGetEquipoComplianceQuery();
+  const [_trigger] = useLazySearchEquiposQuery();
+  const [_getCompliance] = useLazyGetEquipoComplianceQuery();
   const [deleteEquipo] = useDeleteEquipoMutation();
-  const [toggleActivo, { isLoading: isTogglingActivo }] = useToggleEquipoActivoMutation();
+  const [toggleActivo, { isLoading: _isTogglingActivo }] = useToggleEquipoActivoMutation();
   const [togglingEquipoId, setTogglingEquipoId] = useState<number | null>(null);
   // CSV DNIs search
-  const [searchByDnis, { isLoading: loadingCsvSearch }] = useSearchEquiposByDnisMutation();
+  const [_searchByDnis, { isLoading: loadingCsvSearch }] = useSearchEquiposByDnisMutation();
   const [csvResults, setCsvResults] = useState<Array<any>>([]);
   const [csvInfo, setCsvInfo] = useState<{ name?: string; count?: number }>({});
   
@@ -472,8 +482,8 @@ export const ConsultaPage: React.FC = () => {
             {/* Datos extraídos agrupados por documento */}
             {data.extractedDataByDocument && data.extractedDataByDocument.length > 0 ? (
               <div className='space-y-3'>
-                {data.extractedDataByDocument.map((docData: any, idx: number) => (
-                  <div key={idx} className='bg-gray-50 rounded p-2'>
+                {data.extractedDataByDocument.map((docData: any) => (
+                  <div key={`${docData.templateName || 'doc'}-${docData.uploadedAt || docData.id || ''}`} className='bg-gray-50 rounded p-2'>
                     <p className='text-xs font-semibold text-blue-700 mb-1 border-b border-blue-200 pb-1'>
                       📄 {docData.templateName || 'Documento sin plantilla'}
                       {docData.uploadedAt && (
@@ -509,12 +519,8 @@ export const ConsultaPage: React.FC = () => {
               <div className='mt-2 pt-2 border-t'>
                 <p className='text-xs font-medium text-orange-600 mb-1'>⚠️ Disparidades detectadas:</p>
                 <div className='space-y-1'>
-                  {data.disparidades.map((d: any, i: number) => (
-                    <div key={i} className={`text-xs p-2 rounded ${
-                      d.severidad === 'critica' ? 'bg-red-50 text-red-700' :
-                      d.severidad === 'advertencia' ? 'bg-yellow-50 text-yellow-700' :
-                      'bg-blue-50 text-blue-700'
-                    }`}>
+                  {data.disparidades.map((d: any) => (
+                    <div key={`${d.campo}-${d.templateName || ''}-${d.mensaje?.slice(0, 15) || ''}`} className={`text-xs p-2 rounded ${getSeveridadClass(d.severidad)}`}>
                       <strong>{d.campo}:</strong> {d.mensaje}
                       {d.templateName && (
                         <span className='block text-xs opacity-70 italic'>

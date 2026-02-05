@@ -11,7 +11,7 @@ export const Skeleton: React.FC<SkeletonProps> = ({ className }) => (
 export const SkeletonTableRows: React.FC<{ rows?: number }> = ({ rows = 5 }) => (
   <div className='divide-y divide-border'>
     {Array.from({ length: rows }).map((_, idx) => (
-      <div key={idx} className='p-4 grid grid-cols-4 gap-4'>
+      <div key={`skeleton-row-${idx}`} className='p-4 grid grid-cols-4 gap-4'>
         <Skeleton className='h-4' />
         <Skeleton className='h-4' />
         <Skeleton className='h-4' />

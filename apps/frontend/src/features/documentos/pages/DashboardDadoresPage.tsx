@@ -8,8 +8,14 @@ import { useRoleBasedNavigation } from '../../../hooks/useRoleBasedNavigation';
 
 const baseUrl = `${import.meta.env.VITE_DOCUMENTOS_API_URL}/api/docs`;
 
+const COLOR_CLASSES: Record<'red' | 'yellow' | 'green', string> = {
+  red: 'bg-red-500',
+  yellow: 'bg-yellow-500',
+  green: 'bg-green-500',
+};
+
 const StatusDot: React.FC<{ count: number; color: 'red' | 'yellow' | 'green' }> = ({ count, color }) => {
-  const colorClass = color === 'red' ? 'bg-red-500' : color === 'yellow' ? 'bg-yellow-500' : 'bg-green-500';
+  const colorClass = COLOR_CLASSES[color];
   return (
     <div className='flex items-center gap-2'>
       <span className={`inline-block w-3 h-3 rounded-full ${colorClass}`} />
@@ -80,15 +86,15 @@ const DashboardDadoresPage: React.FC = () => {
     return { red, yellow, green };
   }, [data.semaforos]);
 
+  const BADGE_CLASSES: Record<'red' | 'yellow' | 'green', string> = {
+    red: 'border-red-200 bg-red-50 text-red-700 dark:border-red-900/40 dark:bg-red-950/30 dark:text-red-300',
+    yellow: 'border-yellow-200 bg-yellow-50 text-yellow-700 dark:border-yellow-900/40 dark:bg-yellow-950/30 dark:text-yellow-300',
+    green: 'border-green-200 bg-green-50 text-green-700 dark:border-green-900/40 dark:bg-green-950/30 dark:text-green-300',
+  };
+
   const headerBadge = (label: string, value: number, color: 'red'|'yellow'|'green') => (
-    <div className={`rounded-xl border px-4 py-3 shadow-sm text-sm flex items-center gap-2 ${
-      color==='red'
-        ? 'border-red-200 bg-red-50 text-red-700 dark:border-red-900/40 dark:bg-red-950/30 dark:text-red-300'
-        : color==='yellow'
-          ? 'border-yellow-200 bg-yellow-50 text-yellow-700 dark:border-yellow-900/40 dark:bg-yellow-950/30 dark:text-yellow-300'
-          : 'border-green-200 bg-green-50 text-green-700 dark:border-green-900/40 dark:bg-green-950/30 dark:text-green-300'
-    }`}>
-      <span className={`inline-block w-2.5 h-2.5 rounded-full ${color==='red'?'bg-red-500':color==='yellow'?'bg-yellow-500':'bg-green-500'}`} />
+    <div className={`rounded-xl border px-4 py-3 shadow-sm text-sm flex items-center gap-2 ${BADGE_CLASSES[color]}`}>
+      <span className={`inline-block w-2.5 h-2.5 rounded-full ${COLOR_CLASSES[color]}`} />
       <div className='flex flex-col leading-none'>
         <span className='text-[11px] opacity-70'>{label}</span>
         <span className='text-lg font-semibold'>{value}</span>
@@ -128,7 +134,7 @@ const DashboardDadoresPage: React.FC = () => {
         </div>
         <div className='space-y-3 text-sm'>
           {cats.map((label, i) => (
-            <div key={i} className='rounded-xl border bg-card dark:border-slate-700 px-3 py-2 flex justify-between items-center'>
+            <div key={`cat-${label}`} className='rounded-xl border bg-card dark:border-slate-700 px-3 py-2 flex justify-between items-center'>
               <div className='font-medium'>{label}</div>
               <div className='flex items-center gap-3 text-xs'>
                 <button
@@ -238,11 +244,11 @@ const DashboardDadoresPage: React.FC = () => {
       {loading && (
         <div className='grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6'>
           {[...Array(3)].map((_, i) => (
-            <Card key={i} className='p-5 bg-card'>
+            <Card key={`skeleton-card-${i}`} className='p-5 bg-card'>
               <div className='animate-pulse h-4 bg-gray-200 dark:bg-slate-700 rounded w-1/3 mb-4' />
               <div className='h-2 bg-gray-200 dark:bg-slate-700 rounded-full mb-4' />
               <div className='grid grid-cols-2 gap-3'>
-                {[...Array(4)].map((__, j) => (<div key={j} className='h-10 bg-gray-100 dark:bg-slate-800 rounded' />))}
+                {[...Array(4)].map((__, j) => (<div key={`skeleton-inner-${j}`} className='h-10 bg-gray-100 dark:bg-slate-800 rounded' />))}
               </div>
             </Card>
           ))}

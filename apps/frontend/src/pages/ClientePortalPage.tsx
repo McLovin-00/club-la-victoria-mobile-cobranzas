@@ -521,8 +521,8 @@ const EquipoCard: React.FC<{ equipo: any; clienteId: number; reqs: any[]; estado
           </div>
           
           <div className="space-y-2">
-            {filteredReqs.map(({ r, est }, i) => (
-              <div key={i} className="flex items-center gap-3 p-3 rounded-xl bg-gray-50 border-2 border-gray-100">
+            {filteredReqs.map(({ r, est }) => (
+              <div key={`${r.entityType}-${r.templateId}-${r.id || ''}`} className="flex items-center gap-3 p-3 rounded-xl bg-gray-50 border-2 border-gray-100">
                 {getEstadoIcon(est)}
                 <div className="flex-1 text-sm">
                   <span className="font-semibold text-gray-700">{r.entityType}</span>

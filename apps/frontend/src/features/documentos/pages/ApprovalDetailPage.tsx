@@ -12,7 +12,7 @@ export default function ApprovalDetailPage() {
   const navigate = useNavigate();
   const { goBack } = useRoleBasedNavigation();
   const docId = Number(id);
-  const { data, isFetching, error, refetch } = useGetApprovalPendingByIdQuery({ id: docId }, { skip: !docId });
+  const { data, isFetching: _isFetching, error, refetch } = useGetApprovalPendingByIdQuery({ id: docId }, { skip: !docId });
   const [approve, { isLoading: approving }] = useApprovePendingDocumentMutation();
   const [reject, { isLoading: rejecting }] = useRejectPendingDocumentMutation();
   const [recheckWithAI, { isLoading: rechecking }] = useRecheckDocumentWithAIMutation();
@@ -28,7 +28,7 @@ export default function ApprovalDetailPage() {
   const location = useLocation();
 
   // Helpers de formato de fecha
-  const toYmd = (dmy: string): string => {
+  const _toYmd = (dmy: string): string => {
     const m = dmy.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
     if (!m) return '';
     const [_, dd, mm, yyyy] = m;
@@ -358,8 +358,8 @@ export default function ApprovalDetailPage() {
                   Disparidades detectadas
                 </div>
                 <div className="space-y-2">
-                  {disparidades.map((d: any, i: number) => (
-                    <DisparidadItem key={i} disparidad={d} />
+                  {disparidades.map((d: any) => (
+                    <DisparidadItem key={`${d.campo}-${d.mensaje?.slice(0, 20) || ''}`} disparidad={d} />
                   ))}
                 </div>
               </div>

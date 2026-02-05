@@ -465,7 +465,7 @@ export function RemitoUploader({ onSuccess, dadorCargaId }: RemitoUploaderProps)
         onCapture={(pics) => {
           // Convertir las fotos a FilePreview y agregarlas
           const newFiles: FilePreview[] = pics.map((file) => ({
-            id: `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+            id: `${Date.now()}-${Math.random().toString(36).substring(2, 11)}`,
             file,
             preview: URL.createObjectURL(file),
             type: 'image' as const,

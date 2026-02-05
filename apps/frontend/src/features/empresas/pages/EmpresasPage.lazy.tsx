@@ -48,7 +48,7 @@ const EmpresasPageSkeleton: React.FC = () => (
 
           {/* Filas de la tabla */}
           {[...Array(5)].map((_, i) => (
-            <div key={i} className='grid grid-cols-4 gap-4 py-4 border-b border-border last:border-b-0'>
+            <div key={`skeleton-row-${i}`} className='grid grid-cols-4 gap-4 py-4 border-b border-border last:border-b-0'>
               <div className='flex items-center space-x-3'>
                 <div className='w-8 h-8 bg-muted rounded animate-pulse'></div>
                 <div className='space-y-1'>

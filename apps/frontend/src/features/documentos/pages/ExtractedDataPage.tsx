@@ -242,8 +242,8 @@ export default function ExtractedDataPage() {
                         </td>
                         <td className="px-4 py-3">
                           <div className="flex flex-wrap gap-1">
-                            {destacados.length > 0 ? destacados.map((d, i) => (
-                              <span key={i} className="inline-flex px-2 py-0.5 text-xs bg-slate-100 dark:bg-slate-600 text-slate-600 dark:text-slate-300 rounded">
+                            {destacados.length > 0 ? destacados.map((d) => (
+                              <span key={`destacado-${d}`} className="inline-flex px-2 py-0.5 text-xs bg-slate-100 dark:bg-slate-600 text-slate-600 dark:text-slate-300 rounded">
                                 {d}
                               </span>
                             )) : (

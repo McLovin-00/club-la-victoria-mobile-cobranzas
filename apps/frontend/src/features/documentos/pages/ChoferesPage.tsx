@@ -20,7 +20,7 @@ const ChoferPhonesInline: React.FC<{ choferId: number; initial: string[]; onSave
     <div className='mt-1'>
       <div className='flex flex-col gap-2 max-w-md'>
         {phones.map((p, i)=> (
-          <div key={i} className='flex gap-2'>
+          <div key={`phone-input-${i}`} className='flex gap-2'>
             <Input value={p} placeholder='+54911...' onChange={(e)=>{ const arr=[...phones]; arr[i]=e.target.value; setPhones(arr); }} />
             <Button variant='outline' onClick={()=> setPhones((arr)=> arr.filter((_,idx)=> idx!==i))} disabled={phones.length<=1}>Quitar</Button>
           </div>
@@ -108,7 +108,7 @@ const ChoferesPage: React.FC = () => {
       <div className='mb-4 grid grid-cols-1 md:grid-cols-6 gap-2 items-end'>
         <div className='flex flex-col gap-2 md:col-span-5'>
           {phones.map((p, idx) => (
-            <Input key={idx} placeholder='+54911...' value={p} onChange={(e)=>{
+            <Input key={`phone-field-${idx}`} placeholder='+54911...' value={p} onChange={(e)=>{
               const v = e.target.value; const arr = [...phones]; arr[idx] = v; setPhones(arr);
             }} />
           ))}

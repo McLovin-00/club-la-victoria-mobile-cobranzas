@@ -207,8 +207,8 @@ export const PreCheckModal: React.FC<PreCheckModalProps> = ({
 
               {/* Lista de entidades */}
               <div className="space-y-4">
-                {result.entidades.map((entidad, idx) => (
-                  <div key={idx} className="border rounded-lg p-4">
+                {result.entidades.map((entidad) => (
+                  <div key={`${entidad.entityType}-${entidad.identificador}`} className="border rounded-lg p-4">
                     <div className="flex items-center justify-between mb-3">
                       <div className="flex items-center gap-2">
                         <span className="text-2xl">{ENTITY_ICONS[entidad.entityType] || '📄'}</span>
@@ -296,8 +296,8 @@ export const PreCheckModal: React.FC<PreCheckModalProps> = ({
                   <ul className="list-disc list-inside text-sm mb-4">
                     {result.entidades
                       .filter(e => e.requiereTransferencia)
-                      .map((e, i) => (
-                        <li key={i}>
+                      .map((e) => (
+                        <li key={`transfer-${e.entityType}-${e.identificador}`}>
                           {ENTITY_LABELS[e.entityType]}: {e.identificador} 
                           {e.nombre && ` (${e.nombre})`}
                         </li>

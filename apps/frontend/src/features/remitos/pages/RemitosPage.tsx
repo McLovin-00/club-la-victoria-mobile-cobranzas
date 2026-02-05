@@ -219,7 +219,7 @@ export function RemitosPage() {
       {isLoading ? (
         <div className="space-y-3">
           {[...Array(6)].map((_, i) => (
-            <div key={i} className="bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700 p-4 animate-pulse">
+            <div key={`skeleton-${i}`} className="bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700 p-4 animate-pulse">
               <div className="h-5 bg-slate-200 dark:bg-slate-700 rounded w-1/2 mb-3" />
               <div className="space-y-2">
                 <div className="h-4 bg-slate-200 dark:bg-slate-700 rounded w-3/4" />

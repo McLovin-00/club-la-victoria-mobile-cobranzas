@@ -36,7 +36,7 @@ export const WhatsAppNotificationManager: React.FC<WhatsAppNotificationManagerPr
     getInstanceStatus,
     refreshInstances,
     createTemplate,
-    updateTemplate,
+    updateTemplate: _updateTemplate,
     deleteTemplate,
   } = useWhatsAppNotifications();
 
@@ -44,7 +44,7 @@ export const WhatsAppNotificationManager: React.FC<WhatsAppNotificationManagerPr
   const [selectedTemplate, setSelectedTemplate] = useState('');
   const [instanceStatuses, setInstanceStatuses] = useState<Record<string, string>>({});
   const [showTemplateForm, setShowTemplateForm] = useState(false);
-  const [editingTemplate, setEditingTemplate] = useState<string | null>(null);
+  const [_editingTemplate, _setEditingTemplate] = useState<string | null>(null);
   
   // New template form state
   const [newTemplate, setNewTemplate] = useState({
@@ -505,8 +505,8 @@ export const WhatsAppNotificationManager: React.FC<WhatsAppNotificationManagerPr
                   <p className="text-sm text-gray-600 mb-2">{template.message}</p>
                   {template.variables.length > 0 && (
                     <div className="flex flex-wrap gap-1 mt-2">
-                      {template.variables.map((variable, index) => (
-                        <Badge key={index} className="bg-blue-100 text-blue-700 border-blue-200 text-xs">
+                      {template.variables.map((variable) => (
+                        <Badge key={variable} className="bg-blue-100 text-blue-700 border-blue-200 text-xs">
                           {`{{${variable}}}`}
                         </Badge>
                       ))}

@@ -26,7 +26,7 @@ import { NotificationBell } from '../notifications/NotificationBell';
 
 export const MainLayout = () => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const dispatch = useDispatch();
+  const _dispatch = useDispatch();
 
   return (
     <div className='h-screen bg-background overflow-hidden flex flex-col'>
@@ -191,7 +191,7 @@ const SidebarContent = ({ closeSidebar }: SidebarContentProps) => {
   const hasAdminInternoAccess = isAdminInterno || isSuperAdmin || isAdmin;
   
   // Roles que pueden gestionar usuarios (crear/editar)
-  const canManageUsers = isAdmin || isAdminInterno || isDadorDeCarga || isTransportista;
+  const _canManageUsers = isAdmin || isAdminInterno || isDadorDeCarga || isTransportista;
   
   // Obtener configuración de servicios
   const serviceFlags = useServiceFlags();

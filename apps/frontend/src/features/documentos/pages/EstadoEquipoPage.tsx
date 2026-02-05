@@ -82,7 +82,7 @@ const Section: React.FC<{ title: string; items: Array<{ templateId: number; temp
               const canPreview = docId && item.state?.toUpperCase() !== 'FALTANTE';
               
               return (
-                <div key={idx} className='group flex flex-col sm:flex-row sm:items-center justify-between p-3 sm:p-4 rounded-lg border hover:shadow-sm transition-all duration-200 hover:border-blue-200 gap-3'>
+                <div key={`doc-${item.templateId || item.id || idx}`} className='group flex flex-col sm:flex-row sm:items-center justify-between p-3 sm:p-4 rounded-lg border hover:shadow-sm transition-all duration-200 hover:border-blue-200 gap-3'>
                   <div className='flex items-center gap-3 min-w-0 flex-1'>
                     <div className={`p-1.5 sm:p-2 rounded-full flex-shrink-0 ${config.color.replace('text-', 'text-').replace('bg-', 'bg-').replace('border-', '')}`}>
                       <Icon className='h-3 w-3 sm:h-4 sm:w-4' />

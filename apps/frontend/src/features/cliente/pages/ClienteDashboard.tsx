@@ -40,7 +40,7 @@ const ClienteDashboard: React.FC = () => {
   // Búsqueda masiva por lista de DNIs o patentes
   const [showBulkSearch, setShowBulkSearch] = useState(false);
   const [bulkInput, setBulkInput] = useState('');
-  const [bulkType, setBulkType] = useState<'dni' | 'patente'>('dni');
+  const [_bulkType, _setBulkType] = useState<'dni' | 'patente'>('dni');
   
   
   // Solo ejecutar query si shouldFetch es true

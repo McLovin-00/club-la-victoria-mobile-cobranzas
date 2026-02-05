@@ -223,7 +223,7 @@ const RegistroEquipoTab: React.FC<any> = ({
                 
                 <div className="bg-green-50 border-2 border-green-200 rounded-xl p-4 space-y-3">
                   {phones.map((p, idx)=> (
-                    <div key={idx} className="flex gap-3">
+                    <div key={`phone-input-${idx}`} className="flex gap-3">
                       <Input 
                         placeholder="+54911234567" 
                         value={p} 

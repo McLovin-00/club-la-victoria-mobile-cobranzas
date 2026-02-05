@@ -81,7 +81,7 @@ export function useEntityVerification(options: UseEntityVerificationOptions = {}
     }
 
     // Evitar verificaciones duplicadas
-    const cacheKey = `${entityType}:${normalizedId}`;
+    const _cacheKey = `${entityType}:${normalizedId}`;
     if (lastChecked.current.get(entityType) === normalizedId) {
       return results.get(entityType) || null;
     }

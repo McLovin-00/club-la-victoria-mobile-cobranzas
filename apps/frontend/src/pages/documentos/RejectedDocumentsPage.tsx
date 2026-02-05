@@ -89,8 +89,8 @@ export const RejectedDocumentsPage = () => {
           <div className="bg-white rounded-lg shadow p-6">
             <p className="text-sm font-medium text-gray-600 mb-3">Principales Motivos</p>
             <div className="space-y-2">
-              {stats.rejectedByReason?.slice(0, 3).map((item: any, idx: number) => (
-                <div key={idx} className="flex justify-between text-sm">
+              {stats.rejectedByReason?.slice(0, 3).map((item: any) => (
+                <div key={`reason-${item.reason || 'none'}`} className="flex justify-between text-sm">
                   <span className="text-gray-700 truncate max-w-[180px]" title={item.reason}>
                     {item.reason || 'Sin motivo'}
                   </span>

@@ -136,7 +136,7 @@ export const CameraCapture: React.FC<CameraCaptureProps> = ({ isOpen, onClose, o
               <div className='text-sm mb-2'>Fotos capturadas: {captured.length}</div>
               <div className='grid grid-cols-2 md:grid-cols-4 gap-2'>
                 {captured.map((f, idx) => (
-                  <div key={idx} className='relative border rounded-md p-1'>
+                  <div key={`capture-${f.name}-${f.size}-${idx}`} className='relative border rounded-md p-1'>
                     <img src={URL.createObjectURL(f)} alt={`captura-${idx}`} className='w-full h-24 object-cover rounded' />
                     <button type='button' className='absolute top-1 right-1 text-xs bg-white/80 rounded px-1' onClick={() => removeAt(idx)}>Quitar</button>
                   </div>

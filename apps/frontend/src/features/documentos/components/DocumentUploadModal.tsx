@@ -281,9 +281,9 @@ export const DocumentUploadModal: React.FC<DocumentUploadModalProps> = ({
             {/* Lista de Archivos */}
             {files.length > 0 && (
               <div className='mt-4 space-y-2'>
-                {files.map((file, index) => (
+                {files.map((file) => (
                   <div
-                    key={index}
+                    key={`${file.name}-${file.size}-${file.lastModified}`}
                     className='flex items-center justify-between p-3 bg-gray-50 dark:bg-slate-800/60 rounded-md'
                   >
                     <div className='flex items-center space-x-3'>

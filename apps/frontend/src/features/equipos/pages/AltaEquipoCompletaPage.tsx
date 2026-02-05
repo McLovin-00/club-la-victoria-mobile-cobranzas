@@ -49,7 +49,7 @@ function getSubmitButtonText(isSubmitting: boolean, preCheckPassed: boolean): st
 const AltaEquipoCompletaPage: React.FC = () => {
   const navigate = useNavigate();
   const { goBack, getHomeRoute, user } = useRoleBasedNavigation();
-  const empresaId = useAppSelector((s) => (s as any).auth?.user?.empresaId) as number | undefined;
+  const _empresaId = useAppSelector((s) => (s as any).auth?.user?.empresaId) as number | undefined;
   const userDadorCargaId = useAppSelector((s) => (s as any).auth?.user?.dadorCargaId) as number | undefined;
   const role = user?.role;
 
@@ -57,10 +57,10 @@ const AltaEquipoCompletaPage: React.FC = () => {
   const { data: templatesResp, isLoading: loadingTemplates } = useGetTemplatesQuery(undefined);
   const { data: dadoresResp } = useGetDadoresQuery({ activo: true });
   const { data: clientsResp } = useGetClientsQuery({ activo: true });
-  const [uploadDocument, { isLoading: uploading }] = useUploadDocumentMutation();
-  const [createEquipoCompleto, { isLoading: creatingEquipo }] = useCreateEquipoCompletoMutation();
+  const [uploadDocument, { isLoading: _uploading }] = useUploadDocumentMutation();
+  const [createEquipoCompleto, { isLoading: _creatingEquipo }] = useCreateEquipoCompletoMutation();
   const [rollbackEquipoCompleto] = useRollbackEquipoCompletoMutation();
-  const [getConsolidatedTemplates, { data: consolidatedData, isFetching: loadingConsolidated }] = useLazyGetConsolidatedTemplatesQuery();
+  const [getConsolidatedTemplates, { data: consolidatedData, isFetching: _loadingConsolidated }] = useLazyGetConsolidatedTemplatesQuery();
   const { data: plantillasData = [] } = useGetPlantillasRequisitoQuery({ activo: true });
   const [getConsolidatedTemplatesByPlantillas, { data: consolidatedPlantillasData, isFetching: loadingConsolidatedPlantillas }] = useLazyGetConsolidatedTemplatesByPlantillasQuery();
 
@@ -78,7 +78,7 @@ const AltaEquipoCompletaPage: React.FC = () => {
       setPlantillaIds(prev => prev.filter(id => id !== plantillaId));
     }
   }, []);
-  const [usePlantillas, setUsePlantillas] = useState(true); // Por defecto usar plantillas
+  const [usePlantillas, _setUsePlantillas] = useState(true); // Por defecto usar plantillas
   const [empresaTransportista, setEmpresaTransportista] = useState('');
   const [cuitTransportista, setCuitTransportista] = useState('');
   const [choferNombre, setChoferNombre] = useState('');
@@ -127,7 +127,7 @@ const AltaEquipoCompletaPage: React.FC = () => {
     return Array.isArray(raw) ? raw : [];
   }, [dadoresResp]);
   
-  const clientesList = useMemo(() => {
+  const _clientesList = useMemo(() => {
     const raw = ((clientsResp as any)?.data || (clientsResp as any)?.list) ?? [];
     return Array.isArray(raw) ? raw : [];
   }, [clientsResp]);
@@ -1252,9 +1252,9 @@ const AltaEquipoCompletaPage: React.FC = () => {
             <div className='flex-1'>
               <p className='font-medium text-green-800'>Entidades verificadas</p>
               <div className='mt-2 flex flex-wrap gap-2'>
-                {preCheckResult.entidades.map((e: any, idx: number) => (
+                {preCheckResult.entidades.map((e: any) => (
                   <span 
-                    key={idx}
+                    key={`${e.entityType}-${e.identificador}`}
                     className={`px-2 py-1 rounded text-xs ${getEntityBadgeClass(e.existe, e.perteneceSolicitante)}`}
                   >
                     {e.entityType === 'EMPRESA_TRANSPORTISTA' && '🏢'}
