@@ -89,6 +89,37 @@ function buildSearchConditions(search: string): any {
   return { OR: searchConditions };
 }
 
+/** Construye condiciones de filtro para listado de usuarios */
+function buildUserListConditions(
+  user: any,
+  query: { search?: string; role?: string; empresaId?: string }
+): any[] {
+  const conditions: any[] = [];
+
+  // Filtro por texto de búsqueda
+  const search = query.search;
+  if (search && typeof search === 'string' && search.trim()) {
+    conditions.push(buildSearchConditions(search));
+  }
+
+  // Filtro por rol específico
+  const role = query.role;
+  if (role && typeof role === 'string') {
+    conditions.push({ role: role.toUpperCase() });
+  }
+
+  // Filtro por empresa
+  const empresaId = query.empresaId;
+  if (empresaId && typeof empresaId === 'string') {
+    conditions.push({ empresaId: parseInt(empresaId) });
+  }
+
+  // Restricciones según el rol del usuario actual
+  conditions.push(...buildRoleConditions(user));
+
+  return conditions;
+}
+
 // ============================================================================
 // ROUTES
 // ============================================================================
@@ -370,28 +401,14 @@ router.get(
   async (req: AuthRequest, res: Response): Promise<void> => {
     try {
       const user = req.user!;
-      const { page = 1, limit = 10, search = '', role, empresaId } = req.query;
+      const { page = 1, limit = 10, search, role, empresaId } = req.query;
 
-      // Construir filtros usando AND para combinar correctamente
-      const conditions: any[] = [];
-
-      // Filtro por texto de búsqueda
-      if (search && typeof search === 'string' && search.trim()) {
-        conditions.push(buildSearchConditions(search));
-      }
-
-      // Filtro por rol específico (del query param)
-      if (role && typeof role === 'string') {
-        conditions.push({ role: role.toUpperCase() });
-      }
-
-      // Filtro por empresa
-      if (empresaId && typeof empresaId === 'string') {
-        conditions.push({ empresaId: parseInt(empresaId) });
-      }
-
-      // Restricciones según el rol del usuario actual
-      conditions.push(...buildRoleConditions(user));
+      // Construir filtros usando helper
+      const conditions = buildUserListConditions(user, {
+        search: search as string,
+        role: role as string,
+        empresaId: empresaId as string,
+      });
       
       // Construir where final
       const where = conditions.length > 0 ? { AND: conditions } : {};
