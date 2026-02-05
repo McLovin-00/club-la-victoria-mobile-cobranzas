@@ -93,21 +93,23 @@ type SubmitContext = {
   onClose: () => void;
 };
 
-// Handler para crear usuario CLIENTE
-async function handleClienteSubmit(data: FormData, ctx: SubmitContext): Promise<boolean> {
-  const { currentUser, clienteMode, createClient, registerClientWizard, setTempPasswordToShow } = ctx;
-  
-  const actorRole = currentUser?.role;
-  if (!actorRole || !['SUPERADMIN', 'ADMIN', 'ADMIN_INTERNO'].includes(actorRole)) {
-    showToast('No tiene permisos para crear usuarios CLIENTE', 'error');
-    return false;
-  }
+// Helper para validar permisos de creación de rol
+function hasPermissionToCreate(actorRole: string | undefined, targetRole: string): boolean {
+  if (!actorRole) return false;
+  const allowedRoles = PERMISOS_CREACION[actorRole] ?? [];
+  return allowedRoles.includes(targetRole);
+}
 
-  let clienteIdFinal: number | undefined;
-  if (clienteMode === 'new') {
+// Helper para resolver ID de cliente
+async function resolveClienteId(
+  mode: 'existing' | 'new',
+  data: FormData,
+  createClient: any
+): Promise<number | undefined> {
+  if (mode === 'new') {
     if (!data.clienteRazonSocial || !data.clienteCuit) {
       showToast('Razón social y CUIT del cliente son obligatorios', 'error');
-      return false;
+      return undefined;
     }
     const created = await createClient({
       razonSocial: data.clienteRazonSocial,
@@ -115,19 +117,27 @@ async function handleClienteSubmit(data: FormData, ctx: SubmitContext): Promise<
       notas: data.clienteNotas ?? undefined,
       activo: true,
     }).unwrap();
-    clienteIdFinal = created?.id;
-  } else {
-    if (!data.clienteId) {
-      showToast('Debe seleccionar un cliente', 'error');
-      return false;
-    }
-    clienteIdFinal = Number(data.clienteId);
+    return created?.id;
   }
+  
+  if (!data.clienteId) {
+    showToast('Debe seleccionar un cliente', 'error');
+    return undefined;
+  }
+  return Number(data.clienteId);
+}
 
-  if (!clienteIdFinal) {
-    showToast('No se pudo determinar el cliente a asociar', 'error');
+// Handler para crear usuario CLIENTE
+async function handleClienteSubmit(data: FormData, ctx: SubmitContext): Promise<boolean> {
+  const { currentUser, clienteMode, createClient, registerClientWizard, setTempPasswordToShow } = ctx;
+  
+  if (!hasPermissionToCreate(currentUser?.role, 'CLIENTE')) {
+    showToast('No tiene permisos para crear usuarios CLIENTE', 'error');
     return false;
   }
+
+  const clienteIdFinal = await resolveClienteId(clienteMode, data, createClient);
+  if (!clienteIdFinal) return false;
 
   const resp = await registerClientWizard({
     email: data.email,
@@ -142,47 +152,58 @@ async function handleClienteSubmit(data: FormData, ctx: SubmitContext): Promise<
   return true;
 }
 
+// Helper para manejar error de CUIT duplicado
+function handleDuplicateCuitError(err: any, cuit: string): number | null {
+  if (err?.status !== 409 || err?.data?.code !== 'DUPLICATE_CUIT') return null;
+  const existing = err.data.existingDador;
+  const useExisting = window.confirm(
+    `El CUIT ${cuit} ya está registrado como "${existing.razonSocial}".\n\n` +
+    `¿Desea asociar el nuevo usuario a este dador existente?`
+  );
+  return useExisting ? existing.id : null;
+}
+
+// Helper para crear nuevo dador
+async function createNewDador(
+  data: FormData,
+  createDador: any
+): Promise<{ id: number } | { error: any } | null> {
+  if (!data.dadorRazonSocial || !data.dadorCuit) {
+    showToast('Razón social y CUIT del dador son obligatorios', 'error');
+    return null;
+  }
+  try {
+    const created = await createDador({
+      razonSocial: data.dadorRazonSocial,
+      cuit: data.dadorCuit,
+      notas: data.dadorNotas ?? undefined,
+      activo: true,
+    }).unwrap();
+    return { id: created?.id };
+  } catch (err: any) {
+    const existingId = handleDuplicateCuitError(err, data.dadorCuit ?? '');
+    if (existingId) return { id: existingId };
+    if (err?.status === 409) return null;
+    return { error: err };
+  }
+}
+
 // Handler para crear usuario DADOR_DE_CARGA
 async function handleDadorSubmit(data: FormData, ctx: SubmitContext): Promise<boolean> {
   const { currentUser, dadorMode, createDador, registerDadorWizard, setTempPasswordToShow } = ctx;
   
-  const actorRole = currentUser?.role;
-  if (!actorRole || !['SUPERADMIN', 'ADMIN', 'ADMIN_INTERNO'].includes(actorRole)) {
+  if (!hasPermissionToCreate(currentUser?.role, 'DADOR_DE_CARGA')) {
     showToast('No tiene permisos para crear usuarios DADOR DE CARGA', 'error');
     return false;
   }
 
   let dadorIdFinal: number | undefined;
+  
   if (dadorMode === 'new') {
-    if (!data.dadorRazonSocial || !data.dadorCuit) {
-      showToast('Razón social y CUIT del dador son obligatorios', 'error');
-      return false;
-    }
-    try {
-      const created = await createDador({
-        razonSocial: data.dadorRazonSocial,
-        cuit: data.dadorCuit,
-        notas: data.dadorNotas ?? undefined,
-        activo: true,
-      }).unwrap();
-      dadorIdFinal = created?.id;
-    } catch (err: any) {
-      if (err?.status === 409 && err?.data?.code === 'DUPLICATE_CUIT') {
-        const existing = err.data.existingDador;
-        const useExisting = window.confirm(
-          `El CUIT ${data.dadorCuit} ya está registrado como "${existing.razonSocial}".\n\n` +
-          `¿Desea asociar el nuevo usuario a este dador existente?`
-        );
-        if (useExisting) {
-          dadorIdFinal = existing.id;
-        } else {
-          showToast('Operación cancelada. Corrija el CUIT o seleccione un dador existente.', 'warning');
-          return false;
-        }
-      } else {
-        throw err;
-      }
-    }
+    const result = await createNewDador(data, createDador);
+    if (!result) return false;
+    if ('error' in result) throw result.error;
+    dadorIdFinal = result.id;
   } else {
     if (!data.dadorCargaId) {
       showToast('Debe seleccionar un dador de carga', 'error');
@@ -209,47 +230,33 @@ async function handleDadorSubmit(data: FormData, ctx: SubmitContext): Promise<bo
   return true;
 }
 
+// Helper para obtener el dador efectivo
+function getEffectiveDadorId(
+  isDadorDeCargeUser: boolean,
+  currentUserDadorId: number | undefined,
+  formDadorId: number | '' | undefined
+): number | undefined {
+  if (isDadorDeCargeUser && currentUserDadorId) return currentUserDadorId;
+  return formDadorId ? Number(formDadorId) : undefined;
+}
+
 // Handler para crear usuario TRANSPORTISTA
 async function handleTransportistaSubmit(data: FormData, ctx: SubmitContext): Promise<boolean> {
   const { currentUser, transportistaMode, isDadorDeCargeUser, currentUserDadorId,
           createEmpresaTransportista, registerTransportistaWizard, setTempPasswordToShow } = ctx;
   
-  const actorRole = currentUser?.role;
-  if (!actorRole || !['SUPERADMIN', 'ADMIN', 'ADMIN_INTERNO', 'DADOR_DE_CARGA'].includes(actorRole)) {
+  if (!hasPermissionToCreate(currentUser?.role, 'TRANSPORTISTA')) {
     showToast('No tiene permisos para crear usuarios TRANSPORTISTA', 'error');
     return false;
   }
 
-  const effectiveDadorId = isDadorDeCargeUser && currentUserDadorId 
-    ? currentUserDadorId 
-    : data.transportistaDadorId;
+  const effectiveDadorId = getEffectiveDadorId(isDadorDeCargeUser, currentUserDadorId, data.transportistaDadorId);
 
-  let transportistaIdFinal: number | undefined;
-  if (transportistaMode === 'new') {
-    if (!data.transportistaRazonSocial || !data.transportistaCuit || !effectiveDadorId) {
-      showToast('Razón social, CUIT y Dador de Carga son obligatorios', 'error');
-      return false;
-    }
-    const created = await createEmpresaTransportista({
-      dadorCargaId: Number(effectiveDadorId),
-      razonSocial: data.transportistaRazonSocial,
-      cuit: data.transportistaCuit,
-      notas: data.transportistaNotas ?? undefined,
-      activo: true,
-    }).unwrap();
-    transportistaIdFinal = created?.id;
-  } else {
-    if (!data.empresaTransportistaId) {
-      showToast('Debe seleccionar una empresa transportista', 'error');
-      return false;
-    }
-    transportistaIdFinal = Number(data.empresaTransportistaId);
-  }
-
-  if (!transportistaIdFinal) {
-    showToast('No se pudo determinar la transportista a asociar', 'error');
-    return false;
-  }
+  const transportistaIdFinal = await resolveTransportistaId(
+    transportistaMode, data, effectiveDadorId, createEmpresaTransportista
+  );
+  
+  if (!transportistaIdFinal) return false;
 
   const resp = await registerTransportistaWizard({
     email: data.email,
@@ -264,48 +271,80 @@ async function handleTransportistaSubmit(data: FormData, ctx: SubmitContext): Pr
   return true;
 }
 
-// Handler para crear usuario CHOFER
-async function handleChoferSubmit(data: FormData, ctx: SubmitContext): Promise<boolean> {
-  const { currentUser, choferMode, isDadorDeCargeUser, isTransportistaUser, currentUserDadorId,
-          createChofer, registerChoferWizard, setTempPasswordToShow } = ctx;
-  
-  const actorRole = currentUser?.role;
-  if (!actorRole || !['SUPERADMIN', 'ADMIN', 'ADMIN_INTERNO', 'DADOR_DE_CARGA', 'TRANSPORTISTA'].includes(actorRole)) {
-    showToast('No tiene permisos para crear usuarios CHOFER', 'error');
-    return false;
+// Helper para resolver ID de transportista
+async function resolveTransportistaId(
+  mode: 'existing' | 'new',
+  data: FormData,
+  effectiveDadorId: number | undefined,
+  createEmpresaTransportista: any
+): Promise<number | undefined> {
+  if (mode === 'new') {
+    if (!data.transportistaRazonSocial || !data.transportistaCuit || !effectiveDadorId) {
+      showToast('Razón social, CUIT y Dador de Carga son obligatorios', 'error');
+      return undefined;
+    }
+    const created = await createEmpresaTransportista({
+      dadorCargaId: Number(effectiveDadorId),
+      razonSocial: data.transportistaRazonSocial,
+      cuit: data.transportistaCuit,
+      notas: data.transportistaNotas ?? undefined,
+      activo: true,
+    }).unwrap();
+    return created?.id;
   }
+  
+  if (!data.empresaTransportistaId) {
+    showToast('Debe seleccionar una empresa transportista', 'error');
+    return undefined;
+  }
+  return Number(data.empresaTransportistaId);
+}
 
-  const effectiveChoferDadorId = (isDadorDeCargeUser || isTransportistaUser) && currentUserDadorId 
-    ? currentUserDadorId 
-    : data.choferDadorId;
-
-  let choferIdFinal: number | undefined;
-  if (choferMode === 'new') {
-    if (!data.choferDni || !effectiveChoferDadorId) {
+// Helper para resolver ID de chofer
+async function resolveChoferId(
+  mode: 'existing' | 'new',
+  data: FormData,
+  effectiveDadorId: number | undefined,
+  createChofer: any
+): Promise<number | undefined> {
+  if (mode === 'new') {
+    if (!data.choferDni || !effectiveDadorId) {
       showToast('DNI y Dador de Carga del chofer son obligatorios', 'error');
-      return false;
+      return undefined;
     }
     const created = await createChofer({
-      dadorCargaId: Number(effectiveChoferDadorId),
+      dadorCargaId: Number(effectiveDadorId),
       dni: data.choferDni,
       nombre: data.choferNombre ?? undefined,
       apellido: data.choferApellido ?? undefined,
       activo: true,
       phones: [],
     }).unwrap();
-    choferIdFinal = created?.id;
-  } else {
-    if (!data.choferId) {
-      showToast('Debe seleccionar un chofer', 'error');
-      return false;
-    }
-    choferIdFinal = Number(data.choferId);
+    return created?.id;
   }
+  
+  if (!data.choferId) {
+    showToast('Debe seleccionar un chofer', 'error');
+    return undefined;
+  }
+  return Number(data.choferId);
+}
 
-  if (!choferIdFinal) {
-    showToast('No se pudo determinar el chofer a asociar', 'error');
+// Handler para crear usuario CHOFER
+async function handleChoferSubmit(data: FormData, ctx: SubmitContext): Promise<boolean> {
+  const { currentUser, choferMode, isDadorDeCargeUser, isTransportistaUser, currentUserDadorId,
+          createChofer, registerChoferWizard, setTempPasswordToShow } = ctx;
+  
+  if (!hasPermissionToCreate(currentUser?.role, 'CHOFER')) {
+    showToast('No tiene permisos para crear usuarios CHOFER', 'error');
     return false;
   }
+
+  const isAutoUser = isDadorDeCargeUser || isTransportistaUser;
+  const effectiveChoferDadorId = getEffectiveDadorId(isAutoUser, currentUserDadorId, data.choferDadorId);
+
+  const choferIdFinal = await resolveChoferId(choferMode, data, effectiveChoferDadorId, createChofer);
+  if (!choferIdFinal) return false;
 
   const finalNombre = choferMode === 'new' ? (data.choferNombre ?? undefined) : (data.nombre ?? undefined);
   const finalApellido = choferMode === 'new' ? (data.choferApellido ?? undefined) : (data.apellido ?? undefined);
