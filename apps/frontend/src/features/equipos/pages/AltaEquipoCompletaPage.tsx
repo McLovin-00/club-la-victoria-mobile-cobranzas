@@ -54,6 +54,16 @@ const AltaEquipoCompletaPage: React.FC = () => {
   const [dadorCargaId, setDadorCargaId] = useState<number | null>(null);
   const [clienteIds, setClienteIds] = useState<number[]>([]);
   const [plantillaIds, setPlantillaIds] = useState<number[]>([]);
+
+  // Handler para toggle de plantilla (reduce nesting en JSX)
+  const handlePlantillaToggle = useCallback((plantillaId: number, clienteId: number, checked: boolean) => {
+    if (checked) {
+      setPlantillaIds(prev => [...prev, plantillaId]);
+      setClienteIds(prev => prev.includes(clienteId) ? prev : [...prev, clienteId]);
+    } else {
+      setPlantillaIds(prev => prev.filter(id => id !== plantillaId));
+    }
+  }, []);
   const [usePlantillas, setUsePlantillas] = useState(true); // Por defecto usar plantillas
   const [empresaTransportista, setEmpresaTransportista] = useState('');
   const [cuitTransportista, setCuitTransportista] = useState('');
@@ -874,17 +884,7 @@ const AltaEquipoCompletaPage: React.FC = () => {
                         <input
                           type='checkbox'
                           checked={plantillaIds.includes(plantilla.id)}
-                          onChange={(e) => {
-                            if (e.target.checked) {
-                              setPlantillaIds([...plantillaIds, plantilla.id]);
-                              // También agregar el clienteId para la asociación
-                              if (!clienteIds.includes(plantilla.clienteId)) {
-                                setClienteIds([...clienteIds, plantilla.clienteId]);
-                              }
-                            } else {
-                              setPlantillaIds(plantillaIds.filter((id) => id !== plantilla.id));
-                            }
-                          }}
+                          onChange={(e) => handlePlantillaToggle(plantilla.id, plantilla.clienteId, e.target.checked)}
                           className='w-4 h-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded'
                         />
                         <span className='text-sm text-gray-700'>

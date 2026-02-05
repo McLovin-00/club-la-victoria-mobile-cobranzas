@@ -15,6 +15,34 @@ import { ArrowLeftIcon, ChevronLeftIcon, ChevronRightIcon, ExclamationTriangleIc
 type FilterType = 'todos' | 'dador' | 'cliente' | 'empresa';
 type ComplianceFilter = 'all' | 'faltantes' | 'vencidos' | 'por_vencer';
 
+// Helper para construir query params de búsqueda de equipos
+function buildEquipoSearchParams(
+  params: { empresaId?: number; clienteId?: number; empresaTransportistaId?: number; search?: string; dni?: string; truckPlate?: string; trailerPlate?: string },
+  page: number,
+  take: number
+): URLSearchParams {
+  const sp = new URLSearchParams();
+  sp.set('page', String(page));
+  sp.set('limit', String(take));
+  
+  const mappings: Array<[keyof typeof params, string]> = [
+    ['empresaId', 'dadorCargaId'],
+    ['clienteId', 'clienteId'],
+    ['empresaTransportistaId', 'empresaTransportistaId'],
+    ['search', 'search'],
+    ['dni', 'dni'],
+    ['truckPlate', 'truckPlate'],
+    ['trailerPlate', 'trailerPlate'],
+  ];
+  
+  for (const [key, paramName] of mappings) {
+    const val = params[key];
+    if (val !== undefined && val !== null) sp.set(paramName, String(val));
+  }
+  
+  return sp;
+}
+
 // Helper para obtener IDs de equipos paginados desde el servidor
 async function fetchAllEquipoIds(
   params: { empresaId?: number; clienteId?: number; empresaTransportistaId?: number; search?: string; dni?: string; truckPlate?: string; trailerPlate?: string },
@@ -22,22 +50,11 @@ async function fetchAllEquipoIds(
 ): Promise<number[]> {
   const baseUrl = import.meta.env.VITE_DOCUMENTOS_API_URL ?? '';
   const take = 100;
-  let currentPage = 1;
-  const allIds: number[] = [];
   const maxPages = 200;
+  const allIds: number[] = [];
 
-  while (currentPage <= maxPages) {
-    const sp = new URLSearchParams();
-    sp.set('page', String(currentPage));
-    sp.set('limit', String(take));
-    if (params.empresaId) sp.set('dadorCargaId', String(params.empresaId));
-    if (params.clienteId) sp.set('clienteId', String(params.clienteId));
-    if (params.empresaTransportistaId) sp.set('empresaTransportistaId', String(params.empresaTransportistaId));
-    if (params.search) sp.set('search', String(params.search));
-    if (params.dni) sp.set('dni', String(params.dni));
-    if (params.truckPlate) sp.set('truckPlate', String(params.truckPlate));
-    if (params.trailerPlate) sp.set('trailerPlate', String(params.trailerPlate));
-
+  for (let currentPage = 1; currentPage <= maxPages; currentPage++) {
+    const sp = buildEquipoSearchParams(params, currentPage, take);
     const resp = await fetch(`${baseUrl}/api/docs/equipos/search-paged?${sp.toString()}`, {
       headers: { Authorization: `Bearer ${authToken}` },
     });
@@ -48,7 +65,6 @@ async function fetchAllEquipoIds(
     allIds.push(...pageIds);
 
     if (!json?.pagination?.hasNext) break;
-    currentPage += 1;
   }
 
   return Array.from(new Set(allIds));
