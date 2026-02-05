@@ -449,7 +449,9 @@ async function getEquiposClienteParaDescarga(
   
   // Si no hay búsqueda, retornar todos ordenados
   if (!searchTerm) {
-    return equiposDelCliente.sort((a, b) => a - b);
+    const sorted = [...equiposDelCliente];
+    sorted.sort((a, b) => a - b);
+    return sorted;
   }
   
   // Filtrar por patente o DNI
@@ -468,7 +470,9 @@ async function getEquiposClienteParaDescarga(
     select: { id: true }
   });
   
-  return equiposFiltrados.map(e => e.id).sort((a, b) => a - b);
+  const ids = equiposFiltrados.map(e => e.id);
+  ids.sort((a, b) => a - b);
+  return ids;
 }
 
 interface DocFormateado {
@@ -922,7 +926,8 @@ export class PortalClienteController {
         select: { equipoId: true }
       });
       
-      const equiposPermitidos = asignaciones.map(a => a.equipoId).sort((a, b) => a - b);
+      const equiposPermitidos = asignaciones.map(a => a.equipoId);
+      equiposPermitidos.sort((a, b) => a - b);
       if (equiposPermitidos.length === 0) {
         return res.status(403).json({ success: false, message: 'No tiene acceso a estos equipos' });
       }
