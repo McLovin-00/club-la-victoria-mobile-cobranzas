@@ -48,7 +48,7 @@ function buildRoleConditions(user: any): any[] {
       conditions.push({
         OR: [
           { creadoPorId: user.userId },
-          { dadorCargaId: (user as any).dadorCargaId },
+          { dadorCargaId: user.dadorCargaId },
         ]
       });
       conditions.push({ role: { in: ['TRANSPORTISTA', 'CHOFER'] } });
@@ -57,7 +57,7 @@ function buildRoleConditions(user: any): any[] {
       conditions.push({
         OR: [
           { creadoPorId: user.userId },
-          { empresaTransportistaId: (user as any).empresaTransportistaId },
+          { empresaTransportistaId: user.empresaTransportistaId },
         ]
       });
       conditions.push({ role: 'CHOFER' });
