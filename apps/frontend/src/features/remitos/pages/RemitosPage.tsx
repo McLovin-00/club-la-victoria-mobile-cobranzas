@@ -302,10 +302,11 @@ export function RemitosPage() {
               
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
+                  <label htmlFor="export-fecha-desde" className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
                     Fecha Desde
                   </label>
                   <input
+                    id="export-fecha-desde"
                     type="date"
                     value={exportFilters.fechaDesde}
                     onChange={(e) => setExportFilters(f => ({ ...f, fechaDesde: e.target.value }))}
@@ -313,10 +314,11 @@ export function RemitosPage() {
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
+                  <label htmlFor="export-fecha-hasta" className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
                     Fecha Hasta
                   </label>
                   <input
+                    id="export-fecha-hasta"
                     type="date"
                     value={exportFilters.fechaHasta}
                     onChange={(e) => setExportFilters(f => ({ ...f, fechaHasta: e.target.value }))}
@@ -326,10 +328,11 @@ export function RemitosPage() {
               </div>
               
               <div>
-                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
+                <label htmlFor="export-estado" className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
                   Estado
                 </label>
                 <select
+                  id="export-estado"
                   value={exportFilters.estado}
                   onChange={(e) => setExportFilters(f => ({ ...f, estado: e.target.value }))}
                   className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-slate-900 dark:text-white"
@@ -343,10 +346,11 @@ export function RemitosPage() {
               </div>
               
               <div>
-                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
+                <label htmlFor="export-cliente" className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
                   Cliente
                 </label>
                 <AutocompleteInput
+                  id="export-cliente"
                   value={exportFilters.clienteNombre}
                   onChange={(value) => setExportFilters(f => ({ ...f, clienteNombre: value }))}
                   field="cliente"
@@ -356,10 +360,11 @@ export function RemitosPage() {
               </div>
               
               <div>
-                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
+                <label htmlFor="export-transportista" className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
                   Transportista
                 </label>
                 <AutocompleteInput
+                  id="export-transportista"
                   value={exportFilters.transportistaNombre}
                   onChange={(value) => setExportFilters(f => ({ ...f, transportistaNombre: value }))}
                   field="transportista"
@@ -369,10 +374,11 @@ export function RemitosPage() {
               </div>
               
               <div>
-                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
+                <label htmlFor="export-patente" className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
                   Patente Chasis
                 </label>
                 <AutocompleteInput
+                  id="export-patente"
                   value={exportFilters.patenteChasis}
                   onChange={(value) => setExportFilters(f => ({ ...f, patenteChasis: value }))}
                   field="patente"
