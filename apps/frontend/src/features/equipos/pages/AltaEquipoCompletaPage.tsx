@@ -19,6 +19,20 @@ import { PreCheckModal } from '../components/PreCheckModal';
 import { useEntityVerification, EntityType } from '../hooks/useEntityVerification';
 import { EntityStatusBadge } from '../components/EntityStatusBadge';
 
+/** Helper para clases CSS de badge de entidad en precheck (evita ternarios anidados) */
+function getEntityBadgeClass(existe: boolean, perteneceSolicitante: boolean): string {
+  if (!existe) return 'bg-blue-100 text-blue-800';
+  if (perteneceSolicitante) return 'bg-green-100 text-green-800';
+  return 'bg-yellow-100 text-yellow-800';
+}
+
+/** Helper para texto del botón de submit (evita ternarios anidados) */
+function getSubmitButtonText(isSubmitting: boolean, preCheckPassed: boolean): string {
+  if (isSubmitting) return 'Creando Equipo y Subiendo Documentos...';
+  if (preCheckPassed) return '✓ Crear Equipo con Todos los Documentos';
+  return '🔍 Verificar y Crear Equipo';
+}
+
 /**
  * Página de Alta Completa de Equipo
  * 
@@ -1241,13 +1255,7 @@ const AltaEquipoCompletaPage: React.FC = () => {
                 {preCheckResult.entidades.map((e: any, idx: number) => (
                   <span 
                     key={idx}
-                    className={`px-2 py-1 rounded text-xs ${
-                      e.existe 
-                        ? e.perteneceSolicitante 
-                          ? 'bg-green-100 text-green-800' 
-                          : 'bg-yellow-100 text-yellow-800'
-                        : 'bg-blue-100 text-blue-800'
-                    }`}
+                    className={`px-2 py-1 rounded text-xs ${getEntityBadgeClass(e.existe, e.perteneceSolicitante)}`}
                   >
                     {e.entityType === 'EMPRESA_TRANSPORTISTA' && '🏢'}
                     {e.entityType === 'CHOFER' && '👤'}
@@ -1285,12 +1293,7 @@ const AltaEquipoCompletaPage: React.FC = () => {
           disabled={!datosBasicosCompletos || !todosDocumentosSeleccionados || isSubmitting}
           className='px-8 py-3 text-lg font-semibold text-white bg-green-600 rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors shadow-lg'
         >
-          {isSubmitting 
-            ? 'Creando Equipo y Subiendo Documentos...' 
-            : preCheckPassed 
-              ? '✓ Crear Equipo con Todos los Documentos'
-              : '🔍 Verificar y Crear Equipo'
-          }
+          {getSubmitButtonText(isSubmitting, preCheckPassed)}
         </button>
       </div>
 

@@ -11,6 +11,13 @@ import { es } from 'date-fns/locale';
 import { Link } from 'react-router-dom';
 import { BellIcon, TrashIcon, CheckIcon } from '@heroicons/react/24/outline';
 
+/** Helper para mensaje de notificaciones sin leer (evita ternarios anidados) */
+function getUnreadMessage(count: number): string {
+  if (count === 0) return 'No tienes notificaciones sin leer';
+  const plural = count > 1 ? 'es' : '';
+  return `Tienes ${count} notificación${plural} sin leer`;
+}
+
 export const NotificationsPage = () => {
   const [page, setPage] = useState(1);
   const [limit] = useState(20);
@@ -79,6 +86,16 @@ export const NotificationsPage = () => {
     }
   };
 
+  /** Helper que retorna el contenido apropiado según estado (evita ternarios anidados) */
+  const renderListState = (): 'loading' | 'error' | 'empty' | 'content' => {
+    if (isLoading) return 'loading';
+    if (error) return 'error';
+    if (notifications.length === 0) return 'empty';
+    return 'content';
+  };
+
+  const listState = renderListState();
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -89,7 +106,7 @@ export const NotificationsPage = () => {
             Notificaciones
           </h1>
           <p className="text-gray-600 mt-1">
-            {unreadCount > 0 ? `Tienes ${unreadCount} notificación${unreadCount > 1 ? 'es' : ''} sin leer` : 'No tienes notificaciones sin leer'}
+            {getUnreadMessage(unreadCount)}
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -132,24 +149,27 @@ export const NotificationsPage = () => {
 
       {/* Lista de notificaciones */}
       <div className="bg-white rounded-lg shadow overflow-hidden">
-        {isLoading ? (
+        {listState === 'loading' && (
           <div className="p-8 text-center">
             <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
             <p className="text-gray-600 mt-4">Cargando notificaciones...</p>
           </div>
-        ) : error ? (
+        )}
+        {listState === 'error' && (
           <div className="p-8 text-center">
             <BellIcon className="h-12 w-12 text-red-500 mx-auto mb-4" />
             <p className="text-red-600">Error al cargar las notificaciones</p>
           </div>
-        ) : notifications.length === 0 ? (
+        )}
+        {listState === 'empty' && (
           <div className="p-8 text-center">
             <BellIcon className="h-12 w-12 text-gray-300 mx-auto mb-4" />
             <p className="text-gray-600">
               {unreadOnly ? 'No tienes notificaciones sin leer' : 'No tienes notificaciones'}
             </p>
           </div>
-        ) : (
+        )}
+        {listState === 'content' && (
           <>
             <ul className="divide-y divide-gray-200">
               {notifications.map((notification: any) => (
