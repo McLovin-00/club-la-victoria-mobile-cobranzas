@@ -33,6 +33,11 @@ function registerRouteIfExists(path: string, router: any | null): void {
   }
 }
 
+// Helper: aplicar middleware opcional (silencia errores si el paquete no existe)
+function tryApplyMiddleware(_name: string, fn: () => void): void {
+  try { fn(); } catch { /* Middleware opcional no disponible */ }
+}
+
 // Helper: registrar rutas de documentos
 async function registerDocumentosRoutes(): Promise<void> {
   AppLogger.info('📄 Loading Documentos service routes');
@@ -102,21 +107,15 @@ const setupMiddlewares = (): void => {
   // Middlewares
   app.use(express.json({ limit: '50mb' }));
   app.use(express.urlencoded({ extended: true, limit: '50mb' }));
-  // Seguridad y performance
-  try {
-    const helmet = require('helmet');
-    app.use(helmet());
-  } catch { /* Helmet opcional */ }
-  try {
-    const compression = require('compression');
-    app.use(compression());
-  } catch { /* Compression opcional */ }
-  try {
+  // Seguridad y performance (helpers para middlewares opcionales)
+  tryApplyMiddleware('helmet', () => { const m = require('helmet'); app.use(m()); });
+  tryApplyMiddleware('compression', () => { const m = require('compression'); app.use(m()); });
+  tryApplyMiddleware('express-rate-limit', () => {
     const rateLimit = require('express-rate-limit');
     const windowMs = env.RATE_LIMIT_WINDOW_MS ?? 60_000;
     const max = env.RATE_LIMIT_MAX ?? 300;
     app.use(rateLimit({ windowMs, max, standardHeaders: true, legacyHeaders: false }));
-  } catch { /* Rate limit opcional */ }
+  });
 
   // Middleware de logging para todas las peticiones
   app.use(httpLogger);
