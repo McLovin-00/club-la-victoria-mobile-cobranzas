@@ -1,4 +1,4 @@
-import { Router, Response, RequestHandler } from 'express';
+import { Router, Response } from 'express';
 import { PlatformAuthController, platformAuthValidation } from '../controllers/platformAuth.controller';
 import { z } from 'zod';
 import { ValidationMiddleware } from '../middlewares/validation.middleware';
@@ -8,9 +8,7 @@ import {
   logAction,
   AuthRequest
 } from '../middlewares/platformAuth.middleware';
-import { loginRateLimiter as _loginRateLimiter, passwordChangeRateLimiter as _passwordChangeRateLimiter } from '../middlewares/rateLimit.middleware';
-const loginRateLimiter = _loginRateLimiter as unknown as RequestHandler;
-const passwordChangeRateLimiter = _passwordChangeRateLimiter as unknown as RequestHandler;
+import { loginRateLimiter, passwordChangeRateLimiter } from '../middlewares/rateLimit.middleware';
 import { prismaService } from '../config/prisma';
 import { AppLogger } from '../config/logger';
 
