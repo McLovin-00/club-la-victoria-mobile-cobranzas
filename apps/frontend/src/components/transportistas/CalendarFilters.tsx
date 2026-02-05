@@ -105,6 +105,7 @@ export const CalendarFilters: React.FC<CalendarFiltersProps> = ({
       <div 
         className="fixed inset-x-0 bottom-0 bg-white rounded-t-3xl shadow-2xl max-h-[85vh] overflow-hidden"
         onClick={e => e.stopPropagation()}
+        onKeyDown={e => e.stopPropagation()}
         role="dialog"
       >
         {/* Header */}
@@ -236,6 +237,9 @@ export const CalendarFilters: React.FC<CalendarFiltersProps> = ({
                   <TouchFeedback key={option.id}>
                     <div
                       onClick={() => toggleArrayFilter('estados', option.id)}
+                      onKeyDown={(e) => e.key === 'Enter' && toggleArrayFilter('estados', option.id)}
+                      role="button"
+                      tabIndex={0}
                       className={`flex items-center justify-between p-3 rounded-xl border-2 transition-colors cursor-pointer ${
                         filters.estados.includes(option.id as any)
                           ? 'border-blue-500 bg-blue-50'
@@ -281,6 +285,9 @@ export const CalendarFilters: React.FC<CalendarFiltersProps> = ({
                   <TouchFeedback key={option.id}>
                     <div
                       onClick={() => toggleArrayFilter('prioridades', option.id)}
+                      onKeyDown={(e) => e.key === 'Enter' && toggleArrayFilter('prioridades', option.id)}
+                      role="button"
+                      tabIndex={0}
                       className={`flex items-center justify-between p-3 rounded-xl border-2 transition-colors cursor-pointer ${
                         filters.prioridades.includes(option.id as any)
                           ? 'border-blue-500 bg-blue-50'
@@ -327,6 +334,9 @@ export const CalendarFilters: React.FC<CalendarFiltersProps> = ({
                     <TouchFeedback key={option.id}>
                       <div
                         onClick={() => toggleArrayFilter('equipos', option.id)}
+                        onKeyDown={(e) => e.key === 'Enter' && toggleArrayFilter('equipos', option.id)}
+                        role="button"
+                        tabIndex={0}
                         className={`flex items-center justify-between p-3 rounded-xl border-2 transition-colors cursor-pointer ${
                           filters.equipos.includes(option.id)
                             ? 'border-blue-500 bg-blue-50'
@@ -379,6 +389,9 @@ export const CalendarFilters: React.FC<CalendarFiltersProps> = ({
                     <TouchFeedback key={option.id}>
                       <div
                         onClick={() => toggleArrayFilter('tiposDocumento', option.id)}
+                        onKeyDown={(e) => e.key === 'Enter' && toggleArrayFilter('tiposDocumento', option.id)}
+                        role="button"
+                        tabIndex={0}
                         className={`flex items-center justify-between p-3 rounded-xl border-2 transition-colors cursor-pointer ${
                           filters.tiposDocumento.includes(option.id)
                             ? 'border-blue-500 bg-blue-50'

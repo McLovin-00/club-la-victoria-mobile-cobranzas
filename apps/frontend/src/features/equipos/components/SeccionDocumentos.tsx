@@ -23,6 +23,7 @@ export interface SeccionDocumentosProps {
 
 // TODOS los documentos requieren fecha de vencimiento
 // Si en el futuro hay templates que no requieren vencimiento, agregarlos aquí
+// NOSONAR - Array preparado para extensibilidad futura, actualmente vacío por diseño
 const TEMPLATES_WITHOUT_EXPIRY: string[] = [
   // Ejemplo: 'CONTRATO_INDEFINIDO', 'HABILITACION_PERMANENTE'
 ];

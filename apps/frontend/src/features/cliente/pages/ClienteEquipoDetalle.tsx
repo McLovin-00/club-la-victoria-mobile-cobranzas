@@ -410,6 +410,7 @@ const ClienteEquipoDetalle: React.FC = () => {
           <div 
             className='bg-white dark:bg-gray-800 rounded-lg shadow-xl w-[90vw] h-[90vh] max-w-5xl flex flex-col'
             onClick={e => e.stopPropagation()}
+            onKeyDown={e => e.stopPropagation()}
             role="dialog"
           >
             <div className='flex items-center justify-between p-4 border-b'>

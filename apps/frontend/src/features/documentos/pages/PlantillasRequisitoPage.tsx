@@ -254,7 +254,7 @@ export const PlantillasRequisitoPage: React.FC = () => {
                     )}
                     <div>
                       {editingPlantilla === p.id ? (
-                        <div className="flex gap-2" onClick={(e) => e.stopPropagation()} role="group">
+                        <div className="flex gap-2" onClick={(e) => e.stopPropagation()} onKeyDown={(e) => e.stopPropagation()} role="group">
                           <input
                             type="text"
                             className="border rounded px-2 py-1"
@@ -276,7 +276,7 @@ export const PlantillasRequisitoPage: React.FC = () => {
                       )}
                     </div>
                   </div>
-                  <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()} role="group">
+                  <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()} onKeyDown={(e) => e.stopPropagation()} role="group">
                     <span className="text-sm text-muted-foreground">
                       {p._count.templates} docs | {p._count.equipos} equipos
                     </span>
