@@ -2,7 +2,8 @@ import js from "@eslint/js";
 import globals from "globals";
 import tseslint from "typescript-eslint";
 
-export default tseslint.config(
+// Flat config array (sin tseslint.config deprecated)
+export default [
   { ignores: ["dist/**", "node_modules/**", "coverage/**", ".prisma/**"] },
   {
     files: ["**/*.ts"],
@@ -23,6 +24,6 @@ export default tseslint.config(
       "no-empty": ["error", { "allowEmptyCatch": true }],
     },
   }
-);
+];
 
 

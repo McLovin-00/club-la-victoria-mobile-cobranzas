@@ -3,7 +3,8 @@ import js from '@eslint/js';
 import globals from 'globals';
 import tseslint from 'typescript-eslint';
 
-export default tseslint.config(
+// Flat config array (sin tseslint.config deprecated)
+export default [
   { ignores: ['dist/**','coverage/**','node_modules/**','src/services/strategies/**','scripts/**','src/types/**'] },
   {
     files: ['**/*.ts'],
@@ -27,6 +28,6 @@ export default tseslint.config(
       'no-empty': ['error', { allowEmptyCatch: true }],
     },
   }
-);
+];
 
 
