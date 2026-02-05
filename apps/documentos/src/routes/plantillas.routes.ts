@@ -216,7 +216,7 @@ export default router;
 // =============================================
 // Rutas adicionales para clientes (se montan en clients.routes.ts)
 // =============================================
-export const clientPlantillasRoutes = Router();
+export const clientPlantillasRoutes: ReturnType<typeof Router> = Router();
 
 // Lista las plantillas de un cliente
 clientPlantillasRoutes.get(
@@ -239,7 +239,7 @@ clientPlantillasRoutes.post(
 // =============================================
 // Rutas adicionales para equipos (se montan en equipos.routes.ts)
 // =============================================
-export const equipoPlantillasRoutes = Router();
+export const equipoPlantillasRoutes: ReturnType<typeof Router> = Router();
 
 // Lista las plantillas asociadas a un equipo
 equipoPlantillasRoutes.get(

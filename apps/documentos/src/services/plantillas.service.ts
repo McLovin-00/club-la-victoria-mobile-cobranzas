@@ -114,7 +114,7 @@ export class PlantillasService {
   /**
    * Obtiene una plantilla por ID con sus templates
    */
-  static async getById(tenantEmpresaId: number, id: number) {
+  static async getById(tenantEmpresaId: number, id: number): Promise<unknown> {
     return prisma.plantillaRequisito.findFirst({
       where: { id, tenantEmpresaId },
       include: {
@@ -203,7 +203,7 @@ export class PlantillasService {
   /**
    * Lista los templates de una plantilla
    */
-  static async listTemplates(tenantEmpresaId: number, plantillaRequisitoId: number) {
+  static async listTemplates(tenantEmpresaId: number, plantillaRequisitoId: number): Promise<unknown[]> {
     return prisma.plantillaRequisitoTemplate.findMany({
       where: { tenantEmpresaId, plantillaRequisitoId },
       include: { template: true },
@@ -224,7 +224,7 @@ export class PlantillasService {
       diasAnticipacion?: number;
       visibleChofer?: boolean;
     }
-  ) {
+  ): Promise<unknown> {
     return prisma.plantillaRequisitoTemplate.create({
       data: {
         tenantEmpresaId,
@@ -246,7 +246,7 @@ export class PlantillasService {
     tenantEmpresaId: number,
     templateConfigId: number,
     data: { obligatorio?: boolean; diasAnticipacion?: number; visibleChofer?: boolean }
-  ) {
+  ): Promise<unknown> {
     return prisma.plantillaRequisitoTemplate.update({
       where: { id: templateConfigId },
       data,
@@ -256,7 +256,7 @@ export class PlantillasService {
   /**
    * Elimina un template de una plantilla
    */
-  static async removeTemplate(tenantEmpresaId: number, templateConfigId: number) {
+  static async removeTemplate(tenantEmpresaId: number, templateConfigId: number): Promise<unknown> {
     return prisma.plantillaRequisitoTemplate.delete({
       where: { id: templateConfigId },
     });
@@ -409,7 +409,7 @@ export class PlantillasService {
     tenantEmpresaId: number,
     equipoId: number,
     newPlantillaId: number
-  ) {
+  ): Promise<{ missingTemplates: unknown[]; plantillaName: string; clienteName?: string }> {
     // Requisitos de la nueva plantilla
     const newPlantillaReqs = await prisma.plantillaRequisitoTemplate.findMany({
       where: { tenantEmpresaId, plantillaRequisitoId: newPlantillaId },
