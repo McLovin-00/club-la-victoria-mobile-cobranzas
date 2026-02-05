@@ -22,6 +22,38 @@ interface DocumentInfo {
 }
 
 /**
+ * Obtiene el identificador legible de una entidad por tipo e ID
+ */
+async function obtenerEntityIdentifier(entityType: EntityType, entityId: number): Promise<string> {
+  switch (entityType) {
+    case 'CHOFER': {
+      const chofer = await prisma.chofer.findUnique({
+        where: { id: entityId },
+        select: { dniNorm: true, nombre: true, apellido: true },
+      });
+      return chofer ? `${chofer.nombre || ''} ${chofer.apellido || ''} (${chofer.dniNorm})`.trim() : `Chofer #${entityId}`;
+    }
+    case 'CAMION': {
+      const camion = await prisma.camion.findUnique({ where: { id: entityId }, select: { patenteNorm: true } });
+      return camion?.patenteNorm || `Camión #${entityId}`;
+    }
+    case 'ACOPLADO': {
+      const acoplado = await prisma.acoplado.findUnique({ where: { id: entityId }, select: { patenteNorm: true } });
+      return acoplado?.patenteNorm || `Acoplado #${entityId}`;
+    }
+    case 'EMPRESA_TRANSPORTISTA': {
+      const empresa = await prisma.empresaTransportista.findUnique({
+        where: { id: entityId },
+        select: { razonSocial: true, cuit: true },
+      });
+      return empresa ? `${empresa.razonSocial} (${empresa.cuit})` : `Empresa #${entityId}`;
+    }
+    default:
+      return `Entidad #${entityId}`;
+  }
+}
+
+/**
  * Obtiene información del documento para notificaciones
  */
 async function obtenerInfoDocumento(documentId: number): Promise<DocumentInfo | null> {
@@ -38,47 +70,7 @@ async function obtenerInfoDocumento(documentId: number): Promise<DocumentInfo | 
 
   if (!doc) return null;
 
-  let entityIdentifier = '';
-  switch (doc.entityType) {
-    case 'CHOFER': {
-      const chofer = await prisma.chofer.findUnique({
-        where: { id: doc.entityId },
-        select: { dniNorm: true, nombre: true, apellido: true },
-      });
-      entityIdentifier = chofer
-        ? `${chofer.nombre || ''} ${chofer.apellido || ''} (${chofer.dniNorm})`.trim()
-        : `Chofer #${doc.entityId}`;
-      break;
-    }
-    case 'CAMION': {
-      const camion = await prisma.camion.findUnique({
-        where: { id: doc.entityId },
-        select: { patenteNorm: true },
-      });
-      entityIdentifier = camion?.patenteNorm || `Camión #${doc.entityId}`;
-      break;
-    }
-    case 'ACOPLADO': {
-      const acoplado = await prisma.acoplado.findUnique({
-        where: { id: doc.entityId },
-        select: { patenteNorm: true },
-      });
-      entityIdentifier = acoplado?.patenteNorm || `Acoplado #${doc.entityId}`;
-      break;
-    }
-    case 'EMPRESA_TRANSPORTISTA': {
-      const empresa = await prisma.empresaTransportista.findUnique({
-        where: { id: doc.entityId },
-        select: { razonSocial: true, cuit: true },
-      });
-      entityIdentifier = empresa
-        ? `${empresa.razonSocial} (${empresa.cuit})`
-        : `Empresa #${doc.entityId}`;
-      break;
-    }
-    default:
-      entityIdentifier = `Entidad #${doc.entityId}`;
-  }
+  const entityIdentifier = await obtenerEntityIdentifier(doc.entityType, doc.entityId);
 
   return {
     tenantEmpresaId: doc.tenantEmpresaId,
