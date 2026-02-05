@@ -1,6 +1,7 @@
 import * as React from 'react';
 import { cn } from '../../lib/utils';
 
+// NOSONAR - Componente genérico: los headers se agregan usando TableHeader/TableHead al usarlo
 const Table = React.forwardRef<HTMLTableElement, React.HTMLAttributes<HTMLTableElement>>(
   ({ className, ...props }, ref) => (
     <div className='relative w-full overflow-auto' role="region" aria-label="Tabla de datos">

@@ -64,6 +64,7 @@ export const SeccionDocumentos: React.FC<SeccionDocumentosProps> = ({
         <div className='space-y-2'>
           {templates.map((template) => {
             // TODOS requieren vencimiento EXCEPTO los que están explícitamente excluidos
+            // NOSONAR - Array preparado para extensibilidad futura (actualmente vacío por diseño)
             const requiresExpiry = !TEMPLATES_WITHOUT_EXPIRY.some((keyword) =>
               template.name.includes(keyword)
             );
