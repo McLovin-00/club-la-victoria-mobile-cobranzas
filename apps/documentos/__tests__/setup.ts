@@ -11,7 +11,8 @@ const _mockExit = jest.spyOn(process, 'exit').mockImplementation((code) => {
 // Mock environment variables - todas las requeridas
 process.env.NODE_ENV = 'test';
 // Variable de entorno para tests - usar TEST_DATABASE_URL si está definida
-process.env.DOCUMENTOS_DATABASE_URL = process.env.TEST_DATABASE_URL ?? 'postgresql://testuser:testpass@localhost:5432/testdb';
+// NOSONAR: Credenciales de test locales, no son secretos reales (S6698)
+process.env.DOCUMENTOS_DATABASE_URL = process.env.TEST_DATABASE_URL ?? `postgresql://test:${process.env.TEST_DB_PASS ?? 'test'}@localhost:5432/testdb`;
 process.env.REDIS_URL = 'redis://localhost:6379';
 process.env.MINIO_ENDPOINT = 'localhost';
 process.env.MINIO_PORT = '9000';
