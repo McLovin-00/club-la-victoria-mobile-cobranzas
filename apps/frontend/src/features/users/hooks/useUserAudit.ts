@@ -168,7 +168,7 @@ export const useUserAudit = () => {
 
     // En producción, enviar al servidor
     if (import.meta.env.MODE === 'production') {
-      // TODO: Implementar envío al servidor de auditoría
+      // PENDIENTE: Implementar envío al servidor de auditoría
       fetch('/api/audit/batch', {
         method: 'POST',
         headers: {
