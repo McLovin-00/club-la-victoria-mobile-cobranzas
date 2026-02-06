@@ -1,55 +1,44 @@
 # =============================================================================
-# Dockerfile para el microservicio de Remitos - BCA Group
-# Multi-stage build para optimizar tamaño de imagen
+# Dockerfile.remitos - OPTIMIZADO
+# Multi-stage build para tamaño mínimo y deploy rápido
 # =============================================================================
 
+# Stage 1: Compilar
 FROM node:20-alpine AS builder
-
 WORKDIR /app
 
-# Copiar archivos de dependencias del monorepo
-COPY package.json package-lock.json ./
-COPY apps/remitos/package.json ./apps/remitos/
+# Copiar solo archivos necesarios para deps (cache layer)
+COPY package*.json ./
+COPY apps/remitos/package*.json ./apps/remitos/
+COPY apps/remitos/src/prisma ./apps/remitos/src/prisma
 
-# Instalar dependencias del monorepo
-RUN --mount=type=cache,target=/root/.npm npm ci --workspaces --include-workspace-root
+# Instalar deps y generar Prisma
+RUN npm install --workspace=apps/remitos && \
+    cd apps/remitos && npx prisma generate --schema=src/prisma/schema.prisma
 
-# Copiar código fuente
-COPY . .
+# Copiar código y compilar
+COPY apps/remitos/tsconfig*.json ./apps/remitos/
+COPY apps/remitos/src ./apps/remitos/src
+RUN cd apps/remitos && npx tsc -p tsconfig.standalone.json
 
-# Generar Prisma client y compilar TypeScript
-WORKDIR /app/apps/remitos
-RUN ../../node_modules/.bin/prisma generate --schema=src/prisma/schema.prisma && \
-    ../../node_modules/.bin/tsc -p tsconfig.standalone.json
-
-# =============================================================================
-# Imagen de producción
-# =============================================================================
-
+# Stage 2: Producción mínima
 FROM node:20-alpine AS runner
+RUN apk add --no-cache poppler-utils && rm -rf /var/cache/apk/*
+WORKDIR /app
+ENV NODE_ENV=production PORT=4803
 
-# Instalar poppler-utils para rasterización de PDF
-RUN apk add --no-cache poppler-utils
+# Instalar SOLO deps de producción
+COPY apps/remitos/package.json ./
+RUN npm install --omit=dev --ignore-scripts && npm cache clean --force
 
-WORKDIR /app/apps/remitos
-
-# Copiar dependencias de producción
-COPY --from=builder /app/node_modules /app/node_modules
-COPY --from=builder /app/apps/remitos/node_modules ./node_modules
+# Copiar artefactos
 COPY --from=builder /app/apps/remitos/dist ./dist
-COPY --from=builder /app/apps/remitos/package.json ./package.json
 COPY --from=builder /app/apps/remitos/src/prisma ./src/prisma
+COPY --from=builder /app/apps/remitos/node_modules/.prisma ./node_modules/.prisma
 
-# Variables de entorno
-ENV NODE_ENV=production
-ENV PORT=4803
+RUN rm -rf /tmp/* /root/.npm /root/.cache
 
-# Puerto del servicio
 EXPOSE 4803
-
-# Healthcheck
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
-  CMD wget --no-verbose --tries=1 --spider http://127.0.0.1:4803/health || exit 1
-
-# Comando de inicio
+  CMD wget -qO- http://127.0.0.1:4803/health || exit 1
 CMD ["node", "dist/index.js"]
