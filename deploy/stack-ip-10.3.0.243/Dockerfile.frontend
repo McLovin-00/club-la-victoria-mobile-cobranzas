@@ -1,30 +1,13 @@
 # =============================================================================
-# Dockerfile.frontend - DESARROLLO/STAGING (10.3.0.243)
+# Dockerfile.frontend - OPTIMIZADO (10.3.0.243)
 # =============================================================================
-# Usa nginx:alpine como servidor web (estándar de la industria)
+# Multi-stage: build con node, serve con nginx:alpine
 # =============================================================================
 
 FROM node:20-alpine AS build
-
 WORKDIR /app
 
-# 1. Copiar package.json y esquemas Prisma para aprovechar cache de Docker
-#    Solo si cambian estos archivos se re-ejecuta npm install
-COPY package*.json ./
-COPY apps/frontend/package*.json ./apps/frontend/
-COPY apps/backend/package*.json ./apps/backend/
-COPY apps/backend/prisma ./apps/backend/prisma/
-COPY apps/documentos/package*.json ./apps/documentos/
-COPY apps/documentos/src/prisma ./apps/documentos/src/prisma/
-COPY apps/remitos/package*.json ./apps/remitos/
-
-# 2. Instalar dependencias (cacheado si package.json y prisma no cambian)
-RUN npm config set legacy-peer-deps true && npm install --workspaces
-
-# 3. Ahora copiar el resto del código
-COPY . .
-
-# Variables de build de Vite
+# Variables de build de Vite (deben estar antes del build)
 ARG VITE_API_URL
 ARG VITE_API_BASE_URL
 ARG VITE_DOCUMENTOS_API_URL
@@ -39,7 +22,9 @@ ENV VITE_API_URL=$VITE_API_URL \
     VITE_REMITOS_API_URL=$VITE_REMITOS_API_URL \
     VITE_APP_TITLE=$VITE_APP_TITLE
 
-RUN npm run -w apps/frontend build
+# Copiar, instalar y compilar
+COPY . .
+RUN npm config set legacy-peer-deps true && npm install && npm run -w apps/frontend build
 
 # =============================================================================
 # Production stage - nginx:alpine

@@ -1,34 +1,33 @@
 # =============================================================================
-# Dockerfile.backend - DESARROLLO/STAGING (10.3.0.243)
+# Dockerfile.backend - OPTIMIZADO (10.3.0.243)
 # =============================================================================
-# Backend API con Node.js 20 Alpine
-# Incluye healthcheck y optimizaciones
+# Multi-stage build: builder grande, runner mínimo
 # =============================================================================
 
 FROM node:20-alpine AS builder
-
 WORKDIR /app
 
-# Copiar todo el monorepo (necesario por workspaces y paths de tsconfig)
+# Copiar todo y compilar
 COPY . .
+RUN npm config set legacy-peer-deps true && npm install && npm run -w apps/backend build
 
-# Instalar dependencias de workspaces y compilar backend
-RUN --mount=type=cache,target=/root/.npm \
-    sh -c "npm config set legacy-peer-deps true && npm install --workspaces && npm run -w apps/backend build"
-
+# Runner mínimo con solo deps de producción
 FROM node:20-alpine AS runner
-
 WORKDIR /app
-
 ENV NODE_ENV=production
 
-COPY --from=builder /app/node_modules ./node_modules
-COPY --from=builder /app/apps/backend/dist ./apps/backend/dist
-COPY apps/backend/prisma ./apps/backend/prisma
+# Instalar solo deps de producción
+COPY apps/backend/package.json ./
+RUN npm install --omit=dev --ignore-scripts && npm cache clean --force
+
+# Copiar artefactos compilados y prisma
+COPY --from=builder /app/apps/backend/dist ./dist
+COPY apps/backend/prisma ./prisma
+
+RUN rm -rf /tmp/* /root/.npm
 
 EXPOSE 4800
-
 HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \
     CMD wget -qO- http://localhost:4800/health || exit 1
 
-CMD ["node", "apps/backend/dist/src/server.js"]
+CMD ["node", "dist/src/server.js"]
