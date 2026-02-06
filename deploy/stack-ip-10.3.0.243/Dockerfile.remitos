@@ -7,19 +7,19 @@
 FROM node:20-alpine AS builder
 WORKDIR /app
 
-# Copiar solo archivos necesarios para deps (cache layer)
+# Copiar package.json del monorepo para resolver deps
 COPY package*.json ./
 COPY apps/remitos/package*.json ./apps/remitos/
 COPY apps/remitos/src/prisma ./apps/remitos/src/prisma
 
-# Instalar deps y generar Prisma
-RUN npm install --workspace=apps/remitos && \
-    cd apps/remitos && npx prisma generate --schema=src/prisma/schema.prisma
+# Instalar TODAS las deps (incluido devDeps para compilar)
+RUN npm install && \
+    npx prisma generate --schema=apps/remitos/src/prisma/schema.prisma
 
 # Copiar código y compilar
 COPY apps/remitos/tsconfig*.json ./apps/remitos/
 COPY apps/remitos/src ./apps/remitos/src
-RUN cd apps/remitos && npx tsc -p tsconfig.standalone.json
+RUN npx tsc -p apps/remitos/tsconfig.standalone.json
 
 # Stage 2: Producción mínima
 FROM node:20-alpine AS runner

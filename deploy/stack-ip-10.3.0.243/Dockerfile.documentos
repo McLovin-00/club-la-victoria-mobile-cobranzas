@@ -9,19 +9,19 @@
 FROM node:20-alpine AS builder
 WORKDIR /app
 
-# Copiar solo archivos necesarios para instalar deps (cache layer)
+# Copiar package.json del monorepo completo para resolver deps
 COPY package*.json ./
 COPY apps/documentos/package*.json ./apps/documentos/
 COPY apps/documentos/src/prisma ./apps/documentos/src/prisma
 
-# Instalar todas las deps y generar Prisma
-RUN npm install --workspace=apps/documentos && \
+# Instalar TODAS las deps (incluido devDeps para compilar)
+RUN npm install && \
     npx prisma generate --schema=apps/documentos/src/prisma/schema.prisma
 
 # Copiar código fuente y compilar
 COPY apps/documentos/tsconfig*.json ./apps/documentos/
 COPY apps/documentos/src ./apps/documentos/src
-RUN cd apps/documentos && npx tsc -p tsconfig.standalone.json
+RUN npx tsc -p apps/documentos/tsconfig.standalone.json
 
 # Stage 2: Imagen de producción mínima
 FROM node:20-alpine AS runner
