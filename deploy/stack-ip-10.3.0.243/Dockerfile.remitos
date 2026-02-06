@@ -1,25 +1,17 @@
 # =============================================================================
 # Dockerfile.remitos - OPTIMIZADO
-# Multi-stage build para tamaño mínimo y deploy rápido
+# Multi-stage build: builder grande, runner mínimo
 # =============================================================================
 
-# Stage 1: Compilar
+# Stage 1: Compilar con todas las deps
 FROM node:20-alpine AS builder
 WORKDIR /app
 
-# Copiar package.json del monorepo para resolver deps
-COPY package*.json ./
-COPY apps/remitos/package*.json ./apps/remitos/
-COPY apps/remitos/src/prisma ./apps/remitos/src/prisma
-
-# Instalar TODAS las deps (incluido devDeps para compilar)
+# Copiar todo y instalar deps completas
+COPY . .
 RUN npm install && \
-    npx prisma generate --schema=apps/remitos/src/prisma/schema.prisma
-
-# Copiar código y compilar
-COPY apps/remitos/tsconfig*.json ./apps/remitos/
-COPY apps/remitos/src ./apps/remitos/src
-RUN npx tsc -p apps/remitos/tsconfig.standalone.json
+    npx prisma generate --schema=apps/remitos/src/prisma/schema.prisma && \
+    npx tsc -p apps/remitos/tsconfig.standalone.json
 
 # Stage 2: Producción mínima
 FROM node:20-alpine AS runner
@@ -31,12 +23,12 @@ ENV NODE_ENV=production PORT=4803
 COPY apps/remitos/package.json ./
 RUN npm install --omit=dev --ignore-scripts && npm cache clean --force
 
-# Copiar artefactos
+# Copiar artefactos y prisma client
 COPY --from=builder /app/apps/remitos/dist ./dist
 COPY --from=builder /app/apps/remitos/src/prisma ./src/prisma
 COPY --from=builder /app/apps/remitos/node_modules/.prisma ./node_modules/.prisma
 
-RUN rm -rf /tmp/* /root/.npm /root/.cache
+RUN rm -rf /tmp/* /root/.npm
 
 EXPOSE 4803
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
