@@ -17,12 +17,12 @@ WORKDIR /app
 ENV NODE_ENV=production
 
 # Instalar solo deps de producción
-COPY apps/backend/package.json ./
-RUN npm install --omit=dev --ignore-scripts && npm cache clean --force
+COPY apps/backend/package.json ./apps/backend/
+RUN cd apps/backend && npm install --omit=dev --ignore-scripts && npm cache clean --force
 
-# Copiar artefactos compilados y prisma
-COPY --from=builder /app/apps/backend/dist ./dist
-COPY apps/backend/prisma ./prisma
+# Copiar artefactos compilados y prisma (mantener estructura esperada por docker-compose)
+COPY --from=builder /app/apps/backend/dist ./apps/backend/dist
+COPY apps/backend/prisma ./apps/backend/prisma
 
 RUN rm -rf /tmp/* /root/.npm
 
@@ -30,4 +30,4 @@ EXPOSE 4800
 HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \
     CMD wget -qO- http://localhost:4800/health || exit 1
 
-CMD ["node", "dist/src/server.js"]
+CMD ["node", "apps/backend/dist/src/server.js"]
