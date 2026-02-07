@@ -7,29 +7,9 @@ import { Router, Request, Response } from 'express';
 import { AppLogger } from '../config/logger';
 import { prisma } from '../config/database';
 import ExcelJS from 'exceljs';
+import { verifyJwtFromForm } from '../utils/jwt.utils';
 
 const router: ReturnType<typeof Router> = Router();
-
-// ============================================================================
-// HELPERS JWT
-// ============================================================================
-let _jwtPublicKey: string | null = null;
-
-function getJwtPublicKey(): string {
-  if (_jwtPublicKey) return _jwtPublicKey;
-  const fs = require('fs');
-  _jwtPublicKey = fs.readFileSync(process.env.JWT_PUBLIC_KEY_PATH || '/keys/jwt_public.pem', 'utf8');
-  return _jwtPublicKey as string;
-}
-
-function verifyJwtFromForm(token: string): any | null {
-  const jwt = require('jsonwebtoken');
-  try {
-    return jwt.verify(token, getJwtPublicKey(), { algorithms: ['RS256'] });
-  } catch {
-    return null;
-  }
-}
 
 // ============================================================================
 // HELPERS EXCEL

@@ -29,6 +29,50 @@ function mapInstanceCreationError(error: Error): { status: number; message: stri
   return matchedError ? { status: 400, message: error.message } : null;
 }
 
+// Helper: validar permisos de modificación de instancia (update, delete, changeEstado)
+interface InstancePermissionResult {
+  allowed: boolean;
+  errorStatus?: number;
+  errorMessage?: string;
+}
+
+async function validateInstanceModifyPermission(
+  user: { role: string; userId: number; empresaId?: number },
+  instanceId: number,
+  action: 'actualizar' | 'eliminar' | 'cambiar el estado de'
+): Promise<InstancePermissionResult> {
+  if (user.role === 'SUPERADMIN') {
+    return { allowed: true };
+  }
+  
+  if (user.role === 'ADMIN' && user.empresaId) {
+    const hasAccess = await instanceService.validateEmpresaAccess(instanceId, user.empresaId);
+    if (!hasAccess) {
+      AppLogger.warn(`⚠️ Usuario sin permisos para ${action} esta instancia`, {
+        instanceId,
+        userId: user.userId,
+        userEmpresaId: user.empresaId,
+      });
+      return {
+        allowed: false,
+        errorStatus: 403,
+        errorMessage: `No tienes permisos para ${action} esta instancia`,
+      };
+    }
+    return { allowed: true };
+  }
+  
+  AppLogger.warn(`⚠️ Usuario sin permisos para ${action} instancias`, {
+    userId: user.userId,
+    userRole: user.role,
+  });
+  return {
+    allowed: false,
+    errorStatus: 403,
+    errorMessage: `No tienes permisos para ${action} instancias`,
+  };
+}
+
 /**
  * Obtener todas las instancias (con filtros por empresa según permisos)
  */
@@ -209,32 +253,11 @@ export const updateInstance = async (req: AuthRequest, res: Response) => {
       userRole: user.role,
     });
 
-    // Validar permisos
-    if (user.role === 'SUPERADMIN') {
-      // Superadmin puede actualizar cualquier instancia
-    } else if (user.role === 'ADMIN' && user.empresaId) {
-      // Admin solo puede actualizar instancias de su empresa
-      const hasAccess = await instanceService.validateEmpresaAccess(parseInt(id), user.empresaId);
-      if (!hasAccess) {
-        AppLogger.warn('⚠️ Usuario sin permisos para actualizar esta instancia', {
-          instanceId: id,
-          userId: user.userId,
-          userEmpresaId: user.empresaId,
-        });
-        return res.status(403).json({
-          success: false,
-          message: 'No tienes permisos para actualizar esta instancia',
-        });
-      }
-    } else {
-      // Usuarios normales no pueden actualizar instancias
-      AppLogger.warn('⚠️ Usuario sin permisos para actualizar instancias', {
-        userId: user.userId,
-        userRole: user.role,
-      });
-      return res.status(403).json({
+    const permission = await validateInstanceModifyPermission(user, parseInt(id), 'actualizar');
+    if (!permission.allowed) {
+      return res.status(permission.errorStatus!).json({
         success: false,
-        message: 'No tienes permisos para actualizar instancias',
+        message: permission.errorMessage,
       });
     }
 
@@ -290,32 +313,11 @@ export const deleteInstance = async (req: AuthRequest, res: Response) => {
       userRole: user.role,
     });
 
-    // Validar permisos
-    if (user.role === 'SUPERADMIN') {
-      // Superadmin puede eliminar cualquier instancia
-    } else if (user.role === 'ADMIN' && user.empresaId) {
-      // Admin solo puede eliminar instancias de su empresa
-      const hasAccess = await instanceService.validateEmpresaAccess(parseInt(id), user.empresaId);
-      if (!hasAccess) {
-        AppLogger.warn('⚠️ Usuario sin permisos para eliminar esta instancia', {
-          instanceId: id,
-          userId: user.userId,
-          userEmpresaId: user.empresaId,
-        });
-        return res.status(403).json({
-          success: false,
-          message: 'No tienes permisos para eliminar esta instancia',
-        });
-      }
-    } else {
-      // Usuarios normales no pueden eliminar instancias
-      AppLogger.warn('⚠️ Usuario sin permisos para eliminar instancias', {
-        userId: user.userId,
-        userRole: user.role,
-      });
-      return res.status(403).json({
+    const permission = await validateInstanceModifyPermission(user, parseInt(id), 'eliminar');
+    if (!permission.allowed) {
+      return res.status(permission.errorStatus!).json({
         success: false,
-        message: 'No tienes permisos para eliminar instancias',
+        message: permission.errorMessage,
       });
     }
 
@@ -404,32 +406,11 @@ export const changeInstanceEstado = async (req: AuthRequest, res: Response) => {
       userRole: user.role,
     });
 
-    // Validar permisos
-    if (user.role === 'SUPERADMIN') {
-      // Superadmin puede cambiar estado de cualquier instancia
-    } else if (user.role === 'ADMIN' && user.empresaId) {
-      // Admin solo puede cambiar estado de instancias de su empresa
-      const hasAccess = await instanceService.validateEmpresaAccess(parseInt(id), user.empresaId);
-      if (!hasAccess) {
-        AppLogger.warn('⚠️ Usuario sin permisos para cambiar estado de esta instancia', {
-          instanceId: id,
-          userId: user.userId,
-          userEmpresaId: user.empresaId,
-        });
-        return res.status(403).json({
-          success: false,
-          message: 'No tienes permisos para cambiar el estado de esta instancia',
-        });
-      }
-    } else {
-      // Usuarios normales no pueden cambiar estado
-      AppLogger.warn('⚠️ Usuario sin permisos para cambiar estado de instancias', {
-        userId: user.userId,
-        userRole: user.role,
-      });
-      return res.status(403).json({
+    const permission = await validateInstanceModifyPermission(user, parseInt(id), 'cambiar el estado de');
+    if (!permission.allowed) {
+      return res.status(permission.errorStatus!).json({
         success: false,
-        message: 'No tienes permisos para cambiar el estado de instancias',
+        message: permission.errorMessage,
       });
     }
 
