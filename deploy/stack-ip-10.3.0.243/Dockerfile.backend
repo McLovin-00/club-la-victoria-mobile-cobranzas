@@ -1,33 +1,26 @@
 # =============================================================================
-# Dockerfile.backend - OPTIMIZADO (10.3.0.243)
+# Dockerfile.backend - Funcional (10.3.0.243)
 # =============================================================================
-# Multi-stage build: builder grande, runner mínimo
+# Mismo patrón que documentos/remitos: copiar node_modules completo
 # =============================================================================
 
 FROM node:20-alpine AS builder
 WORKDIR /app
 
-# Copiar todo, generar Prisma y compilar
 COPY . .
 RUN npm config set legacy-peer-deps true && npm install && \
     npx prisma generate --schema=apps/backend/prisma/schema.prisma && \
     npm run -w apps/backend build
 
-# Runner mínimo con solo deps de producción
 FROM node:20-alpine AS runner
 WORKDIR /app
 ENV NODE_ENV=production
 
-# Instalar solo deps de producción
-COPY apps/backend/package.json ./apps/backend/
-RUN cd apps/backend && npm install --omit=dev --ignore-scripts && npm cache clean --force
-
-# Copiar artefactos compilados, prisma schema y client generado
+# Copiar node_modules completo del builder (sin optimizar)
+COPY --from=builder /app/node_modules ./node_modules
+COPY --from=builder /app/apps/backend/node_modules ./apps/backend/node_modules
 COPY --from=builder /app/apps/backend/dist ./apps/backend/dist
-COPY --from=builder /app/apps/backend/node_modules/.prisma ./apps/backend/node_modules/.prisma
 COPY apps/backend/prisma ./apps/backend/prisma
-
-RUN rm -rf /tmp/* /root/.npm
 
 EXPOSE 4800
 HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \
