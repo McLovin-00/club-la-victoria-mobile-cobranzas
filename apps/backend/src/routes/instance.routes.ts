@@ -1,5 +1,5 @@
 import { Router, Request, Response } from 'express';
-import { body, param, query, validationResult } from 'express-validator';
+import { body, param, query } from 'express-validator';
 import {
   getInstances,
   getInstanceById,
@@ -10,6 +10,7 @@ import {
   changeInstanceEstado,
 } from '../controllers/instance.controller';
 import { authenticateUser, authorizeRoles } from '../middlewares/platformAuth.middleware';
+import { handleExpressValidatorErrors } from '../middlewares/validation.middleware';
 import { AuthPayload } from '../services/platformAuth.service';
 import { AppLogger } from '../config/logger';
 import { InstanceService } from '../services/instance.service';
@@ -99,30 +100,17 @@ const getInstancesValidation = [
     .withMessage('El offset debe ser mayor o igual a 0'),
 ];
 
-// Middleware de validación
-const handleValidationErrors = (req: any, res: any, next: any) => {
-  const errors = validationResult(req);
-  if (!errors.isEmpty()) {
-    return res.status(400).json({
-      success: false,
-      message: 'Errores de validación',
-      errors: errors.array(),
-    });
-  }
-  next();
-};
-
 // Rutas públicas (requieren autenticación, permisos se validan en el controlador)
-router.get('/', authorizeRoles(['ADMIN', 'SUPERADMIN']), getInstancesValidation, handleValidationErrors, getInstances);
+router.get('/', authorizeRoles(['ADMIN', 'SUPERADMIN']), getInstancesValidation, handleExpressValidatorErrors, getInstances);
 router.get('/stats', authorizeRoles(['ADMIN', 'SUPERADMIN']), getInstanceStats);
-router.get('/:id', authorizeRoles(['ADMIN', 'SUPERADMIN']), instanceIdValidation, handleValidationErrors, getInstanceById);
+router.get('/:id', authorizeRoles(['ADMIN', 'SUPERADMIN']), instanceIdValidation, handleExpressValidatorErrors, getInstanceById);
 
 // Rutas protegidas (requieren superadmin o admin)
 router.post(
   '/',
   authorizeRoles(['SUPERADMIN', 'ADMIN']),
   createInstanceValidation,
-  handleValidationErrors,
+  handleExpressValidatorErrors,
   createInstance
 );
 
@@ -131,7 +119,7 @@ router.put(
   authorizeRoles(['SUPERADMIN']),
   instanceIdValidation,
   updateInstanceValidation,
-  handleValidationErrors,
+  handleExpressValidatorErrors,
   updateInstance
 );
 
@@ -139,7 +127,7 @@ router.delete(
   '/:id',
   authorizeRoles(['SUPERADMIN']),
   instanceIdValidation,
-  handleValidationErrors,
+  handleExpressValidatorErrors,
   deleteInstance
 );
 
@@ -148,7 +136,7 @@ router.patch(
   authorizeRoles(['SUPERADMIN']),
   instanceIdValidation,
   changeEstadoValidation,
-  handleValidationErrors,
+  handleExpressValidatorErrors,
   changeInstanceEstado
 );
 
@@ -158,7 +146,7 @@ router.patch(
 router.get(
   '/:id/permisos',
   instanceIdValidation,
-  handleValidationErrors,
+  handleExpressValidatorErrors,
   async (req: Request, res: Response) => {
     try {
       const { id } = req.params;
@@ -260,7 +248,7 @@ router.post(
   body('esWhitelist').optional().isBoolean().withMessage('esWhitelist debe ser un boolean'),
   body('limiteTotal').optional().isInt({ min: 0 }).withMessage('limiteTotal debe ser un número entero no negativo'),
   body('periodoReseteo').optional().isIn(['NUNCA', 'DIARIO', 'SEMANAL', 'MENSUAL', 'ANUAL']).withMessage('periodoReseteo debe ser válido'),
-  handleValidationErrors,
+  handleExpressValidatorErrors,
   async (req: Request, res: Response) => {
     try {
       const { id } = req.params;
@@ -412,7 +400,7 @@ router.get(
   instanceIdValidation,
   query('page').optional().isInt({ min: 1 }).withMessage('La página debe ser un número entero positivo'),
   query('limit').optional().isInt({ min: 1, max: 100 }).withMessage('El límite debe ser entre 1 y 100'),
-  handleValidationErrors,
+  handleExpressValidatorErrors,
   async (req: Request, res: Response) => {
     try {
       const { id: _id } = req.params;
@@ -442,7 +430,7 @@ router.get(
   '/:id/users/available',
   instanceIdValidation,
   query('search').optional().isString().withMessage('La búsqueda debe ser una cadena de texto'),
-  handleValidationErrors,
+  handleExpressValidatorErrors,
   async (req: Request, res: Response) => {
     try {
       const { id } = req.params;
@@ -552,7 +540,7 @@ router.put(
   '/:instanceId/permisos/:permisoId',
   instanceIdValidation,
   param('permisoId').isInt({ min: 1 }).withMessage('El ID del permiso debe ser un número entero positivo'),
-  handleValidationErrors,
+  handleExpressValidatorErrors,
   async (req: Request, res: Response) => {
     try {
       const { instanceId: _instanceId, permisoId: _permisoId } = req.params;
@@ -576,7 +564,7 @@ router.delete(
   '/:instanceId/permisos/:permisoId',
   instanceIdValidation,
   param('permisoId').isInt({ min: 1 }).withMessage('El ID del permiso debe ser un número entero positivo'),
-  handleValidationErrors,
+  handleExpressValidatorErrors,
   async (req: Request, res: Response) => {
     try {
       const { instanceId: _instanceId, permisoId: _permisoId } = req.params;

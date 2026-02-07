@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { body, param, validationResult } from 'express-validator';
+import { body, param } from 'express-validator';
 import {
   getAllEmpresas,
   getEmpresaById,
@@ -9,6 +9,7 @@ import {
   getAllEmpresasSimple,
 } from '../controllers/empresa.controller';
 import { authenticateUser, authorizeRoles, tenantResolver } from '../middlewares/platformAuth.middleware';
+import { handleExpressValidatorErrors } from '../middlewares/validation.middleware';
 
 const router = Router();
 
@@ -52,31 +53,18 @@ const empresaIdValidation = [
   param('id').isInt({ min: 1 }).withMessage('El ID debe ser un número entero positivo'),
 ];
 
-// Middleware de validación
-const handleValidationErrors = (req: any, res: any, next: any) => {
-  const errors = validationResult(req);
-  if (!errors.isEmpty()) {
-    return res.status(400).json({
-      success: false,
-      message: 'Errores de validación',
-      errors: errors.array(),
-    });
-  }
-  next();
-};
-
 // Rutas protegidas para SuperAdmin
 router.get('/', getAllEmpresas);
 router.get('/simple', getAllEmpresasSimple);
-router.get('/:id', empresaIdValidation, handleValidationErrors, getEmpresaById);
-router.post('/', createEmpresaValidation, handleValidationErrors, createEmpresa);
+router.get('/:id', empresaIdValidation, handleExpressValidatorErrors, getEmpresaById);
+router.post('/', createEmpresaValidation, handleExpressValidatorErrors, createEmpresa);
 router.put(
   '/:id',
   empresaIdValidation,
   updateEmpresaValidation,
-  handleValidationErrors,
+  handleExpressValidatorErrors,
   updateEmpresa
 );
-router.delete('/:id', empresaIdValidation, handleValidationErrors, deleteEmpresa);
+router.delete('/:id', empresaIdValidation, handleExpressValidatorErrors, deleteEmpresa);
 
 export default router;

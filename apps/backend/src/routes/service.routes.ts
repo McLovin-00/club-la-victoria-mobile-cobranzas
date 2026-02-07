@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { body, param, query, validationResult } from 'express-validator';
+import { body, param, query } from 'express-validator';
 import {
   getServices,
   getServiceById,
@@ -11,6 +11,7 @@ import {
   changeServiceEstado,
 } from '../controllers/service.controller';
 import { authenticateUser, authorizeRoles, tenantResolver } from '../middlewares/platformAuth.middleware';
+import { handleExpressValidatorErrors } from '../middlewares/validation.middleware';
 
 const router = Router();
 
@@ -96,31 +97,18 @@ const getServicesValidation = [
     .withMessage('El offset debe ser mayor o igual a 0'),
 ];
 
-// Middleware de validación
-const handleValidationErrors = (req: any, res: any, next: any) => {
-  const errors = validationResult(req);
-  if (!errors.isEmpty()) {
-    return res.status(400).json({
-      success: false,
-      message: 'Errores de validación',
-      errors: errors.array(),
-    });
-  }
-  next();
-};
-
 // Rutas públicas (requieren autenticación pero no superadmin)
-router.get('/', getServicesValidation, handleValidationErrors, getServices);
+router.get('/', getServicesValidation, handleExpressValidatorErrors, getServices);
 router.get('/simple', getServicesSimple);
 router.get('/stats', getServiceStats);
-router.get('/:id', serviceIdValidation, handleValidationErrors, getServiceById);
+router.get('/:id', serviceIdValidation, handleExpressValidatorErrors, getServiceById);
 
 // Rutas protegidas (requieren superadmin)
 router.post(
   '/',
   authorizeRoles(['SUPERADMIN']),
   createServiceValidation,
-  handleValidationErrors,
+  handleExpressValidatorErrors,
   createService
 );
 
@@ -129,7 +117,7 @@ router.put(
   authorizeRoles(['SUPERADMIN']),
   serviceIdValidation,
   updateServiceValidation,
-  handleValidationErrors,
+  handleExpressValidatorErrors,
   updateService
 );
 
@@ -137,7 +125,7 @@ router.delete(
   '/:id',
   authorizeRoles(['SUPERADMIN']),
   serviceIdValidation,
-  handleValidationErrors,
+  handleExpressValidatorErrors,
   deleteService
 );
 
@@ -146,7 +134,7 @@ router.patch(
   authorizeRoles(['SUPERADMIN']),
   serviceIdValidation,
   changeEstadoValidation,
-  handleValidationErrors,
+  handleExpressValidatorErrors,
   changeServiceEstado
 );
 
