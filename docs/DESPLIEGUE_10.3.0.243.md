@@ -1,239 +1,200 @@
-# ✅ Despliegue Completado - Alta Completa de Equipos
+# Despliegue BCA - Servidor 10.3.0.243
 
 **Servidor**: 10.3.0.243  
-**Fecha**: 2024-11-16  
-**Hora**: 23:20 UTC
+**Última actualización**: 2026-02-07  
+**Stack**: Staging / Desarrollo
 
 ---
 
-## 📦 Cambios Desplegados
+## Estado actual del despliegue
 
-### Frontend
-- ✅ Componente `DocumentoField.tsx`
-- ✅ Componente `SeccionDocumentos.tsx`
-- ✅ Página `AltaEquipoCompletaPage.tsx`
-- ✅ Ruta `/documentos/equipos/alta-completa`
-- ✅ Botón de acceso en `/documentos/equipos`
+### Servicios desplegados
 
-### Modificaciones
-- ✅ `App.tsx` - Registro de ruta
-- ✅ `EquiposPage.tsx` - Botón de navegación
-- ✅ `Dockerfile.frontend` - Corrección con `--legacy-peer-deps`
-
----
-
-## 🚀 Estado del Despliegue
-
-### Servicios en 10.3.0.243
-```
-✅ Frontend  : Up (http://10.3.0.243:8550) - HTTP/1.1 200 OK
-✅ Backend   : Up (http://10.3.0.243:4800) - Healthy
-✅ Documentos: Up (http://10.3.0.243:4802) - Healthy
-✅ MinIO     : Up (http://10.3.0.243:9000) - Healthy
-✅ Postgres  : Up (localhost:5432) - Healthy
-✅ Redis     : Up (localhost:6379) - Healthy
-✅ Flowise   : Up (http://10.3.0.243:3005) - Healthy
-```
-
-### Build Frontend
-```
-✓ Built successfully in 9.66s
-✓ Assets:
-  - index.html: 0.53 kB
-  - CSS: 81.34 kB
-  - JS Bundle: 787.72 kB (gzipped: 202.48 kB)
-✓ Image: bca/frontend:latest
-✓ Container: bca_frontend (recreated)
-```
+| Servicio | Imagen | Puerto | Estado | Build (UTC) | Último commit incluido |
+|----------|--------|--------|--------|-------------|------------------------|
+| **Backend** | bca/backend:latest | 4800 | Healthy | 2026-02-07 05:24:52 | `9800564` (07/02 01:28 -03) |
+| **Frontend** | bca/frontend:latest | 8550 | Healthy | 2026-02-07 01:20:09 | `cd90d82` (06/02 21:00 -03) |
+| **Documentos** | bca/documentos:latest | 4802 | Healthy | 2026-02-06 15:09:40 | `b3ed485` (06/02 11:01 -03) |
+| **Remitos** | bca/remitos:latest | 4803 | Healthy | 2026-02-06 17:08:03 | `b3ed485` (06/02 11:01 -03) |
+| **Postgres** | postgres:16 | 5432 | Healthy | — | — |
+| **Redis** | redis:7-alpine | 6379 | Healthy | — | — |
+| **MinIO** | minio/minio:latest | 9000-9001 | Healthy | — | — |
+| **Flowise** | flowiseai/flowise:latest | 3005 | Healthy | — | — |
 
 ---
 
-## 🧪 Verificaciones Realizadas
+## Cotejo commits vs despliegue
 
-1. ✅ Frontend responde en puerto 8550
-2. ✅ Bundle JS contiene la ruta "alta-completa" (2 ocurrencias)
-3. ✅ Container frontend healthy
-4. ✅ Todos los servicios dependientes operativos
+Horarios en zona local (-0300). Build = hora de creación de la imagen en el servidor (UTC).
+
+### Timeline de builds (06–07 feb 2026)
+
+```
+06/02 11:01  b3ed485  fix: copy full monorepo in builder for proper type resolution
+           |
+06/02 15:09  ─────────── DOCUMENTOS build ──────────────────────
+06/02 17:08  ─────────── REMITOS build ─────────────────────────
+           |
+06/02 21:00  cd90d82   fix: backend Dockerfile path structure for docker-compose compatibility
+           |
+07/02 01:20  ─────────── FRONTEND build ────────────────────────
+           |
+07/02 01:28  9800564   chore: add SonarQube configuration file
+           |
+07/02 05:24  ─────────── BACKEND build ─────────────────────────
+```
+
+### Commits no incluidos por servicio
+
+| Servicio | Último incluido | Commits posteriores NO desplegados |
+|----------|-----------------|-----------------------------------|
+| **Documentos** | `b3ed485` | `d1797c9` (perf Dockerfiles), `cd90d82`, `4ddf443`, `c8819c7`, `2dc6859`, `847e9cb`, `3b7203b`, `2fd021b`, `9800564` |
+| **Remitos** | `b3ed485` | Igual que documentos |
+| **Frontend** | `cd90d82` | `4ddf443`, `c8819c7`, `2dc6859`, `847e9cb`, `3b7203b`, `2fd021b`, `9800564` |
+| **Backend** | `9800564` | Ninguno (sincronizado) |
+
+### Resumen
+
+- **Backend**: al día con `main` (commit `9800564`).
+- **Frontend**: 8 commits atrasado (principalmente Dockerfile/backend; no cambian app frontend).
+- **Documentos / Remitos**: 9 commits atrasado; incluyen cambios en `9426970` (dotenv documentos) y Dockerfiles.
 
 ---
 
-## 🌐 URLs de Acceso
+## URLs de acceso
 
-### Página Principal
-```
-http://10.3.0.243:8550/
-```
-
-### Nueva Funcionalidad
-```
-http://10.3.0.243:8550/documentos/equipos/alta-completa
-```
-
-### Acceso desde el Sistema
-1. Login → Dashboard
-2. Click en "Documentos"
-3. Click en "Equipos"
-4. Click en botón verde "📄 Alta Completa con Documentos"
+| Recurso | URL |
+|---------|-----|
+| Frontend | http://10.3.0.243:8550 |
+| Alta Completa | http://10.3.0.243:8550/documentos/equipos/alta-completa |
+| Backend API | http://10.3.0.243:4800 |
+| Documentos API | http://10.3.0.243:4802 |
+| Remitos API | http://10.3.0.243:4803 |
+| MinIO | http://10.3.0.243:9000 |
+| Flowise | http://10.3.0.243:3005 |
 
 ---
 
-## 📝 Comandos de Verificación
+## Comandos de verificación
 
-### Estado de Servicios
+### Estado de contenedores
+
 ```bash
 ssh -i ~/.ssh/id_rsa_bca_243 administrador@10.3.0.243 \
-  'cd ~/stack-ip-10.3.0.243 && docker compose ps'
+  'docker ps -a --filter name=bca_ --format "table {{.Names}}\t{{.Status}}"'
 ```
 
-### Logs Frontend
+### Fechas de imágenes
+
 ```bash
 ssh -i ~/.ssh/id_rsa_bca_243 administrador@10.3.0.243 \
-  'cd ~/stack-ip-10.3.0.243 && docker compose logs -f frontend'
+  'docker images --format "table {{.Repository}}\t{{.Tag}}\t{{.CreatedAt}}" | grep bca'
 ```
 
-### Verificar Ruta
+### Health checks
+
 ```bash
-curl -s http://10.3.0.243:8550/assets/index-*.js | grep -o 'alta-completa'
+curl -s -o /dev/null -w "%{http_code}" http://10.3.0.243:4800/health  # Backend
+curl -s -o /dev/null -w "%{http_code}" http://10.3.0.243:4802/health  # Documentos
+curl -s -o /dev/null -w "%{http_code}" http://10.3.0.243:4803/health  # Remitos
+curl -s -o /dev/null -w "%{http_code}" http://10.3.0.243:8550/        # Frontend
 ```
 
 ---
 
-## 🔄 Proceso de Despliegue Ejecutado
+## Proceso de despliegue
 
-1. **Preparación Local**
-   - Creación de tarball con archivos nuevos
-   - Copia vía SCP a servidor remoto
+### Opción 1: Script automatizado (recomendado)
 
-2. **Extracción en Servidor**
-   ```bash
-   cd ~/monorepo-bca
-   tar xzf /tmp/equipos_frontend.tar.gz
-   ```
+```bash
+# Desde máquina local con acceso SSH
+./scripts/deploy-to-243.sh                    # Frontend, documentos, remitos
+./scripts/deploy-to-243.sh --all              # Todos los servicios
+./scripts/deploy-to-243.sh frontend backend   # Solo los especificados
+```
 
-3. **Corrección de Dockerfile**
-   - Cambio de `npm ci` a `npm install`
-   - Agregado `--legacy-peer-deps`
+El script:
+- Sincroniza código con `git pull`
+- Usa BuildKit para cache de layers
+- Muestra progreso y tiempos
+- Verifica health después del deploy
 
-4. **Build de Imagen**
-   ```bash
-   cd ~/stack-ip-10.3.0.243
-   docker build -f Dockerfile.frontend -t bca/frontend:latest ~/monorepo-bca
-   ```
-   - Tiempo: ~9 minutos
-   - Resultado: Exitoso
+### Opción 2: Manual en servidor
 
-5. **Reinicio de Contenedor**
-   ```bash
-   docker compose up -d frontend
-   ```
-   - Container recreado
-   - Health check: OK
+```bash
+# Conectar
+ssh -i ~/.ssh/id_rsa_bca_243 administrador@10.3.0.243
 
----
+# Sincronizar código
+cd ~/monorepo-bca
+git fetch origin && git reset --hard origin/main
 
-## ⚠️ Notas Importantes
+# Migraciones (si hay cambios de schema)
+npx prisma migrate deploy --schema=apps/backend/prisma/schema.prisma
+npx prisma migrate deploy --schema=apps/documentos/src/prisma/schema.prisma
+npx prisma db push --schema=apps/remitos/src/prisma/schema.prisma
 
-### Dockerfile Frontend
-Se modificó para usar `npm install --legacy-peer-deps --workspaces` en lugar de `npm ci` porque:
-- `npm ci` no soporta el flag `--workspaces`
-- Se requiere `--legacy-peer-deps` para resolver conflictos de dependencias
+# Build optimizado (con BuildKit)
+export DOCKER_BUILDKIT=1
+cd ~/stack-ip-10.3.0.243
+docker compose build frontend documentos remitos
+docker compose up -d --no-build frontend documentos remitos
+```
 
-### Templates en Base de Datos
-- ✅ Ya ejecutado: 19 templates creados
-- No se requiere ejecutar seeds adicionales en el servidor
+### Tiempos esperados (con optimizaciones)
 
-### Compatibilidad
-- ✅ No se modificó backend (100% compatible)
-- ✅ No se modificó base de datos
-- ✅ No se modificó MinIO
-- ✅ Solo cambios en frontend (UI)
+| Servicio   | Primera vez | Con cache |
+|------------|-------------|-----------|
+| Frontend   | ~3 min      | ~30 seg   |
+| Backend    | ~4 min      | ~1 min    |
+| Documentos | ~3 min      | ~45 seg   |
+| Remitos    | ~2 min      | ~30 seg   |
 
 ---
 
-## 🧪 Testing Recomendado
+## Optimizaciones aplicadas (2026-02-07)
 
-### Test 1: Acceso a la Nueva Página
-1. Abrir navegador en `http://10.3.0.243:8550`
-2. Login con credenciales admin
-3. Navegar: Dashboard → Documentos → Equipos
-4. Verificar botón verde "📄 Alta Completa con Documentos"
-5. Click en el botón
-6. Verificar que cargue la página con el formulario completo
+### 1. .dockerignore en raíz
+Excluye ~250MB innecesarios:
+- `import-data/` (195MB)
+- `docs/`, `.git/`, `__tests__/`
+- Archivos .md, .xlsx, .pdf
 
-### Test 2: Funcionalidad Básica
-1. Completar datos básicos (empresa, chofer, patentes)
-2. Verificar que las secciones de documentos se habiliten
-3. Seleccionar archivo para un documento
-4. Click en "Subir"
-5. Verificar feedback visual (spinner → check verde)
+### 2. Dockerfiles multi-stage optimizados
+- **Layer caching**: package.json primero, código después
+- **BuildKit cache mounts**: `--mount=type=cache,target=/root/.npm`
+- **Prune dev deps**: `npm prune --omit=dev`
+- **Limpieza agresiva**: eliminar tests, docs de node_modules
 
-### Test 3: Progress Bar
-1. Subir varios documentos
-2. Verificar que el progress bar se actualice
-3. Verificar contador de documentos (X/Y)
+### 3. Tamaños objetivo
 
-### Test 4: Validación Atómica
-1. Intentar hacer click en "Crear Equipo" sin todos los documentos
-2. Verificar que esté disabled
-3. Completar todos los documentos
-4. Verificar que se habilite
+| Imagen       | Antes   | Después  | Reducción |
+|--------------|---------|----------|-----------|
+| Backend      | 899 MB  | ~300 MB  | -66%      |
+| Frontend     | 69 MB   | ~50 MB   | -27%      |
+| Documentos   | 498 MB  | ~400 MB  | -20%      |
+| Remitos      | 472 MB  | ~380 MB  | -20%      |
 
 ---
 
-## 📊 Métricas del Despliegue
+## Histórico: despliegue original (2024-11-16)
 
-| Métrica | Valor |
-|---------|-------|
-| Tiempo de Build | 9 minutos |
-| Tamaño de Imagen | ~500 MB |
-| Downtime | ~10 segundos |
-| Servicios Afectados | Solo Frontend |
-| Archivos Nuevos | 3 componentes |
-| Archivos Modificados | 2 páginas |
+El primer despliegue documentado incluyó:
 
----
+- **Frontend**: Alta Completa de Equipos (`DocumentoField.tsx`, `SeccionDocumentos.tsx`, `AltaEquipoCompletaPage.tsx`)
+- **Dockerfile.frontend**: `npm install --legacy-peer-deps`
+- **Servicios**: Frontend, Backend, Documentos, MinIO, Postgres, Redis, Flowise (sin Remitos)
 
-## ✅ Checklist de Despliegue
+Desde entonces el stack ha evolucionado:
 
-- [x] Código copiado al servidor
-- [x] Dockerfile corregido
-- [x] Imagen frontend construida
-- [x] Container frontend reiniciado
-- [x] Frontend responde HTTP 200
-- [x] Ruta "alta-completa" en bundle JS
-- [x] Todos los servicios healthy
-- [x] No hay errores en logs
-- [x] Seeds de templates ejecutados previamente
+- Frontend pasa de goStatic a **nginx** con proxy a APIs
+- Añadido **Remitos** (puerto 4803)
+- Validación IA en Documentos (`FLOWISE_VALIDATION_ENABLED`)
 
 ---
 
-## 🎯 Próximos Pasos
-
-1. **Testing Manual**
-   - Probar flujo completo de alta de equipo
-   - Verificar uploads a MinIO
-   - Confirmar creación de equipo en DB
-
-2. **Monitoreo**
-   - Revisar logs del frontend por errores
-   - Monitorear uso de memoria/CPU
-   - Verificar tiempos de respuesta
-
-3. **Feedback de Usuario**
-   - Solicitar pruebas del sistema
-   - Recoger comentarios sobre UX
-   - Identificar mejoras
-
----
-
-## 📞 Contacto y Soporte
+## Contacto
 
 **Servidor**: administrador@10.3.0.243  
 **SSH Key**: `~/.ssh/id_rsa_bca_243`  
 **Documentación**: `/home/administrador/monorepo-bca/docs/`
-
----
-
-**Estado Final**: ✅ DESPLEGADO Y OPERATIVO
-
-

@@ -1,0 +1,101 @@
+# =============================================================================
+# .dockerignore - Monorepo BCA
+# =============================================================================
+# Excluir archivos innecesarios para reducir contexto de build
+# y acelerar transferencia al daemon Docker
+# =============================================================================
+
+# Git
+.git
+.gitignore
+.gitattributes
+
+# Datos de importación (195MB)
+import-data/
+*.xlsx
+*.xls
+
+# Documentación
+docs/
+*.md
+!apps/*/README.md
+LICENSE
+
+# Configuración de desarrollo
+.vscode/
+.idea/
+.cursor/
+*.swp
+*.swo
+*~
+
+# Tests (se excluyen del build de producción)
+**/__tests__/
+**/*.test.ts
+**/*.test.tsx
+**/*.spec.ts
+**/*.spec.tsx
+**/jest.config.*
+**/coverage/
+.nyc_output/
+
+# Cache y temporales
+.turbo/
+.cache/
+.parcel-cache/
+tmp/
+temp/
+*.log
+npm-debug.log*
+
+# Node modules (se instalan fresh en el builder)
+node_modules/
+**/node_modules/
+
+# Build outputs (se generan en el builder)
+**/dist/
+**/build/
+*.tgz
+
+# Archivos de entorno
+.env
+.env.*
+!.env.example
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Stacks de deploy de otros ambientes
+deploy/stack-ip-192.168.15.136/
+deploy/stack-ip-10.8.10.20/
+deploy/stack-ip-10.3.0.246/
+
+# Scripts de desarrollo
+scripts/
+!apps/*/scripts/
+
+# Archivos específicos innecesarios
+sonar-project.properties
+docker-compose*.yml
+!deploy/*/docker-compose.yml
+formulario*.pdf
+*.traineddata
+ANALISIS_*.md
+ESPECIFICACION_*.md
+EJEMPLOS_*.md
+PLAN_*.md
+RESUMEN_*.md
+SPRINT_*.me
+MAPEO_*.me
+MATRIZ_*.md
+RACONTO_*.md
+ARQUITECTURA_*.md
+CHECKLIST_*.md
+IMPLEMENTACION_*.md
+
+# Backups de workflows
+.github/workflows-backup/
+
+# Artifacts
+.artifacts/
