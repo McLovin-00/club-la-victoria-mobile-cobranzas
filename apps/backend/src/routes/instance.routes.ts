@@ -19,6 +19,46 @@ import { UserRole } from '@prisma/client';
 
 const router = Router();
 
+// Helper: validar acceso de usuario a instancia (para rutas inline)
+interface InstanceAccessResult {
+  allowed: boolean;
+  instance?: any;
+  errorStatus?: number;
+  errorMessage?: string;
+}
+
+async function validateInstanceAccess(
+  user: AuthPayload,
+  instanceId: number,
+  action: string
+): Promise<InstanceAccessResult> {
+  const instanceService = InstanceService.getInstance();
+  const instance = await instanceService.findById(instanceId);
+  
+  if (!instance) {
+    return { allowed: false, errorStatus: 404, errorMessage: 'Instancia no encontrada' };
+  }
+
+  if (user.role === UserRole.SUPERADMIN) {
+    return { allowed: true, instance };
+  }
+  
+  if ((user.role === UserRole.ADMIN || user.role === UserRole.OPERATOR) && user.empresaId) {
+    if (instance.empresaId !== user.empresaId) {
+      AppLogger.warn(`⚠️ Usuario sin permisos para ${action} de esta instancia`, {
+        instanceId,
+        userId: user.userId,
+        userEmpresaId: user.empresaId,
+        instanceEmpresaId: instance.empresaId,
+      });
+      return { allowed: false, errorStatus: 403, errorMessage: `No tienes permisos para ${action} de esta instancia` };
+    }
+    return { allowed: true, instance };
+  }
+  
+  return { allowed: false, errorStatus: 403, errorMessage: `No tienes permisos para ${action}` };
+}
+
 // Middleware de autenticación para todas las rutas
 router.use(authenticateUser);
 
@@ -158,38 +198,9 @@ router.get(
         userId: user.userId,
       });
 
-      // Verificar que la instancia existe y el usuario tiene permisos
-      const instanceService = InstanceService.getInstance();
-      const instance = await instanceService.findById(instanceId);
-      if (!instance) {
-        return res.status(404).json({
-          success: false,
-          message: 'Instancia no encontrada',
-        });
-      }
-
-      // Validar permisos según el rol
-      if (user.role === UserRole.SUPERADMIN) {
-        // Superadmin puede ver permisos de cualquier instancia
-      } else if ((user.role === UserRole.ADMIN || user.role === UserRole.OPERATOR) && user.empresaId) {
-        // Admin y user solo pueden ver permisos de instancias de su empresa
-        if (instance.empresaId !== user.empresaId) {
-          AppLogger.warn('⚠️ Usuario sin permisos para ver permisos de esta instancia', {
-            instanceId,
-            userId: user.userId,
-            userEmpresaId: user.empresaId,
-            instanceEmpresaId: instance.empresaId,
-          });
-          return res.status(403).json({
-            success: false,
-            message: 'No tienes permisos para ver permisos de esta instancia',
-          });
-        }
-      } else {
-        return res.status(403).json({
-          success: false,
-          message: 'No tienes permisos para ver permisos',
-        });
+      const access = await validateInstanceAccess(user, instanceId, 'ver permisos');
+      if (!access.allowed) {
+        return res.status(access.errorStatus!).json({ success: false, message: access.errorMessage });
       }
 
       // Obtener los permisos usando Prisma
@@ -264,38 +275,9 @@ router.post(
         adminUserId: user.userId,
       });
 
-      // Verificar que la instancia existe y el usuario tiene permisos
-      const instanceService = InstanceService.getInstance();
-      const instance = await instanceService.findById(instanceId);
-      if (!instance) {
-        return res.status(404).json({
-          success: false,
-          message: 'Instancia no encontrada',
-        });
-      }
-
-      // Validar permisos según el rol
-      if (user.role === UserRole.SUPERADMIN) {
-        // Superadmin puede crear permisos en cualquier instancia
-      } else if ((user.role === UserRole.ADMIN || user.role === UserRole.OPERATOR) && user.empresaId) {
-        // Admin y user solo pueden crear permisos en instancias de su empresa
-        if (instance.empresaId !== user.empresaId) {
-          AppLogger.warn('⚠️ Usuario sin permisos para crear permisos en esta instancia', {
-            instanceId,
-            userId: user.userId,
-            userEmpresaId: user.empresaId,
-            instanceEmpresaId: instance.empresaId,
-          });
-          return res.status(403).json({
-            success: false,
-            message: 'No tienes permisos para crear permisos en esta instancia',
-          });
-        }
-      } else {
-        return res.status(403).json({
-          success: false,
-          message: 'No tienes permisos para crear permisos',
-        });
+      const access = await validateInstanceAccess(user, instanceId, 'crear permisos');
+      if (!access.allowed) {
+        return res.status(access.errorStatus!).json({ success: false, message: access.errorMessage });
       }
 
       // Verificar que el usuario target existe
@@ -444,41 +426,13 @@ router.get(
         userId: user.userId,
       });
 
-      // Verificar que la instancia existe y el usuario tiene permisos
-      const instanceService = InstanceService.getInstance();
-      const instance = await instanceService.findById(instanceId);
-      if (!instance) {
-        return res.status(404).json({
-          success: false,
-          message: 'Instancia no encontrada',
-        });
+      const access = await validateInstanceAccess(user, instanceId, 'gestionar usuarios');
+      if (!access.allowed) {
+        return res.status(access.errorStatus!).json({ success: false, message: access.errorMessage });
       }
 
-      // Validar permisos según el rol
-      let empresaFilter = {};
-      if (user.role === UserRole.SUPERADMIN) {
-        // Superadmin puede ver usuarios de todas las empresas
-      } else if ((user.role === UserRole.ADMIN || user.role === UserRole.OPERATOR) && user.empresaId) {
-        // Admin y user solo pueden ver usuarios de su empresa
-        if (instance.empresaId !== user.empresaId) {
-          AppLogger.warn('⚠️ Usuario sin permisos para gestionar usuarios de esta instancia', {
-            instanceId,
-            userId: user.userId,
-            userEmpresaId: user.empresaId,
-            instanceEmpresaId: instance.empresaId,
-          });
-          return res.status(403).json({
-            success: false,
-            message: 'No tienes permisos para gestionar usuarios de esta instancia',
-          });
-        }
-        empresaFilter = { empresaId: user.empresaId };
-      } else {
-        return res.status(403).json({
-          success: false,
-          message: 'No tienes permisos para gestionar usuarios',
-        });
-      }
+      // Filtro de empresa según rol
+      const empresaFilter = user.role === UserRole.SUPERADMIN ? {} : { empresaId: user.empresaId };
 
       // Construir filtros de búsqueda
       const searchFilter = search ? {
