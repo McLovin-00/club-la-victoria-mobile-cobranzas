@@ -1,7 +1,7 @@
 # Despliegue BCA - Servidor 10.3.0.243
 
 **Servidor**: 10.3.0.243  
-**Última actualización**: 2026-02-07  
+**Última actualización**: 2026-02-07 16:38 UTC  
 **Stack**: Staging / Desarrollo
 
 ---
@@ -12,10 +12,10 @@
 
 | Servicio | Imagen | Puerto | Estado | Build (UTC) | Último commit incluido |
 |----------|--------|--------|--------|-------------|------------------------|
-| **Backend** | bca/backend:latest | 4800 | Healthy | 2026-02-07 05:24:52 | `9800564` (07/02 01:28 -03) |
-| **Frontend** | bca/frontend:latest | 8550 | Healthy | 2026-02-07 01:20:09 | `cd90d82` (06/02 21:00 -03) |
-| **Documentos** | bca/documentos:latest | 4802 | Healthy | 2026-02-06 15:09:40 | `b3ed485` (06/02 11:01 -03) |
-| **Remitos** | bca/remitos:latest | 4803 | Healthy | 2026-02-06 17:08:03 | `b3ed485` (06/02 11:01 -03) |
+| **Backend** | bca/backend:latest | 4800 | Healthy | 2026-02-07 16:36:47 | `969c5ea` (07/02 perf: optimize) |
+| **Frontend** | bca/frontend:latest | 8550 | Healthy | 2026-02-07 15:39:10 | `969c5ea` (07/02 perf: optimize) |
+| **Documentos** | bca/documentos:latest | 4802 | Healthy | 2026-02-07 15:50:37 | `969c5ea` (07/02 perf: optimize) |
+| **Remitos** | bca/remitos:latest | 4803 | Healthy | 2026-02-07 15:41:36 | `969c5ea` (07/02 perf: optimize) |
 | **Postgres** | postgres:16 | 5432 | Healthy | — | — |
 | **Redis** | redis:7-alpine | 6379 | Healthy | — | — |
 | **MinIO** | minio/minio:latest | 9000-9001 | Healthy | — | — |
@@ -27,37 +27,27 @@
 
 Horarios en zona local (-0300). Build = hora de creación de la imagen en el servidor (UTC).
 
-### Timeline de builds (06–07 feb 2026)
+### Estado de sincronización (2026-02-07 16:38 UTC)
+
+**Todos los servicios sincronizados con `main`** (commit `969c5ea`)
+
+| Servicio | Commit desplegado | Estado |
+|----------|------------------|--------|
+| **Backend** | `969c5ea` | ✅ Sincronizado |
+| **Frontend** | `969c5ea` | ✅ Sincronizado |
+| **Documentos** | `969c5ea` | ✅ Sincronizado |
+| **Remitos** | `969c5ea` | ✅ Sincronizado |
+
+### Timeline de builds (07 feb 2026)
 
 ```
-06/02 11:01  b3ed485  fix: copy full monorepo in builder for proper type resolution
+07/02 12:XX  969c5ea  perf: optimize Dockerfiles and deploy scripts for faster builds
            |
-06/02 15:09  ─────────── DOCUMENTOS build ──────────────────────
-06/02 17:08  ─────────── REMITOS build ─────────────────────────
-           |
-06/02 21:00  cd90d82   fix: backend Dockerfile path structure for docker-compose compatibility
-           |
-07/02 01:20  ─────────── FRONTEND build ────────────────────────
-           |
-07/02 01:28  9800564   chore: add SonarQube configuration file
-           |
-07/02 05:24  ─────────── BACKEND build ─────────────────────────
+07/02 15:39  ─────────── FRONTEND build ────────────────────────
+07/02 15:41  ─────────── REMITOS build ─────────────────────────
+07/02 15:50  ─────────── DOCUMENTOS build ──────────────────────
+07/02 16:36  ─────────── BACKEND build ─────────────────────────
 ```
-
-### Commits no incluidos por servicio
-
-| Servicio | Último incluido | Commits posteriores NO desplegados |
-|----------|-----------------|-----------------------------------|
-| **Documentos** | `b3ed485` | `d1797c9` (perf Dockerfiles), `cd90d82`, `4ddf443`, `c8819c7`, `2dc6859`, `847e9cb`, `3b7203b`, `2fd021b`, `9800564` |
-| **Remitos** | `b3ed485` | Igual que documentos |
-| **Frontend** | `cd90d82` | `4ddf443`, `c8819c7`, `2dc6859`, `847e9cb`, `3b7203b`, `2fd021b`, `9800564` |
-| **Backend** | `9800564` | Ninguno (sincronizado) |
-
-### Resumen
-
-- **Backend**: al día con `main` (commit `9800564`).
-- **Frontend**: 8 commits atrasado (principalmente Dockerfile/backend; no cambian app frontend).
-- **Documentos / Remitos**: 9 commits atrasado; incluyen cambios en `9426970` (dotenv documentos) y Dockerfiles.
 
 ---
 
@@ -166,14 +156,16 @@ Excluye ~250MB innecesarios:
 - **Prune dev deps**: `npm prune --omit=dev`
 - **Limpieza agresiva**: eliminar tests, docs de node_modules
 
-### 3. Tamaños objetivo
+### 3. Tamaños de imágenes actuales
 
-| Imagen       | Antes   | Después  | Reducción |
-|--------------|---------|----------|-----------|
-| Backend      | 899 MB  | ~300 MB  | -66%      |
-| Frontend     | 69 MB   | ~50 MB   | -27%      |
-| Documentos   | 498 MB  | ~400 MB  | -20%      |
-| Remitos      | 472 MB  | ~380 MB  | -20%      |
+| Imagen       | Tamaño  | Notas |
+|--------------|---------|-------|
+| Backend      | 879 MB  | Incluye node_modules completos del monorepo (requerido para npm workspaces) |
+| Frontend     | 69 MB   | Imagen nginx optimizada con assets estáticos |
+| Documentos   | 553 MB  | Multi-stage con pruning de dev deps |
+| Remitos      | 586 MB  | Multi-stage con pruning de dev deps |
+
+**Nota**: El backend requiere el monorepo completo para resolver dependencias hoisted de npm workspaces correctamente.
 
 ---
 

@@ -148,8 +148,8 @@ services:
 
   backend:
     build:
-      context: ../..
-      dockerfile: ./deploy/stack-ip-10.3.0.243/Dockerfile.backend
+      context: /home/administrador/monorepo-bca
+      dockerfile: deploy/stack-ip-10.3.0.243/Dockerfile.backend
     image: bca/backend:latest
     container_name: bca_backend
     restart: always
@@ -211,7 +211,7 @@ services:
 
   documentos:
     build:
-      context: ../../apps/documentos
+      context: /home/administrador/monorepo-bca/apps/documentos
       dockerfile: Dockerfile
     image: bca/documentos:latest
     container_name: bca_documentos
@@ -295,7 +295,7 @@ services:
 
   remitos:
     build:
-      context: ../../apps/remitos
+      context: /home/administrador/monorepo-bca/apps/remitos
       dockerfile: Dockerfile
     image: bca/remitos:latest
     container_name: bca_remitos
@@ -412,8 +412,8 @@ services:
 
   frontend:
     build:
-      context: ../..
-      dockerfile: ./deploy/stack-ip-10.3.0.243/Dockerfile.frontend
+      context: /home/administrador/monorepo-bca
+      dockerfile: deploy/stack-ip-10.3.0.243/Dockerfile.frontend
       args:
         # URLs relativas - nginx hace proxy a los servicios internos
         VITE_API_URL: ""

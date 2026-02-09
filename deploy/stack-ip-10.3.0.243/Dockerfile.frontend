@@ -44,10 +44,11 @@ ENV VITE_API_URL=$VITE_API_URL \
     VITE_REMITOS_API_URL=$VITE_REMITOS_API_URL \
     VITE_APP_TITLE=$VITE_APP_TITLE
 
-# Copiar deps cacheados
+# Copiar deps cacheados y package.json raíz (necesario para npm workspaces)
 COPY --from=deps /app/node_modules ./node_modules
+COPY --from=deps /app/package.json ./package.json
 
-# Copiar solo código fuente necesario
+# Copiar código fuente necesario
 COPY apps/frontend ./apps/frontend
 COPY packages ./packages
 COPY tsconfig.json ./

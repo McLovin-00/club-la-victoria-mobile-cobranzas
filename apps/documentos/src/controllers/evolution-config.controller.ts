@@ -21,9 +21,9 @@ async function tryEndpoint(url: string, headers: Record<string, string>, signal:
     const resp = await fetch(url, { method: 'GET', headers, signal });
     if (!resp.ok) return { ok: false, status: resp.status };
     
-    const data = await resp.json().catch(() => ({}));
+    const data = await resp.json().catch(() => ({})) as Record<string, unknown>;
     if (data && typeof data === 'object' && 'message' in data) {
-      return { ok: true, message: data.message, version: data.version };
+      return { ok: true, message: data.message as string, version: (data as Record<string, unknown>).version as string | undefined };
     }
     return { ok: true, status: resp.status };
   } catch (e: any) {
