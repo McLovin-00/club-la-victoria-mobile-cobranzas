@@ -1,0 +1,682 @@
+import { ApprovalService } from '../../src/services/approval.service';
+import { prismaMock, dbMock, resetPrismaMock } from '../mocks/prisma.mock';
+import { mockMinioService } from '../mocks/minio.mock';
+import { mockAppLogger } from '../mocks/logger.mock';
+
+jest.mock('../../src/config/database', () => ({
+  prisma: () => prismaMock,
+  db: dbMock
+}));
+
+jest.mock('../../src/services/minio.service', () => ({
+  minioService: mockMinioService
+}));
+
+jest.mock('../../src/config/logger', () => ({
+  AppLogger: mockAppLogger
+}));
+
+describe('ApprovalService', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    resetPrismaMock();
+  });
+
+  describe('getPendingDocuments', () => {
+    it('debe retornar documentos pendientes con paginación cuando no hay filtros', async () => {
+      prismaMock.getClient().document.findMany.mockResolvedValue([
+        {
+          id: 1,
+          tenantEmpresaId: 1,
+          entityId: 123,
+          entityType: 'CHOFER',
+          templateId: 1,
+          template: { id: 1, name: 'LICENCIA', entityType: 'CHOFER' },
+          classification: {
+            detectedEntityType: 'CHOFER',
+            detectedEntityId: '12345678',
+            confidence: 0.95,
+            reviewedAt: null,
+          },
+          uploadedAt: new Date('2025-01-14T10:00:00Z'),
+        },
+      ]);
+      prismaMock.getClient().document.count.mockResolvedValue(1);
+
+      const result = await ApprovalService.getPendingDocuments(1, {});
+
+      expect(prismaMock.getClient().document.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            tenantEmpresaId: 1,
+            status: 'PENDIENTE_APROBACION',
+          }),
+          skip: 0,
+          take: 20,
+          orderBy: [{ uploadedAt: 'desc' }, { id: 'desc' }],
+        })
+      );
+      expect(result.data).toHaveLength(1);
+      expect(result.pagination).toEqual({
+        page: 1,
+        limit: 20,
+        total: 1,
+        pages: 1,
+      });
+    });
+
+    it('debe filtrar por tipo de entidad', async () => {
+      prismaMock.getClient().document.findMany.mockResolvedValue([]);
+      prismaMock.getClient().document.count.mockResolvedValue(0);
+
+      await ApprovalService.getPendingDocuments(1, { entityType: 'CHOFER' });
+
+      expect(prismaMock.getClient().document.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            classification: expect.objectContaining({
+              detectedEntityType: 'CHOFER',
+            }),
+          }),
+        })
+      );
+    });
+
+    it('debe filtrar por rango de confianza', async () => {
+      prismaMock.getClient().document.findMany.mockResolvedValue([]);
+      prismaMock.getClient().document.count.mockResolvedValue(0);
+
+      await ApprovalService.getPendingDocuments(1, { minConfidence: 0.8, maxConfidence: 0.95 });
+
+      expect(prismaMock.getClient().document.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            classification: expect.objectContaining({
+              confidence: { gte: 0.8, lte: 0.95 },
+            }),
+          }),
+        })
+      );
+    });
+
+    it('debe aplicar paginación correctamente', async () => {
+      prismaMock.getClient().document.findMany.mockResolvedValue([]);
+      prismaMock.getClient().document.count.mockResolvedValue(100);
+
+      await ApprovalService.getPendingDocuments(1, { page: 3, limit: 25 });
+
+      expect(prismaMock.getClient().document.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          skip: 50,
+          take: 25,
+        })
+      );
+    });
+
+    it('debe enriquecer documentos con entityNaturalId y iaValidation', async () => {
+      prismaMock.getClient().document.findMany.mockResolvedValue([
+        {
+          id: 1,
+          tenantEmpresaId: 1,
+          entityId: 123,
+          entityType: 'CHOFER',
+          templateId: 1,
+          template: { id: 1, name: 'LICENCIA', entityType: 'CHOFER' },
+          classification: {
+            detectedEntityType: 'CHOFER',
+            detectedEntityId: '12345678',
+            confidence: 0.95,
+            disparidades: [{ severidad: 'critica', field: 'fecha' }],
+            validationStatus: 'validated',
+          },
+          uploadedAt: new Date('2025-01-14T10:00:00Z'),
+        },
+      ]);
+      prismaMock.getClient().document.count.mockResolvedValue(1);
+
+      prismaMock.getClient().chofer.findUnique.mockResolvedValue({
+        dni: '12345678',
+      });
+
+      const result = await ApprovalService.getPendingDocuments(1, {});
+
+      expect(result.data[0].entityNaturalId).toBe('12345678');
+      expect(result.data[0].iaValidation).toEqual({
+        validationStatus: 'validated',
+        hasDisparities: true,
+        disparitiesCount: 1,
+        disparitiesSeverity: 'critica',
+      });
+    });
+  });
+
+  describe('getPendingDocument', () => {
+    it('debe retornar documento pendiente encontrado', async () => {
+      prismaMock.getClient().document.findFirst.mockResolvedValue({
+        id: 1,
+        tenantEmpresaId: 1,
+        entityId: 123,
+        entityType: 'CHOFER',
+        templateId: 1,
+        template: { id: 1, name: 'LICENCIA', entityType: 'CHOFER' },
+        classification: {
+          detectedEntityType: 'CHOFER',
+          detectedEntityId: '12345678',
+        },
+      });
+      prismaMock.getClient().chofer.findUnique.mockResolvedValue({
+        dni: '12345678',
+      });
+
+      const result = await ApprovalService.getPendingDocument(1, 1);
+
+      expect(result).not.toBeNull();
+      expect(result.entityNaturalId).toBe('12345678');
+    });
+
+    it('debe retornar null cuando documento no existe', async () => {
+      prismaMock.getClient().document.findFirst.mockResolvedValue(null);
+
+      const result = await ApprovalService.getPendingDocument(999, 1);
+
+      expect(result).toBeNull();
+    });
+
+    it('debe retornar null cuando documento no está pendiente', async () => {
+      prismaMock.getClient().document.findFirst.mockResolvedValue({
+        id: 1,
+        tenantEmpresaId: 1,
+        entityId: 123,
+        entityType: 'CHOFER',
+        templateId: 1,
+        status: 'APROBADO',
+        template: { id: 1, name: 'LICENCIA' },
+        classification: null,
+      });
+
+      const result = await ApprovalService.getPendingDocument(1, 1);
+
+      expect(result).toBeNull();
+    });
+  });
+
+  describe('approveDocument', () => {
+    const baseDoc = {
+      id: 1,
+      tenantEmpresaId: 1,
+      dadorCargaId: 1,
+      entityId: 123,
+      entityType: 'CHOFER',
+      templateId: 1,
+      template: { id: 1, name: 'LICENCIA', entityType: 'CHOFER' },
+      classification: {
+        detectedEntityType: 'CHOFER',
+        detectedEntityId: '12345678',
+        detectedExpiration: new Date('2026-01-14'),
+        detectedDocumentType: 'LICENCIA',
+      },
+      status: 'PENDIENTE_APROBACION',
+    };
+
+    it('debe aprobar documento con datos de revisión completos', async () => {
+      prismaMock.getClient().$transaction.mockImplementation(async (callback) => {
+        return callback({
+          document: {
+            findFirst: jest.fn().mockResolvedValue(baseDoc),
+            update: jest.fn().mockResolvedValue({
+              ...baseDoc,
+              status: 'APROBADO',
+              entityType: 'CHOFER',
+              entityId: 123,
+              expiresAt: new Date('2026-01-14'),
+              template: { id: 1, name: 'LICENCIA' },
+            }),
+          },
+          documentClassification: {
+            update: jest.fn().mockResolvedValue({}),
+          },
+          documentTemplate: {
+            findFirst: jest.fn().mockResolvedValue(null),
+          },
+          chofer: {
+            findFirst: jest.fn().mockResolvedValue({ id: 123 }),
+          },
+          empresaTransportista: {
+            findFirst: jest.fn().mockResolvedValue(null),
+          },
+          camion: {
+            findFirst: jest.fn().mockResolvedValue(null),
+          },
+          acoplado: {
+            findFirst: jest.fn().mockResolvedValue(null),
+          },
+          document: {
+            findMany: jest.fn().mockResolvedValue([]),
+          },
+        });
+      });
+
+      const reviewData = {
+        reviewedBy: 1,
+        confirmedEntityType: 'CHOFER',
+        confirmedEntityId: 123,
+        confirmedExpiration: new Date('2026-01-14'),
+        confirmedTemplateId: 1,
+        reviewNotes: 'Aprobado manualmente',
+      };
+
+      const result = await ApprovalService.approveDocument(1, 1, reviewData);
+
+      expect(result.status).toBe('APROBADO');
+    });
+
+    it('debe lanzar error cuando documento no tiene clasificación', async () => {
+      prismaMock.getClient().$transaction.mockImplementation(async (callback) => {
+        return callback({
+          document: {
+            findFirst: jest.fn().mockResolvedValue({
+              ...baseDoc,
+              classification: null,
+            }),
+          },
+        });
+      });
+
+      await expect(
+        ApprovalService.approveDocument(1, 1, { reviewedBy: 1 })
+      ).rejects.toThrow('Documento no encontrado o no está pendiente de aprobación');
+    });
+
+    it('debe crear nueva entidad de chofer si no existe', async () => {
+      prismaMock.getClient().$transaction.mockImplementation(async (callback) => {
+        const tx = {
+          document: {
+            findFirst: jest.fn().mockResolvedValue(baseDoc),
+            update: jest.fn().mockResolvedValue({
+              ...baseDoc,
+              status: 'APROBADO',
+              entityType: 'CHOFER',
+              entityId: 456,
+              expiresAt: new Date('2026-01-14'),
+              template: { id: 1, name: 'LICENCIA' },
+            }),
+          },
+          documentClassification: {
+            update: jest.fn().mockResolvedValue({}),
+          },
+          chofer: {
+            findFirst: jest.fn().mockResolvedValue(null),
+            create: jest.fn().mockResolvedValue({ id: 456 }),
+          },
+          empresaTransportista: {
+            findFirst: jest.fn().mockResolvedValue(null),
+          },
+          camion: {
+            findFirst: jest.fn().mockResolvedValue(null),
+          },
+          acoplado: {
+            findFirst: jest.fn().mockResolvedValue(null),
+          },
+          documentTemplate: {
+            findFirst: jest.fn().mockResolvedValue(null),
+          },
+          document: {
+            findMany: jest.fn().mockResolvedValue([]),
+          },
+        };
+        return callback(tx);
+      });
+
+      const reviewData = {
+        reviewedBy: 1,
+        confirmedEntityId: '87654321',
+        confirmedExpiration: new Date('2026-01-14'),
+        confirmedTemplateId: 1,
+      };
+
+      await ApprovalService.approveDocument(1, 1, reviewData);
+    });
+
+    it('debe lanzar error cuando falta tipo de entidad', async () => {
+      prismaMock.getClient().$transaction.mockImplementation(async (callback) => {
+        return callback({
+          document: {
+            findFirst: jest.fn().mockResolvedValue({
+              ...baseDoc,
+              classification: { detectedEntityType: null },
+            }),
+          },
+          chofer: {
+            findFirst: jest.fn().mockResolvedValue({ id: 123 }),
+          },
+          empresaTransportista: {
+            findFirst: jest.fn().mockResolvedValue(null),
+          },
+          camion: {
+            findFirst: jest.fn().mockResolvedValue(null),
+          },
+          acoplado: {
+            findFirst: jest.fn().mockResolvedValue(null),
+          },
+          documentTemplate: {
+            findFirst: jest.fn().mockResolvedValue(null),
+          },
+          documentClassification: {
+            update: jest.fn().mockResolvedValue({}),
+          },
+          document: {
+            findMany: jest.fn().mockResolvedValue([]),
+          },
+        });
+      });
+
+      await expect(
+        ApprovalService.approveDocument(1, 1, {
+          reviewedBy: 1,
+          confirmedEntityId: 123,
+          confirmedExpiration: new Date('2026-01-14'),
+          confirmedTemplateId: 1,
+        })
+      ).rejects.toThrow('Debe seleccionar la entidad');
+    });
+
+    it('debe lanzar error cuando no se puede confirmar entidad', async () => {
+      prismaMock.getClient().$transaction.mockImplementation(async (callback) => {
+        return callback({
+          document: {
+            findFirst: jest.fn().mockResolvedValue(baseDoc),
+          },
+          chofer: {
+            findFirst: jest.fn().mockResolvedValue(null),
+            create: jest.fn().mockRejectedValue(new Error('Entity exists')),
+          },
+          empresaTransportista: {
+            findFirst: jest.fn().mockResolvedValue(null),
+          },
+          camion: {
+            findFirst: jest.fn().mockResolvedValue(null),
+          },
+          acoplado: {
+            findFirst: jest.fn().mockResolvedValue(null),
+          },
+          documentTemplate: {
+            findFirst: jest.fn().mockResolvedValue(null),
+          },
+          documentClassification: {
+            update: jest.fn().mockResolvedValue({}),
+          },
+          document: {
+            findMany: jest.fn().mockResolvedValue([]),
+          },
+        });
+      });
+
+      await expect(
+        ApprovalService.approveDocument(1, 1, {
+          reviewedBy: 1,
+          confirmedEntityType: 'CHOFER',
+          confirmedExpiration: new Date('2026-01-14'),
+          confirmedTemplateId: 1,
+        })
+      ).rejects.toThrow('Debe confirmarse la identidad de la entidad antes de aprobar');
+    });
+
+    it('debe renombrar archivo en MinIO', async () => {
+      prismaMock.getClient().$transaction.mockImplementation(async (callback) => {
+        const tx = {
+          document: {
+            findFirst: jest.fn().mockResolvedValue({
+              ...baseDoc,
+              filePath: 'bucket-name/documents/2025/01/file.pdf',
+            }),
+            findUnique: jest.fn().mockResolvedValue({
+              filePath: 'bucket-name/documents/2025/01/file.pdf',
+              entityId: 123,
+            }),
+            update: jest.fn().mockResolvedValue({
+              ...baseDoc,
+              status: 'APROBADO',
+              entityType: 'CHOFER',
+              entityId: 123,
+              expiresAt: new Date('2026-01-14'),
+              template: { id: 1, name: 'LICENCIA' },
+            }),
+          },
+          documentClassification: {
+            update: jest.fn().mockResolvedValue({}),
+          },
+          chofer: {
+            findFirst: jest.fn().mockResolvedValue({ id: 123 }),
+          },
+          empresaTransportista: {
+            findFirst: jest.fn().mockResolvedValue(null),
+          },
+          camion: {
+            findFirst: jest.fn().mockResolvedValue(null),
+          },
+          acoplado: {
+            findFirst: jest.fn().mockResolvedValue(null),
+          },
+          documentTemplate: {
+            findFirst: jest.fn().mockResolvedValue(null),
+          },
+          document: {
+            findMany: jest.fn().mockResolvedValue([]),
+          },
+        };
+
+        const result = await callback(tx);
+
+        expect(mockMinioService.moveObject).toHaveBeenCalledWith(
+          'bucket-name',
+          'documents/2025/01/file.pdf',
+          'documents/2025/01/LICENCIA_CHOFER_12345678.pdf'
+        );
+
+        return result;
+      });
+
+      await ApprovalService.approveDocument(1, 1, {
+        reviewedBy: 1,
+        confirmedEntityId: 123,
+        confirmedExpiration: new Date('2026-01-14'),
+        confirmedTemplateId: 1,
+      });
+    });
+
+    it('debe deprecar documentos anteriores', async () => {
+      prismaMock.getClient().$transaction.mockImplementation(async (callback) => {
+        const tx = {
+          document: {
+            findFirst: jest.fn().mockResolvedValue(baseDoc),
+            update: jest.fn()
+              .mockResolvedValueOnce({
+                ...baseDoc,
+                status: 'APROBADO',
+                entityType: 'CHOFER',
+                entityId: 123,
+                expiresAt: new Date('2026-01-14'),
+                template: { id: 1, name: 'LICENCIA' },
+              })
+              .mockResolvedValueOnce({}),
+            findMany: jest.fn()
+              .mockResolvedValueOnce([
+                {
+                  id: 2,
+                  validationData: { old: 'data' },
+                },
+              ])
+              .mockResolvedValueOnce([]),
+          },
+          documentClassification: {
+            update: jest.fn().mockResolvedValue({}),
+          },
+          chofer: {
+            findFirst: jest.fn().mockResolvedValue({ id: 123 }),
+          },
+          empresaTransportista: {
+            findFirst: jest.fn().mockResolvedValue(null),
+          },
+          camion: {
+            findFirst: jest.fn().mockResolvedValue(null),
+          },
+          acoplado: {
+            findFirst: jest.fn().mockResolvedValue(null),
+          },
+          documentTemplate: {
+            findFirst: jest.fn().mockResolvedValue(null),
+          },
+        };
+
+        return callback(tx);
+      });
+
+      await ApprovalService.approveDocument(1, 1, {
+        reviewedBy: 1,
+        confirmedEntityId: 123,
+        confirmedExpiration: new Date('2026-01-14'),
+        confirmedTemplateId: 1,
+      });
+    });
+  });
+
+  describe('rejectDocument', () => {
+    it('debe rechazar documento con motivo válido', async () => {
+      prismaMock.getClient().$transaction.mockImplementation(async (callback) => {
+        return callback({
+          document: {
+            findFirst: jest.fn().mockResolvedValue({
+              id: 1,
+              tenantEmpresaId: 1,
+              classification: { detectedEntityType: 'CHOFER' },
+            }),
+            update: jest.fn().mockResolvedValue({
+              id: 1,
+              status: 'RECHAZADO',
+              rejectedAt: expect.any(Date),
+              rejectedBy: 1,
+              rejectionReason: 'Documento borroso',
+              rejectionCount: 1,
+            }),
+          },
+          documentClassification: {
+            update: jest.fn().mockResolvedValue({}),
+          },
+        });
+      });
+
+      const result = await ApprovalService.rejectDocument(1, 1, {
+        reviewedBy: 1,
+        reason: 'Documento borroso',
+        reviewNotes: 'Nota adicional',
+      });
+
+      expect(result.status).toBe('RECHAZADO');
+      expect(result.rejectionReason).toBe('Documento borroso');
+    });
+
+    it('debe lanzar error cuando motivo es muy corto', async () => {
+      await expect(
+        ApprovalService.rejectDocument(1, 1, {
+          reviewedBy: 1,
+          reason: 'X',
+        })
+      ).rejects.toThrow('Debe especificar un motivo de rechazo');
+    });
+
+    it('debe lanzar error cuando motivo está vacío', async () => {
+      await expect(
+        ApprovalService.rejectDocument(1, 1, {
+          reviewedBy: 1,
+          reason: '   ',
+        })
+      ).rejects.toThrow('Debe especificar un motivo de rechazo');
+    });
+
+    it('debe combinar motivo con notas en reviewNotes', async () => {
+      prismaMock.getClient().$transaction.mockImplementation(async (callback) => {
+        const tx = {
+          document: {
+            findFirst: jest.fn().mockResolvedValue({
+              id: 1,
+              tenantEmpresaId: 1,
+              classification: { detectedEntityType: 'CHOFER' },
+            }),
+            update: jest.fn().mockResolvedValue({
+              id: 1,
+              status: 'RECHAZADO',
+            }),
+          },
+          documentClassification: {
+            update: jest.fn().mockResolvedValue({}),
+          },
+        };
+
+        await callback(tx);
+
+        expect(tx.documentClassification.update).toHaveBeenCalledWith(
+          expect.objectContaining({
+            data: expect.objectContaining({
+              reviewNotes: 'RECHAZADO: Documento inválido | Nota adicional',
+            }),
+          })
+        );
+      });
+
+      await ApprovalService.rejectDocument(1, 1, {
+        reviewedBy: 1,
+        reason: 'Documento inválido',
+        reviewNotes: 'Nota adicional',
+      });
+    });
+  });
+
+  describe('getApprovalStats', () => {
+    it('debe calcular estadísticas correctamente', async () => {
+      prismaMock.getClient().document.groupBy.mockResolvedValue([
+        { status: 'PENDIENTE_APROBACION', _count: { status: 5 } },
+        { status: 'APROBADO', _count: { status: 10 } },
+        { status: 'RECHAZADO', _count: { status: 3 } },
+      ]);
+
+      const result = await ApprovalService.getApprovalStats(1);
+
+      expect(result).toEqual({
+        pendienteAprobacion: 5,
+        aprobados: 10,
+        rechazados: 3,
+        total: 18,
+      });
+    });
+
+    it('debe retornar ceros cuando no hay documentos', async () => {
+      prismaMock.getClient().document.groupBy.mockResolvedValue([]);
+
+      const result = await ApprovalService.getApprovalStats(1);
+
+      expect(result).toEqual({
+        pendienteAprobacion: 0,
+        aprobados: 0,
+        rechazados: 0,
+        total: 0,
+      });
+    });
+
+    it('debe ignorar estados no reconocidos', async () => {
+      prismaMock.getClient().document.groupBy.mockResolvedValue([
+        { status: 'PENDIENTE_APROBACION', _count: { status: 5 } },
+        { status: 'APROBADO', _count: { status: 10 } },
+        { status: 'VENCIDO', _count: { status: 2 } },
+      ]);
+
+      const result = await ApprovalService.getApprovalStats(1);
+
+      expect(result).toEqual({
+        pendienteAprobacion: 5,
+        aprobados: 10,
+        rechazados: 0,
+        total: 17,
+      });
+    });
+  });
+});

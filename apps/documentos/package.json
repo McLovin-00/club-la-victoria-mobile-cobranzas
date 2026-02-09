@@ -7,7 +7,7 @@
     "dev": "dotenv -e ../../.env -- ts-node-dev --exit-child --respawn --transpile-only src/index.ts",
     "build": "tsc",
     "start": "node dist/index.js",
-    "pretest": "rm -rf dist/__tests__",
+    "pretest": "node -e \"require('node:fs').rmSync('dist/__tests__', { recursive: true, force: true })\"",
     "test": "jest --config ./jest.config.js --passWithNoTests",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",

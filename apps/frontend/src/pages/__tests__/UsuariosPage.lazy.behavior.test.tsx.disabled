@@ -1,0 +1,215 @@
+/**
+ * Behavior coverage for UsuariosPage.lazy
+ */
+import React from 'react';
+import { describe, it, expect, jest } from '@jest/globals';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
+
+const setupMocks = async (options?: { boundaryErrorMessage?: string; boundaryErrorInfo?: any }) => {
+  const loggerError = jest.fn();
+  const loggerDebug = jest.fn();
+  const usuariosPageImported = jest.fn();
+  const userTableImported = jest.fn();
+  const prefetchSpy = jest.fn();
+  const boundaryErrorMessage = options?.boundaryErrorMessage ?? 'Boundary error';
+  const boundaryErrorInfo: any = options?.boundaryErrorInfo ?? {
+    componentStack: 'at UsuariosPage',
+    errorBoundary: function DummyBoundary() { },
+    errorInfo: null,
+  };
+
+  await jest.unstable_mockModule('../../lib/utils', () => ({
+    Logger: {
+      error: loggerError,
+      debug: loggerDebug,
+      warn: jest.fn(),
+      log: jest.fn(),
+    },
+  }));
+
+  await jest.unstable_mockModule('../../components/ui/card', () => ({
+    Card: ({ children, className }: { children: React.ReactNode; className?: string }) =>
+      React.createElement('div', { className, 'data-testid': 'card' }, children),
+  }));
+
+  await jest.unstable_mockModule('../../components/ui/button', () => ({
+    Button: ({
+      children,
+      onClick,
+      className,
+      variant,
+    }: {
+      children: React.ReactNode;
+      onClick?: () => void;
+      className?: string;
+      variant?: string;
+    }) =>
+      React.createElement('button', { onClick, className, 'data-variant': variant }, children),
+  }));
+
+  await jest.unstable_mockModule('../../components/ui/spinner', () => ({
+    Spinner: ({ className }: { className?: string }) =>
+      React.createElement('div', { className, 'data-testid': 'spinner' }, 'Loading'),
+  }));
+
+  await jest.unstable_mockModule('@heroicons/react/24/outline', () => ({
+    ExclamationTriangleIcon: () => React.createElement('svg', { 'data-testid': 'exclamation-icon' }),
+    ArrowPathIcon: () => React.createElement('svg', { 'data-testid': 'arrow-path-icon' }),
+  }));
+
+  await jest.unstable_mockModule('react-error-boundary', () => ({
+    ErrorBoundary: ({ children, FallbackComponent, onError, onReset }: any) => {
+      const error = new Error(boundaryErrorMessage);
+      if (onError) {
+        onError(error, boundaryErrorInfo);
+      }
+      const resetErrorBoundary = () => {
+        if (onReset) {
+          onReset();
+        }
+      };
+      if (FallbackComponent) {
+        return React.createElement(FallbackComponent, { error, resetErrorBoundary });
+      }
+      return React.createElement('div', { 'data-testid': 'error-boundary' }, children);
+    },
+  }));
+
+  await jest.unstable_mockModule('../UsuariosPage', () => {
+    usuariosPageImported();
+    return {
+      default: () => React.createElement('div', { 'data-testid': 'usuarios-page' }, 'UsuariosPage'),
+    };
+  });
+
+  await jest.unstable_mockModule('../../features/users/components/UserTable.lazy', () => {
+    userTableImported();
+    return {
+      default: () => React.createElement('div', { 'data-testid': 'user-table-lazy' }),
+    };
+  });
+
+  await jest.unstable_mockModule('../../features/users/api/usersApiSlice', () => ({
+    usersApiSlice: { util: { prefetch: prefetchSpy } },
+  }));
+
+  const module = await import('../UsuariosPage.lazy');
+
+  return {
+    module,
+    loggerError,
+    loggerDebug,
+    usuariosPageImported,
+    userTableImported,
+    prefetchSpy,
+  };
+};
+
+describe('UsuariosPage.lazy behavior coverage', () => {
+  it('renders fallback, logs, and handles reset and dashboard', async () => {
+    await jest.isolateModulesAsync(async () => {
+      const { module, loggerError, loggerDebug } = await setupMocks();
+      const { UsuariosPageLazy } = module;
+
+      const originalLocation = window.location;
+      delete (window as any).location;
+      (window as any).location = { href: 'http://localhost/' };
+
+      try {
+        render(React.createElement(UsuariosPageLazy));
+
+        expect(screen.getByText('Error al Cargar')).toBeInTheDocument();
+        expect(screen.getByText('Boundary error')).toBeInTheDocument();
+
+        await waitFor(() => {
+          expect(loggerError).toHaveBeenCalledWith('Error en UsuariosPage:', expect.any(Error));
+        });
+
+        expect(loggerError).toHaveBeenCalledWith(
+          expect.stringContaining('ErrorBoundary'),
+          expect.objectContaining({ error: 'Boundary error' })
+        );
+
+        fireEvent.click(screen.getByText('Reintentar'));
+        expect(loggerDebug).toHaveBeenCalledWith(expect.stringContaining('Reiniciando UsuariosPage'));
+
+        fireEvent.click(screen.getByText('Volver al Dashboard'));
+        expect(window.location.href).toBe('/dashboard');
+      } finally {
+        (window as any).location = originalLocation;
+      }
+    });
+  });
+
+  it('renders default error message when error is empty', async () => {
+    await jest.isolateModulesAsync(async () => {
+      const { module, loggerError } = await setupMocks({
+        boundaryErrorMessage: '',
+        boundaryErrorInfo: { componentStack: null, errorBoundary: null, errorInfo: null },
+      });
+      const { UsuariosPageLazy } = module;
+
+      render(React.createElement(UsuariosPageLazy));
+
+      expect(screen.getByText('Error desconocido')).toBeInTheDocument();
+      expect(loggerError).toHaveBeenCalledWith(
+        expect.stringContaining('ErrorBoundary'),
+        expect.objectContaining({ componentStack: 'No disponible' })
+      );
+    });
+  });
+
+  it('runs preload timer and imports lazy modules', async () => {
+    await jest.isolateModulesAsync(async () => {
+      const { module, usuariosPageImported, userTableImported } = await setupMocks();
+      const { usePreloadUsuarios } = module;
+
+      jest.useFakeTimers();
+
+      const TestComponent = () => {
+        usePreloadUsuarios();
+        return null;
+      };
+
+      render(React.createElement(TestComponent));
+
+      await act(async () => {
+        jest.advanceTimersByTime(100);
+        await Promise.resolve();
+      });
+
+      expect(usuariosPageImported).toHaveBeenCalled();
+      expect(userTableImported).toHaveBeenCalled();
+
+      jest.useRealTimers();
+    });
+  });
+
+  it('prefetches usuarios data after delay', async () => {
+    await jest.isolateModulesAsync(async () => {
+      const { module, prefetchSpy } = await setupMocks();
+      const { usePrefetchUsuariosData } = module;
+
+      jest.useFakeTimers();
+
+      const TestComponent = () => {
+        usePrefetchUsuariosData();
+        return null;
+      };
+
+      render(React.createElement(TestComponent));
+
+      await act(async () => {
+        await Promise.resolve();
+      });
+
+      act(() => {
+        jest.advanceTimersByTime(500);
+      });
+
+      expect(prefetchSpy).toHaveBeenCalledWith('getUsuarios', undefined, { force: false });
+
+      jest.useRealTimers();
+    });
+  });
+});

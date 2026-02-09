@@ -18,6 +18,12 @@ jest.mock('../../src/config/logger', () => ({
   },
 }));
 
+jest.mock('../../src/services/compliance.service', () => ({
+  ComplianceService: {
+    evaluateEquipoClienteDetailed: jest.fn().mockResolvedValue([]),
+  },
+}));
+
 import { EquipoEstadoService } from '../../src/services/equipo-estado.service';
 
 describe('EquipoEstadoService', () => {
@@ -27,105 +33,135 @@ describe('EquipoEstadoService', () => {
   });
 
   describe('calculateEquipoEstado', () => {
-    const now = new Date();
-    const futureDate = new Date(now.getTime() + 60 * 24 * 60 * 60 * 1000); // 60 days
-    const pastDate = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000); // 30 days ago
-    const soonDate = new Date(now.getTime() + 10 * 24 * 60 * 60 * 1000); // 10 days
+    it('retorna gris si el equipo no existe', async () => {
+      prismaMock.equipo.findUnique.mockResolvedValue(null);
 
-    it('should return VIGENTE for all valid documents', async () => {
-      const mockDocuments = [
-        { id: 1, status: 'APPROVED', expiresAt: futureDate },
-        { id: 2, status: 'APPROVED', expiresAt: futureDate },
-      ];
+      const result = await EquipoEstadoService.calculateEquipoEstado(123);
 
-      const result = await EquipoEstadoService.calculateEquipoEstado(mockDocuments as any);
-
-      expect(result).toBe('VIGENTE');
+      expect(result.estado).toBe('gris');
+      expect(result.equipoId).toBe(123);
     });
 
-    it('should return VENCIDO for expired documents', async () => {
-      const mockDocuments = [
-        { id: 1, status: 'APPROVED', expiresAt: pastDate },
-      ];
-
-      const result = await EquipoEstadoService.calculateEquipoEstado(mockDocuments as any);
-
-      expect(result).toBe('VENCIDO');
-    });
-
-    it('should return POR_VENCER for documents expiring soon', async () => {
-      const mockDocuments = [
-        { id: 1, status: 'APPROVED', expiresAt: soonDate },
-      ];
-
-      const result = await EquipoEstadoService.calculateEquipoEstado(mockDocuments as any);
-
-      expect(result).toBe('POR_VENCER');
-    });
-
-    it('should return INCOMPLETO for missing required documents', async () => {
-      const mockDocuments: any[] = [];
-
-      const result = await EquipoEstadoService.calculateEquipoEstado(mockDocuments, { 
-        requiredTemplateIds: [1, 2, 3] 
+    it('retorna rojo si hay faltantes (compliance)', async () => {
+      prismaMock.equipo.findUnique.mockResolvedValue({
+        id: 1,
+        tenantEmpresaId: 1,
+        dadorCargaId: 1,
+        driverId: 10,
+        truckId: null,
+        trailerId: null,
       });
+      prismaMock.document.findMany.mockResolvedValue([]);
 
-      expect(result).toBe('INCOMPLETO');
+      // eslint-disable-next-line @typescript-eslint/no-var-requires
+      const { ComplianceService } = require('../../src/services/compliance.service');
+      (ComplianceService.evaluateEquipoClienteDetailed as jest.Mock).mockResolvedValue([{ state: 'FALTANTE' }]);
+
+      const result = await EquipoEstadoService.calculateEquipoEstado(1, 99);
+      expect(result.estado).toBe('rojo');
+      expect(result.breakdown.faltantes).toBe(1);
     });
 
-    it('should return PENDIENTE for pending review documents', async () => {
-      const mockDocuments = [
-        { id: 1, status: 'PENDING', expiresAt: futureDate },
-      ];
+    it('retorna rojo_azul si hay faltantes y pendientes', async () => {
+      prismaMock.equipo.findUnique.mockResolvedValue({
+        id: 1,
+        tenantEmpresaId: 1,
+        dadorCargaId: 1,
+        driverId: 10,
+        truckId: null,
+        trailerId: null,
+      });
+      prismaMock.document.findMany.mockResolvedValue([{ status: 'PENDIENTE', expiresAt: null }]);
 
-      const result = await EquipoEstadoService.calculateEquipoEstado(mockDocuments as any);
+      // eslint-disable-next-line @typescript-eslint/no-var-requires
+      const { ComplianceService } = require('../../src/services/compliance.service');
+      (ComplianceService.evaluateEquipoClienteDetailed as jest.Mock).mockResolvedValue([{ state: 'FALTANTE' }]);
 
-      expect(result).toBe('PENDIENTE');
+      const result = await EquipoEstadoService.calculateEquipoEstado(1, 99);
+      expect(result.estado).toBe('rojo_azul');
+      expect(result.breakdown.pendientes).toBe(1);
     });
 
-    it('should return RECHAZADO for rejected documents', async () => {
-      const mockDocuments = [
-        { id: 1, status: 'REJECTED', expiresAt: futureDate },
-      ];
+    it('retorna amarillo si hay proximos (sin vencidos/rechazados/faltantes)', async () => {
+      prismaMock.equipo.findUnique.mockResolvedValue({
+        id: 1,
+        tenantEmpresaId: 1,
+        dadorCargaId: 1,
+        driverId: 10,
+        truckId: null,
+        trailerId: null,
+      });
+      prismaMock.document.findMany.mockResolvedValue([]);
 
-      const result = await EquipoEstadoService.calculateEquipoEstado(mockDocuments as any);
+      // eslint-disable-next-line @typescript-eslint/no-var-requires
+      const { ComplianceService } = require('../../src/services/compliance.service');
+      (ComplianceService.evaluateEquipoClienteDetailed as jest.Mock).mockResolvedValue([{ state: 'PROXIMO' }]);
 
-      expect(result).toBe('RECHAZADO');
+      const result = await EquipoEstadoService.calculateEquipoEstado(1, 99);
+      expect(result.estado).toBe('amarillo');
+      expect(result.breakdown.proximos).toBe(1);
+    });
+  });
+
+  describe('Coverage Improvements', () => {
+    it('handles no clienteId (compliance empty)', async () => {
+      prismaMock.equipo.findUnique.mockResolvedValue({ id: 1, driverId: 10 } as any);
+      prismaMock.document.findMany.mockResolvedValue([]);
+      const result = await EquipoEstadoService.calculateEquipoEstado(1); // no clienteId
+      expect(result.breakdown.sinRequisitos).toBe(false);
+      expect(result.estado).toBe('gris'); // Nothing found
     });
 
-    it('should handle empty documents array', async () => {
-      const result = await EquipoEstadoService.calculateEquipoEstado([]);
+    it('handles empty equipo entities (no clauses)', async () => {
+      prismaMock.equipo.findUnique.mockResolvedValue({ id: 1, driverId: null, truckId: null, trailerId: null } as any);
+      const result = await EquipoEstadoService.calculateEquipoEstado(1);
+      expect(result.breakdown.pendientes).toBe(0);
+      expect(prismaMock.document.findMany).not.toHaveBeenCalled();
+    });
 
-      expect(result).toBe('INCOMPLETO');
+    it('returns ROJO if rejected detected', async () => {
+      prismaMock.equipo.findUnique.mockResolvedValue({ id: 1, driverId: 10 } as any);
+      prismaMock.document.findMany.mockResolvedValue([{ status: 'RECHAZADO', expiresAt: null }] as any);
+      // eslint-disable-next-line @typescript-eslint/no-var-requires
+      const { ComplianceService } = require('../../src/services/compliance.service');
+      (ComplianceService.evaluateEquipoClienteDetailed as jest.Mock).mockResolvedValue([]);
+
+      const result = await EquipoEstadoService.calculateEquipoEstado(1);
+      expect(result.estado).toBe('rojo');
+      expect(result.breakdown.rechazados).toBe(1);
+    });
+
+    it('returns ROJO if expired detected', async () => {
+      prismaMock.equipo.findUnique.mockResolvedValue({ id: 1, driverId: 10 } as any);
+      const past = new Date();
+      past.setFullYear(past.getFullYear() - 1);
+      prismaMock.document.findMany.mockResolvedValue([{ status: 'APROBADO', expiresAt: past }] as any);
+      const result = await EquipoEstadoService.calculateEquipoEstado(1);
+      expect(result.estado).toBe('rojo');
+      expect(result.breakdown.vencidos).toBe(1);
+    });
+
+    it('returns AZUL if only pending', async () => {
+      prismaMock.equipo.findUnique.mockResolvedValue({ id: 1, driverId: 10 } as any);
+      prismaMock.document.findMany.mockResolvedValue([{ status: 'PENDIENTE', expiresAt: null }] as any);
+      const result = await EquipoEstadoService.calculateEquipoEstado(1);
+      expect(result.estado).toBe('azul');
+      expect(result.breakdown.pendientes).toBe(1);
+    });
+
+    it('returns VERDE if only vigente', async () => {
+      prismaMock.equipo.findUnique.mockResolvedValue({ id: 1, driverId: 10 } as any);
+      prismaMock.document.findMany.mockResolvedValue([]);
+      // eslint-disable-next-line @typescript-eslint/no-var-requires
+      const { ComplianceService } = require('../../src/services/compliance.service');
+      (ComplianceService.evaluateEquipoClienteDetailed as jest.Mock).mockResolvedValue([{ state: 'VIGENTE' }]);
+
+      const result = await EquipoEstadoService.calculateEquipoEstado(1, 99);
+      expect(result.estado).toBe('verde');
+      expect(result.breakdown.vigentes).toBe(1);
     });
   });
 
-  describe('getEstadoColor', () => {
-    it('should return green for VIGENTE', () => {
-      const result = EquipoEstadoService.getEstadoColor('VIGENTE');
-      expect(result).toBe('#22c55e');
-    });
-
-    it('should return yellow for POR_VENCER', () => {
-      const result = EquipoEstadoService.getEstadoColor('POR_VENCER');
-      expect(result).toBe('#eab308');
-    });
-
-    it('should return red for VENCIDO', () => {
-      const result = EquipoEstadoService.getEstadoColor('VENCIDO');
-      expect(result).toBe('#ef4444');
-    });
-
-    it('should return orange for PENDIENTE', () => {
-      const result = EquipoEstadoService.getEstadoColor('PENDIENTE');
-      expect(result).toBe('#f97316');
-    });
-
-    it('should return gray for unknown status', () => {
-      const result = EquipoEstadoService.getEstadoColor('UNKNOWN' as any);
-      expect(result).toBe('#9ca3af');
-    });
-  });
 });
 
 

@@ -58,7 +58,8 @@ export const useWhatsAppNotifications = (): WhatsAppNotificationsHook => {
   const [isUpdating, setIsUpdating] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const baseUrl = `${import.meta.env.VITE_DOCUMENTOS_API_URL}/api/docs`;
+  // En Vite `import.meta.env` existe. En tests/Node puede no estar definido: fallback seguro.
+  const baseUrl = `${(import.meta as any)?.env?.VITE_DOCUMENTOS_API_URL || (process as any)?.env?.VITE_DOCUMENTOS_API_URL || ''}/api/docs`;
 
   const authHeaders: HeadersInit = useMemo(() => ({
     ...(authToken ? { Authorization: `Bearer ${authToken}` } : {}),

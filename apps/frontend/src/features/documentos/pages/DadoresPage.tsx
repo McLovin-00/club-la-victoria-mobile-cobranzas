@@ -8,6 +8,7 @@ import { useSelector } from 'react-redux';
 import { RootState } from '../../../store/store';
 import type { DadorCarga } from '../types/entities';
 import { useRoleBasedNavigation } from '../../../hooks/useRoleBasedNavigation';
+import { getRuntimeEnv } from '../../../lib/runtimeEnv';
 
 const phoneRegex = /^\+?[1-9]\d{7,14}$/;
 
@@ -136,11 +137,11 @@ const DadoresPage: React.FC = () => {
               </div>
               <div className='mt-2 pl-1 flex gap-6 items-center'>
                 <div className='flex items-center gap-2'>
-                  <input type='checkbox' defaultChecked={Boolean((d as any).notifyDriverEnabled)} onChange={async (e)=>{ await fetch(`${import.meta.env.VITE_DOCUMENTOS_API_URL}/api/docs/dadores/${d.id}/notifications`, { method:'PUT', headers: { 'Content-Type': 'application/json', ...authHeaders }, body: JSON.stringify({ notifyDriverEnabled: e.target.checked }) }); }} />
+                  <input type='checkbox' defaultChecked={Boolean((d as any).notifyDriverEnabled)} onChange={async (e)=>{ await fetch(`${getRuntimeEnv('VITE_DOCUMENTOS_API_URL') || ''}/api/docs/dadores/${d.id}/notifications`, { method:'PUT', headers: { 'Content-Type': 'application/json', ...authHeaders }, body: JSON.stringify({ notifyDriverEnabled: e.target.checked }) }); }} />
                   <span className='text-sm'>Enviar a chofer</span>
                 </div>
                 <div className='flex items-center gap-2'>
-                  <input type='checkbox' defaultChecked={Boolean((d as any).notifyDadorEnabled)} onChange={async (e)=>{ await fetch(`${import.meta.env.VITE_DOCUMENTOS_API_URL}/api/docs/dadores/${d.id}/notifications`, { method:'PUT', headers: { 'Content-Type': 'application/json', ...authHeaders }, body: JSON.stringify({ notifyDadorEnabled: e.target.checked }) }); }} />
+                  <input type='checkbox' defaultChecked={Boolean((d as any).notifyDadorEnabled)} onChange={async (e)=>{ await fetch(`${getRuntimeEnv('VITE_DOCUMENTOS_API_URL') || ''}/api/docs/dadores/${d.id}/notifications`, { method:'PUT', headers: { 'Content-Type': 'application/json', ...authHeaders }, body: JSON.stringify({ notifyDadorEnabled: e.target.checked }) }); }} />
                   <span className='text-sm'>Enviar a dador</span>
                 </div>
               </div>

@@ -1,11 +1,12 @@
 import { createApi, fetchBaseQuery, BaseQueryFn, FetchArgs, FetchBaseQueryError } from '@reduxjs/toolkit/query/react';
 import { RootState } from './store';
 import { Logger as AppLogger } from '../lib/utils';
+import { getRuntimeEnv, getRuntimeFlag } from '../lib/runtimeEnv';
 
 // En desarrollo, usar proxy de Vite; en producción, usar variable de entorno
-const API_BASE_URL = import.meta.env.DEV 
+const API_BASE_URL = getRuntimeFlag('DEV')
   ? '/api'  // Proxy de Vite en desarrollo
-  : `${import.meta.env.VITE_API_BASE_URL || import.meta.env.VITE_API_URL || ''}/api`;
+  : `${getRuntimeEnv('VITE_API_BASE_URL') || getRuntimeEnv('VITE_API_URL') || ''}/api`;
 
 // Base query con configuración estándar
 const baseQuery = fetchBaseQuery({

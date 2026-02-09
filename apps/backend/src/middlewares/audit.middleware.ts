@@ -54,8 +54,9 @@ function sanitizeUserAgent(userAgent?: string): string {
 
 /**
  * Utilidad para extraer información de sesión
+ * @internal Exportado solo para testing - no usar en producción
  */
-function _getSessionInfo(req: Request): string | undefined {
+export function _getSessionInfo(req: Request): string | undefined {
   // Extraer del token JWT o header de sesión
   const authHeader = req.headers.authorization;
   if (authHeader && authHeader.startsWith('Bearer ')) {
@@ -150,8 +151,9 @@ export const captureOldValues = (resourceKey: string = 'id') => {
 
 /**
  * Función helper para determinar la severidad
+ * @internal Exportado solo para testing - no usar en producción
  */
-function _determineSeverity(actionType: AuditActionType, statusCode: number): AuditSeverity {
+export function _determineSeverity(actionType: AuditActionType, statusCode: number): AuditSeverity {
   if (statusCode >= 500) return AuditSeverity.CRITICAL;
   if (statusCode >= 400) return AuditSeverity.HIGH;
   if (actionType === AuditActionType.USER_DELETE || actionType === AuditActionType.EMPRESA_DELETE) {
@@ -171,4 +173,6 @@ export default {
   AuditActionType,
   AuditResult,
   AuditSeverity,
+  _getSessionInfo,
+  _determineSeverity,
 };

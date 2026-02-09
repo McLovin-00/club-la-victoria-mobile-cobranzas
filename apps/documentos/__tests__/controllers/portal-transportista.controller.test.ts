@@ -19,13 +19,17 @@ jest.mock('../../src/config/logger', () => ({
 }));
 
 import { PortalTransportistaController } from '../../src/controllers/portal-transportista.controller';
-import { AuthRequest } from '../../src/types/auth.types';
+import type { AuthRequest } from '../../src/middlewares/auth.middleware';
+
 
 describe('PortalTransportistaController', () => {
   let mockReq: Partial<AuthRequest>;
   let mockRes: Partial<Response>;
   let jsonMock: jest.Mock;
   let statusMock: jest.Mock;
+  const transportistaUser = { userId: 1, role: 'TRANSPORTISTA', empresaTransportistaId: 5 } as unknown as AuthRequest['user'];
+  const transportistaUserWithoutEmpresa = { userId: 1, role: 'TRANSPORTISTA' } as unknown as AuthRequest['user'];
+
 
   beforeEach(() => {
     resetPrismaMock();
@@ -44,13 +48,8 @@ describe('PortalTransportistaController', () => {
     it('should return rejected documents for transportista', async () => {
       mockReq = {
         tenantId: 1,
-        user: {
-          userId: 1,
-          role: 'TRANSPORTISTA',
-          empresaId: 1,
-          tenantEmpresaId: 1,
-          empresaTransportistaId: 5,
-        },
+        user: transportistaUser,
+
       };
 
       prismaMock.equipo.findMany.mockResolvedValue([
@@ -83,13 +82,8 @@ describe('PortalTransportistaController', () => {
     it('should return empty array if no equipos', async () => {
       mockReq = {
         tenantId: 1,
-        user: {
-          userId: 1,
-          role: 'TRANSPORTISTA',
-          empresaId: 1,
-          tenantEmpresaId: 1,
-          empresaTransportistaId: 5,
-        },
+        user: transportistaUser,
+
       };
 
       prismaMock.equipo.findMany.mockResolvedValue([]);
@@ -106,31 +100,24 @@ describe('PortalTransportistaController', () => {
   });
 
   describe('getEquipos', () => {
-    it('should return equipos for transportista', async () => {
+    it('retorna respuesta vacía si el transportista no tiene empresa asignada', async () => {
       mockReq = {
         tenantId: 1,
-        user: {
-          userId: 1,
-          role: 'TRANSPORTISTA',
-          empresaId: 1,
-          tenantEmpresaId: 1,
-          empresaTransportistaId: 5,
-        },
-        query: {},
+        user: transportistaUserWithoutEmpresa,
+
       };
 
-      const mockEquipos = [
-        { id: 1, driverDniNorm: '12345678', truckPlateNorm: 'ABC123' },
-      ];
-
-      prismaMock.equipo.findMany.mockResolvedValue(mockEquipos);
-      prismaMock.equipo.count.mockResolvedValue(1);
-
-      await PortalTransportistaController.getEquipos(mockReq as AuthRequest, mockRes as Response);
+      await PortalTransportistaController.getMisEntidades(mockReq as AuthRequest, mockRes as Response);
 
       expect(jsonMock).toHaveBeenCalledWith(
         expect.objectContaining({
           success: true,
+          data: expect.objectContaining({
+            empresas: [],
+            choferes: [],
+            camiones: [],
+            acoplados: [],
+          }),
         })
       );
     });

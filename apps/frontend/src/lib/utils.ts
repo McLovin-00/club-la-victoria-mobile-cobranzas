@@ -1,5 +1,6 @@
 import { type ClassValue, clsx } from 'clsx';
 import { twMerge } from 'tailwind-merge';
+import { getRuntimeFlag } from './runtimeEnv';
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
@@ -9,8 +10,8 @@ export function cn(...inputs: ClassValue[]) {
  * Entorno de ejecución actual
  * En producción, NODE_ENV será 'production'
  */
-export const isProduction = import.meta.env.PROD;
-export const isDevelopment = import.meta.env.DEV;
+export const isProduction = getRuntimeFlag('PROD');
+export const isDevelopment = getRuntimeFlag('DEV');
 
 /**
  * Utilidad de logging que solo muestra mensajes en el entorno de desarrollo

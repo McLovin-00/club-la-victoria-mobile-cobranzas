@@ -18,7 +18,7 @@ jest.mock('util', () => ({
   promisify: (_fn: any) => async (cmd: string, _args: string[], _opts?: any) => {
     return new Promise((resolve) => {
       if (cmd === 'pdftoppm' && mockExecFile.mock.calls.length === 0) {
-        mockExecFile.mockImplementation(() => {});
+        mockExecFile.mockImplementation(() => { });
         resolve({ stdout: '', stderr: '' });
       } else if (cmd === 'pdftocairo') {
         resolve({ stdout: '', stderr: '' });

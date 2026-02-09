@@ -1,0 +1,55 @@
+/**
+ * Tests de cobertura para ClienteDashboard
+ */
+import React from 'react';
+import { describe, it, expect, beforeAll, beforeEach, jest } from '@jest/globals';
+import { render, screen } from '@testing-library/react';
+import { MemoryRouter } from 'react-router-dom';
+
+jest.mock('react-router-dom', () => ({
+  ...jest.requireActual('react-router-dom'),
+  useNavigate: () => jest.fn(),
+}));
+
+jest.mock('../../../../store/hooks', () => ({
+  useAppSelector: (selector: any) => selector({ auth: { user: { id: 1 } } }),
+}));
+
+jest.mock('../../../../components/ui/card', () => ({
+  Card: ({ children }: any) => <div>{children}</div>,
+  CardContent: ({ children }: any) => <div>{children}</div>,
+  CardHeader: ({ children }: any) => <div>{children}</div>,
+  CardTitle: ({ children }: any) => <h2>{children}</h2>,
+}));
+
+jest.mock('../../../../components/ui/button', () => ({
+  Button: ({ children }: any) => <button>{children}</button>,
+}));
+
+describe('ClienteDashboard - Coverage', () => {
+  let ClienteDashboard: React.FC;
+
+  beforeAll(async () => {
+    const module = await import('../ClienteDashboard.tsx');
+    ClienteDashboard = module.ClienteDashboard || module.default;
+  });
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  it('debería importar el módulo', async () => {
+    const module = await import('../ClienteDashboard.tsx');
+    expect(module.ClienteDashboard || module.default).toBeDefined();
+  });
+
+  it('debería renderizar el dashboard', () => {
+    render(
+      <MemoryRouter>
+        <ClienteDashboard />
+      </MemoryRouter>
+    );
+
+    expect(document.body.children.length).toBeGreaterThan(0);
+  });
+});

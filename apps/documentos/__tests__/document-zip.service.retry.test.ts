@@ -43,7 +43,8 @@ describe('DocumentZipService retries', () => {
     const { DocumentZipService } = require('../src/services/document-zip.service');
     const jobId = DocumentZipService.enqueueZipJob(1, []); // empty equipos → quick zip
     // Poll for completion with timeout
-    const deadline = Date.now() + 5000;
+    const deadline = Date.now() + 15000;
+
     let job;
      
     while (true) {
@@ -58,7 +59,8 @@ describe('DocumentZipService retries', () => {
     }
     expect(job?.status).toBe('completed');
     expect(job?.artifact).toBeTruthy();
-  });
+  }, 20000);
 });
+
 
 

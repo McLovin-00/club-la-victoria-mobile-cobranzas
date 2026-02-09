@@ -41,7 +41,10 @@ export function AutocompleteInput({
     debounceRef.current = setTimeout(async () => {
       setIsLoading(true);
       try {
-        const baseUrl = import.meta.env.VITE_REMITOS_API_URL || '/api/remitos';
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const importMeta = typeof import.meta !== 'undefined' ? import.meta : (globalThis as any).import;
+        const env = (importMeta as any)?.env || {};
+        const baseUrl = env.VITE_REMITOS_API_URL || '/api/remitos';
         const response = await fetch(
           `${baseUrl}/suggestions?field=${field}&q=${encodeURIComponent(value)}`,
           {

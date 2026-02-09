@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { Card } from '../../../components/ui/card';
 import { Button } from '../../../components/ui/button';
 import { useGetDadoresQuery, useGetDashboardDataQuery, useGetPendingSummaryQuery } from '../api/documentosApiSlice';
+import { getRuntimeEnv } from '../../../lib/runtimeEnv';
 import {
   DocumentTextIcon,
   BuildingOfficeIcon,
@@ -22,7 +23,7 @@ export const DocumentosMainPage: React.FC = () => {
     const controller = new AbortController();
     const load = async () => {
       try {
-        const base = import.meta.env.VITE_DOCUMENTOS_API_URL?.replace(/\/$/, '') ?? '';
+        const base = (getRuntimeEnv('VITE_DOCUMENTOS_API_URL') || '').replace(/\/$/, '');
         const res = await fetch(`${base}/health/detailed`, { signal: controller.signal });
         if (!res.ok) return;
         const data = await res.json();

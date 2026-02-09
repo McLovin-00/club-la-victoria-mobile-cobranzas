@@ -1,6 +1,6 @@
 /**
  * Mock global de Prisma para tests unitarios
- * Proporciona implementaciones mockeadas de todos los modelos de Prisma
+ * Proporciona implementaciones mockeadas de todos los modelos de Prisma con todos los métodos necesarios
  */
 
 // Mock factory para crear modelos con métodos comunes
@@ -43,11 +43,18 @@ export const prismaMock = {
   auditLog: createModelMock(),
   systemConfig: createModelMock(),
   notification: createModelMock(),
+  notificationLog: createModelMock(),
   alertRule: createModelMock(),
   user: createModelMock(),
+  internalNotification: createModelMock(),
   
   // Transaction and raw queries
-  $transaction: jest.fn((fn) => fn(prismaMock)),
+  $transaction: jest.fn((fn) => {
+    console.log('Transaction mock called');
+    const result = fn(prismaMock);
+    console.log('Transaction result from fn:', result);
+    return result;
+  }),
   $queryRaw: jest.fn(),
   $queryRawUnsafe: jest.fn(),
   $executeRaw: jest.fn(),
@@ -69,6 +76,20 @@ export const resetPrismaMock = () => {
       model.mockReset();
     }
   });
+  Object.values(prismaMock).forEach((model) => {
+    if (typeof model === 'object' && model !== null) {
+      Object.values(model).forEach((method) => {
+        method.mockResolvedValue(undefined);
+      });
+    }
+  });
+  prismaMock.$transaction.mockImplementation((fn) => fn(prismaMock));
+  prismaMock.$queryRaw.mockClear();
+  prismaMock.$queryRawUnsafe.mockClear();
+  prismaMock.$executeRaw.mockClear();
+  prismaMock.$executeRawUnsafe.mockClear();
+  prismaMock.$connect.mockClear();
+  prismaMock.$disconnect.mockClear();
 };
 
 // Mock del módulo database
@@ -78,18 +99,3 @@ export const dbMock = {
   connect: jest.fn(),
   disconnect: jest.fn(),
 };
-
-// Helper para configurar mocks comunes
-export const setupCommonMocks = () => {
-  // Default: retornar arrays vacíos para findMany
-  Object.values(prismaMock).forEach((model) => {
-    if (typeof model === 'object' && model !== null && 'findMany' in model) {
-      (model.findMany as jest.Mock).mockResolvedValue([]);
-    }
-    if (typeof model === 'object' && model !== null && 'count' in model) {
-      (model.count as jest.Mock).mockResolvedValue(0);
-    }
-  });
-};
-
-

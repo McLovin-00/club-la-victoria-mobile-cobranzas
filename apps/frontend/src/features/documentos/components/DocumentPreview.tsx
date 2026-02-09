@@ -4,6 +4,7 @@ import { Card } from '../../../components/ui/card';
 import { Document } from '../api/documentosApiSlice';
 import { useGetDadoresQuery } from '../api/documentosApiSlice';
 import { formatFileSize } from '../../../utils/formatters';
+import { getRuntimeEnv } from '../../../lib/runtimeEnv';
 import {
   XMarkIcon,
   ArrowsPointingOutIcon,
@@ -91,19 +92,34 @@ export const DocumentPreview: React.FC<DocumentPreviewProps> = ({
     setError(null);
 
     try {
-      const baseUrl = import.meta.env.VITE_DOCUMENTOS_API_URL ?? '';
-      const authHeader = { 'Authorization': `Bearer ${localStorage.getItem('token')}` };
-      
-      // Obtener URL de preview
-      const response = await fetch(`${baseUrl}/api/docs/documents/${document.id}/preview`, { headers: authHeader });
-      
+      const backendBase = getRuntimeEnv('VITE_DOCUMENTOS_API_URL');
+      if (!backendBase) throw new Error('VITE_DOCUMENTOS_API_URL no configurada');
+
+      // Llamar al endpoint de preview del backend
+      const response = await fetch(
+        `${backendBase}/api/docs/documents/${document.id}/preview`,
+        {
+          headers: {
+            'Authorization': `Bearer ${localStorage.getItem('token')}`,
+          },
+        }
+      );
+
       if (!response.ok) {
         const errorMsg = await parsePreviewError(response);
         throw new Error(errorMsg);
       }
 
       const data = await response.json();
-      const finalUrl = resolvePreviewUrl(data, baseUrl, document.id);
+      // Soportar dos formatos de respuesta: directo o anidado en data
+      const serverUrl: string | undefined = data.previewUrl || data.data?.previewUrl || data.data?.url;
+      // Fallback profesional: si el backend (o una versión intermedia) retorna un enlace directo a MinIO
+      // (e.g., http://minio:9000/...), forzamos el uso del endpoint del backend para evitar dependencias de DNS internos.
+      const minioRegex = /:\/\/minio(?::|\/)/i;
+      const preferBackendDownload = !serverUrl || minioRegex.test(serverUrl);
+      const finalUrl = preferBackendDownload
+        ? `${backendBase}/api/docs/documents/${document.id}/download?inline=1`
+        : serverUrl;
       if (!finalUrl) throw new Error('URL de preview no disponible');
 
       // Descargar archivo con reintentos
@@ -172,7 +188,9 @@ export const DocumentPreview: React.FC<DocumentPreviewProps> = ({
       setIsLoading(true);
       
       // Usar el endpoint específico de descarga del backend
-      const downloadUrl = `${import.meta.env.VITE_DOCUMENTOS_API_URL}/api/docs/documents/${document.id}/download`;
+      const backendBase = getRuntimeEnv('VITE_DOCUMENTOS_API_URL');
+      if (!backendBase) throw new Error('VITE_DOCUMENTOS_API_URL no configurada');
+      const downloadUrl = `${backendBase}/api/docs/documents/${document.id}/download`;
       
       const response = await fetch(downloadUrl, {
         method: 'GET',

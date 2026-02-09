@@ -411,7 +411,8 @@ ${JSON.stringify(request.datosEntidad, null, 2)}
       EMPRESA_TRANSPORTISTA: this.extractEmpresaFields,
     };
     const extractor = extractors[entityType];
-    return extractor ? extractor(data) : {};
+    // Importante: preservamos el `this` para que helpers internos (p.ej. parseDate) funcionen.
+    return extractor ? extractor.call(this, data) : {};
   }
 
   private extractChoferFields(data: Record<string, unknown>): Record<string, unknown> {

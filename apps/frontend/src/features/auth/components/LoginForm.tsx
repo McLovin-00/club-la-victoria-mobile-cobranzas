@@ -9,6 +9,7 @@ import { Input } from '../../../components/ui/input';
 import { Logger } from '../../../lib/utils';
 import { apiSlice } from '../../../store/apiSlice';
 import { documentosApiSlice } from '../../documentos/api/documentosApiSlice';
+import { getDestinationByRole, getLoginErrorMessage, isValidRole } from '../navigationUtils';
 
 export const LoginForm = () => {
   const {
@@ -33,32 +34,8 @@ export const LoginForm = () => {
       dispatch(setCredentials(response));
 
       // Si el usuario tiene un rol válido y está autorizado, redirigir según el rol
-      if (response.data?.role) {
-        // SIEMPRE redirigir al portal según el rol (no usar from para evitar datos del usuario anterior)
-        let destination: string;
-        
-        switch (response.data.role) {
-          case 'ADMIN_INTERNO':
-            destination = '/portal/admin-interno';
-            break;
-          case 'DADOR_DE_CARGA':
-            destination = '/portal/dadores';
-            break;
-          case 'TRANSPORTISTA':
-          case 'CHOFER':
-            destination = '/portal/transportistas';
-            break;
-          case 'CLIENTE':
-            destination = '/portal/cliente';
-            break;
-          case 'SUPERADMIN':
-            destination = '/dashboard';
-            break;
-          default:
-            destination = '/';
-            break;
-        }
-        
+      if (response.data?.role && isValidRole(response.data.role)) {
+        const destination = getDestinationByRole(response.data.role);
         Logger.debug('Login exitoso, redirigiendo a:', destination);
         navigate(destination, { replace: true });
       } else {
@@ -70,16 +47,10 @@ export const LoginForm = () => {
       }
     } catch (err: unknown) {
       Logger.error('Error en login:', err);
-      let errorMessage = 'Error al iniciar sesión';
-
-      if (err && typeof err === 'object' && 'status' in err) {
-        const error = err as { status: number };
-        if (error.status === 401) {
-          errorMessage = 'Credenciales inválidas';
-        } else if (error.status === 403) {
-          errorMessage = 'Usuario no autorizado';
-        }
-      }
+      const status = err && typeof err === 'object' && 'status' in err
+        ? (err as { status: number }).status
+        : undefined;
+      const errorMessage = getLoginErrorMessage(status ?? 0);
 
       setError('root', {
         type: 'manual',

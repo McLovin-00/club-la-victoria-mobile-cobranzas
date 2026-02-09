@@ -2,6 +2,11 @@
 import js from '@eslint/js';
 import globals from 'globals';
 import tseslint from 'typescript-eslint';
+import { fileURLToPath } from 'url';
+import { dirname } from 'path';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
 
 // Flat config array (sin tseslint.config deprecated)
 export default [
@@ -15,7 +20,7 @@ export default [
       parser: tseslint.parser,
       parserOptions: {
         project: ['./tsconfig.json'],
-        tsconfigRootDir: new URL('.', import.meta.url).pathname,
+        tsconfigRootDir: __dirname,
       },
     },
     plugins: { '@typescript-eslint': tseslint.plugin },

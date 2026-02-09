@@ -4,6 +4,7 @@ import { Card } from '../../../components/ui/card';
 import { showToast } from '../../../components/ui/Toast.utils';
 import logger from '../../../utils/logger';
 import { useRoleBasedNavigation } from '../../../hooks/useRoleBasedNavigation';
+import { getRuntimeEnv } from '../../../lib/runtimeEnv';
 import {
   ArrowLeftIcon,
   CogIcon,
@@ -83,7 +84,7 @@ export const FlowiseConfigPage: React.FC = () => {
         }
         
         const response = await fetch(
-          `${import.meta.env.VITE_DOCUMENTOS_API_URL}/api/docs/flowise/test`,
+          `${getRuntimeEnv('VITE_DOCUMENTOS_API_URL') || ''}/api/docs/flowise/test`,
           {
             method: 'POST',
             headers: {
@@ -160,7 +161,7 @@ export const FlowiseConfigPage: React.FC = () => {
       while (attempt < 2) { // 1 intento + 1 reintento espaciado
         attempt++;
         const response = await fetch(
-          `${import.meta.env.VITE_DOCUMENTOS_API_URL}/api/docs/flowise`,
+          `${getRuntimeEnv('VITE_DOCUMENTOS_API_URL') || ''}/api/docs/flowise`,
           {
             headers: {
               'Authorization': `Bearer ${token}`,
@@ -223,7 +224,7 @@ export const FlowiseConfigPage: React.FC = () => {
       };
       logger.debug('Sending payload:', payload);
       
-      const url = `${import.meta.env.VITE_DOCUMENTOS_API_URL}/api/docs/flowise`;
+      const url = `${getRuntimeEnv('VITE_DOCUMENTOS_API_URL') || ''}/api/docs/flowise`;
       logger.debug('PUT URL:', url);
       
       const response = await fetch(url,

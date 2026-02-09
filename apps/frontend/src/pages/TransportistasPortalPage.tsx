@@ -5,10 +5,10 @@ import { Input } from '../components/ui/input';
 import { useGetDadoresQuery, useCreateEquipoMinimalMutation, useUploadBatchDocsTransportistasMutation, useGetJobStatusQuery, useGetDefaultsQuery, useGetMisEquiposQuery, useTransportistasSearchMutation } from '../features/documentos/api/documentosApiSlice';
 import { showToast } from '../components/ui/Toast.utils';
 import { useNavigate } from 'react-router-dom';
-import { 
-  TruckIcon, 
-  UserIcon, 
-  DocumentIcon, 
+import {
+  TruckIcon,
+  UserIcon,
+  DocumentIcon,
   PhoneIcon,
   PlusIcon,
   CloudArrowUpIcon,
@@ -28,7 +28,7 @@ export const TransportistasPortalPage: React.FC = () => {
   const dadores = useMemo(() => (dadoresResp as any)?.list ?? (Array.isArray(dadoresResp) ? dadoresResp : []), [dadoresResp]);
   const { data: defaults } = useGetDefaultsQuery();
   const [defaultDadorId, setDefaultDadorId] = useState<number | undefined>(undefined);
-  useEffect(()=>{ const id = (defaults as any)?.defaultDadorId ?? dadores[0]?.id; if (id) setDefaultDadorId(id); },[dadores, defaults]);
+  useEffect(() => { const id = (defaults as any)?.defaultDadorId ?? dadores[0]?.id; if (id) setDefaultDadorId(id); }, [dadores, defaults]);
   const [dni, setDni] = useState('');
   const [tractor, setTractor] = useState('');
   const [acoplado, setAcoplado] = useState('');
@@ -36,15 +36,15 @@ export const TransportistasPortalPage: React.FC = () => {
   const [phones, setPhones] = useState<string[]>(['']);
   const phoneRegex = /^\+?[1-9]\d{7,14}$/;
   const [misEquipos, setMisEquipos] = useState<any[]>([]);
-  const [tabValue, setTabValue] = useState<'dashboard'|'registro'|'documentos'|'equipos'|'calendario'|'perfil'>('dashboard');
+  const [tabValue, setTabValue] = useState<'dashboard' | 'registro' | 'documentos' | 'equipos' | 'calendario' | 'perfil'>('dashboard');
   const tabsScrollRef = useRef<HTMLDivElement | null>(null);
   const tabsTriggersRef = useRef<Record<string, HTMLButtonElement | null>>({});
   // Cargar mis equipos con hook dedicado
   const { data: misEquiposHook = [] } = useGetMisEquiposQuery();
-  useEffect(()=>{ setMisEquipos(Array.isArray(misEquiposHook) ? misEquiposHook : []); }, [misEquiposHook]);
+  useEffect(() => { setMisEquipos(Array.isArray(misEquiposHook) ? misEquiposHook : []); }, [misEquiposHook]);
 
   // Mantener el tab seleccionado centrado (o al borde si es el primero/último)
-  useEffect(()=>{
+  useEffect(() => {
     const scroller = tabsScrollRef.current;
     const active = tabsTriggersRef.current[tabValue];
     if (!scroller || !active) return;
@@ -55,27 +55,27 @@ export const TransportistasPortalPage: React.FC = () => {
     const desiredScrollLeft = Math.max(0, targetCenter - sRect.width / 2);
     scroller.scrollTo({ left: desiredScrollLeft, behavior: 'smooth' });
   }, [tabValue]);
-  
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-orange-50 to-yellow-50 dark:from-slate-900 dark:via-slate-950 dark:to-black">
       {/* Importar CSS tokens mobile-first */}
       <style>{`
         @import url('/src/styles/mobile-tokens.css');
       `}</style>
-      
+
       {/* Navegación por tabs mobile-friendly */}
-      <Tabs value={tabValue} onValueChange={(v)=> setTabValue(v as any)} className="w-full">
+      <Tabs value={tabValue} onValueChange={(v) => setTabValue(v as any)} className="w-full">
         {/* Tab Navigation - Fixed en mobile */}
         <div className="sticky top-0 z-40 bg-white/95 dark:bg-slate-900/95 backdrop-blur-sm border-b border-gray-200 dark:border-slate-800 px-2 pt-safe">
           <div className="relative">
             <div className="overflow-x-auto no-scrollbar" ref={tabsScrollRef}>
               <TabsList className="flex w-max min-w-full gap-1 rounded-xl p-1 bg-gray-100 dark:bg-slate-800">
-                <TabsTrigger value="dashboard" className="rounded-lg px-3 py-2 text-[11px] whitespace-nowrap dark:text-slate-200" ref={(el)=> (tabsTriggersRef.current['dashboard']=el)}>📊 Panel</TabsTrigger>
-                <TabsTrigger value="registro" className="rounded-lg px-3 py-2 text-[11px] whitespace-nowrap dark:text-slate-200" ref={(el)=> (tabsTriggersRef.current['registro']=el)}>➕ Registro</TabsTrigger>
-                <TabsTrigger value="documentos" className="rounded-lg px-3 py-2 text-[11px] whitespace-nowrap dark:text-slate-200" ref={(el)=> (tabsTriggersRef.current['documentos']=el)}>📄 Docs</TabsTrigger>
-                <TabsTrigger value="equipos" className="rounded-lg px-3 py-2 text-[11px] whitespace-nowrap dark:text-slate-200" ref={(el)=> (tabsTriggersRef.current['equipos']=el)}>🚛 Equipos</TabsTrigger>
-                <TabsTrigger value="calendario" className="rounded-lg px-3 py-2 text-[11px] whitespace-nowrap dark:text-slate-200" ref={(el)=> (tabsTriggersRef.current['calendario']=el)}>📅 Calendario</TabsTrigger>
-                <TabsTrigger value="perfil" className="rounded-lg px-3 py-2 text-[11px] whitespace-nowrap dark:text-slate-200" ref={(el)=> (tabsTriggersRef.current['perfil']=el)}>👤 Perfil</TabsTrigger>
+                <TabsTrigger value="dashboard" className="rounded-lg px-3 py-2 text-[11px] whitespace-nowrap dark:text-slate-200" ref={(el) => (tabsTriggersRef.current['dashboard'] = el)}>📊 Panel</TabsTrigger>
+                <TabsTrigger value="registro" className="rounded-lg px-3 py-2 text-[11px] whitespace-nowrap dark:text-slate-200" ref={(el) => (tabsTriggersRef.current['registro'] = el)}>➕ Registro</TabsTrigger>
+                <TabsTrigger value="documentos" className="rounded-lg px-3 py-2 text-[11px] whitespace-nowrap dark:text-slate-200" ref={(el) => (tabsTriggersRef.current['documentos'] = el)}>📄 Docs</TabsTrigger>
+                <TabsTrigger value="equipos" className="rounded-lg px-3 py-2 text-[11px] whitespace-nowrap dark:text-slate-200" ref={(el) => (tabsTriggersRef.current['equipos'] = el)}>🚛 Equipos</TabsTrigger>
+                <TabsTrigger value="calendario" className="rounded-lg px-3 py-2 text-[11px] whitespace-nowrap dark:text-slate-200" ref={(el) => (tabsTriggersRef.current['calendario'] = el)}>📅 Calendario</TabsTrigger>
+                <TabsTrigger value="perfil" className="rounded-lg px-3 py-2 text-[11px] whitespace-nowrap dark:text-slate-200" ref={(el) => (tabsTriggersRef.current['perfil'] = el)}>👤 Perfil</TabsTrigger>
               </TabsList>
             </div>
           </div>
@@ -89,7 +89,7 @@ export const TransportistasPortalPage: React.FC = () => {
         </TabsContent>
 
         <TabsContent value="registro" className="mt-0">
-          <RegistroEquipoTab 
+          <RegistroEquipoTab
             dadores={dadores}
             defaultDadorId={defaultDadorId}
             setDefaultDadorId={setDefaultDadorId}
@@ -134,206 +134,206 @@ const RegistroEquipoTab: React.FC<any> = ({
 }) => {
   return (
     <div className="container mx-auto px-4 py-6 sm:py-8 max-w-6xl">
-        {/* Header moderno y amigable */}
-        <div className="mb-6 sm:mb-8">
-          <div className="bg-white rounded-2xl shadow-xl border-0 p-6 sm:p-8 relative overflow-hidden">
-            <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-blue-400/20 to-orange-400/20 rounded-full -translate-y-8 translate-x-8"></div>
-            <div className="relative">
-              <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
-                <div className="bg-gradient-to-r from-blue-500 to-orange-500 p-4 rounded-2xl shadow-lg">
-                  <TruckIcon className="h-8 w-8 text-white" />
-                </div>
-                <div className="flex-1">
-                  <h1 className="text-2xl sm:text-3xl font-bold text-gray-800 mb-2">
-                    ¡Bienvenido, Transportista! 🚛
-                  </h1>
-                  <p className="text-gray-600 text-base sm:text-lg">
-                    Gestiona tus equipos y documentos de forma rápida y sencilla
-                  </p>
-                </div>
+      {/* Header moderno y amigable */}
+      <div className="mb-6 sm:mb-8">
+        <div className="bg-white rounded-2xl shadow-xl border-0 p-6 sm:p-8 relative overflow-hidden">
+          <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-blue-400/20 to-orange-400/20 rounded-full -translate-y-8 translate-x-8"></div>
+          <div className="relative">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
+              <div className="bg-gradient-to-r from-blue-500 to-orange-500 p-4 rounded-2xl shadow-lg">
+                <TruckIcon className="h-8 w-8 text-white" />
+              </div>
+              <div className="flex-1">
+                <h1 className="text-2xl sm:text-3xl font-bold text-gray-800 mb-2">
+                  ¡Bienvenido, Transportista! 🚛
+                </h1>
+                <p className="text-gray-600 text-base sm:text-lg">
+                  Gestiona tus equipos y documentos de forma rápida y sencilla
+                </p>
               </div>
             </div>
           </div>
         </div>
+      </div>
 
-        {/* Registro de Equipo - Diseño moderno y amigable */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
-          <Card className="bg-white rounded-2xl shadow-xl border-0 overflow-hidden">
-            <div className="bg-gradient-to-r from-blue-500 to-blue-600 p-6 text-white">
-              <div className="flex items-center gap-3 mb-2">
-                <div className="bg-white/20 p-3 rounded-xl">
-                  <PlusIcon className="h-6 w-6" />
-                </div>
-                <div>
-                  <h2 className="text-xl font-bold">Registrar Equipo</h2>
-                  <p className="text-blue-100 text-sm">Agrega un nuevo vehículo rápidamente</p>
-                </div>
+      {/* Registro de Equipo - Diseño moderno y amigable */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+        <Card className="bg-white rounded-2xl shadow-xl border-0 overflow-hidden">
+          <div className="bg-gradient-to-r from-blue-500 to-blue-600 p-6 text-white">
+            <div className="flex items-center gap-3 mb-2">
+              <div className="bg-white/20 p-3 rounded-xl">
+                <PlusIcon className="h-6 w-6" />
+              </div>
+              <div>
+                <h2 className="text-xl font-bold">Registrar Equipo</h2>
+                <p className="text-blue-100 text-sm">Agrega un nuevo vehículo rápidamente</p>
               </div>
             </div>
-            
-            <div className="p-6 space-y-6">
-              {/* Datos del Chofer */}
+          </div>
+
+          <div className="p-6 space-y-6">
+            {/* Datos del Chofer */}
+            <div className="space-y-4">
+              <div className="flex items-center gap-2 text-gray-700">
+                <UserIcon className="h-5 w-5 text-blue-500" />
+                <h3 className="font-semibold">Datos del Chofer</h3>
+              </div>
+
               <div className="space-y-4">
-                <div className="flex items-center gap-2 text-gray-700">
-                  <UserIcon className="h-5 w-5 text-blue-500" />
-                  <h3 className="font-semibold">Datos del Chofer</h3>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">DNI del Chofer</label>
+                  <Input
+                    placeholder="Ej: 12345678"
+                    value={dni}
+                    onChange={(e) => setDni(e.target.value)}
+                    className="w-full h-12 text-base rounded-xl border-2 border-gray-200 focus:border-blue-500 focus:ring-0 transition-colors"
+                  />
                 </div>
-                
-                <div className="space-y-4">
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">DNI del Chofer</label>
-                    <Input 
-                      placeholder="Ej: 12345678" 
-                      value={dni} 
-                      onChange={(e)=>setDni(e.target.value)}
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Patente Tractor</label>
+                    <Input
+                      placeholder="AA123BB"
+                      value={tractor}
+                      onChange={(e) => setTractor(e.target.value)}
                       className="w-full h-12 text-base rounded-xl border-2 border-gray-200 focus:border-blue-500 focus:ring-0 transition-colors"
                     />
                   </div>
-                  
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">Patente Tractor</label>
-                      <Input 
-                        placeholder="AA123BB" 
-                        value={tractor} 
-                        onChange={(e)=>setTractor(e.target.value)}
-                        className="w-full h-12 text-base rounded-xl border-2 border-gray-200 focus:border-blue-500 focus:ring-0 transition-colors"
-                      />
-                    </div>
-                    
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">Patente Acoplado</label>
-                      <Input 
-                        placeholder="AC456CD (opcional)" 
-                        value={acoplado} 
-                        onChange={(e)=>setAcoplado(e.target.value)}
-                        className="w-full h-12 text-base rounded-xl border-2 border-gray-200 focus:border-blue-500 focus:ring-0 transition-colors"
-                      />
-                    </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Patente Acoplado</label>
+                    <Input
+                      placeholder="AC456CD (opcional)"
+                      value={acoplado}
+                      onChange={(e) => setAcoplado(e.target.value)}
+                      className="w-full h-12 text-base rounded-xl border-2 border-gray-200 focus:border-blue-500 focus:ring-0 transition-colors"
+                    />
                   </div>
                 </div>
               </div>
+            </div>
 
-              {/* Teléfonos WhatsApp */}
-              <div className="space-y-4">
-                <div className="flex items-center gap-2 text-gray-700">
-                  <PhoneIcon className="h-5 w-5 text-green-500" />
-                  <h3 className="font-semibold">Teléfonos WhatsApp</h3>
-                </div>
-                
-                <div className="bg-green-50 border-2 border-green-200 rounded-xl p-4 space-y-3">
-                  {phones.map((p, idx)=> (
-                    <div key={`phone-input-${idx}`} className="flex gap-3">
-                      <Input 
-                        placeholder="+54911234567" 
-                        value={p} 
-                        onChange={(e)=>{ const arr=[...phones]; arr[idx]=e.target.value; setPhones(arr); }}
-                        className="flex-1 h-12 text-base rounded-xl border-2 border-green-200 focus:border-green-500 focus:ring-0"
-                      />
-                      <Button 
-                        variant="outline" 
-                        size="sm"
-                        onClick={()=> setPhones(arr=> arr.filter((_,i)=> i!==idx))} 
-                        disabled={phones.length<=1}
-                        className="h-12 px-3 border-2 border-red-200 text-red-600 hover:bg-red-50 rounded-xl"
-                      >
-                        <XMarkIcon className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  ))}
-                  
-                  <Button 
-                    variant="outline" 
-                    disabled={phones.length>=3} 
-                    onClick={()=> setPhones(arr=> [...arr, ''])}
-                    className="w-full h-12 border-2 border-green-300 text-green-600 hover:bg-green-100 rounded-xl"
-                  >
-                    <PlusIcon className="h-4 w-4 mr-2" />
-                    Agregar Teléfono
-                  </Button>
-                  
-                  {!phones.filter(Boolean).every(p=>phoneRegex.test(p)) && (
-                    <div className="bg-yellow-100 border-2 border-yellow-300 rounded-xl p-3">
-                      <p className="text-sm text-yellow-700">
-                        <strong>Formato requerido:</strong> +[código país][número], 8-15 dígitos<br />
-                        Ejemplo: +5491123456789
-                      </p>
-                    </div>
-                  )}
-                </div>
+            {/* Teléfonos WhatsApp */}
+            <div className="space-y-4">
+              <div className="flex items-center gap-2 text-gray-700">
+                <PhoneIcon className="h-5 w-5 text-green-500" />
+                <h3 className="font-semibold">Teléfonos WhatsApp</h3>
               </div>
 
-              {/* Dador y Botón de Crear */}
-              <div className="space-y-4 pt-6 border-t border-gray-200">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Dador de Carga</label>
-                  <select 
-                    className="w-full h-12 text-base rounded-xl border-2 border-gray-200 bg-white text-gray-900 focus:outline-none focus:ring-0 focus:border-blue-500 transition-colors" 
-                    value={defaultDadorId ?? ''} 
-                    onChange={(e)=>setDefaultDadorId(Number(e.target.value))}
-                  >
-                    {dadores.map((d:any)=> (
-                      <option key={d.id} value={d.id}>{d.razonSocial || `Dador #${d.id}`}</option>
-                    ))}
-                  </select>
-                </div>
-                
-                <Button 
-                  disabled={!defaultDadorId || !dni || !tractor || isLoading} 
-                  onClick={async ()=>{
-                    if (!defaultDadorId) return;
-                    const validPhones = phones.map(p=>p.trim()).filter(Boolean);
-                    if (validPhones.length>0 && !validPhones.every(p=>phoneRegex.test(p))) {
-                      return showToast('Teléfonos inválidos. Use formato WhatsApp.', 'error');
-                    }
-                    await createMinimal({ dadorCargaId: defaultDadorId, dniChofer: dni, patenteTractor: tractor, patenteAcoplado: acoplado ?? undefined, choferPhones: validPhones } as any);
-                    setDni(''); setTractor(''); setAcoplado('');
-                    setPhones(['']);
-                  }}
-                  className="w-full h-14 bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white font-bold text-lg rounded-2xl shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105"
+              <div className="bg-green-50 border-2 border-green-200 rounded-xl p-4 space-y-3">
+                {phones.map((p, idx) => (
+                  <div key={idx} className="flex gap-3">
+                    <Input
+                      placeholder="+54911234567"
+                      value={p}
+                      onChange={(e) => { const arr = [...phones]; arr[idx] = e.target.value; setPhones(arr); }}
+                      className="flex-1 h-12 text-base rounded-xl border-2 border-green-200 focus:border-green-500 focus:ring-0"
+                    />
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setPhones(arr => arr.filter((_, i) => i !== idx))}
+                      disabled={phones.length <= 1}
+                      className="h-12 px-3 border-2 border-red-200 text-red-600 hover:bg-red-50 rounded-xl"
+                    >
+                      <XMarkIcon className="h-4 w-4" />
+                    </Button>
+                  </div>
+                ))}
+
+                <Button
+                  variant="outline"
+                  disabled={phones.length >= 3}
+                  onClick={() => setPhones(arr => [...arr, ''])}
+                  className="w-full h-12 border-2 border-green-300 text-green-600 hover:bg-green-100 rounded-xl"
                 >
-                  {isLoading ? (
-                    <div className="flex items-center justify-center gap-3">
-                      <div className="animate-spin rounded-full h-5 w-5 border-2 border-white border-t-transparent"></div>
-                      <span>Creando Equipo...</span>
-                    </div>
-                  ) : (
-                    <div className="flex items-center justify-center gap-3">
-                      <CheckCircleIcon className="h-6 w-6" />
-                      <span>¡Crear Equipo!</span>
-                    </div>
-                  )}
+                  <PlusIcon className="h-4 w-4 mr-2" />
+                  Agregar Teléfono
                 </Button>
-              </div>
-            </div>
-          </Card>
 
-          {/* Carga de Documentos */}
-          <Card className="bg-white rounded-2xl shadow-xl border-0 overflow-hidden">
-            <div className="bg-gradient-to-r from-orange-500 to-red-500 p-6 text-white">
-              <div className="flex items-center gap-3 mb-2">
-                <div className="bg-white/20 p-3 rounded-xl">
-                  <CloudArrowUpIcon className="h-6 w-6" />
-                </div>
-                <div>
-                  <h2 className="text-xl font-bold">Subir Documentos</h2>
-                  <p className="text-orange-100 text-sm">Carga masiva con IA inteligente</p>
-                </div>
+                {!phones.filter(Boolean).every(p => phoneRegex.test(p)) && (
+                  <div className="bg-yellow-100 border-2 border-yellow-300 rounded-xl p-3">
+                    <p className="text-sm text-yellow-700">
+                      <strong>Formato requerido:</strong> +[código país][número], 8-15 dígitos<br />
+                      Ejemplo: +5491123456789
+                    </p>
+                  </div>
+                )}
               </div>
             </div>
-            
-            <div className="p-6">
-              <div className="text-center py-8">
-                <div className="bg-orange-100 rounded-full p-4 w-16 h-16 mx-auto mb-4">
-                  <SparklesIcon className="h-8 w-8 text-orange-500" />
-                </div>
-                <h3 className="text-lg font-semibold text-gray-800 mb-2">Procesamiento Inteligente</h3>
-                <p className="text-gray-600 mb-6">Sube múltiples documentos y nuestra IA los clasificará automáticamente</p>
-                <TransportistaBatchUploader />
+
+            {/* Dador y Botón de Crear */}
+            <div className="space-y-4 pt-6 border-t border-gray-200">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Dador de Carga</label>
+                <select
+                  className="w-full h-12 text-base rounded-xl border-2 border-gray-200 bg-white text-gray-900 focus:outline-none focus:ring-0 focus:border-blue-500 transition-colors"
+                  value={defaultDadorId || ''}
+                  onChange={(e) => setDefaultDadorId(Number(e.target.value))}
+                >
+                  {dadores.map((d: any) => (
+                    <option key={d.id} value={d.id}>{d.razonSocial || `Dador #${d.id}`}</option>
+                  ))}
+                </select>
+              </div>
+
+              <Button
+                disabled={!defaultDadorId || !dni || !tractor || isLoading}
+                onClick={async () => {
+                  if (!defaultDadorId) return;
+                  const validPhones = phones.map(p => p.trim()).filter(Boolean);
+                  if (validPhones.length > 0 && !validPhones.every(p => phoneRegex.test(p))) {
+                    return showToast('Teléfonos inválidos. Use formato WhatsApp.', 'error');
+                  }
+                  await createMinimal({ dadorCargaId: defaultDadorId, dniChofer: dni, patenteTractor: tractor, patenteAcoplado: acoplado || undefined, choferPhones: validPhones } as any);
+                  setDni(''); setTractor(''); setAcoplado('');
+                  setPhones(['']);
+                }}
+                className="w-full h-14 bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white font-bold text-lg rounded-2xl shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105"
+              >
+                {isLoading ? (
+                  <div className="flex items-center justify-center gap-3">
+                    <div className="animate-spin rounded-full h-5 w-5 border-2 border-white border-t-transparent"></div>
+                    <span>Creando Equipo...</span>
+                  </div>
+                ) : (
+                  <div className="flex items-center justify-center gap-3">
+                    <CheckCircleIcon className="h-6 w-6" />
+                    <span>¡Crear Equipo!</span>
+                  </div>
+                )}
+              </Button>
+            </div>
+          </div>
+        </Card>
+
+        {/* Carga de Documentos */}
+        <Card className="bg-white rounded-2xl shadow-xl border-0 overflow-hidden">
+          <div className="bg-gradient-to-r from-orange-500 to-red-500 p-6 text-white">
+            <div className="flex items-center gap-3 mb-2">
+              <div className="bg-white/20 p-3 rounded-xl">
+                <CloudArrowUpIcon className="h-6 w-6" />
+              </div>
+              <div>
+                <h2 className="text-xl font-bold">Subir Documentos</h2>
+                <p className="text-orange-100 text-sm">Carga masiva con IA inteligente</p>
               </div>
             </div>
-          </Card>
-        </div>
+          </div>
+
+          <div className="p-6">
+            <div className="text-center py-8">
+              <div className="bg-orange-100 rounded-full p-4 w-16 h-16 mx-auto mb-4">
+                <SparklesIcon className="h-8 w-8 text-orange-500" />
+              </div>
+              <h3 className="text-lg font-semibold text-gray-800 mb-2">Procesamiento Inteligente</h3>
+              <p className="text-gray-600 mb-6">Sube múltiples documentos y nuestra IA los clasificará automáticamente</p>
+              <TransportistaBatchUploader />
+            </div>
+          </div>
+        </Card>
+      </div>
     </div>
   );
 };
@@ -378,10 +378,10 @@ const TransportistaBatchUploader: React.FC = () => {
   return (
     <div>
       <div className="border-dashed border rounded p-6 text-center text-muted-foreground">
-        <input type="file" multiple onChange={(e)=>setFiles(e.target.files)} />
+        <input type="file" multiple onChange={(e) => setFiles(e.target.files)} />
       </div>
       <div className="mt-4 flex items-center gap-3">
-        <Button disabled={!files || isLoading} onClick={async ()=>{ if (!files) return; await start({ files }); }}>Subir documentos</Button>
+        <Button disabled={!files || isLoading} onClick={async () => { if (!files) return; await start({ files }); }}>Subir documentos</Button>
         {jobId && (
           <div className="flex items-center gap-2 text-sm">
             <div className="w-40 h-2 bg-muted rounded overflow-hidden">
@@ -405,7 +405,7 @@ const TransportistaBatchUploader: React.FC = () => {
               <div className="p-2 text-xs text-muted-foreground flex items-center justify-between">
                 <span>Resultados</span>
                 <label className="flex items-center gap-2">
-                  <input type="checkbox" checked={onlyErrors} onChange={(e)=>setOnlyErrors(e.target.checked)} />
+                  <input type="checkbox" checked={onlyErrors} onChange={(e) => setOnlyErrors(e.target.checked)} />
                   <span>Solo errores</span>
                 </label>
               </div>
@@ -433,7 +433,7 @@ const DocumentosTab: React.FC = () => {
             </div>
           </div>
         </div>
-        
+
         <div className="p-6">
           <div className="text-center py-8">
             <div className="bg-orange-100 rounded-full p-4 w-16 h-16 mx-auto mb-4">
@@ -498,15 +498,15 @@ const MisEquiposTab: React.FC<{ misEquipos: any[] }> = ({ misEquipos }) => {
             </div>
           </div>
         </div>
-        
+
         <div className="p-6">
           {/* Buscador limitado */}
           <div className="mb-6 grid grid-cols-1 sm:grid-cols-3 gap-3">
-            <Input placeholder="DNI" aria-label="DNI" value={dni} onChange={(e)=> setDni(e.target.value)} onKeyDown={onKeyDown} />
-            <Input placeholder="Patente (tractor/acoplado)" aria-label="Patente" value={plate} onChange={(e)=> setPlate(e.target.value)} onKeyDown={onKeyDown} />
+            <Input placeholder="DNI" aria-label="DNI" value={dni} onChange={(e) => setDni(e.target.value)} onKeyDown={onKeyDown} />
+            <Input placeholder="Patente (tractor/acoplado)" aria-label="Patente" value={plate} onChange={(e) => setPlate(e.target.value)} onKeyDown={onKeyDown} />
             <div className="flex gap-2">
               <Button title="Buscar equipos por DNI/patente" variant="outline" onClick={doSearch} disabled={isLoading} className="h-12 border-2 border-green-300 text-green-600 hover:bg-green-100 rounded-xl font-semibold">Buscar</Button>
-              <Button title="Limpiar filtros" variant="outline" onClick={()=> { setDni(''); setPlate(''); }} disabled={isLoading} className="h-12 border-2 border-gray-300 text-gray-700 hover:bg-gray-100 rounded-xl font-semibold">Limpiar</Button>
+              <Button title="Limpiar filtros" variant="outline" onClick={() => { setDni(''); setPlate(''); }} disabled={isLoading} className="h-12 border-2 border-gray-300 text-gray-700 hover:bg-gray-100 rounded-xl font-semibold">Limpiar</Button>
             </div>
           </div>
           {isLoading && (
@@ -525,8 +525,8 @@ const MisEquiposTab: React.FC<{ misEquipos: any[] }> = ({ misEquipos }) => {
                     <div className="text-sm text-gray-600">DNI: <strong>{e.driverDniNorm || '-'}</strong></div>
                     <div className="text-sm text-gray-600">Tractor: <strong>{e.truckPlateNorm || '-'}</strong></div>
                     {e.trailerPlateNorm && <div className="text-sm text-gray-600">Acoplado: <strong>{e.trailerPlateNorm}</strong></div>}
-                    <Button 
-                      variant="outline" 
+                    <Button
+                      variant="outline"
                       onClick={() => window.open(`/api/docs/clients/equipos/${e.id}/zip`, '_blank')}
                       className="mt-3 w-full h-10 border-2 border-green-300 text-green-600 hover:bg-green-100 rounded-xl font-semibold"
                     >Descargar Documentos</Button>
@@ -548,7 +548,7 @@ const MisEquiposTab: React.FC<{ misEquipos: any[] }> = ({ misEquipos }) => {
                       <span className="text-xs bg-green-100 text-green-700 px-2 py-1 rounded-full">✅ Activo</span>
                     </div>
                   </div>
-                  
+
                   <div className="space-y-2 mb-4 text-sm text-gray-600">
                     <div className="flex items-center gap-2">
                       <UserIcon className="h-4 w-4 text-green-500" />
@@ -565,9 +565,9 @@ const MisEquiposTab: React.FC<{ misEquipos: any[] }> = ({ misEquipos }) => {
                       </div>
                     )}
                   </div>
-                  
-                  <Button 
-                    variant="outline" 
+
+                  <Button
+                    variant="outline"
                     onClick={() => window.open(`/api/docs/clients/equipos/${e.id}/zip`, '_blank')}
                     className="w-full h-12 border-2 border-green-300 text-green-600 hover:bg-green-100 rounded-xl font-semibold"
                   >
@@ -584,7 +584,7 @@ const MisEquiposTab: React.FC<{ misEquipos: any[] }> = ({ misEquipos }) => {
               </div>
               <h3 className="text-xl font-bold text-gray-800 mb-3">¡Registra tu primer equipo!</h3>
               <p className="text-gray-600 mb-6 text-lg">Aún no tienes vehículos registrados en tu cuenta</p>
-              <Button 
+              <Button
                 onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
                 className="h-12 bg-gradient-to-r from-green-500 to-teal-500 hover:from-green-600 hover:to-teal-600 text-white font-bold px-8 rounded-2xl shadow-lg hover:shadow-xl transition-all duration-300"
               >

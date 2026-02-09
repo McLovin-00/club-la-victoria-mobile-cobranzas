@@ -3,6 +3,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useSelector } from 'react-redux';
 import { RootState } from '../../../store/store';
 import { useAppSelector } from '../../../store/hooks';
+import { getRuntimeEnv } from '../../../lib/runtimeEnv';
 import { Card } from '../../../components/ui/card';
 import { Button } from '../../../components/ui/button';
 import { Input } from '../../../components/ui/input';
@@ -321,7 +322,7 @@ export const ConsultaPage: React.FC = () => {
     setIaDataLoading(true);
     setIaData({ empresaTransportista: null, chofer: null, camion: null, acoplado: null });
     
-    const baseUrl = import.meta.env.VITE_DOCUMENTOS_API_URL ?? '';
+    const baseUrl = getRuntimeEnv('VITE_DOCUMENTOS_API_URL') || '';
     const headers = { Authorization: `Bearer ${authToken}` };
     
     try {
@@ -378,7 +379,7 @@ export const ConsultaPage: React.FC = () => {
   };
   
   const handleDeleteIAData = async (entityType: string, entityId: number) => {
-    const baseUrl = import.meta.env.VITE_DOCUMENTOS_API_URL ?? '';
+    const baseUrl = getRuntimeEnv('VITE_DOCUMENTOS_API_URL') || '';
     try {
       const resp = await fetch(`${baseUrl}/api/docs/entities/${entityType}/${entityId}/extracted-data`, {
         method: 'DELETE',
@@ -399,7 +400,7 @@ export const ConsultaPage: React.FC = () => {
   
   const handleSaveEdit = async () => {
     if (!editingEntity) return;
-    const baseUrl = import.meta.env.VITE_DOCUMENTOS_API_URL ?? '';
+    const baseUrl = getRuntimeEnv('VITE_DOCUMENTOS_API_URL') || '';
     try {
       const resp = await fetch(`${baseUrl}/api/docs/entities/${editingEntity.entityType}/${editingEntity.entityId}/extracted-data`, {
         method: 'PUT',
@@ -625,7 +626,48 @@ export const ConsultaPage: React.FC = () => {
       if (err?.message === 'NO_SEARCH') {
         show('Debe realizar una búsqueda antes de descargar');
       } else {
-        show('No fue posible iniciar la descarga masiva');
+        if (!hasSearched) {
+          show('Debe realizar una búsqueda antes de descargar');
+          return;
+        }
+
+        // Descargar TODOS los equipos que coinciden con los filtros actuales usando paginación del servidor
+        const baseUrl = getRuntimeEnv('VITE_DOCUMENTOS_API_URL') || '';
+        const take = 100; // máximo razonable por request
+        let currentPage = 1;
+        const allIds: number[] = [];
+
+        // Seguridad: evitar loops infinitos
+        const maxPages = 200;
+
+        while (currentPage <= maxPages) {
+          const sp = new URLSearchParams();
+          sp.set('page', String(currentPage));
+          sp.set('limit', String(take));
+          if (params.empresaId) sp.set('dadorCargaId', String(params.empresaId));
+          if (params.clienteId) sp.set('clienteId', String(params.clienteId));
+          if (params.empresaTransportistaId) sp.set('empresaTransportistaId', String(params.empresaTransportistaId));
+          // Importante: si la búsqueda fue por lista (DNI/patentes), está en params.search
+          if (params.search) sp.set('search', String(params.search));
+          if (params.dni) sp.set('dni', String(params.dni));
+          if (params.truckPlate) sp.set('truckPlate', String(params.truckPlate));
+          if (params.trailerPlate) sp.set('trailerPlate', String(params.trailerPlate));
+
+          const resp = await fetch(`${baseUrl}/api/docs/equipos/search-paged?${sp.toString()}`, {
+            headers: { Authorization: `Bearer ${authToken}` },
+          });
+          if (!resp.ok) {
+            throw new Error(`search-paged failed (${resp.status})`);
+          }
+          const json = await resp.json();
+          const pageIds = (json?.data || []).map((e: any) => e?.id).filter((v: any) => typeof v === 'number');
+          allIds.push(...pageIds);
+
+          if (!json?.pagination?.hasNext) break;
+          currentPage += 1;
+        }
+
+        ids = Array.from(new Set(allIds));
       }
     } finally {
       setIsDownloading(false);
@@ -642,14 +684,30 @@ export const ConsultaPage: React.FC = () => {
         return;
       }
 
-      const baseUrl = import.meta.env.VITE_DOCUMENTOS_API_URL ?? '';
-      downloadViaForm(`${baseUrl}/api/docs/equipos/download/excel-form`, authToken, ids);
-    } catch (err: any) {
-      if (err?.message === 'NO_SEARCH') {
-        show('Debe realizar una búsqueda antes de descargar');
-      } else {
-        show('No fue posible iniciar la descarga del Excel');
-      }
+      // Descarga nativa vía formulario (evita blob en JS para ZIPs grandes)
+      const baseUrl = getRuntimeEnv('VITE_DOCUMENTOS_API_URL') || '';
+      const form = document.createElement('form');
+      form.method = 'POST';
+      form.action = `${baseUrl}/api/docs/equipos/download/vigentes-form`;
+      form.style.display = 'none';
+
+      const tokenInput = document.createElement('input');
+      tokenInput.type = 'hidden';
+      tokenInput.name = 'token';
+      tokenInput.value = authToken;
+      form.appendChild(tokenInput);
+
+      const idsInput = document.createElement('input');
+      idsInput.type = 'hidden';
+      idsInput.name = 'equipoIds';
+      idsInput.value = ids.join(',');
+      form.appendChild(idsInput);
+
+      document.body.appendChild(form);
+      form.submit();
+      document.body.removeChild(form);
+    } catch {
+      show('No fue posible iniciar la descarga masiva');
     } finally {
       setIsDownloading(false);
     }
@@ -1272,7 +1330,7 @@ export const ConsultaPage: React.FC = () => {
                   onClick={async ()=>{
                     try {
                       setIsDownloadingSingle(eq.id);
-                      const baseUrl = import.meta.env.VITE_DOCUMENTOS_API_URL ?? '';
+                      const baseUrl = getRuntimeEnv('VITE_DOCUMENTOS_API_URL') || '';
                       const zipUrl = `${baseUrl}/api/docs/clients/equipos/${eq.id}/zip`;
                       const resp = await fetch(zipUrl, { headers: { 'Authorization': `Bearer ${authToken}` } });
                       if (!resp.ok) { show('Error al descargar documentación'); return; }

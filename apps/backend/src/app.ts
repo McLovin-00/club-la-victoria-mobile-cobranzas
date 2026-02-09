@@ -2,6 +2,10 @@ import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
 import path from 'path';
+
+// Configuración de variables de entorno desde la raíz del monorepo
+dotenv.config({ path: path.resolve(__dirname, '../../../.env') });
+
 import { AppLogger } from './config/logger';
 import { getEnvironment } from './config/environment';
 import { httpLogger, errorLogger } from './middlewares/logging.middleware';
@@ -10,9 +14,6 @@ import { backendServiceConfig } from './config/serviceConfig';
 
 // Importar middleware de errores
 import ErrorMiddleware from './middlewares/error.middleware';
-
-// Configuración de variables de entorno desde la raíz del monorepo
-dotenv.config({ path: path.resolve(__dirname, '../../../.env') });
 
 // Crear aplicación Express
 const app = express();
@@ -107,15 +108,21 @@ const setupMiddlewares = (): void => {
   // Middlewares
   app.use(express.json({ limit: '50mb' }));
   app.use(express.urlencoded({ extended: true, limit: '50mb' }));
-  // Seguridad y performance (helpers para middlewares opcionales)
-  tryApplyMiddleware('helmet', () => { const m = require('helmet'); app.use(m()); });
-  tryApplyMiddleware('compression', () => { const m = require('compression'); app.use(m()); });
-  tryApplyMiddleware('express-rate-limit', () => {
+  // Seguridad y performance
+  try {
+    const helmet = require('helmet');
+    app.use(helmet());
+  } catch { }
+  try {
+    const compression = require('compression');
+    app.use(compression());
+  } catch { }
+  try {
     const rateLimit = require('express-rate-limit');
     const windowMs = env.RATE_LIMIT_WINDOW_MS ?? 60_000;
     const max = env.RATE_LIMIT_MAX ?? 300;
     app.use(rateLimit({ windowMs, max, standardHeaders: true, legacyHeaders: false }));
-  });
+  } catch { }
 
   // Middleware de logging para todas las peticiones
   app.use(httpLogger);
@@ -161,6 +168,7 @@ const setupRoutes = async (): Promise<void> => {
   if (serviceConfig.documentos.enabled) {
     await registerDocumentosRoutes();
   } else {
+    AppLogger.warn('⚠️ Documentos routes disabled (ENABLE_DOCUMENTOS=false)');
     app.use('/api/docs/*path', (req, res) => res.status(404).json({ message: 'Documentos service is disabled', service: 'documentos', enabled: false }));
   }
 

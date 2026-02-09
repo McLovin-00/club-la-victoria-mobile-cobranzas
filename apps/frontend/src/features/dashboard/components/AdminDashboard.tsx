@@ -1,5 +1,5 @@
 import React from 'react';
-import { useGetAdminDashboardQuery, useRefreshDashboardMutation } from '../api/dashboardApiSlice';
+import { useGetAdminDashboardQuery, useRefreshDashboardMutation } from '@/features/dashboard/api/dashboardApiSlice';
 
 import { Card } from '../../../components/ui/card';
 import { showToast } from '../../../components/ui/Toast.utils';

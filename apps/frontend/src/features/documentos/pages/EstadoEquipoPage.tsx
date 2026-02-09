@@ -7,6 +7,7 @@ import { Badge } from '../../../components/ui/badge';
 import { ArrowLeftIcon, DocumentTextIcon, CheckCircleIcon, ExclamationTriangleIcon, XCircleIcon, ClockIcon, EyeIcon } from '@heroicons/react/24/outline';
 import { useGetEquipoComplianceQuery, useGetTemplatesQuery } from '../api/documentosApiSlice';
 import { useState } from 'react';
+import { getRuntimeEnv } from '../../../lib/runtimeEnv';
 
 const getStatusConfig = (state?: string) => {
   const v = String(state ?? '').toUpperCase();
@@ -153,7 +154,7 @@ export const EstadoEquipoPage: React.FC = () => {
       setPreviewUrl(null);
       try {
         const resp = await fetch(
-          `${import.meta.env.VITE_DOCUMENTOS_API_URL ?? ''}/api/docs/documents/${previewDocId}/download?inline=1`,
+          `${getRuntimeEnv('VITE_DOCUMENTOS_API_URL') || ''}/api/docs/documents/${previewDocId}/download?inline=1`,
           { headers: { Authorization: `Bearer ${token}` } }
         );
         if (!resp.ok) throw new Error('Error cargando documento');
@@ -191,7 +192,7 @@ export const EstadoEquipoPage: React.FC = () => {
 
   const downloadZipVigentes = async () => {
     try {
-      const url = `${import.meta.env.VITE_DOCUMENTOS_API_URL}/api/docs/equipos/${equipoId}/zip`;
+      const url = `${getRuntimeEnv('VITE_DOCUMENTOS_API_URL') || ''}/api/docs/equipos/${equipoId}/zip`;
       const resp = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
       if (!resp.ok) throw new Error(`Error ${resp.status}`);
       const blob = await resp.blob();
@@ -208,7 +209,7 @@ export const EstadoEquipoPage: React.FC = () => {
 
   const downloadExcelResumen = async () => {
     try {
-      const url = `${import.meta.env.VITE_DOCUMENTOS_API_URL}/api/docs/equipos/${equipoId}/summary.xlsx`;
+      const url = `${getRuntimeEnv('VITE_DOCUMENTOS_API_URL') || ''}/api/docs/equipos/${equipoId}/summary.xlsx`;
       const resp = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
       if (!resp.ok) throw new Error(`Error ${resp.status}`);
       const blob = await resp.blob();

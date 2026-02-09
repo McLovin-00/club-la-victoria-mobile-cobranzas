@@ -1,0 +1,17 @@
+{
+  "//": "Propósito: configuración TypeScript para el proyecto de testing E2E con Playwright.",
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "CommonJS",
+    "moduleResolution": "Node",
+    "strict": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "types": ["node", "@playwright/test"],
+    "resolveJsonModule": true,
+    "outDir": "dist"
+  },
+  "include": ["playwright.config.ts", "tests/**/*.ts", "pages/**/*.ts", "utils/**/*.ts", "fixtures/**/*.ts", "scripts/**/*.ts"]
+}
+
+

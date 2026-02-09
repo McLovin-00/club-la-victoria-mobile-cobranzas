@@ -119,17 +119,21 @@ describe('AuthService', () => {
         id: 1,
         email: 'new@example.com',
         password: 'hashed_password',
-        role: 'USER',
-        empresaId: null,
+        role: 'OPERATOR',
+        empresaId: 1,
         createdAt: new Date(),
         updatedAt: new Date(),
       });
 
-      const result = await authService.register({
-        email: 'new@example.com',
-        password: 'password123',
-        role: 'USER' as any,
-      });
+      const result = await authService.register(
+        {
+          email: 'new@example.com',
+          password: 'password123',
+          role: 'OPERATOR' as any,
+          empresaId: 1,
+        },
+        { userId: 999, email: 'admin@bca.com', role: 'SUPERADMIN' as any }
+      );
 
       expect(result.success).toBe(true);
       expect(result.data.email).toBe('new@example.com');
@@ -143,10 +147,15 @@ describe('AuthService', () => {
       });
 
       await expect(
-        authService.register({
-          email: 'existing@example.com',
-          password: 'password123',
-        })
+        authService.register(
+          {
+            email: 'existing@example.com',
+            password: 'password123',
+            role: 'OPERATOR' as any,
+            empresaId: 1,
+          },
+          { userId: 999, email: 'admin@bca.com', role: 'SUPERADMIN' as any }
+        )
       ).rejects.toThrow('El email ya está registrado');
     });
   });
@@ -171,9 +180,7 @@ describe('AuthService', () => {
     it('should return null for non-existent user', async () => {
       mockUser.findUnique.mockResolvedValue(null);
 
-      const result = await authService.getProfile(999);
-
-      expect(result).toBeNull();
+      await expect(authService.getProfile(999)).rejects.toThrow('Usuario no encontrado');
     });
   });
 
@@ -212,33 +219,27 @@ describe('AuthService', () => {
       (bcrypt.compare as jest.Mock).mockResolvedValue(true);
       mockUser.update.mockResolvedValue({ id: 1 });
 
-      const result = await authService.changePassword(1, 'oldPassword', 'newPassword');
-
-      expect(result).toBe(true);
+      await expect(authService.changePassword(1, 'oldPassword', 'newPassword')).resolves.toBeUndefined();
       expect(mockUser.update).toHaveBeenCalledWith({
         where: { id: 1 },
         data: { password: 'hashed_password' },
       });
     });
 
-    it('should return false for wrong current password', async () => {
+    it('should throw error for wrong current password', async () => {
       mockUser.findUnique.mockResolvedValue({
         id: 1,
         password: 'hashed_password',
       });
       (bcrypt.compare as jest.Mock).mockResolvedValue(false);
 
-      const result = await authService.changePassword(1, 'wrongPassword', 'newPassword');
-
-      expect(result).toBe(false);
+      await expect(authService.changePassword(1, 'wrongPassword', 'newPassword')).rejects.toThrow('Contraseña actual incorrecta');
     });
 
-    it('should return false for non-existent user', async () => {
+    it('should throw error for non-existent user', async () => {
       mockUser.findUnique.mockResolvedValue(null);
 
-      const result = await authService.changePassword(999, 'old', 'new');
-
-      expect(result).toBe(false);
+      await expect(authService.changePassword(999, 'old', 'new')).rejects.toThrow('Usuario no encontrado');
     });
   });
 

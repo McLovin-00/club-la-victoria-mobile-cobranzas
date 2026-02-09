@@ -8,7 +8,7 @@ import {
   useGetEmpresasTransportistasQuery,
   useGetDefaultsQuery,
   useUpdateEmpresaTransportistaMutation,
-} from '../api/documentosApiSlice';
+} from '@/features/documentos/api/documentosApiSlice';
 import type { DadorCarga, EmpresaTransportista } from '../types/entities';
 import { useRoleBasedNavigation } from '../../../hooks/useRoleBasedNavigation';
 

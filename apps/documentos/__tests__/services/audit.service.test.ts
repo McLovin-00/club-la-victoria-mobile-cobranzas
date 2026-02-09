@@ -27,72 +27,45 @@ describe('AuditService', () => {
 
   describe('log', () => {
     it('should create an audit log entry', async () => {
-      const mockLog = {
-        id: 1,
-        action: 'DOCUMENT_UPLOAD',
-        userId: 1,
-        entityType: 'DOCUMENT',
-        entityId: 1,
-        details: {},
-        createdAt: new Date(),
-      };
-
-      prismaMock.auditLog.create.mockResolvedValue(mockLog);
+      prismaMock.auditLog.create.mockResolvedValue({ id: 1 });
 
       await AuditService.log({
+        method: 'POST',
+        path: '/api/docs/documents',
+        statusCode: 201,
         action: 'DOCUMENT_UPLOAD',
+        tenantEmpresaId: 1,
         userId: 1,
         entityType: 'DOCUMENT',
         entityId: 1,
-        details: {},
       });
 
       expect(prismaMock.auditLog.create).toHaveBeenCalledWith(
         expect.objectContaining({
           data: expect.objectContaining({
-            action: 'DOCUMENT_UPLOAD',
-            userId: 1,
+            accion: 'DOCUMENT_UPLOAD',
+            method: 'POST',
+            path: '/api/docs/documents',
+            statusCode: 201,
           }),
         })
       );
     });
   });
 
-  describe('getByEntity', () => {
-    it('should return audit logs for entity', async () => {
-      const mockLogs = [
-        { id: 1, action: 'DOCUMENT_UPLOAD', createdAt: new Date() },
-        { id: 2, action: 'DOCUMENT_APPROVED', createdAt: new Date() },
-      ];
-
-      prismaMock.auditLog.findMany.mockResolvedValue(mockLogs);
-
-      const result = await AuditService.getByEntity('DOCUMENT', 1);
-
-      expect(result).toHaveLength(2);
-      expect(prismaMock.auditLog.findMany).toHaveBeenCalledWith(
-        expect.objectContaining({
-          where: { entityType: 'DOCUMENT', entityId: 1 },
-        })
-      );
+  describe('getEquipoHistory', () => {
+    it('returns [] when no model is available', async () => {
+      prismaMock.equipoAuditLog = undefined as any;
+      const result = await AuditService.getEquipoHistory(1);
+      expect(result).toEqual([]);
     });
-  });
 
-  describe('getByUser', () => {
-    it('should return audit logs for user', async () => {
-      const mockLogs = [
-        { id: 1, action: 'DOCUMENT_UPLOAD', userId: 1, createdAt: new Date() },
-      ];
-
-      prismaMock.auditLog.findMany.mockResolvedValue(mockLogs);
-
-      const result = await AuditService.getByUser(1);
-
-      expect(result).toHaveLength(1);
-      expect(prismaMock.auditLog.findMany).toHaveBeenCalledWith(
-        expect.objectContaining({
-          where: { userId: 1 },
-        })
+    it('calls equipoAuditLog.findMany when available', async () => {
+      prismaMock.equipoAuditLog = { findMany: jest.fn().mockResolvedValue([{ id: 1 }]) } as any;
+      const result = await AuditService.getEquipoHistory(10);
+      expect(result).toEqual([{ id: 1 }]);
+      expect(prismaMock.equipoAuditLog.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({ where: { equipoId: 10 } })
       );
     });
   });

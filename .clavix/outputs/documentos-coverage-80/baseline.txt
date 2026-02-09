@@ -1,0 +1,50 @@
+# Cobertura Inicial - Feature Documentos
+**Fecha**: 2025-01-16
+**Comando**: npm run test:coverage -- --testPathPatterns=features/documentos --passWithNoTests
+
+## Resumen por Carpeta
+
+| Carpeta | Statements | Branches | Functions | Lines |
+|---------|-----------|----------|-----------|-------|
+| `api/` | **32.45%** (111/342) | 18.88% | 14.79% | 30.55% |
+| `components/` | **73%** (357/489) | 66.01% | 76% | 76.19% |
+| `pages/` | **46.64%** (1194/2560) | 42.72% | 44.63% | 50.02% |
+| **TOTAL** | ~47% | ~43% | ~45% | ~52% |
+
+## Análisis por Archivos Críticos
+
+### API Layer (32.45% - PRIORIDAD ALTA)
+- `documentosApiSlice.ts` (~2000 líneas, 133 endpoints)
+  - Solo endpoints básicos están testeados
+  - Faltan tests para: Compliance, Batch, Templates, Maestros, Equipos, Documents, Dashboard, Approval, Empresas, Audit, ExtractedData
+
+### Components (73% - CASI COMPLETO)
+- Los que tienen coverage test ya están bien cubiertos
+- Faltan: CameraCapture (sin coverage test completo)
+
+### Pages (46.64% - NECESITA TRABAJO)
+- Muchas páginas tienen coverage tests pero están fallando por mocks incorrectos
+- Tests que necesitan arreglarse antes de poder medir coverage real
+
+## Tests Que Necesitan Reparación (Arreglados)
+
+### Arreglados en esta sesión:
+- ✅ `DocumentPreview.coverage.test.tsx` - Agregado mock de `getRuntimeFlag` y fix de URL.createObjectURL
+- ✅ `DocumentosPage.coverage.test.tsx` - Agregados mocks correctos de API hooks, componentes y hooks
+
+### Tests que siguen fallando (80 tests):
+- `EquiposPage.extended.test.tsx` - Problema con `getByText` que encuentra múltiples elementos
+- Otros extended tests con problemas similares
+
+## Estrategia Para Llegar a 80%
+
+1. **API Layer (+35% puntos necesario)**: Escribir tests de endpoints por categoría
+2. **Components (+7% puntos necesario)**: Completar coverage tests faltantes
+3. **Pages (+33% puntos necesario)**: Arreglar tests existentes y agregar coverage tests
+
+## Comando Para Ver Reporte Detallado
+```bash
+open apps/frontend/coverage/lcov-report/index.html
+```
+
+Buscar "features/documentos" en el reporte para ver desglose por archivo.

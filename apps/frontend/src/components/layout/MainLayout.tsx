@@ -22,6 +22,7 @@ import { Logger } from '../../lib/utils';
 import { useServiceFlags } from '../../hooks/useServiceConfig';
 import bcaLogo from '../../assets/logo-bca.jpg';
 import { NotificationBell } from '../notifications/NotificationBell';
+import { getRoleLabel, handleNavItemMouseEnter } from './MainLayout.utils';
 // Tenant selector removido de la UI: el tenant se toma del empresaId del usuario
 
 export const MainLayout = () => {
@@ -107,22 +108,6 @@ const UserMenu = () => {
   const handleLogout = () => {
     dispatch(logout());
     navigate('/login');
-  };
-
-  // Función para obtener la etiqueta de rol según el tipo de usuario
-  const getRoleLabel = (role?: string): string => {
-    if (!role) return 'Usuario';
-
-    switch (role) {
-      case 'SUPERADMIN':
-        return 'Superadministrador';
-      case 'ADMIN':
-        return 'Administrador';
-      case 'OPERATOR':
-        return 'Usuario de empresa';
-      default:
-        return 'Usuario';
-    }
   };
 
   return (
@@ -391,29 +376,14 @@ interface NavItemProps {
 }
 
 const NavItem = ({ to, icon: Icon, text, badge, closeSidebar }: NavItemProps) => {
-  // Función para precargar componentes en hover
+  // Función para precargar componentes en hover (extraída para testabilidad)
   const handleMouseEnter = () => {
-    // Preload específico basado en la ruta
-    if (to === '/empresas') {
-      // Preload del componente EmpresasPage y sus datos
-      import('../../features/empresas/pages/EmpresasPage.lazy').then(() => {
-        import('../../features/empresas/pages/EmpresasPage');
-      });
-      
-      // Prefetch de datos de empresas
-      import('../../features/empresas/api/empresasApiSlice').then(({ empresasApiSlice }) => {
-        empresasApiSlice.util.prefetch('getEmpresas', undefined, { force: false });
-      });
-    }
-    
-    // Ruta '/usuarios' removida
-
-    // Eliminado: preloads de instancias
+    handleNavItemMouseEnter(to);
   };
 
   // Cerrar el sidebar en dispositivos móviles cuando se hace clic en un enlace
   const handleClick = () => {
-    if (window.innerWidth < 1024) {
+    if (globalThis.innerWidth < 1024) {
       closeSidebar();
     }
   };

@@ -2,13 +2,14 @@
 export default {
   preset: 'ts-jest',
   testEnvironment: 'node',
-  roots: ['<rootDir>/src', '<rootDir>/__tests__'],
+  setupFilesAfterEnv: ['<rootDir>/__tests__/jest.setup.ts'],
+  roots: ['<rootDir>/src', '<rootDir>/__tests__', '<rootDir>/tests'],
   testMatch: ['**/*.test.ts', '**/*.spec.ts'],
   moduleFileExtensions: ['ts', 'tsx', 'js', 'jsx', 'json', 'node'],
   collectCoverageFrom: [
     'src/**/*.ts',
     '!src/**/*.d.ts',
-    '!src/**/index.ts',
+    // index.ts ahora se incluye para que SonarQube lo mida
   ],
   coverageDirectory: 'coverage',
   coverageReporters: ['text', 'lcov', 'html', 'json-summary'],

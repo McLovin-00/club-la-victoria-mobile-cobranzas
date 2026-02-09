@@ -2,6 +2,7 @@ import { io, Socket } from 'socket.io-client';
 import { store } from '../store/store';
 import { documentosApiSlice } from '../features/documentos/api/documentosApiSlice';
 import { showToast } from '../components/ui/Toast.utils';
+import { getRuntimeEnv } from '../lib/runtimeEnv';
 
 /**
  * WebSocket Service - Conexión en Tiempo Real
@@ -40,7 +41,7 @@ class WebSocketService {
       console.log('🔗 Creando nueva conexión WebSocket...');
       
       // Determinar URL del WebSocket
-      let wsUrl = import.meta.env.VITE_DOCUMENTOS_WS_URL;
+      let wsUrl = getRuntimeEnv('VITE_DOCUMENTOS_WS_URL');
       
       // Si no está configurada, construir automáticamente desde el host actual
       if (!wsUrl) {

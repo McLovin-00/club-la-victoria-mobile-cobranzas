@@ -53,11 +53,11 @@ function validateApprovalData(params: {
 async function ensureEmpresaTransportista(tx: any, ctx: EntityContext, cuitRaw: string): Promise<number | null> {
   const cuit = normalizeDigits(cuitRaw);
   if (!cuit) return null;
-  
+
   let emp = await tx.empresaTransportista.findFirst({
     where: { tenantEmpresaId: ctx.tenantId, dadorCargaId: ctx.dadorCargaId, cuit }
   });
-  
+
   if (!emp) {
     try {
       emp = await tx.empresaTransportista.create({
@@ -71,7 +71,7 @@ async function ensureEmpresaTransportista(tx: any, ctx: EntityContext, cuitRaw: 
 async function ensureChofer(tx: any, ctx: EntityContext, dniRaw: string): Promise<number | null> {
   const dni = normalizeDigits(dniRaw);
   if (!dni) return null;
-  
+
   // Si es número corto, podría ser ID interno
   if (dni.length <= 9) {
     const n = Number(dni);
@@ -80,7 +80,7 @@ async function ensureChofer(tx: any, ctx: EntityContext, dniRaw: string): Promis
       if (exists) return n;
     }
   }
-  
+
   let ch = await tx.chofer.findFirst({ where: { tenantEmpresaId: ctx.tenantId, dniNorm: dni } });
   if (!ch) {
     try {
@@ -95,7 +95,7 @@ async function ensureChofer(tx: any, ctx: EntityContext, dniRaw: string): Promis
 async function ensureCamion(tx: any, ctx: EntityContext, plateRaw: string): Promise<number | null> {
   const patNorm = normalizePlate(plateRaw);
   if (!patNorm) return null;
-  
+
   let cm = await tx.camion.findFirst({ where: { tenantEmpresaId: ctx.tenantId, patenteNorm: patNorm } });
   if (!cm) {
     try {
@@ -110,7 +110,7 @@ async function ensureCamion(tx: any, ctx: EntityContext, plateRaw: string): Prom
 async function ensureAcoplado(tx: any, ctx: EntityContext, plateRaw: string): Promise<number | null> {
   const patNorm = normalizePlate(plateRaw);
   if (!patNorm) return null;
-  
+
   let ac = await tx.acoplado.findFirst({ where: { tenantEmpresaId: ctx.tenantId, patenteNorm: patNorm } });
   if (!ac) {
     try {
@@ -133,9 +133,9 @@ async function resolveEntityId(
   if (typeof proposedVal === 'number') {
     return isInt32(proposedVal) ? Math.trunc(proposedVal) : null;
   }
-  
+
   if (typeof proposedVal !== 'string') return null;
-  
+
   switch (ctx.entityType) {
     case 'EMPRESA_TRANSPORTISTA':
       return ensureEmpresaTransportista(tx, ctx, proposedVal);
@@ -165,30 +165,30 @@ async function renameDocumentInMinio(
     where: { id: documentId },
     select: { filePath: true, entityId: true }
   });
-  
+
   if (!docBefore?.filePath) return;
-  
+
   const [bucketName, ...pathParts] = (docBefore.filePath as string).split('/');
   const oldPath = pathParts.join('/');
-  
+
   // Determinar ID para el nombre del archivo
   let idForName: string | undefined;
   const isPlateEntity = entityType === 'CAMION' || entityType === 'ACOPLADO';
-  
+
   if (rawConfirmed !== undefined && rawConfirmed !== null && String(rawConfirmed).trim() !== '') {
     idForName = isPlateEntity ? normalizePlate(String(rawConfirmed)) : normalizeDigits(String(rawConfirmed));
   } else if (rawDetected) {
     idForName = isPlateEntity ? normalizePlate(String(rawDetected)) : normalizeDigits(String(rawDetected));
   }
-  
+
   if (!idForName || idForName.length === 0) {
     idForName = String(docBefore.entityId);
   }
-  
+
   const fileName = `${normalizeText(templateName || 'DOC')}_${normalizeText(entityType)}_${idForName}.pdf`;
   const baseDir = oldPath.split('/').slice(0, -1).join('/');
   const newPath = `${baseDir}/${fileName}`;
-  
+
   // Mover en MinIO y actualizar DB
   const { minioService } = await import('./minio.service');
   await minioService.moveObject(bucketName, oldPath, newPath);
@@ -208,10 +208,10 @@ async function handleDeprecationAndRetention(
   const { getEnvironment } = await import('../config/environment');
   const { minioService } = await import('./minio.service');
   const env = getEnvironment();
-  
+
   const { templateId, expiresAt, tenantEmpresaId, entityType, entityId, id: docId } = updatedDoc;
   if (!templateId || !expiresAt) return;
-  
+
   // Marcar documentos anteriores como DEPRECADO
   const stale = await tx.document.findMany({
     where: {
@@ -225,7 +225,7 @@ async function handleDeprecationAndRetention(
     },
     select: { id: true, validationData: true },
   });
-  
+
   for (const s of stale) {
     await tx.document.update({
       where: { id: s.id },
@@ -235,7 +235,7 @@ async function handleDeprecationAndRetention(
       },
     });
   }
-  
+
   // Aplicar política de retención
   const maxKeep = Math.max(0, Number(env.DOCS_MAX_DEPRECATED_VERSIONS || 2) || 2);
   const deprecated = await tx.document.findMany({
@@ -250,9 +250,9 @@ async function handleDeprecationAndRetention(
     orderBy: { uploadedAt: 'desc' },
     select: { id: true, filePath: true },
   });
-  
+
   if (deprecated.length <= maxKeep) return;
-  
+
   const toDelete = deprecated.slice(maxKeep);
   for (const d of toDelete) {
     try {
@@ -302,11 +302,11 @@ async function getEntityNaturalId(entityType: string, entityId: number): Promise
 // ============================================================================
 function calculateIAValidation(classification: any): any {
   if (!classification) return null;
-  
+
   const disparidades = classification.disparidades as any[] | null;
   const hasDisparidades = Array.isArray(disparidades) && disparidades.length > 0;
   const fueValidado = hasDisparidades || classification.validationStatus === 'validated';
-  
+
   let disparitiesSeverity: string | null = null;
   if (hasDisparidades) {
     if (disparidades.some((d: any) => d.severidad === 'critica')) {
@@ -317,7 +317,7 @@ function calculateIAValidation(classification: any): any {
       disparitiesSeverity = 'info';
     }
   }
-  
+
   return {
     validationStatus: fueValidado ? 'validated' : (classification.validationStatus || null),
     hasDisparities: hasDisparidades,
@@ -330,7 +330,7 @@ function calculateIAValidation(classification: any): any {
 // CLASE PRINCIPAL
 // ============================================================================
 export class ApprovalService {
-  
+
   static async getPendingDocuments(
     tenantEmpresaId: number,
     filters: { entityType?: string; minConfidence?: number; maxConfidence?: number; page?: number; limit?: number } = {}
@@ -338,13 +338,16 @@ export class ApprovalService {
     const { entityType, minConfidence, maxConfidence, page = 1, limit = 20 } = filters;
     const skip = (page - 1) * limit;
 
+    const confidenceFilter: any = {};
+    if (minConfidence !== undefined) confidenceFilter.gte = minConfidence;
+    if (maxConfidence !== undefined) confidenceFilter.lte = maxConfidence;
+
     const where: Prisma.DocumentWhereInput = {
       tenantEmpresaId,
       status: 'PENDIENTE_APROBACION' as DocumentStatus,
       classification: {
         ...(entityType && { detectedEntityType: entityType as any }),
-        ...(minConfidence !== undefined && { confidence: { gte: minConfidence } }),
-        ...(maxConfidence !== undefined && { confidence: { lte: maxConfidence } }),
+        ...(Object.keys(confidenceFilter).length > 0 && { confidence: confidenceFilter }),
         reviewedAt: null,
       },
     };
@@ -377,9 +380,9 @@ export class ApprovalService {
       where: { id: documentId, tenantEmpresaId, status: 'PENDIENTE_APROBACION' },
       include: { template: true, classification: true },
     });
-    
+
     if (!document) return null;
-    
+
     const entityNaturalId = await getEntityNaturalId(document.entityType, document.entityId);
     return { ...document, entityNaturalId };
   }
@@ -395,7 +398,7 @@ export class ApprovalService {
         where: { id: documentId, tenantEmpresaId, status: 'PENDIENTE_APROBACION' as DocumentStatus },
         include: { classification: true, template: true },
       });
-      
+
       if (!document?.classification) {
         throw new Error('Documento no encontrado o no está pendiente de aprobación');
       }
@@ -403,20 +406,20 @@ export class ApprovalService {
       // 2. Determinar tipo y ID de entidad
       const classification = document.classification as any; // NOSONAR
       const finalEntityType = reviewData.confirmedEntityType || classification.detectedEntityType || document.entityType;
-      
+
       const proposedVal = reviewData.confirmedEntityId ?? classification.detectedEntityId;
       const ctx: EntityContext = {
         tenantId: document.tenantEmpresaId,
         dadorCargaId: document.dadorCargaId,
         entityType: finalEntityType,
       };
-      
+
       const finalEntityId = await resolveEntityId(tx, ctx, proposedVal);
-      
+
       // 3. Validaciones
       const finalExpiration = reviewData.confirmedExpiration || classification.detectedExpiration;
       const tplIdCandidate = reviewData.confirmedTemplateId ?? document.templateId;
-      
+
       validateApprovalData({ finalEntityType, finalEntityId, tplIdCandidate, finalExpiration });
 
       // 4. Actualizar clasificación
@@ -489,13 +492,13 @@ export class ApprovalService {
     if (!reviewData.reason || reviewData.reason.trim().length < 3) {
       throw new Error('Debe especificar un motivo de rechazo');
     }
-    
+
     const updatedDocument = await db.getClient().$transaction(async (tx) => {
       const document = await tx.document.findFirst({
         where: { id: documentId, tenantEmpresaId, status: 'PENDIENTE_APROBACION' as DocumentStatus },
         include: { classification: true },
       });
-      
+
       if (!document) throw new Error('Documento no encontrado o no está pendiente de aprobación');
 
       if (document.classification) {
@@ -555,18 +558,18 @@ export class ApprovalService {
       where: { tenantEmpresaId },
       _count: { status: true }
     });
-    
+
     const result = { pendienteAprobacion: 0, aprobados: 0, rechazados: 0, total: 0 };
-    
+
     for (const s of stats) {
       const count = s._count.status;
       result.total += count;
-      
+
       if (s.status === 'PENDIENTE_APROBACION') result.pendienteAprobacion = count;
       else if (s.status === 'APROBADO') result.aprobados = count;
       else if (s.status === 'RECHAZADO') result.rechazados = count;
     }
-    
+
     return result;
   }
 }

@@ -1,7 +1,8 @@
 import axios from 'axios';
+import { getRuntimeEnv } from './runtimeEnv';
 
 // Configura la URL base para todas las peticiones utilizando la variable de entorno
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:4003/api';
+const API_URL = getRuntimeEnv('VITE_API_URL') || 'http://localhost:4003/api';
 
 // Crear instancia de axios con configuración personalizada
 const api = axios.create({

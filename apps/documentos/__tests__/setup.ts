@@ -30,3 +30,35 @@ jest.spyOn(console, 'log').mockImplementation(() => {});
 jest.spyOn(console, 'warn').mockImplementation(() => {});
 jest.spyOn(console, 'error').mockImplementation(() => {});
 
+// Prevent real Redis/BullMQ connections during tests (avoid ECONNREFUSED + async logs after tests)
+jest.mock('ioredis', () => {
+  const Redis = jest.fn(() => ({
+    quit: jest.fn(),
+    disconnect: jest.fn(),
+    on: jest.fn(),
+  }));
+  return {
+    __esModule: true,
+    Redis,
+    default: Redis,
+  };
+});
+
+jest.mock('bullmq', () => ({
+  Queue: jest.fn(() => ({
+    add: jest.fn(async () => ({ id: 'job-1' })),
+    getWaiting: jest.fn(async () => []),
+    getActive: jest.fn(async () => []),
+    getCompleted: jest.fn(async () => []),
+    getFailed: jest.fn(async () => []),
+    getDelayed: jest.fn(async () => []),
+    clean: jest.fn(async () => []),
+    close: jest.fn(async () => undefined),
+    on: jest.fn(),
+  })),
+  Worker: jest.fn(() => ({
+    on: jest.fn(),
+    close: jest.fn(async () => undefined),
+  })),
+}));
+

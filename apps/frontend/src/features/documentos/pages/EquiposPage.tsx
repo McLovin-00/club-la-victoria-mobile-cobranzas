@@ -4,6 +4,7 @@ import type { RootState } from '../../../store/store';
 import { useNavigate } from 'react-router-dom';
 import { Card } from '../../../components/ui/card';
 import { useRoleBasedNavigation } from '../../../hooks/useRoleBasedNavigation';
+import { getRuntimeEnv } from '../../../lib/runtimeEnv';
 import { Button } from '../../../components/ui/button';
 import { Input } from '../../../components/ui/input';
 import { Label } from '../../../components/ui/label';
@@ -633,7 +634,7 @@ export const EquiposPage: React.FC = () => {
                   size='sm'
                   onClick={async ()=> {
                     try {
-                      const url = `${import.meta.env.VITE_DOCUMENTOS_API_URL}/api/docs/equipos/${eq.id}/zip`;
+                      const url = `${getRuntimeEnv('VITE_DOCUMENTOS_API_URL') || ''}/api/docs/equipos/${eq.id}/zip`;
                       const resp = await fetch(url, { headers: { Authorization: `Bearer ${authToken}` } });
                       if (!resp.ok) throw new Error('ZIP');
                       const blob = await resp.blob();
@@ -653,7 +654,7 @@ export const EquiposPage: React.FC = () => {
                   size='sm'
                   onClick={async ()=> {
                     try {
-                      const url = `${import.meta.env.VITE_DOCUMENTOS_API_URL}/api/docs/equipos/${eq.id}/summary.xlsx`;
+                      const url = `${getRuntimeEnv('VITE_DOCUMENTOS_API_URL') || ''}/api/docs/equipos/${eq.id}/summary.xlsx`;
                       const resp = await fetch(url, { headers: { Authorization: `Bearer ${authToken}` } });
                       if (!resp.ok) throw new Error('XLSX');
                       const blob = await resp.blob();
@@ -697,7 +698,7 @@ export const EquiposPage: React.FC = () => {
                       };
                       for (const docId of approvedDocs) {
                         try {
-                          const downloadUrl = `${import.meta.env.VITE_DOCUMENTOS_API_URL}/api/docs/documents/${docId}/download`;
+                          const downloadUrl = `${getRuntimeEnv('VITE_DOCUMENTOS_API_URL') || ''}/api/docs/documents/${docId}/download`;
                           const resp = await fetch(downloadUrl, { headers: { 'Authorization': `Bearer ${authToken}` } });
                           if (!resp.ok) continue;
                           const blob = await resp.blob();

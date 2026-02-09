@@ -1,9 +1,8 @@
 import { PrismaClient, UserRole } from '@prisma/client';
 import bcrypt from 'bcrypt';
 
-const prisma = new PrismaClient();
-
-async function debugMigration() {
+export async function debugMigration() {
+  const prisma = new PrismaClient();
   console.log('🔍 Ejecutando debug de migración...');
 
   try {
@@ -61,4 +60,6 @@ async function debugMigration() {
   }
 }
 
-debugMigration(); 
+if (require.main === module) {
+  debugMigration();
+}

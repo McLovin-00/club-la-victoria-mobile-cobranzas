@@ -1,11 +1,12 @@
 import { useMemo, useState, useEffect } from 'react';
 import { useParams, useLocation, useNavigate } from 'react-router-dom';
-import { useApprovePendingDocumentMutation, useGetApprovalPendingByIdQuery, useRejectPendingDocumentMutation, useRecheckDocumentWithAIMutation, useGetTemplatesQuery } from '../api/documentosApiSlice';
+import { useApprovePendingDocumentMutation, useGetApprovalPendingByIdQuery, useRejectPendingDocumentMutation, useRecheckDocumentWithAIMutation, useGetTemplatesQuery } from '@/features/documentos/api/documentosApiSlice';
 import { useRoleBasedNavigation } from '../../../hooks/useRoleBasedNavigation';
 import { formatDateTime } from '../../../utils/formatters';
 import type { ApprovalPendingDocument, EntityType } from '../types/entities';
 import { useAppSelector } from '../../../store/hooks';
 import { ArrowPathIcon, ExclamationTriangleIcon, InformationCircleIcon, ShieldExclamationIcon } from '@heroicons/react/24/outline';
+import { getRuntimeEnv } from '../../../lib/runtimeEnv';
 
 export default function ApprovalDetailPage() {
   const { id } = useParams();
@@ -72,7 +73,7 @@ export default function ApprovalDetailPage() {
   }, [error, navigate]);
 
   const previewUrl: string | undefined = (info as any)?.previewUrl || (info as any)?.data?.previewUrl;
-  const effectivePreviewUrl: string | undefined = previewUrl || (docId ? `${import.meta.env.VITE_DOCUMENTOS_API_URL}/api/docs/documents/${docId}/download?inline=1` : undefined);
+  const effectivePreviewUrl: string | undefined = previewUrl || (docId ? `${getRuntimeEnv('VITE_DOCUMENTOS_API_URL') || ''}/api/docs/documents/${docId}/download?inline=1` : undefined);
   const [previewBlobUrl, setPreviewBlobUrl] = useState<string | null>(null);
   const [previewError, setPreviewError] = useState<string | null>(null);
   const [loadingPreview, setLoadingPreview] = useState<boolean>(false);

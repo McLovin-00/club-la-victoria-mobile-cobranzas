@@ -1073,7 +1073,7 @@ const _reuploadMiddleware = multer({
     const allowedMimes = [
       'application/pdf',
       'image/jpeg',
-      'image/jpg', 
+      'image/jpg',
       'image/png',
       'image/webp',
       'application/msword',
