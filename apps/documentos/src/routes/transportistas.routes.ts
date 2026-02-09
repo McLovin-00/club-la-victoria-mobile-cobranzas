@@ -41,18 +41,24 @@ function buildSearchFilter(meta: any, body: any): Record<string, any> | null {
   return Object.keys(where).length ? where : null;
 }
 
+// Helper: encontrar chofer por DNI o ID
+async function findChoferByUser(user: any): Promise<any | null> {
+  if (user.dni) {
+    const byDni = await prisma.chofer.findFirst({ where: { dni: String(user.dni) } });
+    if (byDni) return byDni;
+  }
+  if (user.choferId) {
+    return prisma.chofer.findUnique({ where: { id: Number(user.choferId) } });
+  }
+  return null;
+}
+
 // Mis equipos (para chofer logueado) - requiere que el token tenga un dni o choferId
 router.get('/mis-equipos', async (req: any, res) => {
   const user = req.user;
   if (!user) return res.status(401).json({ success: false, message: 'UNAUTHORIZED' });
-  // Intentar mapear chofer por DNI o por userId si hay relación
-  let chofer: any = null;
-  if (user.dni) {
-    chofer = await prisma.chofer.findFirst({ where: { dni: String(user.dni) } });
-  }
-  if (!chofer && user.choferId) {
-    chofer = await prisma.chofer.findUnique({ where: { id: Number(user.choferId) } });
-  }
+  
+  const chofer = await findChoferByUser(user);
   if (!chofer) return res.json({ success: true, data: [] });
 
   const equipos = await prisma.equipo.findMany({

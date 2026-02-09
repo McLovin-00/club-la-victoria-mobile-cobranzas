@@ -1,5 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
 import { ZodError, ZodSchema } from 'zod';
+import { validationResult } from 'express-validator';
 import { AppLogger } from '../config/logger';
 
 /**
@@ -309,6 +310,23 @@ export class CommonValidationMiddlewares {
 
     return obj;
   }
+}
+
+/**
+ * Middleware para manejar errores de express-validator
+ * Extrae errores de validación y responde con formato estándar
+ */
+export function handleExpressValidatorErrors(req: Request, res: Response, next: NextFunction): void {
+  const errors = validationResult(req);
+  if (!errors.isEmpty()) {
+    res.status(400).json({
+      success: false,
+      message: 'Errores de validación',
+      errors: errors.array(),
+    });
+    return;
+  }
+  next();
 }
 
 // Exports por defecto y named

@@ -7,7 +7,8 @@ import { dirname } from 'path';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
-export default tseslint.config(
+// Flat config array (sin tseslint.config deprecated)
+export default [
   { ignores: ["dist/**", "node_modules/**", "coverage/**", ".prisma/**"] },
   {
     files: ["**/*.ts"],
@@ -28,6 +29,6 @@ export default tseslint.config(
       "no-empty": ["error", { "allowEmptyCatch": true }],
     },
   }
-);
+];
 
 

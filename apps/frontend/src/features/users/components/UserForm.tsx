@@ -44,7 +44,7 @@ export const UserForm: React.FC<UserFormProps> = ({
   } = useForm<UserFormState>({
     mode: 'onChange',
     defaultValues: {
-      email: user?.email || '',
+      email: user?.email ?? '',
       password: '',
       confirmPassword: '',
       role: user?.role === 'superadmin' ? 'admin' : user?.role || 'user',

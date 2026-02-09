@@ -7,30 +7,13 @@ import { z } from 'zod';
 import { prisma } from '../config/database';
 import { AppLogger } from '../config/logger';
 import { AuditService } from '../services/audit.service';
+import { verifyJwtFromForm } from '../utils/jwt.utils';
 
 const router: ReturnType<typeof Router> = Router();
 
 // ============================================================================
-// HELPERS JWT Y ARCHIVER
+// HELPERS ARCHIVER
 // ============================================================================
-let _jwtPublicKey: string | null = null;
-
-function getJwtPublicKey(): string {
-  if (_jwtPublicKey) return _jwtPublicKey;
-  const fs = require('fs');
-  _jwtPublicKey = fs.readFileSync(process.env.JWT_PUBLIC_KEY_PATH || '/keys/jwt_public.pem', 'utf8');
-  return _jwtPublicKey as string;
-}
-
-function verifyJwtFromForm(token: string): any | null {
-  const jwt = require('jsonwebtoken');
-  try {
-    return jwt.verify(token, getJwtPublicKey(), { algorithms: ['RS256'] });
-  } catch {
-    return null;
-  }
-}
-
 let _archiver: any;
 async function getArchiver() {
   if (!_archiver) {
@@ -52,10 +35,10 @@ function parseFilePath(filePath: string, tenantEmpresaId: number): { bucketName:
 }
 
 function buildSubfolders(equipo: any): Record<string, string> {
-  const cuit = equipo.empresaTransportista?.cuit || 'SIN_CUIT';
-  const dni = equipo.driverDniNorm || 'SIN_DNI';
-  const tractor = equipo.truckPlateNorm || 'SIN_PATENTE';
-  const acoplado = equipo.trailerPlateNorm || 'SIN_PATENTE';
+  const cuit = equipo.empresaTransportista?.cuit ?? 'SIN_CUIT';
+  const dni = equipo.driverDniNorm ?? 'SIN_DNI';
+  const tractor = equipo.truckPlateNorm ?? 'SIN_PATENTE';
+  const acoplado = equipo.trailerPlateNorm ?? 'SIN_PATENTE';
   return {
     EMPRESA_TRANSPORTISTA: `1_Empresa_Transportista_${cuit}`,
     CHOFER: `2_Chofer_${dni}`,
@@ -90,11 +73,21 @@ async function appendDocsToArchive(equipo: any, docs: any[], archive: any, mainF
 
   for (const d of sorted) {
     const { bucketName, objectPath } = parseFilePath(d.filePath, equipo.tenantEmpresaId);
-    const stream = await minioService.getObject(bucketName, objectPath);
-    const subfolder = subfolders[d.entityType] || 'otros';
-    const safeTpl = String(d.template?.name || 'documento').replace(/[^a-z0-9_-]/gi, '_');
-    const ext = (d.fileName || '').split('.').pop() || 'pdf';
-    archive.append(stream as any, { name: `${mainFolder}/${subfolder}/${safeTpl}.${ext}` });
+    try {
+      const stream = await minioService.getObject(bucketName, objectPath);
+      const subfolder = subfolders[d.entityType] ?? 'otros';
+      const safeTpl = String(d.template?.name ?? 'documento').replace(/[^a-z0-9_-]/gi, '_');
+      const ext = (d.fileName ?? '').split('.').pop() ?? 'pdf';
+      archive.append(stream as any, { name: `${mainFolder}/${subfolder}/${safeTpl}.${ext}` });
+    } catch (err: any) {
+      // Si el archivo no existe en MinIO, lo omitimos y continuamos
+      AppLogger.warn('⚠️ Archivo no encontrado en MinIO, omitiendo', {
+        docId: d.id,
+        bucketName,
+        objectPath,
+        error: err?.code || err?.message,
+      });
+    }
   }
 }
 
@@ -179,8 +172,13 @@ async function streamVigentesZip(equipoIdsInput: number[], res: any) {
 
   const archiver = await getArchiver();
   const archive = archiver('zip', { zlib: { level: 9 } });
-  archive.on('error', (err: any) => res.status(500).end(String(err)));
+  archive.on('error', (err: any) => {
+    AppLogger.error('💥 Error en archiver:', err);
+    res.status(500).end(String(err));
+  });
   archive.pipe(res);
+
+  AppLogger.info('📦 Iniciando ZIP masivo', { totalEquipos: equipoIds.length });
 
   try {
     const excelRows: any[] = [];
@@ -189,24 +187,32 @@ async function streamVigentesZip(equipoIdsInput: number[], res: any) {
       if (row) excelRows.push(row);
     }
 
+    AppLogger.info('📦 Equipos procesados, generando Excel', { excelRowsCount: excelRows.length });
+
     if (excelRows.length > 0) {
       const excelBuffer = await generateExcelBuffer(excelRows);
+      AppLogger.info('📦 Excel generado, agregando al ZIP', { bufferSize: excelBuffer.length });
       archive.append(excelBuffer, { name: 'resumen_equipos.xlsx' });
+      AppLogger.info('📦 Excel agregado al ZIP');
+    } else {
+      AppLogger.warn('📦 No hay filas para el Excel - no se generará resumen');
     }
   } catch (err) {
     AppLogger.error('💥 Error generando ZIP masivo', err);
     if (!res.headersSent) res.status(500).end('Error generando ZIP');
-    try { archive.abort(); } catch {}
+    try { archive.abort(); } catch { /* Abortar stream es best-effort */ }
     return;
   }
 
-  archive.finalize();
+  AppLogger.info('📦 Finalizando ZIP');
+  await archive.finalize();
+  AppLogger.info('📦 ZIP finalizado correctamente');
 }
 
 // ============================================================================
 // CONSTANTES DE ROLES
 // ============================================================================
-const ADMIN_ROLES = ['ADMIN', 'SUPERADMIN', 'ADMIN_INTERNO', 'DADOR_DE_CARGA'] as any[];
+const ADMIN_ROLES = ['ADMIN', 'SUPERADMIN', 'ADMIN_INTERNO', 'DADOR_DE_CARGA', 'TRANSPORTISTA'] as any[];
 const PHONE_REGEX = /^\+?[1-9]\d{7,14}$/;
 
 // ============================================================================
@@ -264,9 +270,88 @@ const searchByDnisSchema = z.object({ body: z.object({ dnis: z.array(z.string().
 const bulkZipSchema = z.object({ body: z.object({ equipoIds: z.array(z.number().int().positive()).min(1).max(500) }) });
 const equipoSummarySchema = z.object({ params: z.object({ id: z.string().transform((v) => Number(v)) }) });
 
+// Helper: generar solo datos para Excel (sin descargar documentos)
+async function buildExcelRowsOnly(equipoIds: number[]): Promise<any[]> {
+  const rows: any[] = [];
+  for (const equipoId of equipoIds) {
+    const equipo = await prisma.equipo.findUnique({
+      where: { id: equipoId },
+      include: { empresaTransportista: { select: { cuit: true, razonSocial: true } } },
+    });
+    if (!equipo) continue;
+
+    const [chofer, camion, acoplado] = await Promise.all([
+      prisma.chofer.findUnique({ where: { id: equipo.driverId }, select: { dni: true, nombre: true, apellido: true } }),
+      prisma.camion.findUnique({ where: { id: equipo.truckId }, select: { patente: true } }),
+      equipo.trailerId ? prisma.acoplado.findUnique({ where: { id: equipo.trailerId }, select: { patente: true } }) : null,
+    ]);
+
+    rows.push({
+      equipoId: equipo.id,
+      empresaCuit: equipo.empresaTransportista?.cuit || '',
+      empresaRazonSocial: equipo.empresaTransportista?.razonSocial || '',
+      choferDni: chofer?.dni || equipo.driverDniNorm || '',
+      choferNombre: chofer?.nombre || '',
+      choferApellido: chofer?.apellido || '',
+      camionPatente: camion?.patente || equipo.truckPlateNorm || '',
+      acopladoPatente: acoplado?.patente || equipo.trailerPlateNorm || '',
+    });
+  }
+  return rows;
+}
+
+async function streamExcelOnly(equipoIds: number[], res: any) {
+  const stamp = new Date().toISOString().replace(/[-:T]/g, '').slice(0, 12);
+  
+  res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+  res.setHeader('Content-Disposition', `attachment; filename=resumen_equipos_${stamp}.xlsx`);
+
+  try {
+    AppLogger.info('📊 Generando Excel de equipos', { totalEquipos: equipoIds.length });
+    const excelRows = await buildExcelRowsOnly(equipoIds);
+    
+    if (excelRows.length === 0) {
+      AppLogger.warn('📊 No hay equipos para generar Excel');
+      return res.status(404).send('No se encontraron equipos');
+    }
+
+    const excelBuffer = await generateExcelBuffer(excelRows);
+    AppLogger.info('📊 Excel generado correctamente', { rows: excelRows.length, size: excelBuffer.length });
+    res.send(excelBuffer);
+  } catch (err) {
+    AppLogger.error('💥 Error generando Excel', err);
+    if (!res.headersSent) res.status(500).send('Error generando Excel');
+  }
+}
+
 // ============================================================================
 // RUTAS SIN AUTENTICACIÓN (FORM POST)
 // ============================================================================
+
+// Endpoint para descargar solo el Excel (sin documentos)
+router.post('/download/excel-form', async (req: any, res) => {
+  AppLogger.info('📊 Excel form request', { 
+    bodyKeys: Object.keys(req.body || {}),
+    hasToken: !!req.body?.token,
+    contentType: req.headers['content-type'],
+  });
+  
+  const token = String(req.body?.token || '');
+  if (!token) return res.status(401).json({ success: false, message: 'Token de autenticación requerido', code: 'MISSING_TOKEN' });
+
+  const decoded = verifyJwtFromForm(token);
+  if (!decoded) return res.status(401).send('Token inválido');
+
+  const allowed = new Set(['ADMIN', 'SUPERADMIN', 'ADMIN_INTERNO', 'DADOR_DE_CARGA']);
+  if (!allowed.has(String(decoded.role || decoded.userRole || ''))) return res.status(403).send('No autorizado');
+
+  const equipoIds = String(req.body?.equipoIds || '').split(',').map((s: string) => Number(s.trim())).filter((n: number) => Number.isInteger(n) && n > 0);
+  if (!equipoIds.length) return res.status(400).send('equipoIds requerido');
+  if (equipoIds.length > 5000) return res.status(400).send('Máximo 5000 equipos');
+
+  return streamExcelOnly(equipoIds, res);
+});
+
 router.post('/download/vigentes-form', async (req: any, res) => {
   const token = String(req.body?.token || '');
   if (!token) return res.status(401).send('Token requerido');
@@ -458,6 +543,91 @@ router.get('/:id/summary.xlsx', validate(equipoSummarySchema), async (req: any, 
   } catch (err) {
     AppLogger.error('Error generando Excel de equipo', err);
     res.status(500).json({ success: false, message: 'Error generando Excel' });
+  }
+});
+
+// ============================================================================
+// PRE-CHECK: Verificación de documentos existentes para reutilización
+// ============================================================================
+import { DocumentPreCheckService } from '../services/document-precheck.service';
+import { EquipoEvaluationService } from '../services/equipo-evaluation.service';
+
+const preCheckSchema = z.object({
+  body: z.object({
+    entidades: z.array(z.object({
+      entityType: z.enum(['CHOFER', 'CAMION', 'ACOPLADO', 'EMPRESA_TRANSPORTISTA']),
+      identificador: z.string().min(1).max(32),
+    })).min(1).max(20),
+    clienteId: z.number().int().positive().optional(),
+    dadorCargaId: z.number().int().positive().optional(), // Para ADMIN_INTERNO que selecciona dador
+  }),
+});
+
+router.post('/pre-check', validate(preCheckSchema), async (req: any, res) => {
+  try {
+    const { entidades, clienteId, dadorCargaId: bodyDadorCargaId } = req.body;
+    const tenantEmpresaId = req.tenantId!;
+    // Usar dadorCargaId del body si existe (ADMIN_INTERNO), sino del token
+    const dadorCargaId = bodyDadorCargaId || req.dadorCargaId;
+
+    const result = await DocumentPreCheckService.preCheck({
+      tenantEmpresaId,
+      dadorCargaIdSolicitante: dadorCargaId,
+      entidades,
+      clienteId,
+    });
+
+    return res.json({ success: true, data: result });
+  } catch (error) {
+    AppLogger.error('💥 Error en pre-check', error);
+    return res.status(500).json({ success: false, message: 'Error verificando documentos' });
+  }
+});
+
+// Evaluar estado documental de un equipo
+router.post('/:id/evaluar', authorize(ADMIN_ROLES), async (req: any, res) => {
+  try {
+    const equipoId = Number(req.params.id);
+    if (!Number.isInteger(equipoId) || equipoId <= 0) {
+      return res.status(400).json({ success: false, message: 'ID de equipo inválido' });
+    }
+
+    const resultado = await EquipoEvaluationService.evaluarEquipo(equipoId);
+    if (!resultado) {
+      return res.status(404).json({ success: false, message: 'Equipo no encontrado' });
+    }
+
+    return res.json({ success: true, data: resultado });
+  } catch (error) {
+    AppLogger.error('💥 Error evaluando equipo', error);
+    return res.status(500).json({ success: false, message: 'Error evaluando equipo' });
+  }
+});
+
+// Evaluar múltiples equipos (batch)
+router.post('/evaluar-batch', authorize(ADMIN_ROLES), async (req: any, res) => {
+  try {
+    const equipoIds = (req.body?.equipoIds || [])
+      .map((id: unknown) => Number(id))
+      .filter((id: number) => Number.isInteger(id) && id > 0)
+      .slice(0, 100); // Límite de 100 equipos por batch
+
+    if (equipoIds.length === 0) {
+      return res.status(400).json({ success: false, message: 'Se requieren IDs de equipos' });
+    }
+
+    const resultados = await EquipoEvaluationService.evaluarEquipos(equipoIds);
+    return res.json({ 
+      success: true, 
+      data: {
+        evaluados: resultados.length,
+        actualizados: resultados.filter(r => r.cambio).length,
+        resultados,
+      },
+    });
+  } catch (error) {
+    AppLogger.error('💥 Error en evaluación batch', error);
+    return res.status(500).json({ success: false, message: 'Error en evaluación batch' });
   }
 });
 

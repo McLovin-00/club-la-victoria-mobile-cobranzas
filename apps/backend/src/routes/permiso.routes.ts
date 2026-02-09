@@ -1,6 +1,7 @@
 import { Router, Request, Response } from 'express';
-import { param, validationResult } from 'express-validator';
+import { param } from 'express-validator';
 import { authenticateUser, authorizeRoles, tenantResolver } from '../middlewares/platformAuth.middleware';
+import { handleExpressValidatorErrors } from '../middlewares/validation.middleware';
 import { AuthPayload } from '../services/auth.service';
 import { AppLogger } from '../config/logger';
 import { prisma } from '../config/prisma';
@@ -11,19 +12,6 @@ const router = Router();
 // Middleware de autenticación para todas las rutas
 router.use(authenticateUser, tenantResolver);
 
-// Middleware de validación
-const handleValidationErrors = (req: Request, res: Response, next: any) => {
-  const errors = validationResult(req);
-  if (!errors.isEmpty()) {
-    return res.status(400).json({
-      success: false,
-      message: 'Errores de validación',
-      errors: errors.array(),
-    });
-  }
-  next();
-};
-
 const permisoIdValidation = [
   param('id').isInt({ min: 1 }).withMessage('El ID del permiso debe ser un número entero positivo'),
 ];
@@ -33,7 +21,7 @@ router.delete(
   '/:id',
   authorizeRoles(['SUPERADMIN','ADMIN']),
   permisoIdValidation,
-  handleValidationErrors,
+  handleExpressValidatorErrors,
   async (req: Request, res: Response) => {
     try {
       const { id } = req.params;

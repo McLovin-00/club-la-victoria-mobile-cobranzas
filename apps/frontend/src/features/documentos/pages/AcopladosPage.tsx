@@ -47,7 +47,7 @@ const AcopladosPage: React.FC = () => {
         <div className='grid grid-cols-1 md:grid-cols-6 gap-2 items-end'>
           <select
             className='p-2 border rounded-md md:col-span-2 bg-background text-foreground'
-            value={dadorId || ''}
+            value={dadorId ?? ''}
             onChange={(e) => setDadorId(Number(e.target.value))}
           >
             <option value='' disabled>
@@ -70,13 +70,13 @@ const AcopladosPage: React.FC = () => {
           <Button disabled={!dadorId || !patente} onClick={async () => {
             if (!dadorId || !patente) return;
             try {
-              await createAcoplado({ dadorCargaId: dadorId, patente, tipo: tipo || undefined }).unwrap();
+              await createAcoplado({ dadorCargaId: dadorId, patente, tipo: tipo ?? undefined }).unwrap();
               show('Acoplado creado', 'success');
               setPatente(''); setTipo('');
             } catch (error: any) {
               console.error('Error creating acoplado:', error);
-              const rawMsg = (error?.data?.message || error?.data?.error || error?.error || '') as string;
-              const msg = (rawMsg || '').toString();
+              const rawMsg = ((error?.data?.message || error?.data?.error || error?.error) ?? '') as string;
+              const msg = (rawMsg ?? '').toString();
               const isDuplicate = msg.includes('Unique constraint failed') || msg.includes('P2002') || msg.toLowerCase().includes('unique constraint') || msg.toLowerCase().includes('ya existe');
               if (isDuplicate) {
                 show(`La patente ${patente} ya existe para el dador seleccionado.`, 'error');
@@ -134,8 +134,8 @@ export default AcopladosPage;
 // Editor inline para un acoplado (patente y tipo + acciones)
 const AcopladoEditInline: React.FC<{ acoplado: Acoplado; onSave: (p: { patente?: string; tipo?: string })=>Promise<void>; onToggleActivo: ()=>Promise<void>; onDelete: ()=>void }>=({ acoplado, onSave, onToggleActivo, onDelete })=>{
   const [editing, setEditing] = useState(false);
-  const [patente, setPatente] = useState(acoplado.patente || '');
-  const [tipo, setTipo] = useState((acoplado as any).tipo || '');
+  const [patente, setPatente] = useState(acoplado.patente ?? '');
+  const [tipo, setTipo] = useState((acoplado as any).tipo ?? '');
   return (
     <div className='mt-2 grid grid-cols-1 md:grid-cols-8 gap-2 items-end'>
       {editing ? (
@@ -143,8 +143,8 @@ const AcopladoEditInline: React.FC<{ acoplado: Acoplado; onSave: (p: { patente?:
           <Input className='md:col-span-3' placeholder='Patente' value={patente} onChange={(e)=> setPatente(e.target.value.toUpperCase())} />
           <Input className='md:col-span-3' placeholder='Tipo' value={tipo} onChange={(e)=> setTipo(e.target.value)} />
           <div className='md:col-span-8 flex gap-2 justify-end'>
-            <Button variant='outline' onClick={()=> { setEditing(false); setPatente(acoplado.patente || ''); setTipo((acoplado as any).tipo || ''); }}>Cancelar</Button>
-            <Button onClick={async ()=> { await onSave({ patente, tipo: tipo || undefined }); setEditing(false); }}>Guardar</Button>
+            <Button variant='outline' onClick={()=> { setEditing(false); setPatente(acoplado.patente ?? ''); setTipo((acoplado as any).tipo ?? ''); }}>Cancelar</Button>
+            <Button onClick={async ()=> { await onSave({ patente, tipo: tipo ?? undefined }); setEditing(false); }}>Guardar</Button>
           </div>
         </>
       ) : (

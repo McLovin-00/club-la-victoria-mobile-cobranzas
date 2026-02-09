@@ -125,7 +125,7 @@ const main = async (): Promise<void> => {
 
       // Configurar Express con elegancia minimalista
     const app = express();
-    try { app.set('trust proxy', 1); } catch {}
+    try { app.set('trust proxy', 1); } catch { /* Trust proxy config opcional */ }
     const httpServer = createServer(app);
 
     // Inicializar WebSocket

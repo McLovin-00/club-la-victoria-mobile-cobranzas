@@ -35,23 +35,49 @@ export const uploadMiddleware = multer({
 // HELPERS PARA REDUCIR COMPLEJIDAD COGNITIVA
 // ============================================================================
 
-/** Parsea una fecha en múltiples formatos */
+/**
+ * Valida y retorna una fecha, o null si es inválida.
+ */
+function toValidDate(dateStr: string): Date | null {
+  const parsed = new Date(dateStr);
+  return isNaN(parsed.getTime()) ? null : parsed;
+}
+
+/**
+ * Parsea formato ISO (YYYY-MM-DD o YYYY-MM-DDTHH:mm:ss).
+ */
+function parseIsoDate(rawDate: string): Date | null {
+  if (rawDate.includes('T')) {
+    return toValidDate(rawDate);
+  }
+  return toValidDate(`${rawDate.slice(0, 10)}T12:00:00Z`);
+}
+
+/**
+ * Parsea formato DD/MM/YYYY.
+ */
+function parseDdMmYyyy(rawDate: string): Date | null {
+  const [dd, mm, yyyy] = rawDate.split('/');
+  return toValidDate(`${yyyy}-${mm}-${dd}T12:00:00Z`);
+}
+
+/**
+ * Parsea formato DD/MM/YY.
+ */
+function parseDdMmYy(rawDate: string): Date | null {
+  const [dd, mm, yy] = rawDate.split('/');
+  const year = parseInt(yy, 10) < 50 ? `20${yy}` : `19${yy}`;
+  return toValidDate(`${year}-${mm}-${dd}T12:00:00Z`);
+}
+
+/**
+ * Parsea una fecha en múltiples formatos.
+ * Usa mediodía UTC (T12:00:00Z) para evitar problemas de zona horaria.
+ */
 function parseDateString(rawDate: string): Date | null {
-  if (/^\d{4}-\d{2}-\d{2}/.test(rawDate)) {
-    const parsed = new Date(rawDate);
-    return isNaN(parsed.getTime()) ? null : parsed;
-  }
-  if (/^\d{2}\/\d{2}\/\d{4}$/.test(rawDate)) {
-    const [dd, mm, yyyy] = rawDate.split('/');
-    const parsed = new Date(`${yyyy}-${mm}-${dd}`);
-    return isNaN(parsed.getTime()) ? null : parsed;
-  }
-  if (/^\d{2}\/\d{2}\/\d{2}$/.test(rawDate)) {
-    const [dd, mm, yy] = rawDate.split('/');
-    const year = parseInt(yy, 10) < 50 ? `20${yy}` : `19${yy}`;
-    const parsed = new Date(`${year}-${mm}-${dd}`);
-    return isNaN(parsed.getTime()) ? null : parsed;
-  }
+  if (/^\d{4}-\d{2}-\d{2}/.test(rawDate)) return parseIsoDate(rawDate);
+  if (/^\d{2}\/\d{2}\/\d{4}$/.test(rawDate)) return parseDdMmYyyy(rawDate);
+  if (/^\d{2}\/\d{2}\/\d{2}$/.test(rawDate)) return parseDdMmYy(rawDate);
   return null;
 }
 
@@ -153,11 +179,22 @@ function extractFilesFromRequest(req: AuthRequest): { files: Express.Multer.File
 
 /** Valida permisos de empresa para roles de campo */
 function validateUploadPermissions(req: AuthRequest, dadorIdNum: number): void {
-  const restrictedRoles = ['DADOR_DE_CARGA', 'TRANSPORTISTA', 'CLIENTE'];
-  if (restrictedRoles.includes(req.user?.role || '')) {
-    const userEmpresaId = (req.user as any)?.empresaId;
-    if (!userEmpresaId || userEmpresaId !== dadorIdNum) {
-      throw createError('Acceso denegado a empresa', 403, 'DOCUMENT_UPLOAD_FORBIDDEN');
+  const userRole = req.user?.role || '';
+  
+  // DADOR_DE_CARGA: debe usar su propio dadorCargaId
+  if (userRole === 'DADOR_DE_CARGA') {
+    const userDadorCargaId = (req.user as any)?.dadorCargaId;
+    if (!userDadorCargaId || userDadorCargaId !== dadorIdNum) {
+      throw createError('Acceso denegado a dador indicado', 403, 'DOCUMENT_UPLOAD_FORBIDDEN');
+    }
+    return;
+  }
+  
+  // TRANSPORTISTA y CLIENTE: verificar que tengan acceso al dador indicado
+  if (userRole === 'TRANSPORTISTA' || userRole === 'CLIENTE') {
+    const userDadorCargaId = (req.user as any)?.dadorCargaId;
+    if (!userDadorCargaId || userDadorCargaId !== dadorIdNum) {
+      throw createError('Acceso denegado a dador indicado', 403, 'DOCUMENT_UPLOAD_FORBIDDEN');
     }
   }
 }
@@ -168,7 +205,9 @@ function validateUploadScenario(
   last: { id: number; status: string } | null
 ): void {
   const isInitialAttempt = !last;
-  const allowInitialUpload = req.user?.role === 'ADMIN_INTERNO' || req.user?.role === 'SUPERADMIN';
+  // Permitir subida inicial para roles que pueden crear equipos desde alta-completa
+  const rolesWithInitialUpload = ['ADMIN_INTERNO', 'SUPERADMIN', 'DADOR_DE_CARGA', 'TRANSPORTISTA', 'CHOFER'];
+  const allowInitialUpload = rolesWithInitialUpload.includes(req.user?.role || '');
 
   if (isInitialAttempt && !allowInitialUpload) {
     throw createError(
@@ -416,9 +455,9 @@ export class DocumentsController {
           entityId: document.id,
           details: { templateId: (document as any).templateId, entityType: document.entityType, entityId: document.entityId, fileName: document.fileName, fileSize: document.fileSize },
         });
-      } catch {}
+      } catch { /* Notificación no crítica */ }
       // Refrescar vista materializada (best-effort)
-      try { (await import('../services/performance.service')).performanceService.refreshMaterializedView(); } catch {}
+      try { (await import('../services/performance.service')).performanceService.refreshMaterializedView(); } catch { /* Refresh async */ }
 
       res.status(201).json(document);
     } catch (error) {
@@ -697,7 +736,7 @@ export class DocumentsController {
       if (document.tenantEmpresaId) {
         try {
           await minioService.ensureBucketExists(document.tenantEmpresaId);
-        } catch (_) {}
+        } catch { /* Parseo de entityData opcional */ }
       }
 
       // Obtener el archivo de MinIO como stream
@@ -793,7 +832,7 @@ export class DocumentsController {
         requestedBy: (req.user as any)?.userId,
       });
       res.status(201).json({ success: true, data: next });
-      try { (await import('../services/performance.service')).performanceService.refreshMaterializedView(); } catch {}
+      try { (await import('../services/performance.service')).performanceService.refreshMaterializedView(); } catch { /* Refresh async */ }
     } catch (error) {
       AppLogger.error('💥 Error renovando documento:', error);
       throw createError('Error al renovar documento', 500, 'DOCUMENT_RENEW_ERROR');
@@ -884,7 +923,7 @@ export class DocumentsController {
         entityId: document.id,
         details: { fileName: document.fileName, templateName: document.template.name },
       });
-      try { (await import('../services/performance.service')).performanceService.refreshMaterializedView(); } catch {}
+      try { (await import('../services/performance.service')).performanceService.refreshMaterializedView(); } catch { /* Refresh async */ }
 
       res.json({
         success: true,

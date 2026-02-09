@@ -82,7 +82,7 @@ const auditConfig: Record<UserAuditAction, { severity: AuditSeverity; trackPerfo
  * Generar ID de sesión único
  */
 function generateSessionId(): string {
-  return `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+  return `${Date.now()}-${Math.random().toString(36).substring(2, 11)}`;
 }
 
 /**
@@ -168,7 +168,7 @@ export const useUserAudit = () => {
 
     // En producción, enviar al servidor
     if (import.meta.env.MODE === 'production') {
-      // TODO: Implementar envío al servidor de auditoría
+      // PENDIENTE: Implementar envío al servidor de auditoría
       fetch('/api/audit/batch', {
         method: 'POST',
         headers: {

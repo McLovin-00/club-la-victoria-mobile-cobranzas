@@ -318,10 +318,36 @@ export class PlatformAuthService {
 
   static async deletePlatformUser(id: number, actor: PlatformUserProfile): Promise<void> {
     const prisma = prismaService.getClient();
-    if (actor.role !== 'SUPERADMIN') {
-      throw new Error('Solo superadmin puede eliminar usuarios');
+    
+    // SUPERADMIN puede eliminar cualquier usuario
+    if (actor.role === 'SUPERADMIN') {
+      await prisma.user.delete({ where: { id } });
+      return;
     }
-    await prisma.user.delete({ where: { id } });
+    
+    // ADMIN_INTERNO puede eliminar usuarios de su misma empresa (excepto SUPERADMIN/ADMIN)
+    if (actor.role === 'ADMIN_INTERNO') {
+      const targetUser = await prisma.user.findUnique({ where: { id } });
+      if (!targetUser) {
+        throw new Error('Usuario no encontrado');
+      }
+      // Verificar que el usuario objetivo pertenezca a la misma empresa
+      if (targetUser.empresaId !== actor.empresaId) {
+        throw new Error('No tiene permisos para eliminar usuarios de otra empresa');
+      }
+      // No puede eliminar SUPERADMIN ni ADMIN
+      if (['SUPERADMIN', 'ADMIN'].includes(targetUser.role)) {
+        throw new Error('No tiene permisos para eliminar usuarios con ese rol');
+      }
+      // No puede eliminarse a sí mismo
+      if (targetUser.id === actor.id) {
+        throw new Error('No puede eliminarse a sí mismo');
+      }
+      await prisma.user.delete({ where: { id } });
+      return;
+    }
+    
+    throw new Error('Solo superadmin y admin interno pueden eliminar usuarios');
   }
 
   static async updatePassword(userId: number, currentPassword: string, newPassword: string): Promise<{ success: boolean; message: string }> {
@@ -392,13 +418,19 @@ export class PlatformAuthService {
     return base.join('');
   }
 
-  static async registerClientWithTempPassword(
-    input: { email: string; nombre?: string; apellido?: string; empresaId?: number | null; clienteId: number },
-    createdBy: PlatformUserProfile
+  /**
+   * Helper genérico para crear usuarios con contraseña temporal
+   */
+  private static async createUserWithTempPassword(
+    input: { email: string; nombre?: string; apellido?: string; empresaId?: number | null },
+    createdBy: PlatformUserProfile,
+    role: UserRole,
+    allowedRoles: string[],
+    roleSpecificData: Record<string, any>,
+    roleLabel: string
   ): Promise<AuthResponse> {
-    // Solo ADMIN/ADMIN_INTERNO/SUPERADMIN (pedido explícito)
-    if (!['SUPERADMIN', 'ADMIN', 'ADMIN_INTERNO'].includes(createdBy.role)) {
-      throw new Error('No tiene permisos para crear usuarios CLIENTE');
+    if (!allowedRoles.includes(createdBy.role)) {
+      throw new Error(`No tiene permisos para crear usuarios ${roleLabel}`);
     }
 
     const prisma = prismaService.getClient();
@@ -411,19 +443,19 @@ export class PlatformAuthService {
 
     const tempPassword = this.generateTempPassword();
     const hashedPassword = await this.hashPassword(tempPassword);
-    const finalEmpresaId = this.determineFinalEmpresaId('CLIENTE', input.empresaId ?? null, createdBy);
+    const finalEmpresaId = this.determineFinalEmpresaId(role, input.empresaId ?? null, createdBy);
 
     const newUser = await prisma.user.create({
       data: {
         email,
         password: hashedPassword,
-        role: 'CLIENTE' as UserRole,
+        role,
         empresaId: finalEmpresaId,
         nombre: input.nombre,
         apellido: input.apellido,
-        clienteId: input.clienteId,
         mustChangePassword: true as any,
         creadoPorId: createdBy.id,
+        ...roleSpecificData,
       } as any,
     });
 
@@ -431,8 +463,22 @@ export class PlatformAuthService {
       success: true,
       platformUser: this.formatUserProfile(newUser),
       tempPassword,
-      message: 'Usuario CLIENTE creado con contraseña temporal',
+      message: `Usuario ${roleLabel} creado con contraseña temporal`,
     };
+  }
+
+  static async registerClientWithTempPassword(
+    input: { email: string; nombre?: string; apellido?: string; empresaId?: number | null; clienteId: number },
+    createdBy: PlatformUserProfile
+  ): Promise<AuthResponse> {
+    return this.createUserWithTempPassword(
+      input,
+      createdBy,
+      'CLIENTE' as UserRole,
+      ['SUPERADMIN', 'ADMIN', 'ADMIN_INTERNO'],
+      { clienteId: input.clienteId },
+      'CLIENTE'
+    );
   }
 
   /**
@@ -442,43 +488,14 @@ export class PlatformAuthService {
     input: { email: string; nombre?: string; apellido?: string; empresaId?: number | null; dadorCargaId: number },
     createdBy: PlatformUserProfile
   ): Promise<AuthResponse> {
-    // Solo ADMIN/ADMIN_INTERNO/SUPERADMIN pueden crear dadores
-    if (!['SUPERADMIN', 'ADMIN', 'ADMIN_INTERNO'].includes(createdBy.role)) {
-      throw new Error('No tiene permisos para crear usuarios DADOR_DE_CARGA');
-    }
-
-    const prisma = prismaService.getClient();
-    const email = input.email.toLowerCase().trim();
-
-    const existingUser = await prisma.user.findUnique({ where: { email } });
-    if (existingUser) {
-      return { success: false, message: 'El email ya está en uso' };
-    }
-
-    const tempPassword = this.generateTempPassword();
-    const hashedPassword = await this.hashPassword(tempPassword);
-    const finalEmpresaId = this.determineFinalEmpresaId('DADOR_DE_CARGA', input.empresaId ?? null, createdBy);
-
-    const newUser = await prisma.user.create({
-      data: {
-        email,
-        password: hashedPassword,
-        role: 'DADOR_DE_CARGA' as UserRole,
-        empresaId: finalEmpresaId,
-        nombre: input.nombre,
-        apellido: input.apellido,
-        dadorCargaId: input.dadorCargaId,
-        mustChangePassword: true as any,
-        creadoPorId: createdBy.id,
-      } as any,
-    });
-
-    return {
-      success: true,
-      platformUser: this.formatUserProfile(newUser),
-      tempPassword,
-      message: 'Usuario DADOR_DE_CARGA creado con contraseña temporal',
-    };
+    return this.createUserWithTempPassword(
+      input,
+      createdBy,
+      'DADOR_DE_CARGA' as UserRole,
+      ['SUPERADMIN', 'ADMIN', 'ADMIN_INTERNO'],
+      { dadorCargaId: input.dadorCargaId },
+      'DADOR_DE_CARGA'
+    );
   }
 
   /**
@@ -488,89 +505,32 @@ export class PlatformAuthService {
     input: { email: string; nombre?: string; apellido?: string; empresaId?: number | null; empresaTransportistaId: number },
     createdBy: PlatformUserProfile
   ): Promise<AuthResponse> {
-    // SUPERADMIN, ADMIN, ADMIN_INTERNO y DADOR_DE_CARGA pueden crear transportistas
-    if (!['SUPERADMIN', 'ADMIN', 'ADMIN_INTERNO', 'DADOR_DE_CARGA'].includes(createdBy.role)) {
-      throw new Error('No tiene permisos para crear usuarios TRANSPORTISTA');
-    }
-
-    const prisma = prismaService.getClient();
-    const email = input.email.toLowerCase().trim();
-
-    const existingUser = await prisma.user.findUnique({ where: { email } });
-    if (existingUser) {
-      return { success: false, message: 'El email ya está en uso' };
-    }
-
-    const tempPassword = this.generateTempPassword();
-    const hashedPassword = await this.hashPassword(tempPassword);
-    const finalEmpresaId = this.determineFinalEmpresaId('TRANSPORTISTA', input.empresaId ?? null, createdBy);
-
-    const newUser = await prisma.user.create({
-      data: {
-        email,
-        password: hashedPassword,
-        role: 'TRANSPORTISTA' as UserRole,
-        empresaId: finalEmpresaId,
-        nombre: input.nombre,
-        apellido: input.apellido,
-        empresaTransportistaId: input.empresaTransportistaId,
-        mustChangePassword: true as any,
-        creadoPorId: createdBy.id,
-      } as any,
-    });
-
-    return {
-      success: true,
-      platformUser: this.formatUserProfile(newUser),
-      tempPassword,
-      message: 'Usuario TRANSPORTISTA creado con contraseña temporal',
-    };
+    return this.createUserWithTempPassword(
+      input,
+      createdBy,
+      'TRANSPORTISTA' as UserRole,
+      ['SUPERADMIN', 'ADMIN', 'ADMIN_INTERNO', 'DADOR_DE_CARGA'],
+      { empresaTransportistaId: input.empresaTransportistaId },
+      'TRANSPORTISTA'
+    );
   }
 
   /**
    * Wizard: crear usuario CHOFER con contraseña temporal
+   * Bug 7 fix: usar tenantEmpresaId del chofer para consistencia multi-tenant
    */
   static async registerChoferWithTempPassword(
     input: { email: string; nombre?: string; apellido?: string; empresaId?: number | null; choferId: number },
     createdBy: PlatformUserProfile
   ): Promise<AuthResponse> {
-    // SUPERADMIN, ADMIN, ADMIN_INTERNO, DADOR_DE_CARGA y TRANSPORTISTA pueden crear choferes
-    if (!['SUPERADMIN', 'ADMIN', 'ADMIN_INTERNO', 'DADOR_DE_CARGA', 'TRANSPORTISTA'].includes(createdBy.role)) {
-      throw new Error('No tiene permisos para crear usuarios CHOFER');
-    }
-
-    const prisma = prismaService.getClient();
-    const email = input.email.toLowerCase().trim();
-
-    const existingUser = await prisma.user.findUnique({ where: { email } });
-    if (existingUser) {
-      return { success: false, message: 'El email ya está en uso' };
-    }
-
-    const tempPassword = this.generateTempPassword();
-    const hashedPassword = await this.hashPassword(tempPassword);
-    const finalEmpresaId = this.determineFinalEmpresaId('CHOFER', input.empresaId ?? null, createdBy);
-
-    const newUser = await prisma.user.create({
-      data: {
-        email,
-        password: hashedPassword,
-        role: 'CHOFER' as UserRole,
-        empresaId: finalEmpresaId,
-        nombre: input.nombre,
-        apellido: input.apellido,
-        choferId: input.choferId,
-        mustChangePassword: true as any,
-        creadoPorId: createdBy.id,
-      } as any,
-    });
-
-    return {
-      success: true,
-      platformUser: this.formatUserProfile(newUser),
-      tempPassword,
-      message: 'Usuario CHOFER creado con contraseña temporal',
-    };
+    return this.createUserWithTempPassword(
+      input,
+      createdBy,
+      'CHOFER' as UserRole,
+      ['SUPERADMIN', 'ADMIN', 'ADMIN_INTERNO', 'DADOR_DE_CARGA', 'TRANSPORTISTA'],
+      { choferId: input.choferId },
+      'CHOFER'
+    );
   }
 
   // Matriz de permisos: quién puede crear qué rol

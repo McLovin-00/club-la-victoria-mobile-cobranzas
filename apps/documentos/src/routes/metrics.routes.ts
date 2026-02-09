@@ -42,7 +42,7 @@ router.get('/', async (req: Request, res: Response): Promise<void> => {
       pendingApproval = await db.getClient().document.count({ where: { status: 'PENDIENTE_APROBACION' as any } });
       const paByType = await db.getClient().document.groupBy({ by: ['entityType'], where: { status: 'PENDIENTE_APROBACION' as any }, _count: { entityType: true } });
       pendingApprovalByTypeLines = paByType.map(r => `documentos_pending_approval_by_type{entity_type="${r.entityType}"} ${r._count.entityType}`).join('\n');
-    } catch {}
+    } catch { /* Métricas no críticas */ }
 
     // KPIs de equipos últimos 7 días (global y por tenant)
     let equipoKpiLines = '';
@@ -72,7 +72,7 @@ router.get('/', async (req: Request, res: Response): Promise<void> => {
         `documentos_equipos_events_total{type="deleted",window="7d"} ${deleted}`,
         perTenantLines.join('\n')
       ].join('\n');
-    } catch {}
+    } catch { /* Métricas KPI no críticas */ }
 
     const metrics = `
 # HELP documentos_info Información del microservicio documentos

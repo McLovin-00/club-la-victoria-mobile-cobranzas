@@ -49,11 +49,11 @@ export const ClientePortalPage: React.FC = () => {
   const [zipJobId, setZipJobId] = useState<string | null>(null);
   const [isExcelLoading, setIsExcelLoading] = useState(false);
   const { data: zipJobData } = useGetClientsZipJobQuery(
-    { jobId: zipJobId || '' },
+    { jobId: zipJobId ?? '' },
     { skip: !zipJobId, pollingInterval: 1000 }
   );
 
-  const normalizePlate = (s: string) => (s || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
+  const normalizePlate = (s: string) => (s ?? '').toUpperCase().replace(/[^A-Z0-9]/g, '');
   const parsePlates = () => {
     const lines = platesInput.split(/\r?\n/).map(l => normalizePlate(l.trim())).filter(Boolean);
     const unique = Array.from(new Set(lines));
@@ -104,14 +104,14 @@ export const ClientePortalPage: React.FC = () => {
     const rows: string[] = ['equipoId,entityType,templateId,templateName,estado,venceEl'];
     for (const e of equipos) {
       const equipo = e.equipo || e;
-      const docs = docsCacheRef.current.get(equipo.id) || [];
+      const docs = docsCacheRef.current.get(equipo.id) ?? [];
       for (const r of reqs as any[]) {
         const found = docs.find(d => d.templateId === r.templateId && d.entityType === r.entityType);
         const vence = found?.expiresAt ? new Date(found.expiresAt) : null;
         const now = new Date();
         const diffDays = vence ? Math.ceil((vence.getTime() - now.getTime())/86400000) : null;
         const estado = found ? (vence ? (diffDays! <= 0 ? 'VENCIDO' : (diffDays! <= 30 ? 'PROXIMO' : 'VIGENTE')) : 'VIGENTE') : 'FALTANTE';
-        rows.push([equipo.id, r.entityType, r.templateId, r.template?.name || '', estado, vence ? vence.toLocaleDateString() : ''].join(','));
+        rows.push([equipo.id, r.entityType, r.templateId, r.template?.name ?? '', estado, vence ? vence.toLocaleDateString() : ''].join(','));
       }
     }
     const blob = new Blob([rows.join('\n')], { type: 'text/csv;charset=utf-8;' });
@@ -175,7 +175,7 @@ export const ClientePortalPage: React.FC = () => {
                 <label className="block text-sm font-medium text-gray-700">Cliente</label>
                 <select
                   className="w-full h-12 text-base rounded-xl border-2 border-gray-200 bg-white text-gray-900 focus:outline-none focus:ring-0 focus:border-emerald-500 transition-colors"
-                  value={resolvedClienteId || ''}
+                  value={resolvedClienteId ?? ''}
                   onChange={(e) => setClienteId(Number(e.target.value))}
                 >
                   {clients.map((c) => (
@@ -230,7 +230,7 @@ export const ClientePortalPage: React.FC = () => {
                     try {
                       setIsExcelLoading(true);
                       const url = `${import.meta.env.VITE_DOCUMENTOS_API_URL}/api/docs/clients/${resolvedClienteId}/summary.xlsx`;
-                      const resp = await fetch(url, { headers: { Authorization: `Bearer ${localStorage.getItem('token') || ''}` } });
+                      const resp = await fetch(url, { headers: { Authorization: `Bearer ${localStorage.getItem('token') ?? ''}` } });
                       if (!resp.ok) throw new Error('XLSX');
                       const blob = await resp.blob();
                       const a = document.createElement('a');
@@ -521,8 +521,8 @@ const EquipoCard: React.FC<{ equipo: any; clienteId: number; reqs: any[]; estado
           </div>
           
           <div className="space-y-2">
-            {filteredReqs.map(({ r, est }, i) => (
-              <div key={i} className="flex items-center gap-3 p-3 rounded-xl bg-gray-50 border-2 border-gray-100">
+            {filteredReqs.map(({ r, est }) => (
+              <div key={`${r.entityType}-${r.templateId}-${r.id || ''}`} className="flex items-center gap-3 p-3 rounded-xl bg-gray-50 border-2 border-gray-100">
                 {getEstadoIcon(est)}
                 <div className="flex-1 text-sm">
                   <span className="font-semibold text-gray-700">{r.entityType}</span>

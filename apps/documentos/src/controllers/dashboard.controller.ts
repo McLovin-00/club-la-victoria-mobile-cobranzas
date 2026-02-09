@@ -59,6 +59,96 @@ async function getClienteStats(prisma: any, clienteId: number | undefined) {
   return { equiposAsignados, vigentes, proximosVencer, vencidos };
 }
 
+/**
+ * Construye el filtro de documentos rechazados según el rol del usuario
+ * - SUPERADMIN, ADMIN, ADMIN_INTERNO: ven todos del tenant
+ * - DADOR_DE_CARGA: ven solo de su dadorCargaId
+ * - TRANSPORTISTA: ven documentos de entidades de su empresa transportista
+ * - CHOFER: ve solo sus propios documentos
+ */
+async function buildRejectedDocsFilter(
+  prisma: any,
+  tenantEmpresaId: number,
+  user: any,
+  entityType?: string
+): Promise<any> {
+  const baseFilter: any = {
+    tenantEmpresaId,
+    status: 'RECHAZADO' as any,
+    archived: false,
+  };
+
+  if (entityType) {
+    baseFilter.entityType = entityType;
+  }
+
+  // Roles con acceso global al tenant
+  if ([UserRole.SUPERADMIN, UserRole.ADMIN, UserRole.ADMIN_INTERNO].includes(user.role)) {
+    return baseFilter;
+  }
+
+  // Dador de carga: filtra por su dadorCargaId
+  if (user.role === UserRole.DADOR_DE_CARGA) {
+    return { ...baseFilter, dadorCargaId: user.empresaId };
+  }
+
+  // Transportista: obtener entidades asociadas a su empresaTransportistaId
+  if (user.role === UserRole.TRANSPORTISTA && user.empresaTransportistaId) {
+    const entityIds = await getTransportistaEntityIds(prisma, tenantEmpresaId, user.empresaTransportistaId);
+    if (entityIds.length === 0) {
+      return { ...baseFilter, id: -1 }; // No hay documentos (imposible match)
+    }
+    return { ...baseFilter, OR: entityIds };
+  }
+
+  // Chofer: solo sus propios documentos
+  if (user.role === UserRole.CHOFER && user.choferId) {
+    return { ...baseFilter, entityType: 'CHOFER', entityId: user.choferId };
+  }
+
+  // Default: solo del dadorCargaId si existe, sino nada
+  if (user.empresaId) {
+    return { ...baseFilter, dadorCargaId: user.empresaId };
+  }
+
+  return { ...baseFilter, id: -1 }; // Sin acceso
+}
+
+/**
+ * Obtiene los IDs de entidades asociadas a una empresa transportista
+ */
+async function getTransportistaEntityIds(
+  prisma: any,
+  tenantEmpresaId: number,
+  empresaTransportistaId: number
+): Promise<Array<{ entityType: string; entityId: number }>> {
+  const [choferes, camiones, acoplados] = await Promise.all([
+    prisma.chofer.findMany({
+      where: { tenantEmpresaId, empresaTransportistaId },
+      select: { id: true },
+    }),
+    prisma.camion.findMany({
+      where: { tenantEmpresaId, empresaTransportistaId },
+      select: { id: true },
+    }),
+    prisma.acoplado.findMany({
+      where: { tenantEmpresaId, empresaTransportistaId },
+      select: { id: true },
+    }),
+  ]);
+
+  const orConditions: Array<{ entityType: string; entityId: number }> = [];
+
+  choferes.forEach((c: any) => orConditions.push({ entityType: 'CHOFER', entityId: c.id }));
+  camiones.forEach((c: any) => orConditions.push({ entityType: 'CAMION', entityId: c.id }));
+  acoplados.forEach((a: any) => orConditions.push({ entityType: 'ACOPLADO', entityId: a.id }));
+
+  // Agregar la empresa transportista misma
+  orConditions.push({ entityType: 'EMPRESA_TRANSPORTISTA', entityId: empresaTransportistaId });
+
+  return orConditions;
+}
+
 // ============================================================================
 // CONTROLLER
 // ============================================================================
@@ -557,22 +647,8 @@ export class DashboardController {
       const entityType = req.query.entityType as string | undefined;
       const skip = (page - 1) * limit;
 
-      // Filtros base
-      const whereBase: any = {
-        tenantEmpresaId: req.tenantId!,
-        status: 'RECHAZADO' as any,
-        archived: false,
-      };
-
-      // Filtro por tipo de entidad
-      if (entityType) {
-        whereBase.entityType = entityType;
-      }
-
-      // Filtro por empresa según rol
-      if (user.role !== UserRole.SUPERADMIN && user.role !== UserRole.ADMIN_INTERNO) {
-        whereBase.dadorCargaId = user.empresaId!;
-      }
+      // Construir filtro según rol del usuario
+      const whereBase = await buildRejectedDocsFilter(prisma, req.tenantId!, user, entityType);
 
       // Consultar documentos rechazados con paginación
       const [documents, total] = await Promise.all([
@@ -658,17 +734,8 @@ export class DashboardController {
       const user = req.user!;
       const tenantEmpresaId = req.tenantId!;
 
-      // Filtros base
-      const whereBase: any = {
-        tenantEmpresaId,
-        status: 'RECHAZADO' as any,
-        archived: false,
-      };
-
-      // Filtro por empresa según rol
-      if (user.role !== UserRole.SUPERADMIN && user.role !== UserRole.ADMIN_INTERNO) {
-        whereBase.dadorCargaId = user.empresaId!;
-      }
+      // Construir filtro según rol del usuario
+      const whereBase = await buildRejectedDocsFilter(prisma, tenantEmpresaId, user);
 
       // Estadísticas por tipo de entidad
       const byEntityType = await prisma.document.groupBy({

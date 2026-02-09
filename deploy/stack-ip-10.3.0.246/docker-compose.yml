@@ -1,6 +1,8 @@
 # =============================================================================
-# Docker Compose para 10.3.0.246 - Ambiente de Desarrollo Alternativo
-# Puertos diferentes para coexistir con servicios nativos
+# Docker Compose para 10.3.0.246 - TESTING Environment
+# =============================================================================
+# Puertos offset (+10) para coexistir con servicios nativos del servidor
+# Configuración optimizada sincronizada con staging (10.3.0.243)
 # =============================================================================
 
 networks:
@@ -37,7 +39,6 @@ services:
       - "5433:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
-      - ./postgres/init:/docker-entrypoint-initdb.d:ro
     deploy:
       resources:
         limits:
@@ -108,16 +109,22 @@ services:
 
   backend:
     build:
-      context: ../..
-      dockerfile: ./deploy/stack-ip-10.3.0.246/Dockerfile.backend
+      context: /home/administrador/monorepo-bca
+      dockerfile: deploy/stack-ip-10.3.0.246/Dockerfile.backend
     image: bca/backend:246
     container_name: bca_backend_246
     restart: always
+    command: [
+      "node",
+      "--max-old-space-size=1024",
+      "apps/backend/dist/src/server.js"
+    ]
     environment:
       NODE_ENV: development
       BACKEND_PORT: 4810
-      # Rate limiting x10 para testing
+      # Rate limiting x10 para testing intensivo
       RATE_LIMIT_MULTIPLIER: "10"
+      # Database
       DATABASE_URL: postgresql://evo:phoenix@postgres:5432/monorepo-bca?schema=platform
       DB_HOST: postgres
       DB_PORT: 5432
@@ -126,10 +133,13 @@ services:
       DB_PASSWORD: phoenix
       DB_SCHEMA: platform
       DB_ADMIN_DATABASE: monorepo-bca
+      # JWT
       JWT_PRIVATE_KEY_PATH: /run/secrets/jwt_private.pem
       JWT_PUBLIC_KEY_PATH: /run/secrets/jwt_public.pem
+      # CORS
       FRONTEND_URLS: http://10.3.0.246:8560
       CORS_ORIGIN: http://10.3.0.246:8560
+      # Features
       ENABLE_BACKEND: "true"
       ENABLE_DOCUMENTOS: "true"
     ports:
@@ -156,7 +166,7 @@ services:
 
   documentos:
     build:
-      context: ../../apps/documentos
+      context: /home/administrador/monorepo-bca/apps/documentos
       dockerfile: Dockerfile
     image: bca/documentos:246
     container_name: bca_documentos_246
@@ -165,10 +175,12 @@ services:
       NODE_ENV: development
       ENABLE_DOCUMENTOS: "true"
       DOCUMENTOS_PORT: 4812
-      # Rate limiting x10 para testing
+      # Rate limiting x10 para testing intensivo
       RATE_LIMIT_MULTIPLIER: "10"
+      # Database
       DOCUMENTOS_DATABASE_URL: postgresql://evo:phoenix@postgres:5432/monorepo-bca?schema=documentos
       DEFAULT_TENANT_ID: "1"
+      # MinIO
       MINIO_ENDPOINT: 10.3.0.246:9002
       MINIO_ACCESS_KEY: minioadmin
       MINIO_SECRET_KEY: minioadmin
@@ -177,18 +189,21 @@ services:
       MINIO_BUCKET_PREFIX: documentos-empresa
       MINIO_PUBLIC_BASE_URL: http://10.3.0.246:9002
       MINIO_INTERNAL_BASE_URL: http://10.3.0.246:9002
+      # Redis
       REDIS_URL: redis://redis:6379
-      SEED: "true"
+      SEED: "false"
+      # CORS
       FRONTEND_URLS: "http://10.3.0.246:8560"
+      # Flowise
       FLOWISE_ENDPOINT: http://10.3.0.246:3006/api/v1/extract
-      # Validación de documentos con IA
-      FLOWISE_VALIDATION_ENABLED: "false"
+      FLOWISE_VALIDATION_ENABLED: "true"
       FLOWISE_VALIDATION_BASE_URL: http://10.3.0.246:3006
       FLOWISE_VALIDATION_FLOW_ID: bf6fc420-6e91-4886-a9ca-a86c285ee49a
       FLOWISE_VALIDATION_TIMEOUT: "60000"
+      # JWT
       JWT_PUBLIC_KEY_PATH: /keys/jwt_public.pem
       JWT_PRIVATE_KEY_PATH: /keys/jwt_private.pem
-      # URL del backend para comunicación interna (notificaciones)
+      # Backend API (comunicación interna)
       BACKEND_API_URL: http://backend:4810
     volumes:
       - ./keys:/keys:ro
@@ -214,7 +229,7 @@ services:
 
   remitos:
     build:
-      context: ../../apps/remitos
+      context: /home/administrador/monorepo-bca/apps/remitos
       dockerfile: Dockerfile
     image: bca/remitos:246
     container_name: bca_remitos_246
@@ -222,17 +237,23 @@ services:
     environment:
       NODE_ENV: production
       REMITOS_PORT: 4813
+      # Database
       REMITOS_DATABASE_URL: postgresql://evo:phoenix@postgres:5432/monorepo-bca?schema=remitos
+      # Redis
       REDIS_HOST: redis
       REDIS_PORT: 6379
+      # MinIO
       MINIO_ENDPOINT: 10.3.0.246
       MINIO_PORT: 9002
       MINIO_ACCESS_KEY: minioadmin
       MINIO_SECRET_KEY: minioadmin
       MINIO_USE_SSL: "false"
       MINIO_BUCKET: remitos
+      # JWT
       JWT_PUBLIC_KEY_PATH: /keys/jwt_public.pem
+      # CORS
       FRONTEND_URLS: http://10.3.0.246:8560
+      # Flowise
       FLOWISE_ENABLED: "true"
       FLOWISE_BASE_URL: http://10.3.0.246:3006
       FLOWISE_FLOW_ID: ded2fa07-298d-47b8-be58-d180c399163f
@@ -301,8 +322,8 @@ services:
 
   frontend:
     build:
-      context: ../..
-      dockerfile: ./deploy/stack-ip-10.3.0.246/Dockerfile.frontend
+      context: /home/administrador/monorepo-bca
+      dockerfile: deploy/stack-ip-10.3.0.246/Dockerfile.frontend
       args:
         VITE_API_URL: http://10.3.0.246:4810
         VITE_API_BASE_URL: http://10.3.0.246:4810
@@ -330,4 +351,4 @@ services:
       retries: 3
     networks:
       - edge_net
-
+      - core_net

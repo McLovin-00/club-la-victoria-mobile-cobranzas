@@ -19,7 +19,10 @@ import {
   useCreateAcopladoMutation,
   useCreateChoferMutation,
   useCreateEmpresaTransportistaMutation,
-  useLazyCheckMissingDocsForClientQuery,
+  useGetEquipoPlantillasQuery,
+  useGetPlantillasRequisitoQuery,
+  useAssignPlantillaToEquipoMutation,
+  useUnassignPlantillaFromEquipoMutation,
 } from '../../documentos/api/documentosApiSlice';
 import { useRegisterChoferWizardMutation, useRegisterTransportistaWizardMutation } from '../../platform-users/api/platformUsersApiSlice';
 import { Button } from '../../../components/ui/button';
@@ -58,20 +61,48 @@ const EditarEquipoPage: React.FC = () => {
     { skip: !equipoId }
   );
   
-  const dadorId = equipo?.dadorCargaId || 1;
+  const dadorId = equipo?.dadorCargaId;
   
-  // Cargar catálogos
+  // Cargar catálogos - esperar a que cargue el equipo para obtener el dadorCargaId correcto
   const { data: clientsResp } = useGetClientsQuery({ activo: true });
-  const { data: choferesResp } = useGetChoferesQuery({ empresaId: dadorId, page: 1, limit: 100 });
-  const { data: camionesResp } = useGetCamionesQuery({ empresaId: dadorId, page: 1, limit: 100 });
-  const { data: acopladosResp } = useGetAcopladosQuery({ empresaId: dadorId, page: 1, limit: 100 });
-  const { data: empresasResp } = useGetEmpresasTransportistasQuery({ dadorCargaId: dadorId });
+  const { data: choferesResp } = useGetChoferesQuery(
+    { empresaId: dadorId!, page: 1, limit: 100 },
+    { skip: !dadorId }
+  );
+  const { data: camionesResp } = useGetCamionesQuery(
+    { empresaId: dadorId!, page: 1, limit: 100 },
+    { skip: !dadorId }
+  );
+  const { data: acopladosResp } = useGetAcopladosQuery(
+    { empresaId: dadorId!, page: 1, limit: 100 },
+    { skip: !dadorId }
+  );
+  const { data: empresasResp } = useGetEmpresasTransportistasQuery(
+    { dadorCargaId: dadorId! },
+    { skip: !dadorId }
+  );
   
   // Cargar requisitos del equipo
   const { data: requisitos, refetch: refetchRequisitos } = useGetEquipoRequisitosQuery(
     { equipoId },
     { skip: !equipoId, refetchOnMountOrArgChange: true, refetchOnFocus: true }
   );
+  
+  // Cargar plantillas del equipo
+  const { data: equipoPlantillas = [], refetch: refetchPlantillas } = useGetEquipoPlantillasQuery(
+    { equipoId },
+    { skip: !equipoId }
+  );
+  
+  // Cargar todas las plantillas disponibles
+  const { data: allPlantillas = [] } = useGetPlantillasRequisitoQuery({ activo: true });
+  
+  // Mutations para plantillas
+  const [assignPlantilla] = useAssignPlantillaToEquipoMutation();
+  const [unassignPlantilla] = useUnassignPlantillaFromEquipoMutation();
+  
+  // State para agregar plantilla
+  const [plantillaToAdd, setPlantillaToAdd] = useState<number | ''>('');
   
   // Mutations
   const [attachComponents, { isLoading: attaching }] = useAttachEquipoComponentsMutation();
@@ -85,7 +116,6 @@ const EditarEquipoPage: React.FC = () => {
   const [createEmpresaTransportista, { isLoading: creatingTransportista }] = useCreateEmpresaTransportistaMutation();
   const [registerChoferWizard, { isLoading: creatingChoferUser }] = useRegisterChoferWizardMutation();
   const [registerTransportistaWizard, { isLoading: creatingTransportistaUser }] = useRegisterTransportistaWizardMutation();
-  const [checkMissingDocs] = useLazyCheckMissingDocsForClientQuery();
   
   // Estados para modales de creación de Camión/Acoplado
   const [showNewCamionModal, setShowNewCamionModal] = useState(false);
@@ -115,22 +145,35 @@ const EditarEquipoPage: React.FC = () => {
   // Mensaje de estado
   const [message, setMessage] = useState<{ type: 'success' | 'error' | 'info'; text: string } | null>(null);
   
-  // Estado para alerta de documentos faltantes al agregar cliente
-  const [missingDocsAlert, setMissingDocsAlert] = useState<{
+  // Estado para sugerir plantillas del cliente recién agregado
+  const [plantillasSugeridas, setPlantillasSugeridas] = useState<{
+    clienteId: number;
     clienteName: string;
-    templates: Array<{ templateName: string; entityType: string; obligatorio: boolean }>;
+    plantillas: Array<{ id: number; nombre: string; templatesCount: number }>;
   } | null>(null);
   
   // Listas de datos
-  const clientes = useMemo(() => (clientsResp as any)?.list || [], [clientsResp]);
-  const choferes = useMemo(() => (choferesResp as any)?.data || [], [choferesResp]);
-  const camiones = useMemo(() => (camionesResp as any)?.data || [], [camionesResp]);
-  const acoplados = useMemo(() => (acopladosResp as any)?.data || [], [acopladosResp]);
-  const empresas = useMemo(() => empresasResp || [], [empresasResp]);
+  const clientes = useMemo(() => (clientsResp as any)?.list ?? [], [clientsResp]);
+  const choferes = useMemo(() => (choferesResp as any)?.data ?? [], [choferesResp]);
+  const camiones = useMemo(() => (camionesResp as any)?.data ?? [], [camionesResp]);
+  const acoplados = useMemo(() => (acopladosResp as any)?.data ?? [], [acopladosResp]);
+  
+  // Asegurar que la empresa actual del equipo esté siempre en el listado
+  const empresas = useMemo(() => {
+    const listaEmpresas = empresasResp ?? [];
+    // Si el equipo tiene una empresa transportista asignada y no está en la lista, agregarla
+    if (equipo?.empresaTransportista && equipo.empresaTransportistaId) {
+      const yaExiste = listaEmpresas.some((e: any) => e.id === equipo.empresaTransportistaId);
+      if (!yaExiste) {
+        return [equipo.empresaTransportista, ...listaEmpresas];
+      }
+    }
+    return listaEmpresas;
+  }, [empresasResp, equipo?.empresaTransportista, equipo?.empresaTransportistaId]);
   
   // Clientes actuales del equipo
   const clientesActuales = useMemo(() => {
-    return (equipo?.clientes || []).map((ec: any) => ({
+    return (equipo?.clientes ?? []).map((ec: any) => ({
       id: ec.clienteId,
       nombre: ec.cliente?.razonSocial || `Cliente ${ec.clienteId}`,
     }));
@@ -145,10 +188,10 @@ const EditarEquipoPage: React.FC = () => {
   // Inicializar selecciones con datos actuales
   useEffect(() => {
     if (equipo) {
-      setSelectedChoferId(equipo.driverId || '');
-      setSelectedCamionId(equipo.truckId || '');
-      setSelectedAcopladoId(equipo.trailerId || '');
-      setSelectedEmpresaId(equipo.empresaTransportistaId || '');
+      setSelectedChoferId(equipo.driverId ?? '');
+      setSelectedCamionId(equipo.truckId ?? '');
+      setSelectedAcopladoId(equipo.trailerId ?? '');
+      setSelectedEmpresaId(equipo.empresaTransportistaId ?? '');
     }
   }, [equipo]);
   
@@ -220,8 +263,8 @@ const EditarEquipoPage: React.FC = () => {
       const created = await createCamion({
         dadorCargaId: dadorId,
         patente: newCamionData.patente.toUpperCase().trim(),
-        marca: newCamionData.marca || undefined,
-        modelo: newCamionData.modelo || undefined,
+        marca: newCamionData.marca ?? undefined,
+        modelo: newCamionData.modelo ?? undefined,
       }).unwrap();
       setMessage({ type: 'success', text: `Camión ${newCamionData.patente} creado exitosamente` });
       setNewCamionData({ patente: '', marca: '', modelo: '' });
@@ -245,7 +288,7 @@ const EditarEquipoPage: React.FC = () => {
       const created = await createAcoplado({
         dadorCargaId: dadorId,
         patente: newAcopladoData.patente.toUpperCase().trim(),
-        tipo: newAcopladoData.tipo || undefined,
+        tipo: newAcopladoData.tipo ?? undefined,
       }).unwrap();
       setMessage({ type: 'success', text: `Acoplado ${newAcopladoData.patente} creado exitosamente` });
       setNewAcopladoData({ patente: '', tipo: '' });
@@ -274,8 +317,8 @@ const EditarEquipoPage: React.FC = () => {
       const created = await createChofer({
         dadorCargaId: dadorId,
         dni: newChoferData.dni.trim(),
-        nombre: newChoferData.nombre || undefined,
-        apellido: newChoferData.apellido || undefined,
+        nombre: newChoferData.nombre ?? undefined,
+        apellido: newChoferData.apellido ?? undefined,
         activo: true,
         phones: [],
       }).unwrap();
@@ -285,8 +328,8 @@ const EditarEquipoPage: React.FC = () => {
         try {
           const userResp = await registerChoferWizard({
             email: newChoferData.email,
-            nombre: newChoferData.nombre || undefined,
-            apellido: newChoferData.apellido || undefined,
+            nombre: newChoferData.nombre ?? undefined,
+            apellido: newChoferData.apellido ?? undefined,
             choferId: created.id,
           }).unwrap();
           setTempPasswordChofer(userResp.tempPassword);
@@ -330,7 +373,7 @@ const EditarEquipoPage: React.FC = () => {
         dadorCargaId: dadorId,
         razonSocial: newTransportistaData.razonSocial.trim(),
         cuit: newTransportistaData.cuit.trim(),
-        notas: newTransportistaData.notas || undefined,
+        notas: newTransportistaData.notas ?? undefined,
         activo: true,
       }).unwrap();
       
@@ -339,8 +382,8 @@ const EditarEquipoPage: React.FC = () => {
         try {
           const userResp = await registerTransportistaWizard({
             email: newTransportistaData.email,
-            nombre: newTransportistaData.nombre || undefined,
-            apellido: newTransportistaData.apellido || undefined,
+            nombre: newTransportistaData.nombre ?? undefined,
+            apellido: newTransportistaData.apellido ?? undefined,
             empresaTransportistaId: created.id,
           }).unwrap();
           setTempPasswordTransportista(userResp.tempPassword);
@@ -385,16 +428,10 @@ const EditarEquipoPage: React.FC = () => {
     if (!clienteToAdd) return;
     
     const newClienteId = Number(clienteToAdd);
-    const existingClienteIds = clientesActuales.map((c: any) => c.id);
+    const clienteInfo = clientes.find((c: any) => c.id === newClienteId);
+    const clienteName = clienteInfo?.razonSocial || `Cliente ${newClienteId}`;
     
     try {
-      // Primero verificar documentos faltantes
-      const missingResult = await checkMissingDocs({
-        equipoId,
-        clienteId: newClienteId,
-        existingClienteIds,
-      }).unwrap();
-      
       // Agregar el cliente
       await associateCliente({
         equipoId,
@@ -405,23 +442,33 @@ const EditarEquipoPage: React.FC = () => {
       setClienteToAdd('');
       refetch();
       refetchRequisitos();
+      refetchPlantillas();
       
-      // Si hay documentos faltantes, mostrar alerta informativa
-      if (missingResult.missingTemplates && missingResult.missingTemplates.length > 0) {
-        setMissingDocsAlert({
-          clienteName: missingResult.newClientName,
-          templates: missingResult.missingTemplates.map((t: any) => ({
-            templateName: t.templateName,
-            entityType: t.entityType,
-            obligatorio: t.obligatorio,
+      // Buscar plantillas del cliente recién agregado que no estén ya asociadas al equipo
+      const plantillasDelCliente = allPlantillas.filter(
+        (p: any) => p.clienteId === newClienteId && p.activo
+      );
+      const plantillasYaAsociadas = new Set(equipoPlantillas.map((ep: any) => ep.plantillaRequisito?.id));
+      const plantillasDisponiblesDelCliente = plantillasDelCliente.filter(
+        (p: any) => !plantillasYaAsociadas.has(p.id)
+      );
+      
+      if (plantillasDisponiblesDelCliente.length > 0) {
+        setPlantillasSugeridas({
+          clienteId: newClienteId,
+          clienteName,
+          plantillas: plantillasDisponiblesDelCliente.map((p: any) => ({
+            id: p.id,
+            nombre: p.nombre,
+            templatesCount: p._count?.templates || 0,
           })),
         });
         setMessage({ 
           type: 'info', 
-          text: `Cliente "${missingResult.newClientName}" agregado. Hay ${missingResult.missingTemplates.length} documento(s) adicionales requeridos.` 
+          text: `Cliente "${clienteName}" agregado. Tiene ${plantillasDisponiblesDelCliente.length} plantilla(s) de requisitos disponibles.` 
         });
       } else {
-        setMessage({ type: 'success', text: 'Cliente agregado correctamente. Todos los documentos requeridos ya están cargados.' });
+        setMessage({ type: 'success', text: `Cliente "${clienteName}" agregado correctamente.` });
       }
     } catch (err: any) {
       setMessage({ type: 'error', text: err?.data?.message || 'Error al agregar cliente' });
@@ -456,6 +503,88 @@ const EditarEquipoPage: React.FC = () => {
       setMessage({ type: 'error', text: err?.data?.message || 'Error al quitar cliente' });
     }
   };
+  
+  // Agregar plantilla al equipo
+  const handleAddPlantilla = async () => {
+    if (!plantillaToAdd) return;
+    try {
+      await assignPlantilla({ equipoId, plantillaRequisitoId: Number(plantillaToAdd) }).unwrap();
+      setPlantillaToAdd('');
+      setMessage({ type: 'success', text: 'Plantilla agregada correctamente' });
+      refetchPlantillas();
+      refetchRequisitos();
+    } catch (err: any) {
+      setMessage({ type: 'error', text: err?.data?.message || 'Error al agregar plantilla' });
+    }
+  };
+  
+  // Quitar plantilla del equipo
+  const handleRemovePlantilla = async (plantillaId: number, plantillaNombre: string) => {
+    const ok = await confirm({
+      title: 'Quitar plantilla',
+      message: `¿Quitar la plantilla "${plantillaNombre}" de este equipo?`,
+      confirmText: 'Quitar',
+      variant: 'danger',
+    });
+    if (!ok) return;
+    
+    try {
+      await unassignPlantilla({ equipoId, plantillaId }).unwrap();
+      setMessage({ type: 'success', text: 'Plantilla removida' });
+      refetchPlantillas();
+      refetchRequisitos();
+    } catch (err: any) {
+      setMessage({ type: 'error', text: err?.data?.message || 'Error al quitar plantilla' });
+    }
+  };
+  
+  // Agregar plantilla sugerida (desde el cartel de sugerencias)
+  const handleAddPlantillaSugerida = async (plantillaId: number) => {
+    try {
+      await assignPlantilla({ equipoId, plantillaRequisitoId: plantillaId }).unwrap();
+      refetchPlantillas();
+      refetchRequisitos();
+      
+      // Quitar la plantilla de las sugeridas
+      if (plantillasSugeridas) {
+        const remaining = plantillasSugeridas.plantillas.filter(p => p.id !== plantillaId);
+        if (remaining.length === 0) {
+          setPlantillasSugeridas(null);
+          setMessage({ type: 'success', text: 'Todas las plantillas del cliente fueron agregadas.' });
+        } else {
+          setPlantillasSugeridas({ ...plantillasSugeridas, plantillas: remaining });
+          setMessage({ type: 'success', text: 'Plantilla agregada.' });
+        }
+      }
+    } catch (err: any) {
+      setMessage({ type: 'error', text: err?.data?.message || 'Error al agregar plantilla' });
+    }
+  };
+  
+  // Agregar todas las plantillas sugeridas
+  const handleAddAllPlantillasSugeridas = async () => {
+    if (!plantillasSugeridas) return;
+    try {
+      for (const p of plantillasSugeridas.plantillas) {
+        await assignPlantilla({ equipoId, plantillaRequisitoId: p.id }).unwrap();
+      }
+      setPlantillasSugeridas(null);
+      setMessage({ type: 'success', text: `${plantillasSugeridas.plantillas.length} plantilla(s) agregadas.` });
+      refetchPlantillas();
+      refetchRequisitos();
+    } catch (err: any) {
+      setMessage({ type: 'error', text: err?.data?.message || 'Error al agregar plantillas' });
+    }
+  };
+  
+  // Plantillas disponibles para agregar:
+  // 1. Solo plantillas de clientes actualmente asociados al equipo
+  // 2. Excluir las que ya están asociadas al equipo
+  const clientesActualesIds = new Set(clientesActuales.map((c: any) => c.id));
+  const plantillasActualesIds = equipoPlantillas.map((ep: any) => ep.plantillaRequisito?.id);
+  const plantillasDisponibles = allPlantillas.filter(
+    (p: any) => clientesActualesIds.has(p.clienteId) && !plantillasActualesIds.includes(p.id)
+  );
   
   // Helper para obtener color de estado
   const getEstadoStyle = (estado: string) => {
@@ -653,7 +782,7 @@ const EditarEquipoPage: React.FC = () => {
           <div>
             <span className='text-gray-500'>Chofer:</span>
             <div className='font-medium'>
-              {equipo.chofer?.nombre || ''} {equipo.chofer?.apellido || ''}
+              {equipo.chofer?.nombre ?? ''} {equipo.chofer?.apellido ?? ''}
               <span className='text-gray-500 ml-1'>DNI: {equipo.chofer?.dni || equipo.driverDniNorm}</span>
             </div>
           </div>
@@ -884,43 +1013,119 @@ const EditarEquipoPage: React.FC = () => {
         </p>
         )}
         
-        {/* Alerta de documentos faltantes al agregar cliente */}
-        {missingDocsAlert && (
-          <div className='mt-4 p-4 bg-amber-50 border border-amber-200 rounded-lg'>
+        {/* Sugerencia de plantillas del cliente recién agregado */}
+        {plantillasSugeridas && (
+          <div className='mt-4 p-4 bg-blue-50 border border-blue-200 rounded-lg'>
             <div className='flex items-start gap-3'>
-              <ExclamationTriangleIcon className='h-5 w-5 text-amber-600 mt-0.5 flex-shrink-0' />
+              <DocumentIcon className='h-5 w-5 text-blue-600 mt-0.5 flex-shrink-0' />
               <div className='flex-1'>
-                <h4 className='font-medium text-amber-800'>
-                  Documentos adicionales requeridos por "{missingDocsAlert.clienteName}"
+                <h4 className='font-medium text-blue-800'>
+                  Plantillas de requisitos de "{plantillasSugeridas.clienteName}"
                 </h4>
-                <p className='text-sm text-amber-700 mt-1'>
-                  El cliente agregado requiere los siguientes documentos que aún no están cargados:
+                <p className='text-sm text-blue-700 mt-1'>
+                  Este cliente tiene plantillas de requisitos disponibles. ¿Desea agregarlas al equipo?
                 </p>
-                <ul className='mt-2 space-y-1'>
-                  {missingDocsAlert.templates.map((t, idx) => (
-                    <li key={idx} className='text-sm text-amber-700 flex items-center gap-2'>
-                      <span className={`w-2 h-2 rounded-full ${t.obligatorio ? 'bg-red-500' : 'bg-yellow-500'}`}></span>
-                      <span className='font-medium'>{t.templateName}</span>
-                      <span className='text-amber-500'>({t.entityType})</span>
-                      {t.obligatorio && <span className='text-xs text-red-600 font-medium'>OBLIGATORIO</span>}
+                <ul className='mt-3 space-y-2'>
+                  {plantillasSugeridas.plantillas.map((p) => (
+                    <li key={p.id} className='flex items-center justify-between bg-white p-2 rounded border'>
+                      <div>
+                        <span className='font-medium text-gray-800'>{p.nombre}</span>
+                        <span className='text-xs text-gray-500 ml-2'>({p.templatesCount} documentos)</span>
+                      </div>
+                      <Button 
+                        size='sm'
+                        onClick={() => handleAddPlantillaSugerida(p.id)}
+                      >
+                        <PlusIcon className='h-4 w-4 mr-1' />
+                        Agregar
+                      </Button>
                     </li>
                   ))}
                 </ul>
-                <p className='text-xs text-amber-600 mt-3'>
-                  Estos documentos figurarán como faltantes hasta que se carguen.
-                </p>
-                <Button 
-                  variant='outline' 
-                  size='sm' 
-                  className='mt-3'
-                  onClick={() => setMissingDocsAlert(null)}
-                >
-                  Entendido
-                </Button>
+                <div className='flex gap-2 mt-3'>
+                  {plantillasSugeridas.plantillas.length > 1 && (
+                    <Button 
+                      size='sm'
+                      onClick={handleAddAllPlantillasSugeridas}
+                    >
+                      Agregar todas ({plantillasSugeridas.plantillas.length})
+                    </Button>
+                  )}
+                  <Button 
+                    variant='outline' 
+                    size='sm'
+                    onClick={() => setPlantillasSugeridas(null)}
+                  >
+                    Omitir
+                  </Button>
+                </div>
               </div>
             </div>
           </div>
         )}
+      </Card>
+      
+      {/* Gestionar Plantillas de Requisitos */}
+      <Card className='p-4 mb-6'>
+        <h2 className='text-lg font-semibold mb-4'>Plantillas de Requisitos</h2>
+        
+        {/* Lista de plantillas actuales */}
+        <div className='mb-4 space-y-2'>
+          {equipoPlantillas.map((ep: any) => (
+            <div
+              key={ep.plantillaRequisito?.id}
+              className='flex items-center justify-between p-3 bg-blue-50 rounded border border-blue-200'
+            >
+              <div>
+                <span className='font-medium'>{ep.plantillaRequisito?.nombre}</span>
+                <span className='text-sm text-gray-500 ml-2'>
+                  ({ep.plantillaRequisito?.cliente?.razonSocial})
+                </span>
+                <span className='text-xs text-gray-400 ml-2'>
+                  {ep.plantillaRequisito?._count?.templates || 0} docs
+                </span>
+              </div>
+              {canManageClients && (
+              <Button
+                variant='outline'
+                size='sm'
+                onClick={() => handleRemovePlantilla(ep.plantillaRequisito?.id, ep.plantillaRequisito?.nombre)}
+              >
+                Quitar
+              </Button>
+              )}
+            </div>
+          ))}
+          {equipoPlantillas.length === 0 && (
+            <div className='text-gray-500 text-sm'>No hay plantillas asociadas</div>
+          )}
+        </div>
+        
+        {/* Agregar plantilla */}
+        {canManageClients && (
+        <div className='flex gap-2'>
+          <select
+            className='flex-1 border rounded px-3 py-2 bg-background'
+            value={plantillaToAdd}
+            onChange={(e) => setPlantillaToAdd(e.target.value ? Number(e.target.value) : '')}
+          >
+            <option value=''>Seleccionar plantilla para agregar</option>
+            {plantillasDisponibles.map((p: any) => (
+              <option key={p.id} value={p.id}>
+                {p.nombre} - {p.cliente?.razonSocial} ({p._count?.templates || 0} docs)
+              </option>
+            ))}
+          </select>
+          <Button onClick={handleAddPlantilla} disabled={!plantillaToAdd}>
+            <PlusIcon className='h-4 w-4 mr-1' />
+            Agregar
+          </Button>
+        </div>
+        )}
+        
+        <p className='text-xs text-gray-500 mt-2'>
+          Las plantillas de requisitos definen qué documentos son requeridos para este equipo.
+        </p>
       </Card>
       
       {/* Documentación Requerida */}
@@ -1045,7 +1250,7 @@ const EditarEquipoPage: React.FC = () => {
                               <input
                                 type='date'
                                 className={`border rounded px-2 py-1 text-sm ${!selectedFile.expiresAt ? 'border-red-300 bg-red-50' : 'border-gray-300'}`}
-                                value={selectedFile.expiresAt || ''}
+                                value={selectedFile.expiresAt ?? ''}
                                 onChange={(e) => req.entityId && handleExpiresAtChange(req.templateId, req.entityType, req.entityId, e.target.value)}
                                 required
                               />
@@ -1089,7 +1294,7 @@ const EditarEquipoPage: React.FC = () => {
       {/* Modal: Crear Camión */}
       {showNewCamionModal && (
         <div className='fixed inset-0 z-50 overflow-y-auto'>
-          <div className='fixed inset-0 bg-black/40' onClick={() => setShowNewCamionModal(false)} />
+          <div className='fixed inset-0 bg-black/40' onClick={() => setShowNewCamionModal(false)} onKeyDown={(e) => e.key === 'Escape' && setShowNewCamionModal(false)} role='button' tabIndex={0} />
           <div className='flex min-h-full items-center justify-center p-4'>
             <div className='relative bg-background rounded-lg shadow-xl w-full max-w-md p-6'>
               <h3 className='text-lg font-medium mb-4'>Crear Nuevo Camión</h3>
@@ -1140,7 +1345,7 @@ const EditarEquipoPage: React.FC = () => {
       {/* Modal: Crear Acoplado */}
       {showNewAcopladoModal && (
         <div className='fixed inset-0 z-50 overflow-y-auto'>
-          <div className='fixed inset-0 bg-black/40' onClick={() => setShowNewAcopladoModal(false)} />
+          <div className='fixed inset-0 bg-black/40' onClick={() => setShowNewAcopladoModal(false)} onKeyDown={(e) => e.key === 'Escape' && setShowNewAcopladoModal(false)} role='button' tabIndex={0} />
           <div className='flex min-h-full items-center justify-center p-4'>
             <div className='relative bg-background rounded-lg shadow-xl w-full max-w-md p-6'>
               <h3 className='text-lg font-medium mb-4'>Crear Nuevo Acoplado</h3>
@@ -1181,7 +1386,7 @@ const EditarEquipoPage: React.FC = () => {
       {/* Modal: Crear Chofer */}
       {showNewChoferModal && (
         <div className='fixed inset-0 z-50 overflow-y-auto'>
-          <div className='fixed inset-0 bg-black/40' onClick={() => { setShowNewChoferModal(false); setTempPasswordChofer(null); }} />
+          <div className='fixed inset-0 bg-black/40' onClick={() => { setShowNewChoferModal(false); setTempPasswordChofer(null); }} onKeyDown={(e) => e.key === 'Escape' && setShowNewChoferModal(false)} role='button' tabIndex={0} />
           <div className='flex min-h-full items-center justify-center p-4'>
             <div className='relative bg-background rounded-lg shadow-xl w-full max-w-lg p-6'>
               <h3 className='text-lg font-medium mb-4'>Crear Nuevo Chofer</h3>
@@ -1277,7 +1482,7 @@ const EditarEquipoPage: React.FC = () => {
       {/* Modal: Crear Empresa Transportista */}
       {showNewTransportistaModal && (
         <div className='fixed inset-0 z-50 overflow-y-auto'>
-          <div className='fixed inset-0 bg-black/40' onClick={() => { setShowNewTransportistaModal(false); setTempPasswordTransportista(null); }} />
+          <div className='fixed inset-0 bg-black/40' onClick={() => { setShowNewTransportistaModal(false); setTempPasswordTransportista(null); }} onKeyDown={(e) => e.key === 'Escape' && setShowNewTransportistaModal(false)} role='button' tabIndex={0} />
           <div className='flex min-h-full items-center justify-center p-4'>
             <div className='relative bg-background rounded-lg shadow-xl w-full max-w-lg p-6'>
               <h3 className='text-lg font-medium mb-4'>Crear Nueva Empresa Transportista</h3>

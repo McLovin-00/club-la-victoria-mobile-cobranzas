@@ -1,0 +1,395 @@
+# Informe Técnico: Pipeline CI/CD y Procedimiento de Despliegue
+
+## 1. Resumen Ejecutivo
+
+El presente documento describe el proceso completo de integración y despliegue continuo (CI/CD) implementado para garantizar la calidad, trazabilidad y estabilidad del software a lo largo de todos los ambientes de desarrollo hasta producción.
+
+---
+
+## 2. Arquitectura de Ambientes
+
+### 2.1 Ambiente de Desarrollo (DEV)
+- **Propósito**: Ambiente de integración continua para validación inicial de features
+- **Características**: 
+  - Ambiente inestable por diseño
+  - Permite experimentación y pruebas exploratorias
+  - Despliegue automático tras aprobación de Pull Request
+  - Mayor tolerancia a errores y fallos
+
+### 2.2 Ambiente de Staging (STAGE)
+- **Propósito**: Réplica de producción para validación integral pre-despliegue
+- **Características**:
+  - Ambiente de capacitación y pruebas integrales
+  - Ejecución de test suites automatizados completos
+  - Validación de QA exhaustiva
+  - Configuración idéntica a producción
+
+### 2.3 Ambiente de Producción (PROD)
+- **Propósito**: Ambiente operacional para usuarios finales
+- **Características**:
+  - Máxima estabilidad y disponibilidad
+  - Despliegue controlado y aprobado por múltiples stakeholders
+  - Monitoreo continuo y procedimientos de rollback
+  - Trazabilidad completa de versiones
+
+---
+
+## 3. Roles y Responsabilidades
+
+### 3.1 Desarrollador (Developer)
+- Crear branch por feature desde main/master
+- Implementar código siguiendo estándares establecidos
+- Garantizar cobertura mínima de unit testing (80%)
+- Abrir Pull Request y notificar en canal de Slack
+- Sincronizar branch con main tras cada despliegue
+
+### 3.2 Líder Técnico / Senior Developer (Tech Lead)
+- Revisar código en Pull Requests
+- Aprobar o rechazar cambios según estándares de calidad
+- Validar arquitectura y mejores prácticas
+- Se requieren 2 aprobaciones (1 senior + 1 semi-senior) para merge
+
+### 3.3 Analista de Calidad (QA)
+- Ejecutar pruebas manuales en DEV
+- Aprobar pase a Staging mediante sign-off en Jira
+- Ejecutar smoke tests en Staging
+- Documentar test cases en Zephyr
+- Validar integración en framework de automatización
+- Aprobar ticket de despliegue a producción
+
+### 3.4 Líder de Proyecto (Project Lead)
+- Crear tickets de aprobación para paso a producción
+- Consolidar aprobaciones de equipo técnico
+- Gestionar comunicación con Product Owner
+
+### 3.5 Product Owner (Dueño del Producto)
+- Aprobar despliegue final a producción
+- Revisar evidencias de testing y versiones
+- Validar alineación con requerimientos de negocio
+- Acceso a Jira para seguimiento de tickets
+
+---
+
+## 4. Flujo de Trabajo CI/CD
+
+### 4.1 Fase de Desarrollo
+
+```
+1. Desarrollador crea branch desde main
+   └─ Nomenclatura: feature/<nombre-descriptivo>
+
+2. Implementación de código
+   ├─ Desarrollo de funcionalidad
+   ├─ Unit testing (mínimo 80% cobertura)
+   └─ Validación local
+
+3. Apertura de Pull Request (PR)
+   ├─ Descripción detallada de cambios
+   ├─ Notificación en Slack al equipo
+   └─ Análisis automático de SonarQube
+```
+
+### 4.2 Fase de Revisión y Aprobación
+
+**Criterios de Aprobación para Merge:**
+- ✓ 2 aprobaciones requeridas (1 senior + 1 semi-senior)
+- ✓ Cobertura de unit testing ≥ 80% (SonarQube)
+- ✓ Sin vulnerabilidades críticas de seguridad
+- ✓ Cumplimiento de estándares de código
+
+### 4.3 Fase de Despliegue Automático a DEV
+
+```
+1. Merge a main/master
+   └─ Pipeline CI detecta cambios automáticamente
+
+2. Despliegue continuo a DEV
+   ├─ Build automático
+   ├─ Ejecución de unit tests
+   ├─ Despliegue en ambiente DEV
+   └─ Notificación al equipo
+
+3. Validación en DEV
+   └─ QA realiza pruebas manuales exploratorias
+```
+
+### 4.4 Fase de Promoción a Staging
+
+**Proceso Manual Controlado:**
+
+1. **Validación de Estabilidad**
+   - QA verifica que DEV tiene una versión estable
+   - Sin bugs críticos o blockers activos
+
+2. **Aprobación de Pase a Staging**
+   - QA ejecuta smoke tests en DEV
+   - QA aprueba feature en Jira con sign-off
+   - Sistema genera despliegue automático a Staging
+
+3. **Ejecución de Smoke Tests en Staging**
+   - Validación de funcionalidades críticas
+   - Verificación de integraciones principales
+
+4. **Pruebas Integrales**
+   - Ejecución de test cases completos
+   - Documentación de casos de prueba en Zephyr
+   - Integración al framework de automatización
+
+5. **Framework de Automatización**
+   - Ejecución de suite completa de regresión
+   - Notificación por email en caso de fallos
+   - Validación de que no se introducen regresiones
+
+### 4.5 Fase de Despliegue a Producción
+
+**Proceso de Aprobación Multinivel:**
+
+```
+1. Creación de Ticket de Deploy (Jira)
+   ├─ Líder de Proyecto crea ticket
+   ├─ Incluye evidencias de aprobaciones previas
+   ├─ Documenta versiones actuales y futuras
+   └─ Adjunta screenshots de validaciones QA
+
+2. Preparación de Documentación
+   ├─ Versiones de todos los componentes:
+   │  ├─ Backend (versión actual → versión nueva)
+   │  ├─ Frontend (versión actual → versión nueva)
+   │  └─ Microservicios (versión actual → versión nueva)
+   ├─ Historial de aprobaciones
+   └─ Resultados de testing
+
+3. Solicitud de Aprobación Final
+   ├─ Email al Product Owner con:
+   │  ├─ Screenshots de tickets aprobados
+   │  ├─ Matriz de versiones
+   │  ├─ Resumen de cambios
+   │  └─ Evidencias de testing
+   └─ Acceso a Jira para seguimiento
+
+4. Aprobación del Product Owner
+   └─ Validación final en Jira
+
+5. Ejecución de Despliegue
+   ├─ Despliegue usando manifiestos de GCP
+   ├─ Bundles específicos por ambiente
+   └─ Sincronización de repositorios
+```
+
+---
+
+## 5. Estrategia de Branching
+
+### 5.1 Modelo de Branches
+
+- **main/master**: Branch principal de producción
+- **feature/<nombre>**: Branch individual por funcionalidad
+- **hotfix/<descripción>**: Branch para correcciones urgentes en producción
+
+### 5.2 Procedimiento Post-Despliegue
+
+**Sincronización Obligatoria:**
+```
+1. Notificación automática a desarrolladores
+2. Cada desarrollador debe:
+   ├─ Aislar cambios locales de la branch actual
+   ├─ git fetch origin
+   ├─ git checkout main
+   ├─ git pull origin main
+   ├─ git checkout feature/<nombre>
+   └─ git rebase main (o merge según política)
+```
+
+---
+
+## 6. Gestión de Incidentes en Producción
+
+### 6.1 Procedimiento de Hotfix
+
+```
+1. Detección de Error en Producción
+   └─ Registro y clasificación del incidente
+
+2. Reproducción en Staging
+   ├─ SI se reproduce:
+   │  ├─ Crear branch: hotfix/<descripción>
+   │  ├─ Implementar corrección
+   │  ├─ Testing acelerado
+   │  └─ Despliegue urgente
+   │
+   └─ NO se reproduce:
+      ├─ Investigar casos específicos de deploy
+      ├─ Revisar configuraciones de producción
+      └─ Analizar logs y monitoreo
+
+3. Rollback (si es necesario)
+   └─ Revertir a versión anterior estable
+```
+
+### 6.2 Estrategia de Rollback
+
+- Cada despliegue mantiene versión anterior disponible
+- Procedimiento de rollback documentado y practicado
+- Tiempo objetivo de rollback: < 15 minutos
+
+---
+
+## 7. Infraestructura y Herramientas
+
+### 7.1 Tecnologías Implementadas
+
+| Componente | Herramienta |
+|------------|-------------|
+| **Plataforma Cloud** | Google Cloud Platform (GCP) |
+| **Orquestación** | Manifiestos de Kubernetes/GCP |
+| **CI/CD** | Pipeline automatizado |
+| **Control de Versiones** | Git (repositorio sincronizado) |
+| **Análisis de Código** | SonarQube |
+| **Gestión de Proyectos** | Jira |
+| **Test Management** | Zephyr (integrado con Jira) |
+| **Comunicación** | Slack |
+| **Automatización QA** | Framework de testing customizado |
+
+### 7.2 Configuración de Bundles
+
+- Bundle específico por ambiente (DEV, STAGE, PROD)
+- Configuraciones externalizadas
+- Secrets management mediante herramientas GCP
+
+---
+
+## 8. Trazabilidad y Documentación
+
+### 8.1 Sistema de Tickets (Jira)
+
+**Tickets requeridos en el flujo:**
+1. **Feature/User Story**: Trabajo inicial asignado a desarrollador
+2. **Pull Request**: Vinculado automáticamente
+3. **Ticket de Aprobación QA**: Para pase a Staging
+4. **Ticket de Deploy a Producción**: Aprobación multinivel
+5. **Post-Deploy Validation**: Verificación post-despliegue
+
+### 8.2 Matriz de Versiones
+
+Documentación obligatoria de:
+- Versión de cada componente por ambiente
+- Historial de despliegues
+- Changelog detallado
+- Dependencias entre componentes
+
+---
+
+## 9. Métricas de Calidad
+
+### 9.1 Indicadores Clave (KPIs)
+
+- **Cobertura de Testing**: ≥ 80% (obligatorio)
+- **Tiempo de Revisión de PR**: < 24 horas (objetivo)
+- **Tasa de Éxito de Despliegues**: > 95%
+- **Tiempo de Detección de Bugs**: Medido por ambiente
+- **Mean Time To Recovery (MTTR)**: < 1 hora
+
+### 9.2 Gates de Calidad
+
+- ✓ Unit tests passing al 100%
+- ✓ Cobertura SonarQube ≥ 80%
+- ✓ Sin vulnerabilidades críticas
+- ✓ Smoke tests exitosos
+- ✓ Test suite de regresión sin fallos
+
+---
+
+## 10. Mejores Prácticas y Recomendaciones
+
+### 10.1 Para Desarrolladores
+- Mantener branches actualizadas con main
+- Commits atómicos y descriptivos
+- Unit tests antes de abrir PR
+- Revisar feedback de SonarQube
+
+### 10.2 Para QA
+- Documentar todos los casos de prueba
+- Mantener framework de automatización actualizado
+- Validar cross-browser/cross-platform en Staging
+- Reportar bugs con máximo detalle y reproducibilidad
+
+### 10.3 Para el Equipo
+- Comunicación proactiva en Slack
+- Revisiones de código constructivas
+- Participación en retrospectivas de incidentes
+- Actualización continua de documentación
+
+---
+
+## 11. Diagrama de Flujo Simplificado
+
+```
+[Desarrollador crea feature branch]
+           ↓
+[Desarrollo + Unit Testing]
+           ↓
+[Pull Request + Notificación Slack]
+           ↓
+[Revisión de Código (2 aprobaciones)]
+           ↓
+[Validación SonarQube (80% coverage)]
+           ↓
+[Merge a main] → [Pipeline CI detecta cambios]
+           ↓
+[Despliegue Automático a DEV]
+           ↓
+[QA: Pruebas manuales en DEV]
+           ↓
+[QA: Aprobación en Jira (sign-off)]
+           ↓
+[Despliegue Automático a STAGING]
+           ↓
+[Smoke Tests en Staging]
+           ↓
+[Pruebas Integrales + Automatización]
+           ↓
+[Líder de Proyecto: Ticket de Deploy]
+           ↓
+[Preparación de Documentación de Versiones]
+           ↓
+[Email + Screenshots al Product Owner]
+           ↓
+[Aprobación Final del Product Owner]
+           ↓
+[Despliegue a PRODUCCIÓN]
+           ↓
+[Notificación a Desarrolladores]
+           ↓
+[Sincronización de Branches]
+```
+
+---
+
+## 12. Anexos
+
+### 12.1 Checklist Pre-Deploy a Producción
+
+- [ ] Todas las pruebas en Staging exitosas
+- [ ] Framework de automatización ejecutado sin errores
+- [ ] Documentación de versiones actualizada
+- [ ] Tickets de Jira con todas las aprobaciones
+- [ ] Screenshots de evidencias preparados
+- [ ] Plan de rollback verificado
+- [ ] Comunicación preparada para stakeholders
+- [ ] Ventana de mantenimiento coordinada (si aplica)
+
+### 12.2 Contactos y Escalamiento
+
+| Rol | Responsabilidad | Escalamiento |
+|-----|-----------------|--------------|
+| Desarrolladores | Implementación | Tech Lead |
+| Tech Leads | Revisión técnica | Líder de Proyecto |
+| QA | Validación de calidad | QA Lead |
+| Líder de Proyecto | Coordinación | Product Owner |
+| Product Owner | Aprobación de negocio | Stakeholders Ejecutivos |
+
+---
+
+**Documento Versión**: 1.0  
+**Última Actualización**: Octubre 2025  
+**Próxima Revisión**: Trimestral

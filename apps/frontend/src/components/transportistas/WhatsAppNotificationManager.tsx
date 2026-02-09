@@ -36,7 +36,7 @@ export const WhatsAppNotificationManager: React.FC<WhatsAppNotificationManagerPr
     getInstanceStatus,
     refreshInstances,
     createTemplate,
-    updateTemplate,
+    updateTemplate: _updateTemplate,
     deleteTemplate,
   } = useWhatsAppNotifications();
 
@@ -44,7 +44,7 @@ export const WhatsAppNotificationManager: React.FC<WhatsAppNotificationManagerPr
   const [selectedTemplate, setSelectedTemplate] = useState('');
   const [instanceStatuses, setInstanceStatuses] = useState<Record<string, string>>({});
   const [showTemplateForm, setShowTemplateForm] = useState(false);
-  const [editingTemplate, setEditingTemplate] = useState<string | null>(null);
+  const [_editingTemplate, _setEditingTemplate] = useState<string | null>(null);
   
   // New template form state
   const [newTemplate, setNewTemplate] = useState({
@@ -172,7 +172,7 @@ export const WhatsAppNotificationManager: React.FC<WhatsAppNotificationManagerPr
 
   if (isLoading) {
     return (
-      <Card className={`p-6 text-center ${className || ''}`}>
+      <Card className={`p-6 text-center ${className ?? ''}`}>
         <div className="animate-spin rounded-full h-8 w-8 border-4 border-blue-500 border-t-transparent mx-auto mb-4"></div>
         <p className="text-gray-600">Cargando configuración de WhatsApp...</p>
       </Card>
@@ -181,7 +181,7 @@ export const WhatsAppNotificationManager: React.FC<WhatsAppNotificationManagerPr
 
   if (error) {
     return (
-      <Card className={`p-6 text-center border-red-200 bg-red-50 ${className || ''}`}>
+      <Card className={`p-6 text-center border-red-200 bg-red-50 ${className ?? ''}`}>
         <XCircleIcon className="h-8 w-8 text-red-500 mx-auto mb-4" />
         <p className="text-red-700">{error}</p>
         <Button 
@@ -196,7 +196,7 @@ export const WhatsAppNotificationManager: React.FC<WhatsAppNotificationManagerPr
   }
 
   return (
-    <div className={`space-y-6 ${className || ''}`}>
+    <div className={`space-y-6 ${className ?? ''}`}>
       {/* Main Configuration */}
       <Card className="bg-white rounded-2xl shadow-lg border-0 overflow-hidden">
         <div className="bg-gradient-to-r from-green-500 to-teal-500 p-6 text-white">
@@ -272,6 +272,9 @@ export const WhatsAppNotificationManager: React.FC<WhatsAppNotificationManagerPr
                       }
                     `}
                     onClick={() => handleInstanceChange(instance.id)}
+                    onKeyDown={(e) => e.key === 'Enter' && handleInstanceChange(instance.id)}
+                    role="button"
+                    tabIndex={0}
                   >
                     <div className="flex items-center justify-between mb-2">
                       <h4 className="font-semibold text-gray-800">{instance.name}</h4>
@@ -502,8 +505,8 @@ export const WhatsAppNotificationManager: React.FC<WhatsAppNotificationManagerPr
                   <p className="text-sm text-gray-600 mb-2">{template.message}</p>
                   {template.variables.length > 0 && (
                     <div className="flex flex-wrap gap-1 mt-2">
-                      {template.variables.map((variable, index) => (
-                        <Badge key={index} className="bg-blue-100 text-blue-700 border-blue-200 text-xs">
+                      {template.variables.map((variable) => (
+                        <Badge key={variable} className="bg-blue-100 text-blue-700 border-blue-200 text-xs">
                           {`{{${variable}}}`}
                         </Badge>
                       ))}

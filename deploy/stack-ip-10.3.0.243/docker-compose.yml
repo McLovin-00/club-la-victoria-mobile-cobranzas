@@ -148,8 +148,8 @@ services:
 
   backend:
     build:
-      context: ../..
-      dockerfile: ./deploy/stack-ip-10.3.0.243/Dockerfile.backend
+      context: /home/administrador/monorepo-bca
+      dockerfile: deploy/stack-ip-10.3.0.243/Dockerfile.backend
     image: bca/backend:latest
     container_name: bca_backend
     restart: always
@@ -211,7 +211,7 @@ services:
 
   documentos:
     build:
-      context: ../../apps/documentos
+      context: /home/administrador/monorepo-bca/apps/documentos
       dockerfile: Dockerfile
     image: bca/documentos:latest
     container_name: bca_documentos
@@ -237,12 +237,17 @@ services:
       MINIO_INTERNAL_BASE_URL: http://10.3.0.243:9000
       # Redis
       REDIS_URL: redis://redis:6379
-      SEED: "true"
+      SEED: "false"
       # CORS Configuration
       FRONTEND_URLS: "http://10.3.0.243:8550,http://localhost:8550"
       # Flowise
       FLOWISE_ENDPOINT: http://10.3.0.243:3005/api/v1/extract
       FLOWISE_API_KEY: ""
+      # Validación de documentos con IA
+      FLOWISE_VALIDATION_ENABLED: "true"
+      FLOWISE_VALIDATION_BASE_URL: http://10.3.0.243:3005
+      FLOWISE_VALIDATION_FLOW_ID: bf6fc420-6e91-4886-a9ca-a86c285ee49a
+      FLOWISE_VALIDATION_TIMEOUT: "60000"
       # Rasterización PDF - Optimizado para más concurrencia
       PDF_RASTERIZE_ENABLED: "true"
       PDF_RASTERIZE_DPI: "300"
@@ -290,7 +295,7 @@ services:
 
   remitos:
     build:
-      context: ../../apps/remitos
+      context: /home/administrador/monorepo-bca/apps/remitos
       dockerfile: Dockerfile
     image: bca/remitos:latest
     container_name: bca_remitos
@@ -407,24 +412,26 @@ services:
 
   frontend:
     build:
-      context: ../..
-      dockerfile: ./deploy/stack-ip-10.3.0.243/Dockerfile.frontend
+      context: /home/administrador/monorepo-bca
+      dockerfile: deploy/stack-ip-10.3.0.243/Dockerfile.frontend
       args:
-        VITE_API_URL: http://10.3.0.243:4800
-        VITE_API_BASE_URL: http://10.3.0.243:4800
-        VITE_DOCUMENTOS_API_URL: http://10.3.0.243:4802
-        VITE_DOCUMENTOS_WS_URL: http://10.3.0.243:4802
-        VITE_REMITOS_API_URL: http://10.3.0.243:4803/api/remitos
+        # URLs relativas - nginx hace proxy a los servicios internos
+        VITE_API_URL: ""
+        VITE_API_BASE_URL: ""
+        VITE_DOCUMENTOS_API_URL: ""
+        VITE_DOCUMENTOS_WS_URL: ""
+        VITE_REMITOS_API_URL: ""
         VITE_APP_TITLE: Empresa Management System
     image: bca/frontend:latest
     container_name: bca_frontend
     restart: always
-    # nginx usa su propia config, no necesita command
+    # nginx usa su propia config con proxy a servicios internos
     ports:
       - "8550:8550"
     depends_on:
       - backend
       - documentos
+      - remitos
     deploy:
       resources:
         reservations:
@@ -441,5 +448,6 @@ services:
       start_period: 10s
     networks:
       - edge_net
+      - core_net
 
 

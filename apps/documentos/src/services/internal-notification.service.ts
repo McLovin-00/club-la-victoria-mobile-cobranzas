@@ -2,10 +2,34 @@ import { db } from '../config/database';
 import { AppLogger } from '../config/logger';
 import { webSocketService } from './websocket.service';
 
+// Tipos de notificación interna (sincronizado con schema.prisma)
+export type InternalNotificationTypeValue = 
+  // Documentos
+  | 'DOCUMENT_REJECTED'
+  | 'DOCUMENT_APPROVED'
+  | 'DOCUMENT_EXPIRING'
+  | 'DOCUMENT_EXPIRING_URGENT'
+  | 'DOCUMENT_EXPIRED'
+  | 'DOCUMENT_UPLOADED'
+  | 'DOCUMENT_MISSING'
+  // Equipos
+  | 'EQUIPO_INCOMPLETE'
+  | 'EQUIPO_COMPLETE'
+  | 'EQUIPO_ESTADO_ACTUALIZADO'
+  | 'EQUIPO_BLOQUEADO'
+  // Transferencias
+  | 'TRANSFERENCIA_SOLICITADA'
+  | 'TRANSFERENCIA_APROBADA'
+  | 'TRANSFERENCIA_RECHAZADA'
+  // Clientes/Requisitos
+  | 'NUEVO_REQUISITO_CLIENTE'
+  // Sistema
+  | 'SYSTEM_ALERT';
+
 export interface CreateInternalNotificationDto {
   tenantEmpresaId: number;
   userId: number;
-  type: 'DOCUMENT_REJECTED' | 'DOCUMENT_APPROVED' | 'DOCUMENT_EXPIRING' | 'DOCUMENT_EXPIRED' | 'DOCUMENT_UPLOADED' | 'EQUIPO_INCOMPLETE' | 'EQUIPO_COMPLETE' | 'SYSTEM_ALERT';
+  type: InternalNotificationTypeValue;
   title: string;
   message: string;
   link?: string;
@@ -298,9 +322,9 @@ export class InternalNotificationService {
   }
 
   /**
-   * Limpiar notificaciones antiguas (job de mantenimiento)
+   * Limpiar notificaciones soft-deleted antiguas
    */
-  static async cleanupOldNotifications(daysOld: number = 90): Promise<void> {
+  static async cleanupOldNotifications(daysOld: number = 30): Promise<number> {
     try {
       const cutoffDate = new Date();
       cutoffDate.setDate(cutoffDate.getDate() - daysOld);
@@ -314,9 +338,96 @@ export class InternalNotificationService {
         },
       });
 
-      AppLogger.info(`🧹 Limpieza de notificaciones: ${result.count} notificaciones antiguas eliminadas`);
+      AppLogger.info(`🧹 Limpieza: ${result.count} notificaciones borradas eliminadas permanentemente`);
+      return result.count;
     } catch (error) {
-      AppLogger.error('Error en limpieza de notificaciones:', error);
+      AppLogger.error('Error en limpieza de notificaciones borradas:', error);
+      return 0;
     }
+  }
+
+  /**
+   * Limpiar notificaciones leídas antiguas (auto-borrado después de X días)
+   */
+  static async cleanupOldReadNotifications(daysOld: number = 90): Promise<number> {
+    try {
+      const cutoffDate = new Date();
+      cutoffDate.setDate(cutoffDate.getDate() - daysOld);
+
+      const result = await db.getClient().internalNotification.updateMany({
+        where: {
+          read: true,
+          deleted: false,
+          readAt: {
+            lte: cutoffDate,
+          },
+        },
+        data: {
+          deleted: true,
+          deletedAt: new Date(),
+        },
+      });
+
+      AppLogger.info(`🧹 Auto-borrado: ${result.count} notificaciones leídas marcadas para eliminación`);
+      return result.count;
+    } catch (error) {
+      AppLogger.error('Error en auto-borrado de notificaciones leídas:', error);
+      return 0;
+    }
+  }
+
+  /**
+   * Aplicar límite máximo de notificaciones por usuario
+   * Elimina las más antiguas leídas cuando se excede el límite
+   */
+  static async enforceUserNotificationLimit(userId: number, maxNotifications: number = 500): Promise<number> {
+    try {
+      const count = await db.getClient().internalNotification.count({
+        where: { userId, deleted: false },
+      });
+
+      if (count <= maxNotifications) {
+        return 0;
+      }
+
+      const excess = count - maxNotifications;
+
+      // Obtener IDs de las notificaciones más antiguas leídas
+      const oldestRead = await db.getClient().internalNotification.findMany({
+        where: { userId, deleted: false, read: true },
+        orderBy: { createdAt: 'asc' },
+        take: excess,
+        select: { id: true },
+      });
+
+      if (oldestRead.length > 0) {
+        await db.getClient().internalNotification.updateMany({
+          where: {
+            id: { in: oldestRead.map(n => n.id) },
+          },
+          data: {
+            deleted: true,
+            deletedAt: new Date(),
+          },
+        });
+
+        AppLogger.info(`🧹 Límite aplicado: ${oldestRead.length} notificaciones borradas para usuario ${userId}`);
+        return oldestRead.length;
+      }
+
+      return 0;
+    } catch (error) {
+      AppLogger.error('Error aplicando límite de notificaciones:', error);
+      return 0;
+    }
+  }
+
+  /**
+   * Ejecutar limpieza completa de notificaciones (llamado desde cron)
+   */
+  static async runFullCleanup(): Promise<{ deleted: number; autoDeleted: number }> {
+    const deleted = await this.cleanupOldNotifications(30);
+    const autoDeleted = await this.cleanupOldReadNotifications(90);
+    return { deleted, autoDeleted };
   }
 }

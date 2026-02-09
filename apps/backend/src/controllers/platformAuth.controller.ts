@@ -7,6 +7,33 @@ interface AuthRequest extends Request {
   user?: any;
 }
 
+// Helper: manejar respuesta de wizard de registro con contraseña temporal
+function handleWizardRegisterResult(
+  res: Response,
+  result: { success: boolean; message?: string; platformUser?: any; tempPassword?: string },
+  errorContext: string
+): boolean {
+  if (!result.success) {
+    res.status(400).json({ success: false, message: result.message });
+    return false;
+  }
+  res.status(201).json({
+    success: true,
+    message: result.message,
+    user: result.platformUser,
+    tempPassword: result.tempPassword,
+  });
+  return true;
+}
+
+function handleWizardError(res: Response, error: unknown, context: string): void {
+  AppLogger.error(`💥 Error en wizard ${context}:`, error);
+  res.status(500).json({
+    success: false,
+    message: error instanceof Error ? error.message : 'Error interno del servidor',
+  });
+}
+
 export class PlatformAuthController {
   /**
    * Login de usuarios de plataforma
@@ -207,25 +234,9 @@ export class PlatformAuthController {
         { email, nombre, apellido, empresaId: empresaId ?? null, clienteId: Number(clienteId) },
         createdBy
       );
-
-      if (!result.success) {
-        res.status(400).json({ success: false, message: result.message });
-        return;
-      }
-
-      // tempPassword solo se devuelve aquí (una única vez)
-      res.status(201).json({
-        success: true,
-        message: result.message,
-        user: result.platformUser,
-        tempPassword: result.tempPassword,
-      });
+      handleWizardRegisterResult(res, result, 'register-client');
     } catch (error) {
-      AppLogger.error('💥 Error en wizard register-client:', error);
-      res.status(500).json({
-        success: false,
-        message: error instanceof Error ? error.message : 'Error interno del servidor',
-      });
+      handleWizardError(res, error, 'register-client');
     }
   }
 
@@ -253,24 +264,9 @@ export class PlatformAuthController {
         { email, nombre, apellido, empresaId: empresaId ?? null, dadorCargaId: Number(dadorCargaId) },
         createdBy
       );
-
-      if (!result.success) {
-        res.status(400).json({ success: false, message: result.message });
-        return;
-      }
-
-      res.status(201).json({
-        success: true,
-        message: result.message,
-        user: result.platformUser,
-        tempPassword: result.tempPassword,
-      });
+      handleWizardRegisterResult(res, result, 'register-dador');
     } catch (error) {
-      AppLogger.error('💥 Error en wizard register-dador:', error);
-      res.status(500).json({
-        success: false,
-        message: error instanceof Error ? error.message : 'Error interno del servidor',
-      });
+      handleWizardError(res, error, 'register-dador');
     }
   }
 
@@ -298,24 +294,9 @@ export class PlatformAuthController {
         { email, nombre, apellido, empresaId: empresaId ?? null, empresaTransportistaId: Number(empresaTransportistaId) },
         createdBy
       );
-
-      if (!result.success) {
-        res.status(400).json({ success: false, message: result.message });
-        return;
-      }
-
-      res.status(201).json({
-        success: true,
-        message: result.message,
-        user: result.platformUser,
-        tempPassword: result.tempPassword,
-      });
+      handleWizardRegisterResult(res, result, 'register-transportista');
     } catch (error) {
-      AppLogger.error('💥 Error en wizard register-transportista:', error);
-      res.status(500).json({
-        success: false,
-        message: error instanceof Error ? error.message : 'Error interno del servidor',
-      });
+      handleWizardError(res, error, 'register-transportista');
     }
   }
 
@@ -343,24 +324,9 @@ export class PlatformAuthController {
         { email, nombre, apellido, empresaId: empresaId ?? null, choferId: Number(choferId) },
         createdBy
       );
-
-      if (!result.success) {
-        res.status(400).json({ success: false, message: result.message });
-        return;
-      }
-
-      res.status(201).json({
-        success: true,
-        message: result.message,
-        user: result.platformUser,
-        tempPassword: result.tempPassword,
-      });
+      handleWizardRegisterResult(res, result, 'register-chofer');
     } catch (error) {
-      AppLogger.error('💥 Error en wizard register-chofer:', error);
-      res.status(500).json({
-        success: false,
-        message: error instanceof Error ? error.message : 'Error interno del servidor',
-      });
+      handleWizardError(res, error, 'register-chofer');
     }
   }
 

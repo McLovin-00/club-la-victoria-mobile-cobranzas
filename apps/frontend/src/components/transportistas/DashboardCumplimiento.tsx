@@ -110,7 +110,7 @@ const DashboardSkeleton: React.FC = () => {
         {/* Stats skeleton */}
         <div className="grid grid-cols-3 gap-4">
           {[1, 2, 3].map(i => (
-            <div key={i} className="bg-white rounded-xl p-4 shadow-md">
+            <div key={`skeleton-stat-${i}`} className="bg-white rounded-xl p-4 shadow-md">
               <div className="h-8 bg-gray-200 rounded w-8 mx-auto"></div>
               <div className="mt-2 h-6 bg-gray-200 rounded w-12 mx-auto"></div>
               <div className="mt-1 h-3 bg-gray-200 rounded w-16 mx-auto"></div>
@@ -123,7 +123,7 @@ const DashboardSkeleton: React.FC = () => {
           <div className="h-6 bg-gray-200 rounded w-32 mb-4"></div>
           <div className="space-y-3">
             {[1, 2, 3].map(i => (
-              <div key={i} className="flex items-center space-x-3">
+              <div key={`skeleton-alert-${i}`} className="flex items-center space-x-3">
                 <div className="w-10 h-10 bg-gray-200 rounded-full"></div>
                 <div className="flex-1 space-y-1">
                   <div className="h-4 bg-gray-200 rounded w-full"></div>

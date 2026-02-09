@@ -2,27 +2,44 @@ import { PrismaClient, EntityType, DocumentStatus } from '.prisma/documentos';
 
 const prisma = new PrismaClient();
 
-async function main(): Promise<void> {
-  console.log('🌱 Seeding Documentos - clientes, requisitos, equipos y documentos demo...');
+// ============================================================================
+// CONFIGURACIÓN
+// ============================================================================
 
-  // IMPORTANTE: NO crear plantillas automáticamente desde el seed
-  // Las plantillas deben crearse ÚNICAMENTE desde la pantalla de gestión de plantillas
+function getConfig() {
+  return {
+    dadorId: Number(process.env.SEED_DADOR_ID || 1),
+    tenantId: Number(process.env.SEED_TENANT_ID || 1),
+    now: new Date(),
+    dayMs: 24 * 60 * 60 * 1000,
+  };
+}
 
-  // Obtener IDs de plantillas existentes (creadas manualmente por el admin)
-  const tpl = await prisma.documentTemplate.findMany({});
-  const getTplId = (name: string) => tpl.find(t => t.name === name)?.id;
+// ============================================================================
+// HELPERS
+// ============================================================================
 
-  // Usar plantillas existentes que coincidan con las del formulario oficial
-  const licenciaTplId = getTplId('Licencia Nacional de Conducir (frente y dorso)');
-  const vtvTplId = getTplId('RTO - Revisión Técnica Obligatoria');
-  const seguroAcopladoTplId = getTplId('Póliza de Seguro (incluye Cláusula de No Repetición)');
+async function getTemplateMap(): Promise<Map<string, number>> {
+  const templates = await prisma.documentTemplate.findMany({});
+  const map = new Map<string, number>();
+  for (const t of templates) {
+    map.set(t.name, t.id);
+  }
+  return map;
+}
 
-  // Dador demo (usar variable si está definida)
-  const dadorId = Number(process.env.SEED_DADOR_ID || 1);
-  const tenantId = Number(process.env.SEED_TENANT_ID || 1);
+async function findOrCreateCliente(tenantId: number): Promise<{ id: number }> {
+  const existing = await prisma.cliente.findFirst({
+    where: { tenantEmpresaId: tenantId, cuit: '30712345678' },
+    select: { id: true },
+  });
+  
+  if (existing) {
+    console.log('ℹ️ Cliente demo ya existe:', existing.id);
+    return existing;
+  }
 
-  // Cliente demo
-  const clienteDemo = await prisma.cliente.create({
+  const cliente = await prisma.cliente.create({
     data: {
       tenantEmpresaId: tenantId,
       razonSocial: 'Cliente Demo A SA',
@@ -30,29 +47,67 @@ async function main(): Promise<void> {
       activo: true,
       notas: 'Cliente de ejemplo para pruebas de documentos',
     },
-  }).catch(async () => {
-    return prisma.cliente.findFirst({}) as any;
   });
+  console.log('✅ Cliente demo creado:', cliente.id);
+  return cliente;
+}
 
-  // Requisitos por cliente (solo si las plantillas existen)
-  const existingReqs = await prisma.clienteDocumentRequirement.findMany({ where: { clienteId: clienteDemo.id } });
-  if (existingReqs.length === 0 && licenciaTplId && vtvTplId && seguroAcopladoTplId) {
-    await prisma.clienteDocumentRequirement.createMany({
-      data: [
-        { tenantEmpresaId: tenantId, clienteId: clienteDemo.id, templateId: licenciaTplId, entityType: EntityType.CHOFER, obligatorio: true, diasAnticipacion: 15 },
-        { tenantEmpresaId: tenantId, clienteId: clienteDemo.id, templateId: vtvTplId, entityType: EntityType.CAMION, obligatorio: true, diasAnticipacion: 30 },
-        { tenantEmpresaId: tenantId, clienteId: clienteDemo.id, templateId: seguroAcopladoTplId, entityType: EntityType.ACOPLADO, obligatorio: false, diasAnticipacion: 10 },
-      ],
-      skipDuplicates: true,
-    });
-  } else if (!licenciaTplId || !vtvTplId || !seguroAcopladoTplId) {
+async function createRequirementsIfNeeded(
+  tenantId: number,
+  clienteId: number,
+  templates: Map<string, number>
+): Promise<void> {
+  const licenciaTplId = templates.get('Licencia Nacional de Conducir (frente y dorso)');
+  const vtvTplId = templates.get('RTO - Revisión Técnica Obligatoria');
+  const seguroAcopladoTplId = templates.get('Póliza de Seguro (incluye Cláusula de No Repetición)');
+
+  if (!licenciaTplId || !vtvTplId || !seguroAcopladoTplId) {
     console.log('⚠️ Algunas plantillas no existen. Saltando creación de requisitos demo.');
+    return;
   }
 
-  // Equipo demo (chofer+camión+acoplado)
-  const now = new Date();
-  const dayMs = 24 * 60 * 60 * 1000;
-  const equipoDemo = await prisma.equipo.create({
+  const existingReqs = await prisma.clienteDocumentRequirement.findMany({
+    where: { clienteId },
+  });
+
+  if (existingReqs.length > 0) {
+    console.log('ℹ️ Requisitos ya existen para cliente:', clienteId);
+    return;
+  }
+
+  await prisma.clienteDocumentRequirement.createMany({
+    data: [
+      { tenantEmpresaId: tenantId, clienteId, templateId: licenciaTplId, entityType: EntityType.CHOFER, obligatorio: true, diasAnticipacion: 15 },
+      { tenantEmpresaId: tenantId, clienteId, templateId: vtvTplId, entityType: EntityType.CAMION, obligatorio: true, diasAnticipacion: 30 },
+      { tenantEmpresaId: tenantId, clienteId, templateId: seguroAcopladoTplId, entityType: EntityType.ACOPLADO, obligatorio: false, diasAnticipacion: 10 },
+    ],
+    skipDuplicates: true,
+  });
+  console.log('✅ Requisitos demo creados');
+}
+
+async function findOrCreateEquipo(
+  tenantId: number,
+  dadorId: number,
+  now: Date,
+  dayMs: number
+): Promise<{ id: number }> {
+  const existing = await prisma.equipo.findFirst({
+    where: {
+      tenantEmpresaId: tenantId,
+      dadorCargaId: dadorId,
+      driverDniNorm: '20333444',
+      truckPlateNorm: 'ABC123',
+    },
+    select: { id: true },
+  });
+
+  if (existing) {
+    console.log('ℹ️ Equipo demo ya existe:', existing.id);
+    return existing;
+  }
+
+  const equipo = await prisma.equipo.create({
     data: {
       tenantEmpresaId: tenantId,
       dadorCargaId: dadorId,
@@ -66,55 +121,113 @@ async function main(): Promise<void> {
       validTo: null,
     },
   });
+  console.log('✅ Equipo demo creado:', equipo.id);
+  return equipo;
+}
 
-  // Asociar cliente al equipo
+async function associateClienteToEquipo(
+  equipoId: number,
+  clienteId: number,
+  now: Date,
+  dayMs: number
+): Promise<void> {
+  const existing = await prisma.equipoCliente.findFirst({
+    where: { equipoId, clienteId, asignadoHasta: null },
+  });
+
+  if (existing) return;
+
   await prisma.equipoCliente.create({
     data: {
-      equipoId: equipoDemo.id,
-      clienteId: clienteDemo.id,
+      equipoId,
+      clienteId,
       asignadoDesde: new Date(now.getTime() - dayMs),
       asignadoHasta: null,
     },
   });
+}
 
-  // Documentos demo para compliance (solo si las plantillas existen)
-  if (licenciaTplId && vtvTplId) {
+async function createDocumentsIfNeeded(
+  tenantId: number,
+  dadorId: number,
+  templates: Map<string, number>,
+  now: Date,
+  dayMs: number
+): Promise<void> {
+  const licenciaTplId = templates.get('Licencia Nacional de Conducir (frente y dorso)');
+  const vtvTplId = templates.get('RTO - Revisión Técnica Obligatoria');
+
+  if (!licenciaTplId || !vtvTplId) {
+    console.log('⚠️ Plantillas no encontradas. Saltando creación de documentos demo.');
+    return;
+  }
+
+  await createDocumentIfNotExists({
+    tenantId, dadorId, templateId: licenciaTplId, entityType: EntityType.CHOFER,
+    entityId: 101, now, expiresInMs: dayMs * 90, fileName: 'licencia.pdf',
+  });
+  await createDocumentIfNotExists({
+    tenantId, dadorId, templateId: vtvTplId, entityType: EntityType.CAMION,
+    entityId: 201, now, expiresInMs: dayMs * 15, fileName: 'vtv.pdf',
+  });
+}
+
+interface CreateDocumentParams {
+  tenantId: number;
+  dadorId: number;
+  templateId: number;
+  entityType: EntityType;
+  entityId: number;
+  now: Date;
+  expiresInMs: number;
+  fileName: string;
+}
+
+async function createDocumentIfNotExists(params: CreateDocumentParams): Promise<void> {
+  const { tenantId, dadorId, templateId, entityType, entityId, now, expiresInMs, fileName } = params;
+  
+  const existing = await prisma.document.findFirst({
+    where: { tenantEmpresaId: tenantId, templateId, entityType, entityId, dadorCargaId: dadorId },
+  });
+
+  if (existing) return;
+
   await prisma.document.create({
     data: {
       tenantEmpresaId: tenantId,
-      templateId: licenciaTplId,
-      entityType: EntityType.CHOFER,
-      entityId: 101,
+      templateId,
+      entityType,
+      entityId,
       dadorCargaId: dadorId,
-      fileName: 'licencia.pdf',
-      filePath: `documentos-empresa-t${tenantId}/chofer/101/licencia/seed.pdf`,
+      fileName,
+      filePath: `documentos-empresa-t${tenantId}/${entityType.toLowerCase()}/${entityId}/${fileName}`,
       fileSize: 12345,
       mimeType: 'application/pdf',
       status: DocumentStatus.APROBADO,
-      expiresAt: new Date(now.getTime() + 90 * dayMs),
+      expiresAt: new Date(now.getTime() + expiresInMs),
     },
   });
+}
 
-  await prisma.document.create({
-    data: {
-      tenantEmpresaId: tenantId,
-      templateId: vtvTplId,
-      entityType: EntityType.CAMION,
-      entityId: 201,
-      dadorCargaId: dadorId,
-      fileName: 'vtv.pdf',
-      filePath: `documentos-empresa-t${tenantId}/camion/201/vtv/seed.pdf`,
-      fileSize: 23456,
-      mimeType: 'application/pdf',
-      status: DocumentStatus.APROBADO,
-      expiresAt: new Date(now.getTime() + 15 * dayMs),
-    },
-  });
-  } else {
-    console.log('⚠️ Plantillas no encontradas. Saltando creación de documentos demo.');
-  }
+// ============================================================================
+// MAIN
+// ============================================================================
 
-  console.log('✅ Seed completado: cliente demo, requisitos, equipo y documentos (sin crear plantillas)');
+async function main(): Promise<void> {
+  console.log('🌱 Seeding Documentos - clientes, requisitos, equipos y documentos demo...');
+
+  const config = getConfig();
+  const templates = await getTemplateMap();
+
+  const cliente = await findOrCreateCliente(config.tenantId);
+  await createRequirementsIfNeeded(config.tenantId, cliente.id, templates);
+
+  const equipo = await findOrCreateEquipo(config.tenantId, config.dadorId, config.now, config.dayMs);
+  await associateClienteToEquipo(equipo.id, cliente.id, config.now, config.dayMs);
+
+  await createDocumentsIfNeeded(config.tenantId, config.dadorId, templates, config.now, config.dayMs);
+
+  console.log('✅ Seed completado: cliente demo, requisitos, equipo y documentos');
 }
 
 main()

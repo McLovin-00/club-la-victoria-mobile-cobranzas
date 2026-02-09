@@ -157,7 +157,7 @@ export const DocumentosMainPage: React.FC = () => {
             <span className='text-3xl font-bold'>{pendingSummaryData?.total ?? 0}</span>
           </div>
           <div className='mt-3 grid grid-cols-1 md:grid-cols-2 gap-2'>
-            {(pendingSummaryData?.top || []).map((t) => (
+            {(pendingSummaryData?.top ?? []).map((t) => (
               <div key={t.templateId} className='flex items-center justify-between text-sm'>
                 <span className='truncate mr-2'>{t.templateName}</span>
                 <span className='px-2 py-0.5 rounded bg-amber-50 border text-amber-700'>{t.count}</span>

@@ -88,7 +88,7 @@ export const DocumentUploadModal: React.FC<DocumentUploadModalProps> = ({
       entityType,
       entityId,
       files,
-      expiresAt: expiresAt || undefined,
+      expiresAt: expiresAt ?? undefined,
     });
 
     // Reset form
@@ -203,6 +203,9 @@ export const DocumentUploadModal: React.FC<DocumentUploadModalProps> = ({
                         : 'border-gray-300 hover:border-gray-400'
                     }`}
                     onClick={() => setSelectedTemplate(template.id)}
+                    onKeyDown={(e) => e.key === 'Enter' && setSelectedTemplate(template.id)}
+                    role="button"
+                    tabIndex={0}
                   >
                     <div className='flex items-center space-x-3'>
                       <DocumentTextIcon className='h-5 w-5 text-blue-600' />
@@ -278,9 +281,9 @@ export const DocumentUploadModal: React.FC<DocumentUploadModalProps> = ({
             {/* Lista de Archivos */}
             {files.length > 0 && (
               <div className='mt-4 space-y-2'>
-                {files.map((file, index) => (
+                {files.map((file) => (
                   <div
-                    key={index}
+                    key={`${file.name}-${file.size}-${file.lastModified}`}
                     className='flex items-center justify-between p-3 bg-gray-50 dark:bg-slate-800/60 rounded-md'
                   >
                     <div className='flex items-center space-x-3'>
@@ -322,7 +325,7 @@ export const DocumentUploadModal: React.FC<DocumentUploadModalProps> = ({
                   input.multiple = true;
                   input.accept = '.pdf,.jpg,.jpeg,.png,.webp,.doc,.docx';
                   input.onchange = async () => {
-                    const selected = Array.from(input.files || []);
+                    const selected = Array.from(input.files ?? []);
                     if (selected.length === 0) return;
                     try {
                       const resp = await uploadBatch({ files: selected, skipDedupe }).unwrap();

@@ -21,11 +21,8 @@ export interface SeccionDocumentosProps {
   onFileSelect?: (templateId: number, file: File | null, expiryDate?: string) => void;
 }
 
-// TODOS los documentos requieren fecha de vencimiento
-// Si en el futuro hay templates que no requieren vencimiento, agregarlos aquí
-const TEMPLATES_WITHOUT_EXPIRY: string[] = [
-  // Ejemplo: 'CONTRATO_INDEFINIDO', 'HABILITACION_PERMANENTE'
-];
+// NOTA: Si en el futuro hay templates que no requieren vencimiento,
+// implementar lógica con un array de keywords aquí
 
 /**
  * Componente que agrupa documentos por tipo de entidad
@@ -62,10 +59,8 @@ export const SeccionDocumentos: React.FC<SeccionDocumentosProps> = ({
       ) : (
         <div className='space-y-2'>
           {templates.map((template) => {
-            // TODOS requieren vencimiento EXCEPTO los que están explícitamente excluidos
-            const requiresExpiry = !TEMPLATES_WITHOUT_EXPIRY.some((keyword) =>
-              template.name.includes(keyword)
-            );
+            // TODOS los documentos requieren fecha de vencimiento (decisión de negocio)
+            const requiresExpiry = true;
 
             return (
               <DocumentoField

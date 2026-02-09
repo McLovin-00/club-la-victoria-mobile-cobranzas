@@ -9,6 +9,32 @@ import { ArrowLeftIcon, CheckCircleIcon, ExclamationTriangleIcon, XCircleIcon, M
 
 type EntityType = 'DADOR' | 'EMPRESA_TRANSPORTISTA' | 'CHOFER' | 'CAMION' | 'ACOPLADO' | '';
 
+type SeveridadType = 'critica' | 'advertencia' | 'info';
+
+const SEVERIDAD_BG_CLASSES: Record<SeveridadType, string> = {
+  critica: 'bg-red-50 border-red-200',
+  advertencia: 'bg-amber-50 border-amber-200',
+  info: 'bg-blue-50 border-blue-200',
+};
+
+const SEVERIDAD_TEXT_CLASSES: Record<SeveridadType, string> = {
+  critica: 'text-red-700',
+  advertencia: 'text-amber-700',
+  info: 'text-blue-700',
+};
+
+function getSeveridadBgClass(severidad: string | undefined): string {
+  if (severidad === 'critica') return SEVERIDAD_BG_CLASSES.critica;
+  if (severidad === 'advertencia') return SEVERIDAD_BG_CLASSES.advertencia;
+  return SEVERIDAD_BG_CLASSES.info;
+}
+
+function getSeveridadTextClass(severidad: string | undefined): string {
+  if (severidad === 'critica') return SEVERIDAD_TEXT_CLASSES.critica;
+  if (severidad === 'advertencia') return SEVERIDAD_TEXT_CLASSES.advertencia;
+  return SEVERIDAD_TEXT_CLASSES.info;
+}
+
 export default function ApprovalQueuePage() {
   const navigate = useNavigate();
   const userRole = useAppSelector((s) => (s as any).auth?.user?.role) as string | undefined;
@@ -40,7 +66,7 @@ export default function ApprovalQueuePage() {
 
   const { data: kpis } = useGetApprovalKpisQuery();
   const { data: pendingResp, isFetching, refetch } = useGetApprovalPendingQuery(
-    { page, limit, entityType: entityType || undefined },
+    { page, limit, entityType: entityType ?? undefined },
     { refetchOnMountOrArgChange: true }
   );
 
@@ -149,20 +175,12 @@ export default function ApprovalQueuePage() {
                     <td className="py-3 pr-3 max-w-md">
                       {hasDisparidades ? (
                         <div className="space-y-1">
-                          {disparidades.map((d: any, idx: number) => (
+                          {disparidades.map((d: any) => (
                             <div
-                              key={idx}
-                              className={`text-xs p-2 rounded border ${
-                                d.severidad === 'critica' 
-                                  ? 'bg-red-50 border-red-200' 
-                                  : d.severidad === 'advertencia'
-                                    ? 'bg-amber-50 border-amber-200'
-                                    : 'bg-blue-50 border-blue-200'
-                              }`}
+                              key={`${d.campo}-${d.mensaje?.slice(0, 15) || ''}`}
+                              className={`text-xs p-2 rounded border ${getSeveridadBgClass(d.severidad)}`}
                             >
-                              <div className={`font-semibold ${
-                                d.severidad === 'critica' ? 'text-red-700' : d.severidad === 'advertencia' ? 'text-amber-700' : 'text-blue-700'
-                              }`}>
+                              <div className={`font-semibold ${getSeveridadTextClass(d.severidad)}`}>
                                 {d.severidad?.toUpperCase()} - {d.campo}
                               </div>
                               <div className="text-gray-600 mt-0.5">{d.mensaje}</div>

@@ -1,0 +1,12 @@
+# Documentos - .dockerignore
+node_modules
+dist
+coverage
+.turbo
+*.log
+__tests__
+*.test.ts
+*.spec.ts
+.env*
+docs/
+*.md

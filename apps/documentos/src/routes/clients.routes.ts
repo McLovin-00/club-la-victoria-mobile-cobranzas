@@ -117,6 +117,14 @@ router.get('/equipos/:equipoId/check-client/:clienteId', authorize([UserRole.ADM
   res.json({ success: true, data });
 });
 
+// =============================================
+// DEPRECATED: Estos endpoints serán removidos en una versión futura.
+// Usar en su lugar las rutas de PlantillaRequisito:
+//   - GET /api/docs/clients/:clienteId/plantillas
+//   - POST /api/docs/clients/:clienteId/plantillas
+//   - GET/PUT/DELETE /api/docs/plantillas/:id
+//   - POST/PUT/DELETE /api/docs/plantillas/:id/templates
+// =============================================
 router.get('/:clienteId/requirements', authorize([UserRole.ADMIN, UserRole.SUPERADMIN, UserRole.ADMIN_INTERNO, UserRole.DADOR_DE_CARGA]), ClientsController.listRequirements);
 router.post('/:clienteId/requirements', authorize([UserRole.ADMIN, UserRole.SUPERADMIN, UserRole.ADMIN_INTERNO, UserRole.DADOR_DE_CARGA]), validate(addRequirementSchema), ClientsController.addRequirement);
 router.delete('/:clienteId/requirements/:requirementId', authorize([UserRole.ADMIN, UserRole.SUPERADMIN, UserRole.ADMIN_INTERNO, UserRole.DADOR_DE_CARGA]), validate(removeRequirementSchema), ClientsController.removeRequirement);
@@ -216,7 +224,7 @@ router.get('/jobs/:jobId', async (req, res) => {
     try {
       const url = await (await import('../services/minio.service')).minioService.getSignedUrlInternal(job.artifact.bucketName, job.artifact.objectPath, 60 * 30);
       signedUrl = url;
-    } catch {}
+    } catch { /* Error de conteo no bloquea respuesta */ }
   }
   res.json({ success: true, job: { ...job, signedUrl } });
 });

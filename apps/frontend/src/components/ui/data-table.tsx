@@ -55,9 +55,9 @@ export const DataTable = <T extends Record<string, any>>({
         <table className='w-full'>
           <thead className='bg-muted/50'>
             <tr>
-              {columns.map((column, index) => (
+              {columns.map((column) => (
                 <th
-                  key={index}
+                  key={column.accessorKey || column.header}
                   className='px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider'
                 >
                   {column.header}
@@ -77,8 +77,8 @@ export const DataTable = <T extends Record<string, any>>({
               </tr>
             ) : (
               paginatedData.map((row, rowIndex) => (
-                <tr key={rowIndex} className={`hover:bg-muted/20 ${onRowClick ? 'cursor-pointer' : ''}`} onClick={() => onRowClick?.(row)}>
-                  {columns.map((column, colIndex) => {
+                <tr key={row.id ?? `row-${rowIndex}`} className={`hover:bg-muted/20 ${onRowClick ? 'cursor-pointer' : ''}`} onClick={() => onRowClick?.(row)}>
+                  {columns.map((column) => {
                     const getValue = () => {
                       if (typeof column.accessorKey === 'function') {
                         return column.accessorKey(row);
@@ -87,7 +87,7 @@ export const DataTable = <T extends Record<string, any>>({
                     };
 
                     return (
-                      <td key={colIndex} className='px-4 py-4 text-sm'>
+                      <td key={column.accessorKey?.toString?.() || column.header} className='px-4 py-4 text-sm'>
                         {column.cell
                           ? column.cell({ getValue, row: { original: row } })
                           : getValue()}

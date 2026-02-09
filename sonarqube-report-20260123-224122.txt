@@ -1,0 +1,123 @@
+==========================================
+📊 INFORME COMPLETO SONARQUBE
+   PROYECTO: monorepo-bca
+==========================================
+Fecha: 2026-01-23 22:41:22
+
+═══════════════════════════════════════
+📈 RESUMEN EJECUTIVO
+═══════════════════════════════════════
+
+Líneas de código: 33,225
+Bugs: 0 ✅
+Vulnerabilidades: 0 ✅
+Security Hotspots: 0 ✅
+Code Smells: 220
+Cobertura de tests: 17.3%
+Código duplicado: 1.5%
+
+Calificaciones:
+  - Fiabilidad: A (1.0)
+  - Seguridad: A (1.0)
+  - Mantenibilidad: A (1.0)
+
+Quality Gate: ⚠️ ERROR (cobertura < 80%)
+
+═══════════════════════════════════════
+🚨 ISSUES POR SEVERIDAD (220 total)
+═══════════════════════════════════════
+
+BLOCKER:  0
+CRITICAL: 33
+MAJOR:    27
+MINOR:    144
+INFO:     16
+
+═══════════════════════════════════════
+📂 TOP 10 ARCHIVOS CON MÁS ISSUES
+═══════════════════════════════════════
+
+  16 issues: apps/documentos/src/controllers/portal-cliente.controller.ts
+  13 issues: apps/backend/src/app.ts
+  13 issues: apps/documentos/src/controllers/documents.controller.ts
+  9 issues: apps/documentos/src/services/approval.service.ts
+  9 issues: apps/documentos/src/services/document.service.ts
+  8 issues: apps/documentos/src/services/websocket.service.ts
+  7 issues: apps/documentos/src/controllers/portal-transportista.controller.ts
+  7 issues: apps/documentos/src/services/performance.service.ts
+  6 issues: apps/backend/src/services/platformAuth.service.ts
+  6 issues: apps/documentos/src/services/permissions.service.ts
+
+═══════════════════════════════════════
+🔴 ISSUES CRÍTICOS (33)
+═══════════════════════════════════════
+
+[typescript:S3776] apps/documentos/src/prisma/seed.ts Lnull: Refactor this function to reduce its Cognitive Complexity from 16 to the 15 allowed.
+[typescript:S3776] apps/documentos/src/services/document-event-handlers.service.ts Lnull: Refactor this function to reduce its Cognitive Complexity from 16 to the 15 allowed.
+[typescript:S3776] apps/documentos/src/services/equipo-evaluation.service.ts Lnull: Refactor this function to reduce its Cognitive Complexity from 23 to the 15 allowed.
+[typescript:S3776] apps/documentos/src/services/requirement-notification.service.ts Lnull: Refactor this function to reduce its Cognitive Complexity from 18 to the 15 allowed.
+[typescript:S3776] apps/remitos/src/services/export.service.ts Lnull: Refactor this function to reduce its Cognitive Complexity from 42 to the 15 allowed.
+[typescript:S3776] apps/backend/src/app.ts Lnull: Refactor this function to reduce its Cognitive Complexity from 17 to the 15 allowed.
+[typescript:S3776] apps/backend/src/controllers/instance.controller.ts Lnull: Refactor this function to reduce its Cognitive Complexity from 18 to the 15 allowed.
+[typescript:S3776] apps/backend/src/controllers/user.controller.ts Lnull: Refactor this function to reduce its Cognitive Complexity from 21 to the 15 allowed.
+[typescript:S3776] apps/backend/src/services/database-initialization.service.ts Lnull: Refactor this function to reduce its Cognitive Complexity from 17 to the 15 allowed.
+[typescript:S3776] apps/documentos/src/controllers/approval.controller.ts Lnull: Refactor this function to reduce its Cognitive Complexity from 19 to the 15 allowed.
+[typescript:S3776] apps/documentos/src/controllers/approval.controller.ts Lnull: Refactor this function to reduce its Cognitive Complexity from 16 to the 15 allowed.
+[typescript:S3776] apps/documentos/src/controllers/documents.controller.ts Lnull: Refactor this function to reduce its Cognitive Complexity from 17 to the 15 allowed.
+[typescript:S3776] apps/documentos/src/controllers/evolution-config.controller.ts Lnull: Refactor this function to reduce its Cognitive Complexity from 21 to the 15 allowed.
+[typescript:S3776] apps/documentos/src/controllers/flowise-config.controller.ts Lnull: Refactor this function to reduce its Cognitive Complexity from 19 to the 15 allowed.
+[typescript:S3776] apps/documentos/src/controllers/portal-cliente.controller.ts Lnull: Refactor this function to reduce its Cognitive Complexity from 22 to the 15 allowed.
+[typescript:S3776] apps/documentos/src/controllers/portal-cliente.controller.ts Lnull: Refactor this function to reduce its Cognitive Complexity from 28 to the 15 allowed.
+[typescript:S3776] apps/documentos/src/controllers/portal-cliente.controller.ts Lnull: Refactor this function to reduce its Cognitive Complexity from 20 to the 15 allowed.
+[typescript:S3776] apps/documentos/src/controllers/portal-cliente.controller.ts Lnull: Refactor this function to reduce its Cognitive Complexity from 21 to the 15 allowed.
+[typescript:S3776] apps/documentos/src/controllers/portal-cliente.controller.ts Lnull: Refactor this function to reduce its Cognitive Complexity from 25 to the 15 allowed.
+[typescript:S3776] apps/documentos/src/controllers/portal-transportista.controller.ts Lnull: Refactor this function to reduce its Cognitive Complexity from 17 to the 15 allowed.
+[typescript:S3776] apps/documentos/src/middlewares/ownership.middleware.ts Lnull: Refactor this function to reduce its Cognitive Complexity from 17 to the 15 allowed.
+[typescript:S3776] apps/documentos/src/routes/batch.routes.ts Lnull: Refactor this function to reduce its Cognitive Complexity from 20 to the 15 allowed.
+[typescript:S3776] apps/documentos/src/routes/equipos.routes.ts Lnull: Refactor this function to reduce its Cognitive Complexity from 20 to the 15 allowed.
+[typescript:S3776] apps/documentos/src/routes/transportistas.routes.ts Lnull: Refactor this function to reduce its Cognitive Complexity from 16 to the 15 allowed.
+[typescript:S3776] apps/documentos/src/services/approval.service.ts Lnull: Refactor this function to reduce its Cognitive Complexity from 17 to the 15 allowed.
+[typescript:S3776] apps/documentos/src/services/clients.service.ts Lnull: Refactor this function to reduce its Cognitive Complexity from 21 to the 15 allowed.
+[typescript:S3776] apps/documentos/src/services/equipo.service.ts Lnull: Refactor this function to reduce its Cognitive Complexity from 17 to the 15 allowed.
+[typescript:S3776] apps/documentos/src/services/equipo.service.ts Lnull: Refactor this function to reduce its Cognitive Complexity from 32 to the 15 allowed.
+[typescript:S3776] apps/documentos/src/services/equipo.service.ts Lnull: Refactor this function to reduce its Cognitive Complexity from 17 to the 15 allowed.
+[typescript:S3776] apps/documentos/src/services/equipo.service.ts Lnull: Refactor this function to reduce its Cognitive Complexity from 17 to the 15 allowed.
+[typescript:S3776] apps/documentos/src/services/notification.service.ts Lnull: Refactor this function to reduce its Cognitive Complexity from 20 to the 15 allowed.
+[typescript:S3776] apps/documentos/src/services/permissions.service.ts Lnull: Refactor this function to reduce its Cognitive Complexity from 19 to the 15 allowed.
+[typescript:S3776] apps/remitos/src/services/flowise.service.ts Lnull: Refactor this function to reduce its Cognitive Complexity from 18 to the 15 allowed.
+
+═══════════════════════════════════════
+🟠 ISSUES MAJOR (27)
+═══════════════════════════════════════
+
+[typescript:S107] apps/documentos/src/prisma/seed.ts Lnull: Async function 'createDocumentIfNotExists' has too many parameters (8). Maximum allowed is 7.
+[typescript:S3358] apps/documentos/src/services/document-event-handlers.service.ts Lnull: Extract this nested ternary operation into an independent statement.
+[typescript:S4624] apps/backend/src/config/logger.ts Lnull: Refactor this code to not use nested template literals.
+[typescript:S1871] apps/backend/src/controllers/instance.controller.ts Lnull: This branch's code block is the same as the block for the branch on line 33.
+[typescript:S3358] apps/documentos/src/controllers/documents.controller.ts Lnull: Extract this nested ternary operation into an independent statement.
+[typescript:S3358] apps/documentos/src/controllers/documents.controller.ts Lnull: Extract this nested ternary operation into an independent statement.
+[typescript:S3358] apps/documentos/src/controllers/documents.controller.ts Lnull: Extract this nested ternary operation into an independent statement.
+[typescript:S5869] apps/documentos/src/controllers/portal-cliente.controller.ts Lnull: Remove duplicates in this character class.
+[typescript:S5869] apps/documentos/src/controllers/portal-cliente.controller.ts Lnull: Remove duplicates in this character class.
+[typescript:S4043] apps/documentos/src/controllers/portal-cliente.controller.ts Lnull: Move this array "sort" operation to a separate statement.
+[typescript:S5869] apps/documentos/src/controllers/portal-cliente.controller.ts Lnull: Remove duplicates in this character class.
+[typescript:S3358] apps/documentos/src/middlewares/autoFilterByDador.middleware.ts Lnull: Extract this nested ternary operation into an independent statement.
+[typescript:S4624] apps/documentos/src/services/approval.service.ts Lnull: Refactor this code to not use nested template literals.
+[typescript:S5843] apps/documentos/src/services/flowise.service.ts Lnull: Simplify this regular expression to reduce its complexity from 33 to the 20 allowed.
+[typescript:S3358] apps/documentos/src/services/flowise.service.ts Lnull: Extract this nested ternary operation into an independent statement.
+[typescript:S3358] apps/documentos/src/services/flowise.service.ts Lnull: Extract this nested ternary operation into an independent statement.
+[typescript:S3358] apps/documentos/src/services/flowise.service.ts Lnull: Extract this nested ternary operation into an independent statement.
+[typescript:S3358] apps/documentos/src/services/minio.service.ts Lnull: Extract this nested ternary operation into an independent statement.
+[typescript:S1854] apps/documentos/src/services/pdf-rasterize.service.ts Lnull: Remove this useless assignment to variable "files".
+[typescript:S1854] apps/documentos/src/services/pdf-rasterize.service.ts Lnull: Remove this useless assignment to variable "file".
+[typescript:S3358] apps/remitos/src/controllers/remitos.controller.ts Lnull: Extract this nested ternary operation into an independent statement.
+[typescript:S3358] apps/remitos/src/controllers/remitos.controller.ts Lnull: Extract this nested ternary operation into an independent statement.
+[typescript:S3358] apps/remitos/src/controllers/remitos.controller.ts Lnull: Extract this nested ternary operation into an independent statement.
+[typescript:S1854] apps/remitos/src/services/pdf.service.ts Lnull: Remove this useless assignment to variable "files".
+[typescript:S1854] apps/remitos/src/services/pdf.service.ts Lnull: Remove this useless assignment to variable "file".
+[typescript:S3358] apps/remitos/src/services/remito.service.ts Lnull: Extract this nested ternary operation into an independent statement.
+[typescript:S3696] packages/utils/src/index.ts Lnull: Expected an error object to be thrown.
+
+═══════════════════════════════════════
+📊 FIN DEL INFORME
+═══════════════════════════════════════

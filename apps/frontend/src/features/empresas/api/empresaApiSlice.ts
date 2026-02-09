@@ -6,7 +6,7 @@ export const empresaApiSlice = apiSlice.injectEndpoints({
     getEmpresas: builder.query<Empresa[], void>({
       query: () => '/empresas',
       transformResponse: (response: { success: boolean; data: Empresa[] }) => {
-        return response.data || [];
+        return response.data ?? [];
       },
       providesTags: (result) => {
         if (!Array.isArray(result)) {
@@ -21,7 +21,7 @@ export const empresaApiSlice = apiSlice.injectEndpoints({
     getEmpresasSimple: builder.query<{ id: number; nombre: string }[], void>({
       query: () => '/empresas/simple',
       transformResponse: (response: { success: boolean; data: { id: number; nombre: string }[] }) => {
-        return response.data || [];
+        return response.data ?? [];
       },
       providesTags: (result) => {
         if (!Array.isArray(result)) {

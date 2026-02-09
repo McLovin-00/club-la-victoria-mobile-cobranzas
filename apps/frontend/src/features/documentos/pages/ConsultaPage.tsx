@@ -16,10 +16,101 @@ import { ArrowLeftIcon, ChevronLeftIcon, ChevronRightIcon, ExclamationTriangleIc
 type FilterType = 'todos' | 'dador' | 'cliente' | 'empresa';
 type ComplianceFilter = 'all' | 'faltantes' | 'vencidos' | 'por_vencer';
 
+const SEVERIDAD_CLASSES: Record<string, string> = {
+  critica: 'bg-red-50 text-red-700',
+  advertencia: 'bg-yellow-50 text-yellow-700',
+  default: 'bg-blue-50 text-blue-700',
+};
+
+function getSeveridadClass(severidad: string | undefined): string {
+  return SEVERIDAD_CLASSES[severidad || 'default'] || SEVERIDAD_CLASSES.default;
+}
+
+// Helper para construir query params de búsqueda de equipos
+function buildEquipoSearchParams(
+  params: { empresaId?: number; clienteId?: number; empresaTransportistaId?: number; search?: string; dni?: string; truckPlate?: string; trailerPlate?: string },
+  page: number,
+  take: number
+): URLSearchParams {
+  const sp = new URLSearchParams();
+  sp.set('page', String(page));
+  sp.set('limit', String(take));
+  
+  const mappings: Array<[keyof typeof params, string]> = [
+    ['empresaId', 'dadorCargaId'],
+    ['clienteId', 'clienteId'],
+    ['empresaTransportistaId', 'empresaTransportistaId'],
+    ['search', 'search'],
+    ['dni', 'dni'],
+    ['truckPlate', 'truckPlate'],
+    ['trailerPlate', 'trailerPlate'],
+  ];
+  
+  for (const [key, paramName] of mappings) {
+    const val = params[key];
+    if (val !== undefined && val !== null) sp.set(paramName, String(val));
+  }
+  
+  return sp;
+}
+
+// Helper para obtener IDs de equipos paginados desde el servidor
+async function fetchAllEquipoIds(
+  params: { empresaId?: number; clienteId?: number; empresaTransportistaId?: number; search?: string; dni?: string; truckPlate?: string; trailerPlate?: string },
+  authToken: string
+): Promise<number[]> {
+  const baseUrl = import.meta.env.VITE_DOCUMENTOS_API_URL ?? '';
+  const take = 100;
+  const maxPages = 200;
+  const allIds: number[] = [];
+
+  for (let currentPage = 1; currentPage <= maxPages; currentPage++) {
+    const sp = buildEquipoSearchParams(params, currentPage, take);
+    const resp = await fetch(`${baseUrl}/api/docs/equipos/search-paged?${sp.toString()}`, {
+      headers: { Authorization: `Bearer ${authToken}` },
+    });
+    if (!resp.ok) throw new Error(`search-paged failed (${resp.status})`);
+    
+    const json = await resp.json();
+    const pageIds = (json?.data ?? []).map((e: any) => e?.id).filter((v: any) => typeof v === 'number');
+    allIds.push(...pageIds);
+
+    if (!json?.pagination?.hasNext) break;
+  }
+
+  return Array.from(new Set(allIds));
+}
+
+// Helper para descargar via formulario POST
+function downloadViaForm(action: string, authToken: string, equipoIds: number[]): void {
+  const form = document.createElement('form');
+  form.method = 'POST';
+  form.action = action;
+  form.style.display = 'none';
+
+  const tokenInput = document.createElement('input');
+  tokenInput.type = 'hidden';
+  tokenInput.name = 'token';
+  tokenInput.value = authToken;
+  form.appendChild(tokenInput);
+
+  const idsInput = document.createElement('input');
+  idsInput.type = 'hidden';
+  idsInput.name = 'equipoIds';
+  idsInput.value = equipoIds.join(',');
+  form.appendChild(idsInput);
+
+  document.body.appendChild(form);
+  form.submit();
+  document.body.removeChild(form);
+}
+
 export const ConsultaPage: React.FC = () => {
   const navigate = useNavigate();
   const userRole = useAppSelector((s) => (s as any).auth?.user?.role) as string | undefined;
+  const userDadorCargaId = useAppSelector((s) => (s as any).auth?.user?.dadorCargaId) as number | undefined;
   const isChofer = userRole === 'CHOFER';
+  const isDadorDeCarga = userRole === 'DADOR_DE_CARGA';
   
   // Determinar ruta de volver según el rol
   const getBackRoute = () => {
@@ -39,15 +130,21 @@ export const ConsultaPage: React.FC = () => {
   const show = (msg: string) => { try { alert(msg); } catch { console.log(msg); } };
   const { confirm } = useContext(ConfirmContext);
   const { data: dadoresResp } = useGetDadoresQuery({}, { skip: isChofer } as any);
-  const dadores = dadoresResp?.list ?? (Array.isArray(dadoresResp) ? dadoresResp : []);
+  const dadoresRaw = dadoresResp?.list ?? (Array.isArray(dadoresResp) ? dadoresResp : []);
+  // Para DADOR_DE_CARGA, filtrar para que solo vea su propio dador
+  const dadores = isDadorDeCarga && userDadorCargaId
+    ? dadoresRaw.filter((d: any) => d.id === userDadorCargaId)
+    : dadoresRaw;
   const { data: templates = [] } = useGetTemplatesQuery(undefined as any, { skip: isChofer } as any);
   const { data: clientsResp } = useGetClientsQuery({}, { skip: isChofer } as any);
   const clients = clientsResp?.list ?? (Array.isArray(clientsResp) ? clientsResp : []);
   const empresaIdFromAuth = useSelector((s: RootState) => s.auth?.user?.empresaId) as number | undefined;
   const { data: defaults } = useGetDefaultsQuery();
-  // Para búsqueda, usar default del dador si existe; si no, caer al empresaId del usuario
-  const dadorIdForSearch = (defaults?.defaultDadorId ?? empresaIdFromAuth ?? undefined);
-  const authToken = useSelector((s: RootState) => s.auth?.token) || (typeof localStorage !== 'undefined' ? (localStorage.getItem('token') || '') : '');
+  // Para DADOR_DE_CARGA, usar su dadorCargaId; para otros, usar default o empresaId
+  const dadorIdForSearch = isDadorDeCarga && userDadorCargaId
+    ? userDadorCargaId
+    : (defaults?.defaultDadorId ?? empresaIdFromAuth ?? undefined);
+  const authToken = useSelector((s: RootState) => s.auth?.token) || (typeof localStorage !== 'undefined' ? (localStorage.getItem('token') ?? '') : '');
   
   // Estados de filtros
   const [filterType, setFilterType] = useState<FilterType>('dador');
@@ -59,8 +156,8 @@ export const ConsultaPage: React.FC = () => {
   // Obtener empresas transportistas - para admins sin filtro, para dadores con su ID
   const { data: empresasTransp = [] } = useGetEmpresasTransportistasQuery(
     { 
-      dadorCargaId: selectedDadorId || dadorIdForSearch || undefined,
-      q: empresaSearchText || undefined,
+      dadorCargaId: (selectedDadorId || dadorIdForSearch) ?? undefined,
+      q: empresaSearchText ?? undefined,
       limit: 100 // Traer hasta 100 empresas que coincidan
     },
     { skip: isChofer }
@@ -119,17 +216,22 @@ export const ConsultaPage: React.FC = () => {
   const serverStats = pagedData?.stats;
   
   // Para compatibilidad con código existente
-  const [trigger] = useLazySearchEquiposQuery();
-  const [getCompliance] = useLazyGetEquipoComplianceQuery();
+  const [_trigger] = useLazySearchEquiposQuery();
+  const [_getCompliance] = useLazyGetEquipoComplianceQuery();
   const [deleteEquipo] = useDeleteEquipoMutation();
-  const [toggleActivo, { isLoading: isTogglingActivo }] = useToggleEquipoActivoMutation();
+  const [toggleActivo, { isLoading: _isTogglingActivo }] = useToggleEquipoActivoMutation();
   const [togglingEquipoId, setTogglingEquipoId] = useState<number | null>(null);
   // CSV DNIs search
-  const [searchByDnis, { isLoading: loadingCsvSearch }] = useSearchEquiposByDnisMutation();
+  const [_searchByDnis, { isLoading: loadingCsvSearch }] = useSearchEquiposByDnisMutation();
   const [csvResults, setCsvResults] = useState<Array<any>>([]);
   const [csvInfo, setCsvInfo] = useState<{ name?: string; count?: number }>({});
   
-  
+  // Para DADOR_DE_CARGA, forzar su dadorCargaId como único seleccionable
+  useEffect(() => {
+    if (isDadorDeCarga && userDadorCargaId && selectedDadorId !== userDadorCargaId) {
+      setSelectedDadorId(userDadorCargaId);
+    }
+  }, [isDadorDeCarga, userDadorCargaId, selectedDadorId]);
 
   // Persistir búsqueda en URL cuando cambian los parámetros
   useEffect(() => {
@@ -152,9 +254,9 @@ export const ConsultaPage: React.FC = () => {
     const empresaIdQ = searchParams.get('empresaId') ? Number(searchParams.get('empresaId')) : undefined;
     const clienteIdQ = searchParams.get('clienteId') ? Number(searchParams.get('clienteId')) : undefined;
     const empresaTranspIdQ = searchParams.get('empresaTranspId') ? Number(searchParams.get('empresaTranspId')) : undefined;
-    const dniQ = searchParams.get('dni') || undefined;
-    const truckQ = searchParams.get('truckPlate') || undefined;
-    const trailerQ = searchParams.get('trailerPlate') || undefined;
+    const dniQ = searchParams.get('dni') ?? undefined;
+    const truckQ = searchParams.get('truckPlate') ?? undefined;
+    const trailerQ = searchParams.get('trailerPlate') ?? undefined;
     
     if (empresaIdQ || clienteIdQ || empresaTranspIdQ || dniQ || truckQ || trailerQ) {
       // Restaurar valores en los selectores y campos
@@ -170,9 +272,9 @@ export const ConsultaPage: React.FC = () => {
         setSelectedEmpresaTranspId(empresaTranspIdQ);
         setFilterType('empresa');
       }
-      setDni(dniQ || '');
-      setTruckPlate(truckQ || '');
-      setTrailerPlate(trailerQ || '');
+      setDni(dniQ ?? '');
+      setTruckPlate(truckQ ?? '');
+      setTrailerPlate(trailerQ ?? '');
       
       // Solo ejecutar búsqueda si viene con flag explícito
       if (autoSearch) {
@@ -212,7 +314,7 @@ export const ConsultaPage: React.FC = () => {
   const [editFormData, setEditFormData] = useState<Record<string, string>>({});
   
   // Verificar si el usuario puede ver datos IA
-  const canViewIAData = ['SUPERADMIN', 'ADMIN_INTERNO'].includes(userRole || '');
+  const canViewIAData = ['SUPERADMIN', 'ADMIN_INTERNO'].includes(userRole ?? '');
   
   const fetchIAData = async (equipo: any) => {
     setIaDataEquipo(equipo);
@@ -381,8 +483,8 @@ export const ConsultaPage: React.FC = () => {
             {/* Datos extraídos agrupados por documento */}
             {data.extractedDataByDocument && data.extractedDataByDocument.length > 0 ? (
               <div className='space-y-3'>
-                {data.extractedDataByDocument.map((docData: any, idx: number) => (
-                  <div key={idx} className='bg-gray-50 rounded p-2'>
+                {data.extractedDataByDocument.map((docData: any) => (
+                  <div key={`${docData.templateName || 'doc'}-${docData.uploadedAt || docData.id || ''}`} className='bg-gray-50 rounded p-2'>
                     <p className='text-xs font-semibold text-blue-700 mb-1 border-b border-blue-200 pb-1'>
                       📄 {docData.templateName || 'Documento sin plantilla'}
                       {docData.uploadedAt && (
@@ -418,12 +520,8 @@ export const ConsultaPage: React.FC = () => {
               <div className='mt-2 pt-2 border-t'>
                 <p className='text-xs font-medium text-orange-600 mb-1'>⚠️ Disparidades detectadas:</p>
                 <div className='space-y-1'>
-                  {data.disparidades.map((d: any, i: number) => (
-                    <div key={i} className={`text-xs p-2 rounded ${
-                      d.severidad === 'critica' ? 'bg-red-50 text-red-700' :
-                      d.severidad === 'advertencia' ? 'bg-yellow-50 text-yellow-700' :
-                      'bg-blue-50 text-blue-700'
-                    }`}>
+                  {data.disparidades.map((d: any) => (
+                    <div key={`${d.campo}-${d.templateName || ''}-${d.mensaje?.slice(0, 15) || ''}`} className={`text-xs p-2 rounded ${getSeveridadClass(d.severidad)}`}>
                       <strong>{d.campo}:</strong> {d.mensaje}
                       {d.templateName && (
                         <span className='block text-xs opacity-70 italic'>
@@ -501,14 +599,32 @@ export const ConsultaPage: React.FC = () => {
     return { total: pagination.total, conFaltantes: 0, conVencidos: 0, conPorVencer: 0 };
   }, [serverStats, pagination.total]);
 
+  // Helper interno para obtener IDs de equipos para descarga
+  const getEquipoIdsForDownload = async (): Promise<number[]> => {
+    if (csvResults.length > 0) {
+      return csvResults.map((it: any) => (it?.equipo?.id ?? it?.id)).filter((v: any) => typeof v === 'number');
+    }
+    if (!hasSearched) {
+      throw new Error('NO_SEARCH');
+    }
+    return fetchAllEquipoIds(params, authToken);
+  };
+
   const downloadAllVigentes = async () => {
     try {
       setIsDownloading(true);
+      const ids = await getEquipoIdsForDownload();
+      
+      if (!ids.length) {
+        show('No hay equipos para descargar');
+        return;
+      }
 
-      // Si viene de búsqueda masiva (csvResults), ya tenemos el listado completo
-      let ids: number[] = [];
-      if (csvResults.length > 0) {
-        ids = csvResults.map((it: any) => (it?.equipo?.id ?? it?.id)).filter((v: any) => typeof v === 'number');
+      const baseUrl = import.meta.env.VITE_DOCUMENTOS_API_URL ?? '';
+      downloadViaForm(`${baseUrl}/api/docs/equipos/download/vigentes-form`, authToken, ids);
+    } catch (err: any) {
+      if (err?.message === 'NO_SEARCH') {
+        show('Debe realizar una búsqueda antes de descargar');
       } else {
         if (!hasSearched) {
           show('Debe realizar una búsqueda antes de descargar');
@@ -553,7 +669,16 @@ export const ConsultaPage: React.FC = () => {
 
         ids = Array.from(new Set(allIds));
       }
+    } finally {
+      setIsDownloading(false);
+    }
+  };
 
+  const downloadExcelOnly = async () => {
+    try {
+      setIsDownloading(true);
+      const ids = await getEquipoIdsForDownload();
+      
       if (!ids.length) {
         show('No hay equipos para descargar');
         return;
@@ -685,16 +810,20 @@ export const ConsultaPage: React.FC = () => {
                 <Label className='text-sm mb-1 block'>Dador de Carga</Label>
                 <select
                   className='w-full border rounded px-3 py-2 text-sm'
-                  value={selectedDadorId || ''}
+                  value={selectedDadorId ?? ''}
                   onChange={(e) => setSelectedDadorId(e.target.value ? Number(e.target.value) : undefined)}
+                  disabled={isDadorDeCarga}
                 >
-                  <option value=''>Seleccione un dador</option>
+                  {isDadorDeCarga ? null : <option value=''>Seleccione un dador</option>}
                   {dadores.map((d: any) => (
                     <option key={d.id} value={d.id}>
                       {d.razonSocial || d.nombre || `Dador #${d.id}`}
                     </option>
                   ))}
                 </select>
+                {isDadorDeCarga && (
+                  <p className='text-xs text-muted-foreground mt-1'>Solo puede consultar equipos de su dador asignado</p>
+                )}
               </div>
             )}
             {filterType === 'cliente' && (
@@ -702,7 +831,7 @@ export const ConsultaPage: React.FC = () => {
                 <Label className='text-sm mb-1 block'>Cliente</Label>
                 <select
                   className='w-full border rounded px-3 py-2 text-sm'
-                  value={selectedClienteId || ''}
+                  value={selectedClienteId ?? ''}
                   onChange={(e) => setSelectedClienteId(e.target.value ? Number(e.target.value) : undefined)}
                 >
                   <option value=''>Seleccione un cliente</option>
@@ -725,7 +854,7 @@ export const ConsultaPage: React.FC = () => {
                 />
                 <select
                   className='w-full border rounded px-3 py-2 text-sm'
-                  value={selectedEmpresaTranspId || ''}
+                  value={selectedEmpresaTranspId ?? ''}
                   onChange={(e) => setSelectedEmpresaTranspId(e.target.value ? Number(e.target.value) : undefined)}
                 >
                   <option value=''>Seleccione una empresa transportista ({(empresasTransp as any[]).length} encontradas)</option>
@@ -757,9 +886,9 @@ export const ConsultaPage: React.FC = () => {
               type='button' 
               onClick={() => {
                 const p: any = {
-                  dni: dni || undefined,
-                  truckPlate: truckPlate || undefined,
-                  trailerPlate: trailerPlate || undefined
+                  dni: dni ?? undefined,
+                  truckPlate: truckPlate ?? undefined,
+                  trailerPlate: trailerPlate ?? undefined
                 };
                 if (isChofer) {
                   // Para CHOFER el backend filtra automáticamente por choferId
@@ -821,17 +950,26 @@ export const ConsultaPage: React.FC = () => {
               type='button' 
               variant='outline' 
               onClick={downloadAllVigentes} 
-              disabled={(displayResults || []).length === 0 || isDownloading} 
+              disabled={(displayResults ?? []).length === 0 || isDownloading} 
               size='sm'
             >
-              {isDownloading ? '⏳ Preparando archivos...' : 'Bajar documentación vigente (ZIP)'}
+              {isDownloading ? '⏳ Preparando...' : '📦 Documentación (ZIP)'}
+            </Button>
+            <Button 
+              type='button' 
+              variant='outline' 
+              onClick={downloadExcelOnly} 
+              disabled={(displayResults ?? []).length === 0 || isDownloading} 
+              size='sm'
+            >
+              {isDownloading ? '⏳ Preparando...' : '📊 Solo Excel'}
             </Button>
           </div>
           
           {/* Modal de búsqueda por texto */}
           {showSearchModal && (
-            <div className='fixed inset-0 bg-black/50 flex items-center justify-center z-50' onClick={() => setShowSearchModal(false)}>
-              <div className='bg-white dark:bg-slate-900 rounded-lg p-6 w-full max-w-md shadow-xl' onClick={(e) => e.stopPropagation()}>
+            <div className='fixed inset-0 bg-black/50 flex items-center justify-center z-50' onClick={() => setShowSearchModal(false)} onKeyDown={(e) => e.key === 'Escape' && setShowSearchModal(false)} role='button' tabIndex={0}>
+              <div className='bg-white dark:bg-slate-900 rounded-lg p-6 w-full max-w-md shadow-xl' onClick={(e) => e.stopPropagation()} onKeyDown={(e) => e.stopPropagation()} role='dialog'>
                 <h3 className='text-lg font-semibold mb-4'>Buscar Equipos por DNIs o Patentes</h3>
                 <p className='text-sm text-muted-foreground mb-3'>
                   Ingrese uno o más DNIs de choferes o patentes de camiones, separados por coma, espacio o salto de línea.
@@ -977,8 +1115,8 @@ export const ConsultaPage: React.FC = () => {
       
       {/* Modal de Datos Extraídos por IA */}
       {showIADataModal && (
-        <div className='fixed inset-0 bg-black/50 flex items-center justify-center z-50' onClick={() => setShowIADataModal(false)}>
-          <div className='bg-white dark:bg-slate-900 rounded-lg p-6 w-full max-w-2xl shadow-xl max-h-[80vh] overflow-y-auto' onClick={(e) => e.stopPropagation()}>
+        <div className='fixed inset-0 bg-black/50 flex items-center justify-center z-50' onClick={() => setShowIADataModal(false)} onKeyDown={(e) => e.key === 'Escape' && setShowIADataModal(false)} role='button' tabIndex={0}>
+          <div className='bg-white dark:bg-slate-900 rounded-lg p-6 w-full max-w-2xl shadow-xl max-h-[80vh] overflow-y-auto' onClick={(e) => e.stopPropagation()} onKeyDown={(e) => e.stopPropagation()} role='dialog'>
             <div className='flex items-center justify-between mb-4'>
               <h3 className='text-lg font-semibold flex items-center gap-2'>
                 <SparklesIcon className='h-5 w-5 text-purple-600' />
@@ -1059,8 +1197,8 @@ export const ConsultaPage: React.FC = () => {
       
       {/* Modal de confirmación de borrado */}
       {confirmDelete && (
-        <div className='fixed inset-0 bg-black/60 flex items-center justify-center z-[60]' onClick={() => setConfirmDelete(null)}>
-          <div className='bg-white dark:bg-slate-900 rounded-lg p-6 w-full max-w-md shadow-xl' onClick={(e) => e.stopPropagation()}>
+        <div className='fixed inset-0 bg-black/60 flex items-center justify-center z-[60]' onClick={() => setConfirmDelete(null)} onKeyDown={(e) => e.key === 'Escape' && setConfirmDelete(null)} role='button' tabIndex={0}>
+          <div className='bg-white dark:bg-slate-900 rounded-lg p-6 w-full max-w-md shadow-xl' onClick={(e) => e.stopPropagation()} onKeyDown={(e) => e.stopPropagation()} role='dialog'>
             <h4 className='text-lg font-semibold mb-4 text-red-600'>⚠️ Confirmar eliminación</h4>
             <p className='text-sm text-gray-600 mb-4'>
               ¿Estás seguro de que deseas eliminar todos los datos extraídos por IA de esta entidad?
@@ -1083,8 +1221,8 @@ export const ConsultaPage: React.FC = () => {
       
       {/* Modal de edición */}
       {editingEntity && (
-        <div className='fixed inset-0 bg-black/60 flex items-center justify-center z-[60]' onClick={() => setEditingEntity(null)}>
-          <div className='bg-white dark:bg-slate-900 rounded-lg p-6 w-full max-w-lg shadow-xl max-h-[80vh] overflow-y-auto' onClick={(e) => e.stopPropagation()}>
+        <div className='fixed inset-0 bg-black/60 flex items-center justify-center z-[60]' onClick={() => setEditingEntity(null)} onKeyDown={(e) => e.key === 'Escape' && setEditingEntity(null)} role='button' tabIndex={0}>
+          <div className='bg-white dark:bg-slate-900 rounded-lg p-6 w-full max-w-lg shadow-xl max-h-[80vh] overflow-y-auto' onClick={(e) => e.stopPropagation()} onKeyDown={(e) => e.stopPropagation()} role='dialog'>
             <h4 className='text-lg font-semibold mb-4'>✏️ Editar datos extraídos</h4>
             <p className='text-xs text-gray-500 mb-4'>
               {editingEntity.entityType} #{editingEntity.entityId}
@@ -1097,7 +1235,7 @@ export const ConsultaPage: React.FC = () => {
                   </label>
                   <input
                     type='text'
-                    value={value || ''}
+                    value={value ?? ''}
                     onChange={(e) => setEditFormData(prev => ({ ...prev, [key]: e.target.value }))}
                     className='w-full px-3 py-2 border rounded-md text-sm focus:ring-2 focus:ring-blue-500'
                   />
@@ -1276,13 +1414,13 @@ const EquipoSemaforo: React.FC<{ equipoId: number }> = ({ equipoId }) => {
   const processedTemplates = new Set<string>();
 
   try {
-    for (const c of (data?.clientes || [])) {
-      for (const r of (c?.compliance || [])) {
+    for (const c of (data?.clientes ?? [])) {
+      for (const r of (c?.compliance ?? [])) {
         const key = `${r.entityType}-${r.templateId}`;
         if (processedTemplates.has(key)) continue;
         processedTemplates.add(key);
         
-        const state = String(r.state || '').toUpperCase();
+        const state = String(r.state ?? '').toUpperCase();
         if (state === 'OK' || state === 'VIGENTE') { vigentes++; }
         else if (state === 'PROXIMO') { porVencer++; }
         else if (state === 'VENCIDO') { vencidos++; }

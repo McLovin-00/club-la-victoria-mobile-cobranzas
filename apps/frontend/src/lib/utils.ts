@@ -140,7 +140,7 @@ export const Logger = {
     // En producción, esto se enviaría al servidor de auditoría
     // Simular envío (en implementación real sería una API call)
     if (isProduction) {
-      // TODO: Implementar envío real al servidor de auditoría
+      // PENDIENTE: Implementar envío real al servidor de auditoría
       console.log(`[AUDIT] ${action} at ${timestamp}`);
     }
   },

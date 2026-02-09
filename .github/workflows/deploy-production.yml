@@ -1,0 +1,333 @@
+# ============================================================================
+# DEPLOY PRODUCTION WORKFLOW
+# ============================================================================
+# Propósito: Deploy controlado al ambiente de Producción
+# Trigger: Push de tag v* (ej: v1.5.0)
+# Target: 10.8.10.20
+# Requiere: Aprobación manual
+# ============================================================================
+
+name: Deploy Production
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+  # Permitir ejecución manual con versión específica
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Tag de versión (ej: v1.5.0)'
+        required: true
+        type: string
+
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
+env:
+  ENVIRONMENT: production
+  SERVER_IP: 10.8.10.20
+  PROJECT_PATH: /home/administrador/monorepo
+
+jobs:
+  # -------------------------------------------------------------------------
+  # JOB: Validate
+  # -------------------------------------------------------------------------
+  validate:
+    name: 🔍 Validate Release
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.version.outputs.tag }}
+    steps:
+      - name: Determine version
+        id: version
+        run: |
+          if [ -n "${{ github.event.inputs.version }}" ]; then
+            TAG="${{ github.event.inputs.version }}"
+          else
+            TAG="${{ github.ref_name }}"
+          fi
+          echo "tag=$TAG" >> $GITHUB_OUTPUT
+          echo "📦 Version: $TAG"
+
+      - name: Validate version format
+        run: |
+          TAG="${{ steps.version.outputs.tag }}"
+          if [[ ! "$TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-[a-zA-Z0-9.]+)?$ ]]; then
+            echo "❌ Invalid version format: $TAG"
+            echo "Expected format: vX.Y.Z or vX.Y.Z-suffix"
+            exit 1
+          fi
+          echo "✅ Valid version format: $TAG"
+
+  # -------------------------------------------------------------------------
+  # JOB: Deploy
+  # -------------------------------------------------------------------------
+  deploy:
+    name: 🚀 Deploy to Production
+    runs-on: ubuntu-latest
+    needs: validate
+    environment:
+      name: production
+      url: https://bca-group.microsyst.com.ar
+
+    steps:
+      # ---------------------------------------------------------------------
+      # Checkout
+      # ---------------------------------------------------------------------
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.validate.outputs.version }}
+
+      # ---------------------------------------------------------------------
+      # Notificar inicio
+      # ---------------------------------------------------------------------
+      - name: Notify start
+        run: |
+          echo "🚀 =========================================="
+          echo "🚀 DEPLOY A PRODUCCIÓN"
+          echo "🚀 =========================================="
+          echo "📦 Version: ${{ needs.validate.outputs.version }}"
+          echo "👤 Deployed by: ${{ github.actor }}"
+          echo "🕐 Time: $(date +'%Y-%m-%d %H:%M:%S')"
+
+      # ---------------------------------------------------------------------
+      # Backup de base de datos
+      # ---------------------------------------------------------------------
+      - name: Backup database
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.PROD_SSH_HOST }}
+          username: ${{ secrets.PROD_SSH_USER }}
+          key: ${{ secrets.PROD_SSH_KEY }}
+          port: 22
+          script: |
+            echo "💾 Creando backup de base de datos..."
+            
+            BACKUP_FILE="/home/administrador/backups/backup_pre_${{ needs.validate.outputs.version }}_$(date +%Y%m%d_%H%M%S).sql"
+            
+            docker exec bca_postgres pg_dump -U evo -d monorepo-bca > "$BACKUP_FILE"
+            
+            # Comprimir
+            gzip "$BACKUP_FILE"
+            
+            echo "✅ Backup creado: ${BACKUP_FILE}.gz"
+            
+            # Limpiar backups antiguos (mantener últimos 10)
+            ls -t /home/administrador/backups/*.gz | tail -n +11 | xargs -r rm
+            
+            echo "📁 Backups disponibles:"
+            ls -la /home/administrador/backups/*.gz | tail -5
+
+      # ---------------------------------------------------------------------
+      # Deploy via SSH
+      # ---------------------------------------------------------------------
+      - name: Deploy via SSH
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.PROD_SSH_HOST }}
+          username: ${{ secrets.PROD_SSH_USER }}
+          key: ${{ secrets.PROD_SSH_KEY }}
+          port: 22
+          command_timeout: 20m
+          script_stop: true
+          script: |
+            set -e
+            
+            echo "=============================================="
+            echo "DEPLOY A PRODUCCIÓN - $(date +'%Y-%m-%d %H:%M:%S')"
+            echo "VERSION: ${{ needs.validate.outputs.version }}"
+            echo "=============================================="
+            
+            cd ${{ env.PROJECT_PATH }}
+            
+            # Backup de imágenes Docker actuales
+            echo "🐳 Backing up Docker images..."
+            docker tag bca/frontend:latest bca/frontend:backup-$(date +%Y%m%d-%H%M%S) || true
+            docker tag bca/backend:latest bca/backend:backup-$(date +%Y%m%d-%H%M%S) || true
+            docker tag bca/documentos:latest bca/documentos:backup-$(date +%Y%m%d-%H%M%S) || true
+            
+            # Pull version específica
+            echo "📥 Checking out ${{ needs.validate.outputs.version }}..."
+            git fetch origin --tags
+            git checkout ${{ needs.validate.outputs.version }}
+            
+            # Install dependencies
+            echo "📦 Installing dependencies..."
+            npm ci
+            
+            # Run migrations
+            echo "🔄 Running Prisma migrations..."
+            npx prisma migrate deploy --schema=apps/backend/prisma/schema.prisma
+            npx prisma migrate deploy --schema=apps/documentos/src/prisma/schema.prisma
+            
+            # Generate Prisma clients
+            echo "🔄 Generating Prisma clients..."
+            npx prisma generate --schema=apps/backend/prisma/schema.prisma
+            npx prisma generate --schema=apps/documentos/src/prisma/schema.prisma
+            
+            # Build and deploy
+            echo "🏗️ Building and deploying..."
+            
+            # Usar el script de deploy específico o docker compose
+            if [ -f "scripts/deploy-prod.sh" ]; then
+              bash scripts/deploy-prod.sh
+            else
+              # Deploy manual con docker compose
+              cd /home/administrador/stack-ip-192.168.15.136
+              docker compose down || true
+              docker compose up -d --build
+            fi
+            
+            # Wait for services
+            echo "⏳ Waiting for services to be healthy..."
+            sleep 30
+            
+            echo "=============================================="
+            echo "✅ DEPLOY COMPLETADO"
+            echo "=============================================="
+
+      # ---------------------------------------------------------------------
+      # Health Check
+      # ---------------------------------------------------------------------
+      - name: Health Check
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.PROD_SSH_HOST }}
+          username: ${{ secrets.PROD_SSH_USER }}
+          key: ${{ secrets.PROD_SSH_KEY }}
+          port: 22
+          script: |
+            echo "🔍 Verificando servicios de producción..."
+            
+            FAILED=0
+            
+            # Backend
+            if curl -sf http://localhost:4800/health > /dev/null 2>&1; then
+              echo "✅ Backend: OK"
+            else
+              echo "❌ Backend: FAILED"
+              FAILED=1
+            fi
+            
+            # Documentos
+            if curl -sf http://localhost:4802/health > /dev/null 2>&1; then
+              echo "✅ Documentos: OK"
+            else
+              echo "❌ Documentos: FAILED"
+              FAILED=1
+            fi
+            
+            # Frontend
+            if curl -sf http://localhost:8550 > /dev/null 2>&1; then
+              echo "✅ Frontend: OK"
+            else
+              echo "❌ Frontend: FAILED"
+              FAILED=1
+            fi
+            
+            # HTTPS check (via Nginx Proxy Manager)
+            if curl -sf https://bca-group.microsyst.com.ar > /dev/null 2>&1; then
+              echo "✅ HTTPS: OK"
+            else
+              echo "⚠️ HTTPS: No verificable desde el servidor"
+            fi
+            
+            # Container status
+            echo ""
+            echo "📊 Estado de contenedores:"
+            docker ps --filter name=bca --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}"
+            
+            if [ $FAILED -eq 1 ]; then
+              echo ""
+              echo "❌ Algunos servicios no están healthy"
+              echo "🔄 Considera ejecutar rollback si el problema persiste"
+              exit 1
+            fi
+
+      # ---------------------------------------------------------------------
+      # Notificar resultado
+      # ---------------------------------------------------------------------
+      - name: Notify success
+        if: success()
+        run: |
+          echo ""
+          echo "🎉 =========================================="
+          echo "🎉 DEPLOY A PRODUCCIÓN EXITOSO"
+          echo "🎉 =========================================="
+          echo "📦 Version: ${{ needs.validate.outputs.version }}"
+          echo "🌐 URL: https://bca-group.microsyst.com.ar"
+          echo "👤 Deployed by: ${{ github.actor }}"
+          echo "🕐 Time: $(date +'%Y-%m-%d %H:%M:%S')"
+          echo ""
+          echo "📝 Próximos pasos:"
+          echo "   1. Verificar funcionalidades críticas"
+          echo "   2. Monitorear logs por errores"
+          echo "   3. Crear GitHub Release con notas"
+
+      - name: Notify failure
+        if: failure()
+        run: |
+          echo ""
+          echo "❌ =========================================="
+          echo "❌ DEPLOY A PRODUCCIÓN FALLÓ"
+          echo "❌ =========================================="
+          echo "📦 Version: ${{ needs.validate.outputs.version }}"
+          echo "👤 Attempted by: ${{ github.actor }}"
+          echo ""
+          echo "🔄 PASOS DE ROLLBACK:"
+          echo "   1. SSH a 10.8.10.20"
+          echo "   2. cd /home/administrador/monorepo"
+          echo "   3. git checkout <version-anterior>"
+          echo "   4. Restaurar backup de BD si es necesario"
+          echo "   5. docker compose up -d --build"
+
+  # -------------------------------------------------------------------------
+  # JOB: Create Release (opcional)
+  # -------------------------------------------------------------------------
+  create-release:
+    name: 📝 Create GitHub Release
+    runs-on: ubuntu-latest
+    needs: [validate, deploy]
+    if: success()
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.validate.outputs.version }}
+
+      - name: Get tag message
+        id: tag-message
+        run: |
+          TAG="${{ needs.validate.outputs.version }}"
+          MESSAGE=$(git tag -l --format='%(contents)' "$TAG" || echo "Release $TAG")
+          echo "message<<EOF" >> $GITHUB_OUTPUT
+          echo "$MESSAGE" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: ${{ needs.validate.outputs.version }}
+          name: Release ${{ needs.validate.outputs.version }}
+          body: |
+            ## Deploy a Producción
+            
+            **Versión:** ${{ needs.validate.outputs.version }}
+            **Fecha:** ${{ github.event.head_commit.timestamp }}
+            **Deployed by:** ${{ github.actor }}
+            
+            ---
+            
+            ${{ steps.tag-message.outputs.message }}
+            
+            ---
+            
+            🌐 **URL:** https://bca-group.microsyst.com.ar
+          draft: false
+          prerelease: ${{ contains(needs.validate.outputs.version, '-') }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

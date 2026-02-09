@@ -4,6 +4,12 @@ import { ConfigService } from '../services/config.service';
 import { FlowiseService } from '../services/flowise.service';
 import { AppLogger } from '../config/logger';
 
+// Workaround Express 5 charset bug
+function sendJson(res: Response, status: number, data: object): void {
+  res.setHeader('Content-Type', 'application/json; charset=utf-8');
+  res.status(status).send(JSON.stringify(data));
+}
+
 export class ConfigController {
   
   /**
@@ -19,14 +25,14 @@ export class ConfigController {
         apiKey: config.apiKey ? `***${config.apiKey.slice(-4)}` : '',
       };
       
-      res.json({
+      sendJson(res, 200, {
         success: true,
         data: safeConfig,
       });
       
     } catch (error: any) {
       AppLogger.error('Error obteniendo config:', error);
-      res.status(500).json({
+      sendJson(res, 500, {
         success: false,
         error: 'CONFIG_ERROR',
         message: error.message,
@@ -53,14 +59,14 @@ export class ConfigController {
         systemPrompt,
       }, req.user!.userId);
       
-      res.json({
+      sendJson(res, 200, {
         success: true,
         message: 'Configuración actualizada',
       });
       
     } catch (error: any) {
       AppLogger.error('Error actualizando config:', error);
-      res.status(500).json({
+      sendJson(res, 500, {
         success: false,
         error: 'UPDATE_CONFIG_ERROR',
         message: error.message,
@@ -75,14 +81,14 @@ export class ConfigController {
     try {
       const result = await FlowiseService.testConnection();
       
-      res.json({
+      sendJson(res, 200, {
         success: result.success,
         message: result.message,
       });
       
     } catch (error: any) {
       AppLogger.error('Error probando Flowise:', error);
-      res.status(500).json({
+      sendJson(res, 500, {
         success: false,
         error: 'TEST_ERROR',
         message: error.message,
@@ -90,4 +96,3 @@ export class ConfigController {
     }
   }
 }
-

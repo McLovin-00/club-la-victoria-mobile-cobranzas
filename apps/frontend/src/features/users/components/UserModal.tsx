@@ -31,7 +31,7 @@ export const UserModal: React.FC<UserModalProps> = ({ isOpen, mode, user, onClos
   const [createUser, { isLoading: isCreating }] = useCreateUserMutation();
   const [updateUser, { isLoading: isUpdating }] = useUpdateUserMutation();
 
-  const empresas = empresasResponse || [];
+  const empresas = empresasResponse ?? [];
   const isLoading = isCreating || isUpdating;
 
   const handleSubmit = async (data: CreateUserPayload | UpdateUserPayload) => {
@@ -135,7 +135,7 @@ export const UserModal: React.FC<UserModalProps> = ({ isOpen, mode, user, onClos
   return (
     <div className='fixed inset-0 z-50 overflow-y-auto'>
       {/* Backdrop */}
-      <div className='fixed inset-0 bg-black bg-opacity-50 transition-opacity' onClick={onClose} />
+      <div className='fixed inset-0 bg-black bg-opacity-50 transition-opacity' onClick={onClose} onKeyDown={(e) => e.key === 'Escape' && onClose()} role="button" tabIndex={0} aria-label="Cerrar modal" />
 
       {/* Modal */}
       <div className='flex min-h-full items-center justify-center p-4'>

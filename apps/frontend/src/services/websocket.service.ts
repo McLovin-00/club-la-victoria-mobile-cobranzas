@@ -187,6 +187,35 @@ class WebSocketService {
       // Invalidar colas de aprobación
       store.dispatch(documentosApiSlice.util.invalidateTags(['Approval']));
     });
+
+    // Nueva notificación interna (campanita)
+    this.socket.on('notification', (data: any) => {
+      if (data?.type === 'NEW_NOTIFICATION') {
+        const notif = data.notification;
+        const key = `internal-${notif?.id || Date.now()}`;
+        
+        if (this.isDuplicateNotification(key)) {
+          console.log('🔕 Notificación interna duplicada ignorada:', key);
+          return;
+        }
+        
+        console.log('🔔 Nueva notificación interna:', notif);
+        
+        // Invalidar cache de notificaciones para que se actualice el contador
+        store.dispatch(
+          documentosApiSlice.util.invalidateTags(['Notifications'])
+        );
+        
+        // Mostrar toast según prioridad
+        if (notif?.priority === 'urgent' || notif?.priority === 'high') {
+          showToast(
+            `${notif.title}: ${notif.message?.slice(0, 100) ?? ''}`,
+            notif.priority === 'urgent' ? 'error' : 'default',
+            6000
+          );
+        }
+      }
+    });
   }
 
   /**

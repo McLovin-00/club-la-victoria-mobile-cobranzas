@@ -30,9 +30,9 @@ const EvolutionConfigPage: React.FC = () => {
       try {
         const res = await fetch(`${baseUrl}`, { headers: authHeaders });
         const data = await res.json();
-        setServer(data?.data?.server || '');
-        setToken(data?.data?.token || '');
-        setInstance(data?.data?.instance || '');
+        setServer(data?.data?.server ?? '');
+        setToken(data?.data?.token ?? '');
+        setInstance(data?.data?.instance ?? '');
       } catch {
         setMessage('No se pudo cargar la configuración');
       } finally {

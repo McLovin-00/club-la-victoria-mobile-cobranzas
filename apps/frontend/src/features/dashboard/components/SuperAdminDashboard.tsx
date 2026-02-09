@@ -210,9 +210,9 @@ export const SuperAdminDashboard: React.FC = () => {
             <table className='w-full'>
               <thead className='bg-muted/50'>
                 <tr>
-                  {tableColumns.map((column, index) => (
+                  {tableColumns.map((column) => (
                     <th
-                      key={index}
+                      key={column.key}
                       className='px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider'
                     >
                       {column.header}
@@ -221,11 +221,11 @@ export const SuperAdminDashboard: React.FC = () => {
                 </tr>
               </thead>
               <tbody className='divide-y divide-border'>
-                {paginatedEmpresas.map((row, rowIndex) => (
-                  <tr key={rowIndex} className='hover:bg-muted/20'>
-                    {tableColumns.map((column, colIndex) => {
+                {paginatedEmpresas.map((row) => (
+                  <tr key={row.id || row.nombre} className='hover:bg-muted/20'>
+                    {tableColumns.map((column) => {
                       return (
-                        <td key={colIndex} className='px-4 py-4 text-sm'>
+                        <td key={column.key} className='px-4 py-4 text-sm'>
                           {column.cell
                             ? column.cell({
                                 getValue: () => row[column.accessorKey],

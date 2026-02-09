@@ -15,9 +15,15 @@ import type { Cliente, DadorCarga, EquipoWithExtras } from '../types/entities';
 import { ArrowLeftIcon } from '@heroicons/react/24/outline';
 import { ConfirmContext } from '../../../contexts/confirmContext';
 
+// Roles que pueden crear equipos completos
+// TRANSPORTISTA puede crear equipos, CHOFER no tiene acceso directo a esta opción
+const ROLES_CAN_CREATE_EQUIPO = ['ADMIN', 'SUPERADMIN', 'ADMIN_INTERNO', 'DADOR_DE_CARGA', 'TRANSPORTISTA'];
+
 export const EquiposPage: React.FC = () => {
   const navigate = useNavigate();
   const { goBack } = useRoleBasedNavigation();
+  const user = useSelector((state: RootState) => state.auth.user);
+  const canCreateEquipo = user?.role && ROLES_CAN_CREATE_EQUIPO.includes(user.role);
   const show = (msg: string) => { try { alert(msg); } catch { console.log(msg); } };
   const { confirm } = useContext(ConfirmContext);
   const { data: dadoresResp } = useGetDadoresQuery({});
@@ -31,7 +37,7 @@ export const EquiposPage: React.FC = () => {
   const { data: equipoKpis } = useGetEquipoKpisQuery({});
   const { data: equipos = [] } = useGetEquiposQuery({ empresaId: dadorId });
   // Import CSV state
-  const [csvOpen, setCsvOpen] = useState(false);
+  const [_csvOpen, _setCsvOpen] = useState(false);
   const [csvFile, setCsvFile] = useState<File | null>(null);
   const csvInputRef = React.useRef<HTMLInputElement>(null);
   const [dryRun, setDryRun] = useState(true);
@@ -54,7 +60,7 @@ export const EquiposPage: React.FC = () => {
   const [dniSearch, setDniSearch] = useState('');
   const [truckSearch, setTruckSearch] = useState('');
   const [trailerSearch, setTrailerSearch] = useState('');
-  const normalizePlate = (s: string) => (s || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
+  const normalizePlate = (s: string) => (s ?? '').toUpperCase().replace(/[^A-Z0-9]/g, '');
   const dniQ = dniSearch.trim();
   const truckQ = normalizePlate(truckSearch);
   const trailerQ = normalizePlate(trailerSearch);
@@ -91,7 +97,7 @@ export const EquiposPage: React.FC = () => {
   const [createCamion] = useCreateCamionMutation();
   const [createAcoplado] = useCreateAcopladoMutation();
   const [getEquipoComplianceLazy] = useLazyGetEquipoComplianceQuery();
-  const authToken = useSelector((s: RootState) => s.auth?.token) || (typeof localStorage !== 'undefined' ? localStorage.getItem('token') || '' : '');
+  const authToken = useSelector((s: RootState) => s.auth?.token) || (typeof localStorage !== 'undefined' ? (localStorage.getItem('token') ?? '') : '');
 
   // Catálogos para selección (dropdowns)
   // Paginación de maestros: choferes, camiones, acoplados
@@ -154,9 +160,9 @@ export const EquiposPage: React.FC = () => {
   const [trailerIdSel, setTrailerIdSel] = useState<number | ''>('');
 
   // Para compatibilidad con alta mínima, mantenemos campos opcionales
-  const [dni, setDni] = useState('');
-  const [truckPlate, setTruckPlate] = useState('');
-  const [trailerPlate, setTrailerPlate] = useState('');
+  const [dni, _setDni] = useState('');
+  const [truckPlate, _setTruckPlate] = useState('');
+  const [trailerPlate, _setTrailerPlate] = useState('');
   const [clienteId, setClienteId] = useState<number | undefined>(initialClienteId);
   useEffect(()=>{ if (initialClienteId && (clienteId === undefined || clienteId === null)) setClienteId(initialClienteId); }, [initialClienteId, clienteId]);
   const [equipoId, setEquipoId] = useState<number | undefined>(equipos[0]?.id);
@@ -300,14 +306,16 @@ export const EquiposPage: React.FC = () => {
           </Button>
           <h1 className='text-2xl font-bold'>Asociación de Equipos</h1>
         </div>
-        <Button 
-          variant='default' 
-          size='sm' 
-          onClick={() => navigate('/documentos/equipos/alta-completa')}
-          className='bg-green-600 hover:bg-green-700 text-white'
-        >
-          📄 Alta Completa con Documentos
-        </Button>
+        {canCreateEquipo && (
+          <Button 
+            variant='default' 
+            size='sm' 
+            onClick={() => navigate('/documentos/equipos/alta-completa')}
+            className='bg-green-600 hover:bg-green-700 text-white'
+          >
+            📄 Alta Completa con Documentos
+          </Button>
+        )}
       </div>
 
       {/* Importación CSV */}
@@ -412,7 +420,7 @@ export const EquiposPage: React.FC = () => {
           <Label>Teléfonos del Chofer (WhatsApp)</Label>
           <div className='flex flex-col gap-2 max-w-md mt-1'>
             {phones.map((p, idx)=> (
-              <div key={idx} className='flex gap-2'>
+              <div key={`phone-input-${idx}`} className='flex gap-2'>
                 <Input placeholder='+54911...' value={p} onChange={(e)=>{ const arr=[...phones]; arr[idx]=e.target.value; setPhones(arr); }} />
                 <Button variant='outline' onClick={()=> setPhones(arr=> arr.filter((_,i)=> i!==idx))} disabled={phones.length<=1}>Quitar</Button>
               </div>
@@ -445,9 +453,9 @@ export const EquiposPage: React.FC = () => {
                   driverId: Number(driverIdSel),
                   truckId: Number(truckIdSel),
                   trailerId: trailerIdSel ? Number(trailerIdSel) : undefined,
-                  empresaTransportistaId: empresaTransportistaId || undefined,
-                  driverDni: ch?.dni || '',
-                  truckPlate: tr?.patente || '',
+                  empresaTransportistaId: empresaTransportistaId ?? undefined,
+                  driverDni: ch?.dni ?? '',
+                  truckPlate: tr?.patente ?? '',
                   trailerPlate: ac?.patente,
                   validFrom: new Date().toISOString(),
                 }).unwrap();
@@ -468,9 +476,9 @@ export const EquiposPage: React.FC = () => {
                       driverId: Number(driverIdSel),
                       truckId: Number(truckIdSel),
                       trailerId: trailerIdSel ? Number(trailerIdSel) : undefined,
-                      empresaTransportistaId: empresaTransportistaId || undefined,
-                      driverDni: ch?.dni || '',
-                      truckPlate: tr?.patente || '',
+                      empresaTransportistaId: empresaTransportistaId ?? undefined,
+                      driverDni: ch?.dni ?? '',
+                      truckPlate: tr?.patente ?? '',
                       trailerPlate: ac?.patente,
                       validFrom: new Date().toISOString(),
                       forceMove: true as any,
@@ -856,7 +864,7 @@ const Dot: React.FC<{ color: string }> = ({ color }) => (
 );
 
 const EquipoSemaforo: React.FC<{ equipoId: number }> = ({ equipoId }) => {
-  const navigate = useNavigate();
+  const _navigate = useNavigate();
   const { data } = useGetEquipoComplianceQuery({ id: equipoId }, { skip: !equipoId });
   if (!data) return null;
   const now = Date.now();
@@ -864,23 +872,23 @@ const EquipoSemaforo: React.FC<{ equipoId: number }> = ({ equipoId }) => {
   const docsByEntity: Record<string, any[]> = data?.documents || {};
 
   const bumpFromCompliance = (entityType: 'EMPRESA_TRANSPORTISTA'|'CHOFER'|'CAMION'|'ACOPLADO', r: any) => {
-    const state = String(r.state || '').toUpperCase();
+    const state = String(r.state ?? '').toUpperCase();
     if (state === 'OK') { vigentes++; return; }
     if (state === 'PROXIMO') { porVencer++; return; }
     // FALTANTE: decidir si es vencido o faltante puro
-    const list = (docsByEntity[entityType] || []) as Array<any>;
+    const list = (docsByEntity[entityType] ?? []) as Array<any>;
     const latest = list.find((d: any) => d.templateId === r.templateId);
     if (latest) {
       const expired = latest.expiresAt && new Date(latest.expiresAt).getTime() <= now;
-      const statusExpired = String(latest.status || '').toUpperCase() === 'VENCIDO';
+      const statusExpired = String(latest.status ?? '').toUpperCase() === 'VENCIDO';
       if (expired || statusExpired) { vencidos++; return; }
     }
     faltantes++;
   };
 
   try {
-    for (const c of (data?.clientes || [])) {
-      for (const r of (c?.compliance || [])) {
+    for (const c of (data?.clientes ?? [])) {
+      for (const r of (c?.compliance ?? [])) {
         bumpFromCompliance(r.entityType as any, r);
       }
     }

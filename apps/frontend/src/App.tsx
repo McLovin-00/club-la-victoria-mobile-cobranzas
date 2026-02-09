@@ -26,6 +26,7 @@ import AuditLogsPage from './features/documentos/pages/AuditLogsPage';
 import DashboardDadoresPage from './features/documentos/pages/DashboardDadoresPage';
 import ClientsPage from './features/documentos/pages/ClientsPage';
 import ClientRequirementsPage from './features/documentos/pages/ClientRequirementsPage';
+import PlantillasRequisitoPage from './features/documentos/pages/PlantillasRequisitoPage';
 import EquiposPage from './features/documentos/pages/EquiposPage';
 import ConsultaPage from './features/documentos/pages/ConsultaPage';
 import DadoresPage from './features/documentos/pages/DadoresPage';
@@ -51,6 +52,7 @@ import ClientePortalPage from './pages/ClientePortalPage';
 import DadoresPortalPage from './pages/DadoresPortalPage';
 import TransportistasPortalPage from './pages/TransportistasPortalPage';
 import { AdminInternoPortalPage } from './pages/AdminInternoPortalPage';
+import TransferenciasPage from './features/admin/pages/TransferenciasPage';
 // Portal Cliente (nuevo - solo lectura)
 import ClienteDashboard from './features/cliente/pages/ClienteDashboard';
 import ClienteEquipoDetalle from './features/cliente/pages/ClienteEquipoDetalle';
@@ -120,6 +122,16 @@ function App() {
                 <Route path='/documentos/clientes/:clienteId/requirements' element={
                   <ProtectedServiceRoute service="documentos">
                     <ClientRequirementsPage />
+                  </ProtectedServiceRoute>
+                } />
+                <Route path='/documentos/plantillas' element={
+                  <ProtectedServiceRoute service="documentos">
+                    <PlantillasRequisitoPage />
+                  </ProtectedServiceRoute>
+                } />
+                <Route path='/documentos/plantillas/:clienteId' element={
+                  <ProtectedServiceRoute service="documentos">
+                    <PlantillasRequisitoPage />
                   </ProtectedServiceRoute>
                 } />
                 <Route path='/documentos/equipos' element={
@@ -249,6 +261,7 @@ function App() {
               {/* Portal de Admin Interno */}
               <Route element={<RequireAuth allowedRoles={['ADMIN_INTERNO', 'ADMIN', 'SUPERADMIN']} />}> 
                 <Route path='/portal/admin-interno' element={<AdminInternoPortalPage />} />
+                <Route path='/admin/transferencias' element={<TransferenciasPage />} />
               </Route>
 
               {/* Portal Cliente (nuevo - solo lectura con endpoints dedicados) */}

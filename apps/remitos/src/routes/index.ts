@@ -4,14 +4,15 @@ import configRoutes from './config.routes';
 
 const router: IRouter = Router();
 
-// Health check
+// Health check - use send() with explicit Content-Type to avoid Express 5 charset bug
 router.get('/health', (_req: Request, res: Response) => {
-  res.json({
+  res.setHeader('Content-Type', 'application/json; charset=utf-8');
+  res.send(JSON.stringify({
     status: 'ok',
     service: 'remitos',
     timestamp: new Date().toISOString(),
     version: process.env.APP_VERSION || '1.0.0',
-  });
+  }));
 });
 
 // Rutas principales

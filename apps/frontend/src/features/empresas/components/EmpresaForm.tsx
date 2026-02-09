@@ -30,7 +30,7 @@ export const EmpresaForm: React.FC<EmpresaFormProps> = ({
     if (empresa) {
       setFormData({
         nombre: empresa.nombre,
-        descripcion: empresa.descripcion || '',
+        descripcion: empresa.descripcion ?? '',
       });
     }
   }, [empresa]);

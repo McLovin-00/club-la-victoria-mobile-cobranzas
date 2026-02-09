@@ -15,6 +15,7 @@ import {
   ClipboardDocumentCheckIcon,
   TruckIcon,
   ExclamationTriangleIcon,
+  ArrowsRightLeftIcon,
 } from '@heroicons/react/24/outline';
 import { ThemeToggle } from '../ui/theme-toggle';
 import { Logger } from '../../lib/utils';
@@ -26,7 +27,7 @@ import { getRoleLabel, handleNavItemMouseEnter } from './MainLayout.utils';
 
 export const MainLayout = () => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const dispatch = useDispatch();
+  const _dispatch = useDispatch();
 
   return (
     <div className='h-screen bg-background overflow-hidden flex flex-col'>
@@ -77,6 +78,10 @@ export const MainLayout = () => {
           <div
             className='fixed inset-0 bg-foreground/20 backdrop-blur-sm z-10 lg:hidden'
             onClick={() => setSidebarOpen(false)}
+            onKeyDown={(e) => e.key === 'Escape' && setSidebarOpen(false)}
+            role="button"
+            tabIndex={0}
+            aria-label="Cerrar menú"
           />
         )}
 
@@ -123,7 +128,7 @@ const UserMenu = () => {
 
       {menuOpen && (
         <>
-          <div className='fixed inset-0 z-40' onClick={() => setMenuOpen(false)}></div>
+          <div className='fixed inset-0 z-40' onClick={() => setMenuOpen(false)} onKeyDown={(e) => e.key === 'Escape' && setMenuOpen(false)} role="button" tabIndex={0} aria-label="Cerrar menú de usuario"></div>
           <div className='absolute right-0 mt-2 w-64 bg-card rounded-lg shadow-sm border border-border z-50 top-full'>
             <div className='p-4 border-b border-border bg-muted'>
               <p className='text-sm font-medium text-foreground'>{user?.email}</p>
@@ -165,12 +170,13 @@ const SidebarContent = ({ closeSidebar }: SidebarContentProps) => {
   const isAdminInterno = user?.role === 'ADMIN_INTERNO';
   const isDadorDeCarga = user?.role === 'DADOR_DE_CARGA';
   const isTransportista = user?.role === 'TRANSPORTISTA';
+  const isChofer = user?.role === 'CHOFER';
   
   // SUPERADMIN tiene acceso a las mismas funcionalidades que ADMIN_INTERNO
   const hasAdminInternoAccess = isAdminInterno || isSuperAdmin || isAdmin;
   
   // Roles que pueden gestionar usuarios (crear/editar)
-  const canManageUsers = isAdmin || isAdminInterno || isDadorDeCarga || isTransportista;
+  const _canManageUsers = isAdmin || isAdminInterno || isDadorDeCarga || isTransportista;
   
   // Obtener configuración de servicios
   const serviceFlags = useServiceFlags();
@@ -229,12 +235,19 @@ const SidebarContent = ({ closeSidebar }: SidebarContentProps) => {
                 text='Remitos'
                 closeSidebar={closeSidebar}
               />
+              {/* Transferencias - gestión de solicitudes de transferencia */}
+              <NavItem
+                to='/admin/transferencias'
+                icon={ArrowsRightLeftIcon}
+                text='Transferencias'
+                closeSidebar={closeSidebar}
+              />
             </div>
           </div>
         )}
 
-        {/* Sección de usuarios - Para roles que pueden crear usuarios pero no son admin ni admin_interno */}
-        {canManageUsers && !isAdmin && !isAdminInterno && (
+        {/* Sección de gestión - Para DADOR_DE_CARGA y TRANSPORTISTA */}
+        {(isDadorDeCarga || isTransportista) && (
           <div>
             <h3 className='px-4 text-xs font-semibold text-muted-foreground uppercase tracking-wider'>
               Gestión
@@ -247,6 +260,24 @@ const SidebarContent = ({ closeSidebar }: SidebarContentProps) => {
                 closeSidebar={closeSidebar}
               />
               {/* Remitos - visible para todos los roles que suben remitos */}
+              <NavItem
+                to='/remitos'
+                icon={ClipboardDocumentCheckIcon}
+                text='Remitos'
+                closeSidebar={closeSidebar}
+              />
+            </div>
+          </div>
+        )}
+
+        {/* Sección para CHOFER - Solo Remitos (acceso a equipos desde Dashboard) */}
+        {isChofer && (
+          <div>
+            <h3 className='px-4 text-xs font-semibold text-muted-foreground uppercase tracking-wider'>
+              Gestión
+            </h3>
+            <div className='mt-3 space-y-1'>
+              {/* Remitos - visible para CHOFER */}
               <NavItem
                 to='/remitos'
                 icon={ClipboardDocumentCheckIcon}

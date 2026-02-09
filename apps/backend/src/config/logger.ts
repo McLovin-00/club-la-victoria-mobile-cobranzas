@@ -50,10 +50,10 @@ const piiMaskFormat = winston.format((info) => {
   if (typeof info.message === 'string') {
     info.message = maskSensitive(info.message);
   } else if (info.message) {
-    try { info.message = maskSensitive(JSON.stringify(info.message)); } catch {}
+    try { info.message = maskSensitive(JSON.stringify(info.message)); } catch { /* Serialización fallida */ }
   }
   if (info.meta) {
-    try { info.meta = JSON.parse(maskSensitive(JSON.stringify(info.meta))); } catch {}
+    try { info.meta = JSON.parse(maskSensitive(JSON.stringify(info.meta))); } catch { /* Parseo fallido */ }
   }
   return info;
 });

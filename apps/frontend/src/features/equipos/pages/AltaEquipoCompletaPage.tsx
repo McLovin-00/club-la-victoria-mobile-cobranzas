@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAppSelector } from '../../../store/hooks';
 import {
@@ -9,9 +9,29 @@ import {
   useGetDadoresQuery,
   useGetClientsQuery,
   useLazyGetConsolidatedTemplatesQuery,
+  useGetEmpresaTransportistaByIdQuery,
+  useGetPlantillasRequisitoQuery,
+  useLazyGetConsolidatedTemplatesByPlantillasQuery,
 } from '../../documentos/api/documentosApiSlice';
 import { SeccionDocumentos, Template } from '../components/SeccionDocumentos';
 import { useRoleBasedNavigation } from '../../../hooks/useRoleBasedNavigation';
+import { PreCheckModal } from '../components/PreCheckModal';
+import { useEntityVerification, EntityType } from '../hooks/useEntityVerification';
+import { EntityStatusBadge } from '../components/EntityStatusBadge';
+
+/** Helper para clases CSS de badge de entidad en precheck (evita ternarios anidados) */
+function getEntityBadgeClass(existe: boolean, perteneceSolicitante: boolean): string {
+  if (!existe) return 'bg-blue-100 text-blue-800';
+  if (perteneceSolicitante) return 'bg-green-100 text-green-800';
+  return 'bg-yellow-100 text-yellow-800';
+}
+
+/** Helper para texto del botón de submit (evita ternarios anidados) */
+function getSubmitButtonText(isSubmitting: boolean, preCheckPassed: boolean): string {
+  if (isSubmitting) return 'Creando Equipo y Subiendo Documentos...';
+  if (preCheckPassed) return '✓ Crear Equipo con Todos los Documentos';
+  return '🔍 Verificar y Crear Equipo';
+}
 
 /**
  * Página de Alta Completa de Equipo
@@ -29,21 +49,36 @@ import { useRoleBasedNavigation } from '../../../hooks/useRoleBasedNavigation';
 const AltaEquipoCompletaPage: React.FC = () => {
   const navigate = useNavigate();
   const { goBack, getHomeRoute, user } = useRoleBasedNavigation();
-  const empresaId = useAppSelector((s) => (s as any).auth?.user?.empresaId) as number | undefined;
+  const _empresaId = useAppSelector((s) => (s as any).auth?.user?.empresaId) as number | undefined;
+  const userDadorCargaId = useAppSelector((s) => (s as any).auth?.user?.dadorCargaId) as number | undefined;
   const role = user?.role;
 
   // Queries y mutations del sistema existente
   const { data: templatesResp, isLoading: loadingTemplates } = useGetTemplatesQuery(undefined);
   const { data: dadoresResp } = useGetDadoresQuery({ activo: true });
   const { data: clientsResp } = useGetClientsQuery({ activo: true });
-  const [uploadDocument, { isLoading: uploading }] = useUploadDocumentMutation();
-  const [createEquipoCompleto, { isLoading: creatingEquipo }] = useCreateEquipoCompletoMutation();
+  const [uploadDocument, { isLoading: _uploading }] = useUploadDocumentMutation();
+  const [createEquipoCompleto, { isLoading: _creatingEquipo }] = useCreateEquipoCompletoMutation();
   const [rollbackEquipoCompleto] = useRollbackEquipoCompletoMutation();
-  const [getConsolidatedTemplates, { data: consolidatedData, isFetching: loadingConsolidated }] = useLazyGetConsolidatedTemplatesQuery();
+  const [getConsolidatedTemplates, { data: consolidatedData, isFetching: _loadingConsolidated }] = useLazyGetConsolidatedTemplatesQuery();
+  const { data: plantillasData = [] } = useGetPlantillasRequisitoQuery({ activo: true });
+  const [getConsolidatedTemplatesByPlantillas, { data: consolidatedPlantillasData, isFetching: loadingConsolidatedPlantillas }] = useLazyGetConsolidatedTemplatesByPlantillasQuery();
 
   // Estados del formulario
   const [dadorCargaId, setDadorCargaId] = useState<number | null>(null);
   const [clienteIds, setClienteIds] = useState<number[]>([]);
+  const [plantillaIds, setPlantillaIds] = useState<number[]>([]);
+
+  // Handler para toggle de plantilla (reduce nesting en JSX)
+  const handlePlantillaToggle = useCallback((plantillaId: number, clienteId: number, checked: boolean) => {
+    if (checked) {
+      setPlantillaIds(prev => [...prev, plantillaId]);
+      setClienteIds(prev => prev.includes(clienteId) ? prev : [...prev, clienteId]);
+    } else {
+      setPlantillaIds(prev => prev.filter(id => id !== plantillaId));
+    }
+  }, []);
+  const [usePlantillas, _setUsePlantillas] = useState(true); // Por defecto usar plantillas
   const [empresaTransportista, setEmpresaTransportista] = useState('');
   const [cuitTransportista, setCuitTransportista] = useState('');
   const [choferNombre, setChoferNombre] = useState('');
@@ -62,13 +97,25 @@ const AltaEquipoCompletaPage: React.FC = () => {
   // Mensajes
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
+  // Estado de envío: true desde que se hace click hasta que termina todo el proceso
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Estados para pre-check de entidades existentes
+  const [showPreCheck, setShowPreCheck] = useState(false);
+  const [preCheckPassed, setPreCheckPassed] = useState(false);
+  const [preCheckResult, setPreCheckResult] = useState<any>(null);
+
+  // Hook para verificación inline de entidades
+  // Pasa el dadorCargaId para que el backend compare correctamente (especialmente para ADMIN_INTERNO)
+  const { verify, getResult, clearResult } = useEntityVerification({ dadorCargaId });
+
   // Permisos
   const canUpload = ['SUPERADMIN', 'ADMIN', 'OPERATOR', 'ADMIN_INTERNO', 'DADOR_DE_CARGA', 'TRANSPORTISTA'].includes(role || '');
   const isAdminInterno = (role as string) === 'ADMIN_INTERNO';
 
   // Listas de dadores y clientes
   const dadoresList = useMemo(() => {
-    const raw = (dadoresResp as any)?.data || (dadoresResp as any)?.list || [];
+    const raw = ((dadoresResp as any)?.data || (dadoresResp as any)?.list) ?? [];
     return Array.isArray(raw) ? raw : [];
   }, [dadoresResp]);
 
@@ -79,44 +126,88 @@ const AltaEquipoCompletaPage: React.FC = () => {
 
   // Si el usuario NO es ADMIN_INTERNO, usar su empresaId como dadorCargaId por defecto
   useEffect(() => {
-    if (!isAdminInterno && empresaId && !dadorCargaId) {
-      setDadorCargaId(empresaId);
+    if (isTransportista && empresaTransportistaData) {
+      const nombre = (empresaTransportistaData.razonSocial || empresaTransportistaData.nombre) ?? '';
+      const cuit = empresaTransportistaData.cuit ?? '';
+      setEmpresaTransportista(nombre);
+      setCuitTransportista(cuit);
+      // También usar el dadorCargaId de la empresa transportista si está disponible
+      if (empresaTransportistaData.dadorCargaId && !dadorCargaId) {
+        setDadorCargaId(empresaTransportistaData.dadorCargaId);
+      }
     }
-  }, [isAdminInterno, empresaId, dadorCargaId]);
+  }, [isTransportista, empresaTransportistaData, dadorCargaId]);
 
   // Cargar templates consolidados cuando cambian los clientes seleccionados
   useEffect(() => {
-    if (clienteIds.length > 0) {
+    if (clienteIds.length > 0 && !usePlantillas) {
       getConsolidatedTemplates({ clienteIds });
     }
-  }, [clienteIds, getConsolidatedTemplates]);
+  }, [clienteIds, getConsolidatedTemplates, usePlantillas]);
+
+  // Cargar templates consolidados cuando cambian las plantillas seleccionadas
+  useEffect(() => {
+    if (plantillaIds.length > 0 && usePlantillas) {
+      getConsolidatedTemplatesByPlantillas({ plantillaIds });
+    }
+  }, [plantillaIds, getConsolidatedTemplatesByPlantillas, usePlantillas]);
 
   // Agrupar templates por entityType
-  // Si hay clientes seleccionados, usar templates consolidados; si no, usar todos los templates
+  // Si hay plantillas/clientes seleccionados, usar templates consolidados; si no, usar todos los templates
   const templatesPorTipo = useMemo(() => {
+    // Si usamos plantillas y hay plantillas seleccionadas
+    if (usePlantillas && plantillaIds.length > 0 && consolidatedPlantillasData?.byEntityType) {
+      const byType = consolidatedPlantillasData.byEntityType;
+      return {
+        EMPRESA_TRANSPORTISTA: (byType.EMPRESA_TRANSPORTISTA ?? []).map((t: any) => ({
+          id: t.templateId,
+          name: t.templateName,
+          entityType: 'EMPRESA_TRANSPORTISTA',
+          active: true,
+        })),
+        CHOFER: (byType.CHOFER ?? []).map((t: any) => ({
+          id: t.templateId,
+          name: t.templateName,
+          entityType: 'CHOFER',
+          active: true,
+        })),
+        CAMION: (byType.CAMION ?? []).map((t: any) => ({
+          id: t.templateId,
+          name: t.templateName,
+          entityType: 'CAMION',
+          active: true,
+        })),
+        ACOPLADO: (byType.ACOPLADO ?? []).map((t: any) => ({
+          id: t.templateId,
+          name: t.templateName,
+          entityType: 'ACOPLADO',
+          active: true,
+        })),
+      };
+    }
     // Si hay clientes seleccionados y tenemos datos consolidados, usar esos
-    if (clienteIds.length > 0 && consolidatedData?.byEntityType) {
+    if (!usePlantillas && clienteIds.length > 0 && consolidatedData?.byEntityType) {
       const byType = consolidatedData.byEntityType;
       return {
-        EMPRESA_TRANSPORTISTA: (byType.EMPRESA_TRANSPORTISTA || []).map((t) => ({
+        EMPRESA_TRANSPORTISTA: (byType.EMPRESA_TRANSPORTISTA ?? []).map((t) => ({
           id: t.templateId,
           name: t.templateName,
           entityType: t.entityType,
           clienteNames: t.clienteNames, // Info adicional para mostrar qué cliente requiere cada doc
         })),
-        CHOFER: (byType.CHOFER || []).map((t) => ({
+        CHOFER: (byType.CHOFER ?? []).map((t) => ({
           id: t.templateId,
           name: t.templateName,
           entityType: t.entityType,
           clienteNames: t.clienteNames,
         })),
-        CAMION: (byType.CAMION || []).map((t) => ({
+        CAMION: (byType.CAMION ?? []).map((t) => ({
           id: t.templateId,
           name: t.templateName,
           entityType: t.entityType,
           clienteNames: t.clienteNames,
         })),
-        ACOPLADO: (byType.ACOPLADO || []).map((t) => ({
+        ACOPLADO: (byType.ACOPLADO ?? []).map((t) => ({
           id: t.templateId,
           name: t.templateName,
           entityType: t.entityType,
@@ -141,7 +232,7 @@ const AltaEquipoCompletaPage: React.FC = () => {
       CAMION: allTemplates.filter((t: Template) => t.entityType === 'CAMION'),
       ACOPLADO: allTemplates.filter((t: Template) => t.entityType === 'ACOPLADO'),
     };
-  }, [templatesResp, clienteIds, consolidatedData]);
+  }, [templatesResp, clienteIds, consolidatedData, usePlantillas, plantillaIds, consolidatedPlantillasData]);
 
   // Calcular IDs de entidades temporales (antes de crear el equipo)
   // Usamos valores temporales para permitir uploads; el backend creará las entidades
@@ -232,6 +323,186 @@ const AltaEquipoCompletaPage: React.FC = () => {
     // No hace nada, la subida se hace al crear el equipo
   };
 
+  // Construir lista de entidades para pre-check
+  const buildPreCheckEntidades = useCallback(() => {
+    const entidades: Array<{ entityType: string; identificador: string; nombre?: string }> = [];
+    
+    // Empresa Transportista (por CUIT)
+    if (cuitTransportista && /^\d{11}$/.test(cuitTransportista)) {
+      entidades.push({
+        entityType: 'EMPRESA_TRANSPORTISTA',
+        identificador: cuitTransportista,
+        nombre: empresaTransportista,
+      });
+    }
+    
+    // Chofer (por DNI)
+    if (choferDni && choferDni.length >= 6) {
+      entidades.push({
+        entityType: 'CHOFER',
+        identificador: choferDni,
+        nombre: `${choferNombre} ${choferApellido}`.trim(),
+      });
+    }
+    
+    // Camión (por patente)
+    if (tractorPatente && tractorPatente.length >= 5) {
+      entidades.push({
+        entityType: 'CAMION',
+        identificador: tractorPatente.toUpperCase(),
+        nombre: `${tractorMarca} ${tractorModelo}`.trim() ?? undefined,
+      });
+    }
+    
+    // Acoplado (por patente, si tiene)
+    if (semiPatente && semiPatente.length >= 5) {
+      entidades.push({
+        entityType: 'ACOPLADO',
+        identificador: semiPatente.toUpperCase(),
+        nombre: semiTipo ?? undefined,
+      });
+    }
+    
+    return entidades;
+  }, [cuitTransportista, empresaTransportista, choferDni, choferNombre, choferApellido, 
+      tractorPatente, tractorMarca, tractorModelo, semiPatente, semiTipo]);
+
+  // Handler cuando el pre-check pasa exitosamente
+  const handlePreCheckContinue = useCallback((result: any) => {
+    setPreCheckResult(result);
+    setPreCheckPassed(true);
+    setShowPreCheck(false);
+    
+    // Mostrar resumen de entidades reutilizadas
+    const reutilizadas = result.entidades.filter((e: any) => e.existe && e.perteneceSolicitante);
+    if (reutilizadas.length > 0) {
+      const nombres = reutilizadas.map((e: any) => {
+        const docsVigentes = e.resumen?.vigentes || 0;
+        return `${e.identificador}${docsVigentes > 0 ? ` (${docsVigentes} docs vigentes)` : ''}`;
+      }).join(', ');
+      setMessage({ 
+        type: 'success', 
+        text: `✓ Entidades existentes detectadas: ${nombres}. Sus documentos vigentes se reutilizarán.` 
+      });
+    }
+  }, []);
+
+  // Handler cuando se crea una solicitud de transferencia
+  const handleTransferenciaCreada = useCallback(() => {
+    setMessage({ 
+      type: 'success', 
+      text: '📨 Solicitud de transferencia enviada. Recibirás una notificación cuando sea aprobada.' 
+    });
+    setShowPreCheck(false);
+  }, []);
+
+  // Resetear pre-check cuando cambian los datos básicos
+  useEffect(() => {
+    if (preCheckPassed) {
+      setPreCheckPassed(false);
+      setPreCheckResult(null);
+    }
+  }, [cuitTransportista, choferDni, tractorPatente, semiPatente]);
+
+  // Handlers de verificación inline (onBlur)
+  const handleVerifyCuit = useCallback(async () => {
+    if (!cuitTransportista || !/^\d{11}$/.test(cuitTransportista)) return;
+    
+    const result = await verify('EMPRESA_TRANSPORTISTA', cuitTransportista);
+    
+    // Auto-completar nombre si existe y es del mismo dador
+    if (result?.status === 'disponible' && result.nombre && !empresaTransportista) {
+      setEmpresaTransportista(result.nombre);
+    }
+  }, [cuitTransportista, empresaTransportista, verify]);
+
+  const handleVerifyDni = useCallback(async () => {
+    if (!choferDni || choferDni.length < 6) return;
+    
+    const result = await verify('CHOFER', choferDni);
+    
+    // Auto-completar nombre si existe y es del mismo dador
+    if (result?.status === 'disponible' && result.nombre) {
+      const parts = result.nombre.split(' ');
+      if (parts.length >= 2 && !choferNombre && !choferApellido) {
+        setChoferNombre(parts[0]);
+        setChoferApellido(parts.slice(1).join(' '));
+      }
+    }
+  }, [choferDni, choferNombre, choferApellido, verify]);
+
+  const handleVerifyPatenteCamion = useCallback(async () => {
+    if (!tractorPatente || tractorPatente.length < 5) return;
+    
+    const result = await verify('CAMION', tractorPatente.toUpperCase());
+    
+    // Auto-completar marca/modelo si existe y es del mismo dador
+    if (result?.status === 'disponible' && result.nombre) {
+      const parts = result.nombre.split(' ');
+      if (parts.length >= 1 && !tractorMarca) {
+        setTractorMarca(parts[0]);
+        if (parts.length >= 2 && !tractorModelo) {
+          setTractorModelo(parts.slice(1).join(' '));
+        }
+      }
+    }
+  }, [tractorPatente, tractorMarca, tractorModelo, verify]);
+
+  const handleVerifyPatenteAcoplado = useCallback(async () => {
+    if (!semiPatente || semiPatente.length < 5) return;
+    
+    const result = await verify('ACOPLADO', semiPatente.toUpperCase());
+    
+    // Auto-completar tipo si existe y es del mismo dador
+    if (result?.status === 'disponible' && result.nombre && !semiTipo) {
+      setSemiTipo(result.nombre);
+    }
+  }, [semiPatente, semiTipo, verify]);
+
+  // Limpiar verificación cuando cambia el valor del campo
+  const handleCuitChange = (value: string) => {
+    const cleaned = value.replace(/\D/g, '').slice(0, 11);
+    setCuitTransportista(cleaned);
+    if (cleaned.length < 11) {
+      clearResult('EMPRESA_TRANSPORTISTA');
+    }
+  };
+
+  const handleDniChange = (value: string) => {
+    const cleaned = value.replace(/\D/g, '');
+    setChoferDni(cleaned);
+    if (cleaned.length < 6) {
+      clearResult('CHOFER');
+    }
+  };
+
+  const handlePatenteCamionChange = (value: string) => {
+    setTractorPatente(value.toUpperCase());
+    if (value.length < 5) {
+      clearResult('CAMION');
+    }
+  };
+
+  const handlePatenteAcopladoChange = (value: string) => {
+    setSemiPatente(value.toUpperCase());
+    if (value.length < 5) {
+      clearResult('ACOPLADO');
+    }
+  };
+
+  // Handler para iniciar el pre-check
+  const handleInitPreCheck = () => {
+    if (!datosBasicosCompletos) {
+      setMessage({ type: 'error', text: 'Completá todos los datos básicos obligatorios' });
+      return;
+    }
+    if (!dadorCargaId) {
+      setMessage({ type: 'error', text: 'Debe seleccionar un dador de carga' });
+      return;
+    }
+    setShowPreCheck(true);
+  };
+
   // Handler de creación de equipo (NUEVO FLUJO TRANSACCIONAL)
   const handleCrearEquipo = async () => {
     if (!datosBasicosCompletos) {
@@ -249,10 +520,16 @@ const AltaEquipoCompletaPage: React.FC = () => {
     }
 
     if (!dadorCargaId) {
-      setMessage({ type: 'error', text: 'Debe seleccionar un dador de carga' });
+      if (dadorCargaIdMissing) {
+        setMessage({ type: 'error', text: 'Tu sesión está desactualizada. Cerrá sesión y volvé a iniciar sesión para continuar.' });
+      } else {
+        setMessage({ type: 'error', text: 'Debe seleccionar un dador de carga' });
+      }
       return;
     }
 
+    // Deshabilitar botón durante todo el proceso
+    setIsSubmitting(true);
     let equipoCreado: any = null;
 
     try {
@@ -272,8 +549,8 @@ const AltaEquipoCompletaPage: React.FC = () => {
 
         // Chofer
         choferDni: choferDni,
-        choferNombre: choferNombre || undefined,
-        choferApellido: choferApellido || undefined,
+        choferNombre: choferNombre ?? undefined,
+        choferApellido: choferApellido ?? undefined,
         choferPhones: choferPhones ? choferPhones.split(',').map((p) => p.trim()) : undefined,
 
         // Camión
@@ -361,7 +638,7 @@ const AltaEquipoCompletaPage: React.FC = () => {
             choferApellido,
             choferDni,
             tractorPatente,
-            semiPatente: semiPatente || undefined,
+            semiPatente: semiPatente ?? undefined,
           });
           formData.append('planilla', planilla);
 
@@ -414,6 +691,8 @@ const AltaEquipoCompletaPage: React.FC = () => {
           navigate(getHomeRoute());
         }, 2000);
       }
+      // Rehabilitar botón si hubo errores en uploads pero no navegamos
+      setIsSubmitting(false);
     } catch (error: any) {
       // ═══════════════════════════════════════════════════════════════════
       // ERROR EN CREACIÓN DE EQUIPO (antes de subir documentos)
@@ -443,6 +722,7 @@ const AltaEquipoCompletaPage: React.FC = () => {
 
       // El rollback es automático (transacción de Prisma)
       // No se creó nada en la base de datos
+      setIsSubmitting(false);
     }
   };
 
@@ -494,6 +774,22 @@ const AltaEquipoCompletaPage: React.FC = () => {
         </div>
       </div>
 
+      {/* Alerta: sesión desactualizada para DADOR_DE_CARGA */}
+      {dadorCargaIdMissing && (
+        <div className='mb-4 p-4 rounded-lg bg-amber-50 border-2 border-amber-400 text-amber-800'>
+          <div className='flex items-start gap-3'>
+            <span className='text-2xl'>⚠️</span>
+            <div>
+              <p className='font-semibold mb-1'>Sesión desactualizada</p>
+              <p className='text-sm'>
+                Tu perfil no tiene el dador de carga asignado correctamente. 
+                Por favor, <strong>cerrá sesión y volvé a iniciar sesión</strong> para actualizar tus datos.
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Mensaje */}
       {message && (
         <div
@@ -519,7 +815,7 @@ const AltaEquipoCompletaPage: React.FC = () => {
                 Seleccionar Dador de Carga *
               </label>
               <select
-                value={dadorCargaId || ''}
+                value={dadorCargaId ?? ''}
                 onChange={(e) => setDadorCargaId(e.target.value ? Number(e.target.value) : null)}
                 className='w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500'
               >
@@ -538,59 +834,69 @@ const AltaEquipoCompletaPage: React.FC = () => {
         </div>
       )}
 
-      {/* SELECTOR DE CLIENTES (para todos los roles que pueden cargar) */}
+      {/* SELECTOR DE PLANTILLAS DE REQUISITOS */}
       <div className='bg-gradient-to-r from-blue-50 to-blue-100 border-2 border-blue-300 rounded-lg p-6 mb-4'>
         <h2 className='text-xl font-semibold text-blue-900 mb-4 flex items-center'>
-          <span className='bg-blue-200 text-blue-900 rounded-full w-8 h-8 flex items-center justify-center mr-3 text-sm font-bold'>👥</span>
-          Clientes (Opcional)
+          <span className='bg-blue-200 text-blue-900 rounded-full w-8 h-8 flex items-center justify-center mr-3 text-sm font-bold'>📋</span>
+          Plantillas de Requisitos (Opcional)
         </h2>
         <div className='grid grid-cols-1 gap-4'>
           <div>
             <label className='block text-sm font-medium text-gray-700 mb-2'>
-              Seleccionar Clientes (puede seleccionar múltiples)
+              Seleccionar Plantillas de Requisitos (puede seleccionar múltiples)
             </label>
             <div className='max-h-60 overflow-y-auto border border-gray-300 rounded-md p-3 bg-white'>
-              {clientesList.length === 0 ? (
-                <p className='text-sm text-gray-500'>No hay clientes disponibles</p>
+              {plantillasData.length === 0 ? (
+                <p className='text-sm text-gray-500'>No hay plantillas de requisitos disponibles</p>
               ) : (
-                clientesList.map((cliente: any) => (
-                  <label key={cliente.id} className='flex items-center gap-2 p-2 hover:bg-gray-50 rounded cursor-pointer'>
-                    <input
-                      type='checkbox'
-                      checked={clienteIds.includes(cliente.id)}
-                      onChange={(e) => {
-                        if (e.target.checked) {
-                          setClienteIds([...clienteIds, cliente.id]);
-                        } else {
-                          setClienteIds(clienteIds.filter((id) => id !== cliente.id));
-                        }
-                      }}
-                      className='w-4 h-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded'
-                    />
-                    <span className='text-sm text-gray-700'>
-                      {cliente.razonSocial} {cliente.cuit && `(CUIT: ${cliente.cuit})`}
-                    </span>
-                  </label>
+                // Agrupar por cliente
+                Object.entries(
+                  plantillasData.reduce((acc: Record<string, any[]>, p: any) => {
+                    const clienteName = p.cliente?.razonSocial || 'Sin cliente';
+                    acc[clienteName] = acc[clienteName] ?? [];
+                    acc[clienteName].push(p);
+                    return acc;
+                  }, {})
+                ).map(([clienteName, plantillas]: [string, any[]]) => (
+                  <div key={clienteName} className='mb-3'>
+                    <div className='text-xs font-semibold text-gray-500 uppercase mb-1 px-2'>{clienteName}</div>
+                    {plantillas.map((plantilla: any) => (
+                      <label key={plantilla.id} className='flex items-center gap-2 p-2 hover:bg-gray-50 rounded cursor-pointer'>
+                        <input
+                          type='checkbox'
+                          checked={plantillaIds.includes(plantilla.id)}
+                          onChange={(e) => handlePlantillaToggle(plantilla.id, plantilla.clienteId, e.target.checked)}
+                          className='w-4 h-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded'
+                        />
+                        <span className='text-sm text-gray-700'>
+                          {plantilla.nombre}
+                          <span className='text-xs text-gray-500 ml-2'>
+                            ({plantilla._count?.templates || 0} docs)
+                          </span>
+                        </span>
+                      </label>
+                    ))}
+                  </div>
                 ))
               )}
             </div>
-            {clienteIds.length > 0 && (
+            {plantillaIds.length > 0 && (
               <div className='mt-2'>
                 <p className='text-xs text-blue-600'>
-                  ✓ {clienteIds.length} cliente{clienteIds.length > 1 ? 's' : ''} seleccionado{clienteIds.length > 1 ? 's' : ''}
+                  ✓ {plantillaIds.length} plantilla{plantillaIds.length > 1 ? 's' : ''} seleccionada{plantillaIds.length > 1 ? 's' : ''}
                 </p>
-                {loadingConsolidated ? (
+                {loadingConsolidatedPlantillas ? (
                   <p className='text-xs text-gray-500 mt-1'>⏳ Cargando documentos requeridos...</p>
-                ) : consolidatedData?.templates && consolidatedData.templates.length > 0 ? (
+                ) : consolidatedPlantillasData?.templates && consolidatedPlantillasData.templates.length > 0 ? (
                   <p className='text-xs text-green-600 mt-1'>
-                    📋 {consolidatedData.templates.length} documentos requeridos por {clienteIds.length > 1 ? 'estos clientes' : 'este cliente'}
+                    📋 {consolidatedPlantillasData.templates.length} documentos requeridos por {plantillaIds.length > 1 ? 'estas plantillas' : 'esta plantilla'}
                   </p>
                 ) : null}
               </div>
             )}
-            {clienteIds.length === 0 && (
+            {plantillaIds.length === 0 && (
               <p className='text-xs text-amber-600 mt-2'>
-                ⚠️ Sin clientes seleccionados se mostrarán todos los documentos disponibles
+                ⚠️ Sin plantillas seleccionadas se mostrarán todos los documentos disponibles
               </p>
             )}
           </div>
@@ -600,10 +906,15 @@ const AltaEquipoCompletaPage: React.FC = () => {
       {/* DATOS BÁSICOS AGRUPADOS POR ENTIDAD */}
 
       {/* EMPRESA TRANSPORTISTA */}
-      <div className='bg-white border border-gray-300 rounded-lg p-6 mb-4'>
+      <div className={`border rounded-lg p-6 mb-4 ${isTransportista ? 'bg-blue-50 border-blue-300' : 'bg-white border-gray-300'}`}>
         <h2 className='text-xl font-semibold text-gray-900 mb-4 flex items-center'>
           <span className='bg-blue-100 text-blue-800 rounded-full w-8 h-8 flex items-center justify-center mr-3 text-sm font-bold'>1</span>
           🏢 Empresa Transportista
+          {isTransportista && (
+            <span className='ml-3 text-sm font-normal text-blue-600 bg-blue-100 px-2 py-1 rounded'>
+              ✓ Tu empresa (automático)
+            </span>
+          )}
         </h2>
 
         <div className='grid grid-cols-1 md:grid-cols-2 gap-4'>
@@ -614,8 +925,13 @@ const AltaEquipoCompletaPage: React.FC = () => {
             <input
               type='text'
               value={empresaTransportista}
-              onChange={(e) => setEmpresaTransportista(e.target.value)}
-              className='w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500'
+              onChange={(e) => !isTransportista && setEmpresaTransportista(e.target.value)}
+              disabled={isTransportista}
+              className={`w-full border rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                isTransportista 
+                  ? 'bg-gray-100 border-gray-300 text-gray-700 cursor-not-allowed' 
+                  : 'border-gray-300'
+              }`}
               placeholder='Ej: Transportes del Norte S.A.'
             />
           </div>
@@ -627,13 +943,23 @@ const AltaEquipoCompletaPage: React.FC = () => {
             <input
               type='text'
               value={cuitTransportista}
-              onChange={(e) => setCuitTransportista(e.target.value.replace(/\D/g, '').slice(0, 11))}
-              className='w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500'
+              onChange={(e) => !isTransportista && handleCuitChange(e.target.value)}
+              onBlur={!isTransportista ? handleVerifyCuit : undefined}
+              onKeyDown={(e) => e.key === 'Enter' && !isTransportista && handleVerifyCuit()}
+              disabled={isTransportista}
+              className={`w-full border rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                isTransportista 
+                  ? 'bg-gray-100 border-gray-300 text-gray-700 cursor-not-allowed' 
+                  : 'border-gray-300'
+              }`}
               placeholder='30123456789'
               maxLength={11}
             />
-            {cuitTransportista && !/^\d{11}$/.test(cuitTransportista) && (
+            {cuitTransportista && !/^\d{11}$/.test(cuitTransportista) && !isTransportista && (
               <p className='text-xs text-red-600 mt-1'>⚠️ Debe tener 11 dígitos</p>
+            )}
+            {!isTransportista && /^\d{11}$/.test(cuitTransportista) && (
+              <EntityStatusBadge result={getResult('EMPRESA_TRANSPORTISTA')} entityType="EMPRESA_TRANSPORTISTA" />
             )}
           </div>
         </div>
@@ -654,10 +980,15 @@ const AltaEquipoCompletaPage: React.FC = () => {
             <input
               type='text'
               value={choferDni}
-              onChange={(e) => setChoferDni(e.target.value.replace(/\D/g, ''))}
+              onChange={(e) => handleDniChange(e.target.value)}
+              onBlur={handleVerifyDni}
+              onKeyDown={(e) => e.key === 'Enter' && handleVerifyDni()}
               className='w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500'
               placeholder='12345678'
             />
+            {choferDni.length >= 6 && (
+              <EntityStatusBadge result={getResult('CHOFER')} entityType="CHOFER" />
+            )}
           </div>
 
           <div>
@@ -717,10 +1048,15 @@ const AltaEquipoCompletaPage: React.FC = () => {
             <input
               type='text'
               value={tractorPatente}
-              onChange={(e) => setTractorPatente(e.target.value.toUpperCase())}
+              onChange={(e) => handlePatenteCamionChange(e.target.value)}
+              onBlur={handleVerifyPatenteCamion}
+              onKeyDown={(e) => e.key === 'Enter' && handleVerifyPatenteCamion()}
               className='w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono'
               placeholder='ABC123'
             />
+            {tractorPatente.length >= 5 && (
+              <EntityStatusBadge result={getResult('CAMION')} entityType="CAMION" />
+            )}
           </div>
 
           <div>
@@ -766,10 +1102,15 @@ const AltaEquipoCompletaPage: React.FC = () => {
             <input
               type='text'
               value={semiPatente}
-              onChange={(e) => setSemiPatente(e.target.value.toUpperCase())}
+              onChange={(e) => handlePatenteAcopladoChange(e.target.value)}
+              onBlur={handleVerifyPatenteAcoplado}
+              onKeyDown={(e) => e.key === 'Enter' && handleVerifyPatenteAcoplado()}
               className='w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono'
               placeholder='DEF456'
             />
+            {semiPatente.length >= 5 && (
+              <EntityStatusBadge result={getResult('ACOPLADO')} entityType="ACOPLADO" />
+            )}
           </div>
 
           <div>
@@ -864,15 +1205,57 @@ const AltaEquipoCompletaPage: React.FC = () => {
         onFileSelect={handleFileSelect}
       />
 
-      {/* BOTÓN CREAR EQUIPO */}
-      <div className='mt-8 flex justify-center'>
+      {/* INDICADOR DE PRE-CHECK PASADO */}
+      {preCheckPassed && preCheckResult && (
+        <div className='mt-6 bg-green-50 border border-green-200 rounded-lg p-4'>
+          <div className='flex items-start gap-3'>
+            <span className='text-2xl'>✓</span>
+            <div className='flex-1'>
+              <p className='font-medium text-green-800'>Entidades verificadas</p>
+              <div className='mt-2 flex flex-wrap gap-2'>
+                {preCheckResult.entidades.map((e: any) => (
+                  <span 
+                    key={`${e.entityType}-${e.identificador}`}
+                    className={`px-2 py-1 rounded text-xs ${getEntityBadgeClass(e.existe, e.perteneceSolicitante)}`}
+                  >
+                    {e.entityType === 'EMPRESA_TRANSPORTISTA' && '🏢'}
+                    {e.entityType === 'CHOFER' && '👤'}
+                    {e.entityType === 'CAMION' && '🚛'}
+                    {e.entityType === 'ACOPLADO' && '📦'}
+                    {' '}{e.identificador}
+                    {e.existe && e.perteneceSolicitante && e.resumen?.vigentes > 0 && (
+                      <span className='ml-1'>({e.resumen.vigentes} docs ✓)</span>
+                    )}
+                    {!e.existe && ' (nueva)'}
+                  </span>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* BOTONES DE ACCIÓN */}
+      <div className='mt-8 flex flex-col items-center gap-4'>
+        {/* Botón de verificar entidades (si no pasó pre-check) */}
+        {!preCheckPassed && datosBasicosCompletos && (
+          <button
+            onClick={handleInitPreCheck}
+            disabled={isSubmitting}
+            className='px-6 py-2 text-sm font-medium text-blue-700 bg-blue-50 border border-blue-300 rounded-lg hover:bg-blue-100 disabled:opacity-50 disabled:cursor-not-allowed transition-colors'
+          >
+            🔍 Verificar disponibilidad de entidades
+          </button>
+        )}
+
+        {/* Botón crear equipo */}
         <button
           onClick={handleCrearEquipo}
           data-testid='boton-crear-equipo'
           disabled={!datosBasicosCompletos || !todosDocumentosSeleccionados || creatingEquipo}
           className='px-8 py-3 text-lg font-semibold text-white bg-green-600 rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors shadow-lg'
         >
-          {creatingEquipo ? 'Creando Equipo y Subiendo Documentos...' : '✓ Crear Equipo con Todos los Documentos'}
+          {getSubmitButtonText(isSubmitting, preCheckPassed)}
         </button>
       </div>
 
@@ -889,6 +1272,16 @@ const AltaEquipoCompletaPage: React.FC = () => {
           )}
         </div>
       )}
+
+      {/* MODAL DE PRE-CHECK */}
+      <PreCheckModal
+        isOpen={showPreCheck}
+        onClose={() => setShowPreCheck(false)}
+        entidades={buildPreCheckEntidades()}
+        clienteId={clienteIds.length > 0 ? clienteIds[0] : undefined}
+        onContinue={handlePreCheckContinue}
+        onTransferenciaCreada={handleTransferenciaCreada}
+      />
     </div>
   );
 };

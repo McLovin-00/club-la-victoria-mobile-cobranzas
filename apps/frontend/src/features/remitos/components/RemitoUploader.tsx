@@ -47,7 +47,7 @@ export function RemitoUploader({ onSuccess, dadorCargaId }: RemitoUploaderProps)
   
   // Obtener usuario actual
   const user = useAppSelector((state) => state.auth?.user);
-  const userRole = user?.role || '';
+  const userRole = user?.role ?? '';
   const userChoferId = user?.choferId;
   
   // Si el usuario es CHOFER, no necesita selector
@@ -59,15 +59,15 @@ export function RemitoUploader({ onSuccess, dadorCargaId }: RemitoUploaderProps)
   // Buscar choferes - cargar siempre si necesita selector
   const empresaId = user?.empresaId || 1;
   const { data: choferesData } = useGetChoferesQuery(
-    { empresaId, q: choferSearch || '', activo: true, limit: 20 },
+    { empresaId, q: choferSearch ?? '', activo: true, limit: 20 },
     { skip: !needsChoferSelector }
   );
   
-  const choferes = useMemo(() => choferesData?.data || [], [choferesData]);
+  const choferes = useMemo(() => choferesData?.data ?? [], [choferesData]);
   
   const handleSelectChofer = (chofer: ChoferOption) => {
     setSelectedChofer(chofer);
-    setChoferSearch(`${chofer.nombre || ''} ${chofer.apellido || ''} - ${chofer.dni}`.trim());
+    setChoferSearch(`${chofer.nombre ?? ''} ${chofer.apellido ?? ''} - ${chofer.dni}`.trim());
     setShowChoferDropdown(false);
   };
   
@@ -260,7 +260,7 @@ export function RemitoUploader({ onSuccess, dadorCargaId }: RemitoUploaderProps)
                         >
                           <UserIcon className="h-4 w-4 text-slate-400" />
                           <span className="font-medium text-slate-900 dark:text-white">
-                            {chofer.nombre || ''} {chofer.apellido || ''}
+                            {chofer.nombre ?? ''} {chofer.apellido ?? ''}
                           </span>
                           <span className="text-slate-500 text-sm">
                             DNI: {chofer.dni}
@@ -465,7 +465,7 @@ export function RemitoUploader({ onSuccess, dadorCargaId }: RemitoUploaderProps)
         onCapture={(pics) => {
           // Convertir las fotos a FilePreview y agregarlas
           const newFiles: FilePreview[] = pics.map((file) => ({
-            id: `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+            id: `${Date.now()}-${Math.random().toString(36).substring(2, 11)}`,
             file,
             preview: URL.createObjectURL(file),
             type: 'image' as const,

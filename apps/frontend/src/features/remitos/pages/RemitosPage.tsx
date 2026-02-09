@@ -44,7 +44,7 @@ export function RemitosPage() {
   // Query params
   const queryParams = {
     estado: activeFilter !== 'todos' ? activeFilter as RemitoEstado : undefined,
-    numeroRemito: search || undefined,
+    numeroRemito: search ?? undefined,
     page,
     limit: 20,
   };
@@ -53,7 +53,7 @@ export function RemitosPage() {
     refetchOnMountOrArgChange: true,
   });
   
-  const remitos = remitosData?.data || [];
+  const remitos = remitosData?.data ?? [];
   const pagination = remitosData?.pagination;
   const stats = remitosData?.stats; // Stats vienen incluidos en la misma respuesta (optimizado)
   
@@ -221,7 +221,7 @@ export function RemitosPage() {
       {isLoading ? (
         <div className="space-y-3">
           {[...Array(6)].map((_, i) => (
-            <div key={i} className="bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700 p-4 animate-pulse">
+            <div key={`skeleton-${i}`} className="bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700 p-4 animate-pulse">
               <div className="h-5 bg-slate-200 dark:bg-slate-700 rounded w-1/2 mb-3" />
               <div className="space-y-2">
                 <div className="h-4 bg-slate-200 dark:bg-slate-700 rounded w-3/4" />
@@ -304,10 +304,11 @@ export function RemitosPage() {
               
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
+                  <label htmlFor="export-fecha-desde" className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
                     Fecha Desde
                   </label>
                   <input
+                    id="export-fecha-desde"
                     type="date"
                     value={exportFilters.fechaDesde}
                     onChange={(e) => setExportFilters(f => ({ ...f, fechaDesde: e.target.value }))}
@@ -315,10 +316,11 @@ export function RemitosPage() {
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
+                  <label htmlFor="export-fecha-hasta" className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
                     Fecha Hasta
                   </label>
                   <input
+                    id="export-fecha-hasta"
                     type="date"
                     value={exportFilters.fechaHasta}
                     onChange={(e) => setExportFilters(f => ({ ...f, fechaHasta: e.target.value }))}
@@ -328,10 +330,11 @@ export function RemitosPage() {
               </div>
               
               <div>
-                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
+                <label htmlFor="export-estado" className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
                   Estado
                 </label>
                 <select
+                  id="export-estado"
                   value={exportFilters.estado}
                   onChange={(e) => setExportFilters(f => ({ ...f, estado: e.target.value }))}
                   className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-slate-900 dark:text-white"
@@ -345,10 +348,11 @@ export function RemitosPage() {
               </div>
               
               <div>
-                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
+                <label htmlFor="export-cliente" className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
                   Cliente
                 </label>
                 <AutocompleteInput
+                  id="export-cliente"
                   value={exportFilters.clienteNombre}
                   onChange={(value) => setExportFilters(f => ({ ...f, clienteNombre: value }))}
                   field="cliente"
@@ -358,10 +362,11 @@ export function RemitosPage() {
               </div>
               
               <div>
-                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
+                <label htmlFor="export-transportista" className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
                   Transportista
                 </label>
                 <AutocompleteInput
+                  id="export-transportista"
                   value={exportFilters.transportistaNombre}
                   onChange={(value) => setExportFilters(f => ({ ...f, transportistaNombre: value }))}
                   field="transportista"
@@ -371,10 +376,11 @@ export function RemitosPage() {
               </div>
               
               <div>
-                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
+                <label htmlFor="export-patente" className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
                   Patente Chasis
                 </label>
                 <AutocompleteInput
+                  id="export-patente"
                   value={exportFilters.patenteChasis}
                   onChange={(value) => setExportFilters(f => ({ ...f, patenteChasis: value }))}
                   field="patente"

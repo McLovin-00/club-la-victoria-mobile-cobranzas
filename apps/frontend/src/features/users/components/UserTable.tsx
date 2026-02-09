@@ -41,7 +41,7 @@ const DeleteConfirmation: React.FC<DeleteConfirmationProps> = ({
 
   return (
     <div className='fixed inset-0 z-50 overflow-y-auto'>
-      <div className='fixed inset-0 bg-black bg-opacity-50 transition-opacity' onClick={onCancel} />
+      <div className='fixed inset-0 bg-black bg-opacity-50 transition-opacity' onClick={onCancel} onKeyDown={(e) => e.key === 'Escape' && onCancel()} role="button" tabIndex={0} aria-label="Cerrar confirmación" />
       <div className='flex min-h-full items-center justify-center p-4'>
         <div className='relative bg-background rounded-lg shadow-xl max-w-md w-full p-6'>
           <div className='flex items-center gap-3 mb-4'>
@@ -145,9 +145,9 @@ export const UserTable: React.FC = () => {
   const { data: empresasResponse, isLoading: loadingEmpresas } = useGetEmpresasQuery();
   const [deleteUser, { isLoading: isDeleting }] = useDeleteUserMutation();
 
-  const users = usersResponse?.data || [];
+  const users = usersResponse?.data ?? [];
   const totalUsers = usersResponse?.total || 0;
-  const empresas = empresasResponse || [];
+  const empresas = empresasResponse ?? [];
 
   // Forzar refetch cuando cambia el usuario logueado (especialmente para admins)
   useEffect(() => {
@@ -234,7 +234,7 @@ export const UserTable: React.FC = () => {
   const handleRoleFilter = useCallback((role: UserRole | '') => {
     setQueryParams(prev => ({
       ...prev,
-      role: role || undefined,
+      role: role ?? undefined,
       page: 1,
     }));
   }, []);
@@ -242,7 +242,7 @@ export const UserTable: React.FC = () => {
   const handleEmpresaFilter = useCallback((empresaId: number | '') => {
     setQueryParams(prev => ({
       ...prev,
-      empresaId: empresaId || undefined,
+      empresaId: empresaId ?? undefined,
       page: 1,
     }));
   }, []);
@@ -431,7 +431,7 @@ export const UserTable: React.FC = () => {
                   Filtrar por rol
                 </label>
                 <select
-                  value={queryParams.role || ''}
+                  value={queryParams.role ?? ''}
                   onChange={e => handleRoleFilter(e.target.value as UserRole | '')}
                   className='w-full px-3 py-2 border border-border rounded-md bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary'
                 >
@@ -451,7 +451,7 @@ export const UserTable: React.FC = () => {
                     Filtrar por empresa
                   </label>
                   <select
-                    value={queryParams.empresaId || ''}
+                    value={queryParams.empresaId ?? ''}
                     onChange={e =>
                       handleEmpresaFilter(e.target.value ? parseInt(e.target.value) : '')
                     }

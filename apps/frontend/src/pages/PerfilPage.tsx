@@ -111,7 +111,7 @@ export const PerfilPage = () => {
                 <input
                   type='email'
                   disabled
-                  value={currentUser?.email || ''}
+                  value={currentUser?.email ?? ''}
                   className='bg-muted w-full px-3 py-2 border border-border rounded-md shadow-sm text-sm text-muted-foreground'
                 />
                 <p className='mt-1 text-xs text-muted-foreground'>
@@ -141,7 +141,7 @@ export const PerfilPage = () => {
                 </div>
                 <div className='relative'>
                   <select
-                    value={selectedEmpresaId || ''}
+                    value={selectedEmpresaId ?? ''}
                     onChange={handleEmpresaChange}
                     className='w-full px-3 py-2 border border-border rounded-md shadow-sm focus:outline-none focus:ring-primary focus:border-primary bg-background text-foreground sm:text-sm'
                     disabled={isEmpresasLoading || isUpdatingEmpresa}

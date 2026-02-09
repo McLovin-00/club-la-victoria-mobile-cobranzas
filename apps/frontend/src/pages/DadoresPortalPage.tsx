@@ -35,7 +35,7 @@ export const DadoresPortalPage: React.FC = () => {
   const { data: equiposList = [] } = useGetEquiposQuery({ empresaId: Number(resolvedDadorId || 0) }, { skip: !resolvedDadorId });
   const [uploadBatch, { isLoading: uploadingBatch }] = useUploadBatchDocsDadorMutation();
   const [batchJobId, setBatchJobId] = useState<string | null>(null);
-  const { data: batchJob } = useGetJobStatusQuery({ jobId: batchJobId || '' }, { skip: !batchJobId, pollingInterval: 1500 });
+  const { data: batchJob } = useGetJobStatusQuery({ jobId: batchJobId ?? '' }, { skip: !batchJobId, pollingInterval: 1500 });
   const [zipVigLoading, setZipVigLoading] = useState(false);
 
   return (
@@ -81,7 +81,7 @@ export const DadoresPortalPage: React.FC = () => {
                         setZipVigLoading(true);
                         const resp = await fetch(`${getRuntimeEnv('VITE_DOCUMENTOS_API_URL') ?? ''}/api/docs/equipos/download/vigentes`, {
                           method: 'POST',
-                          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${localStorage.getItem('token') || ''}` },
+                          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${localStorage.getItem('token') ?? ''}` },
                           body: JSON.stringify({ equipoIds: ids }),
                         });
                         if (!resp.ok) throw new Error('ZIP');
@@ -197,7 +197,7 @@ export const DadoresPortalPage: React.FC = () => {
                   disabled={!resolvedDadorId || !dni || !tractor || isLoading}
                   onClick={async () => {
                     if (!resolvedDadorId) return;
-                    await createMinimal({ dadorCargaId: resolvedDadorId, dniChofer: dni, patenteTractor: tractor, patenteAcoplado: acoplado || undefined });
+                    await createMinimal({ dadorCargaId: resolvedDadorId, dniChofer: dni, patenteTractor: tractor, patenteAcoplado: acoplado ?? undefined });
                     setDni(''); setTractor(''); setAcoplado('');
                   }}
                   className="w-full h-14 bg-gradient-to-r from-purple-500 to-purple-600 hover:from-purple-600 hover:to-purple-700 text-white font-bold text-lg rounded-2xl shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105"
@@ -431,7 +431,7 @@ const MaestrosReadonly: React.FC<{ dadorId?: number }> = ({ dadorId }) => {
           {!loadingChoferes && choferes.length === 0 && <div className="text-sm text-gray-500">Sin registros</div>}
           {choferes.map((c: any) => (
             <div key={c.id} className="p-3 bg-gray-50 border-2 border-gray-200 rounded-xl text-sm text-gray-700">
-              DNI <strong>{c.dni}</strong> · {c.nombre || ''} {c.apellido || ''}
+              DNI <strong>{c.dni}</strong> · {c.nombre ?? ''} {c.apellido ?? ''}
             </div>
           ))}
           <div className="flex items-center justify-between pt-2">
@@ -450,7 +450,7 @@ const MaestrosReadonly: React.FC<{ dadorId?: number }> = ({ dadorId }) => {
           {!loadingCamiones && camiones.length === 0 && <div className="text-sm text-gray-500">Sin registros</div>}
           {camiones.map((m: any) => (
             <div key={m.id} className="p-3 bg-gray-50 border-2 border-gray-200 rounded-xl text-sm text-gray-700">
-              Patente <strong>{m.patente}</strong> · {m.marca || ''} {m.modelo || ''}
+              Patente <strong>{m.patente}</strong> · {m.marca ?? ''} {m.modelo ?? ''}
             </div>
           ))}
           <div className="flex items-center justify-between pt-2">
@@ -469,7 +469,7 @@ const MaestrosReadonly: React.FC<{ dadorId?: number }> = ({ dadorId }) => {
           {!loadingAcoplados && acoplados.length === 0 && <div className="text-sm text-gray-500">Sin registros</div>}
           {acoplados.map((a: any) => (
             <div key={a.id} className="p-3 bg-gray-50 border-2 border-gray-200 rounded-xl text-sm text-gray-700">
-              Patente <strong>{a.patente}</strong> · {a.tipo || ''}
+              Patente <strong>{a.patente}</strong> · {a.tipo ?? ''}
             </div>
           ))}
           <div className="flex items-center justify-between pt-2">
@@ -549,7 +549,7 @@ const BatchUploader: React.FC<{ dadorId?: number }> = ({ dadorId }) => {
   const [files, setFiles] = useState<FileList | null>(null);
   const [start, { data: job, isLoading }] = useUploadBatchDocsDadorMutation();
   const jobId = job?.jobId;
-  const { data: status } = useGetJobStatusQuery({ jobId: jobId || '' }, { skip: !jobId, pollingInterval: 1500 });
+  const { data: status } = useGetJobStatusQuery({ jobId: jobId ?? '' }, { skip: !jobId, pollingInterval: 1500 });
   const progress = Math.round((status?.job?.progress ?? 0) * 100);
   const state = status?.job?.status || (isLoading ? 'queued' : 'idle');
   const navigate = useNavigate();

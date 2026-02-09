@@ -58,13 +58,13 @@ const EditPlatformUserModal: React.FC<Props> = ({ isOpen, onClose, user }) => {
   const currentUser = useAppSelector(selectCurrentUser);
   
   // DADOR_DE_CARGA y TRANSPORTISTA solo pueden editar nombre, apellido y contraseña
-  const isRestrictedEditor = ['DADOR_DE_CARGA', 'TRANSPORTISTA'].includes(currentUser?.role || '');
+  const isRestrictedEditor = ['DADOR_DE_CARGA', 'TRANSPORTISTA'].includes(currentUser?.role ?? '');
   
   // Solo SUPERADMIN puede seleccionar empresa
   const canSelectEmpresa = currentUser?.role === 'SUPERADMIN';
   const { data: empresas = [] } = useGetEmpresasQuery(undefined, { skip: !canSelectEmpresa });
   // Solo roles admin pueden ver dadores y clientes
-  const canSeeDadoresYClientes = ['SUPERADMIN', 'ADMIN', 'ADMIN_INTERNO'].includes(currentUser?.role || '');
+  const canSeeDadoresYClientes = ['SUPERADMIN', 'ADMIN', 'ADMIN_INTERNO'].includes(currentUser?.role ?? '');
   const { data: dadoresResp } = useGetDadoresQuery({}, { skip: !canSeeDadoresYClientes });
   const { data: clientesResp } = useGetClientsQuery({}, { skip: !canSeeDadoresYClientes });
   
@@ -83,7 +83,7 @@ const EditPlatformUserModal: React.FC<Props> = ({ isOpen, onClose, user }) => {
   // Para TRANSPORTISTA, usar su propia empresaTransportistaId
   const [selectedTransportistaForChofer, setSelectedTransportistaForChofer] = useState<number | ''>(
     currentUser?.role === 'TRANSPORTISTA' 
-      ? (currentUser as any).empresaTransportistaId || user.empresaTransportistaId || ''
+      ? ((currentUser as any).empresaTransportistaId || user.empresaTransportistaId) ?? ''
       : (user.role === 'CHOFER' && user.empresaTransportistaId ? user.empresaTransportistaId : '')
   );
   const [initialLoadDoneChofer, setInitialLoadDoneChofer] = useState(false);
@@ -156,8 +156,8 @@ const EditPlatformUserModal: React.FC<Props> = ({ isOpen, onClose, user }) => {
     if (!searchTransportista.trim()) return transportistasRaw.slice(0, 50);
     const q = searchTransportista.toLowerCase();
     return transportistasRaw.filter((t: any) => 
-      (t.razonSocial || '').toLowerCase().includes(q) || 
-      (t.cuit || '').includes(q)
+      (t.razonSocial ?? '').toLowerCase().includes(q) || 
+      (t.cuit ?? '').includes(q)
     ).slice(0, 50);
   }, [transportistasRaw, searchTransportista]);
   
@@ -165,8 +165,8 @@ const EditPlatformUserModal: React.FC<Props> = ({ isOpen, onClose, user }) => {
     if (!searchTransportista.trim()) return transportistasForChoferRaw.slice(0, 50);
     const q = searchTransportista.toLowerCase();
     return transportistasForChoferRaw.filter((t: any) => 
-      (t.razonSocial || '').toLowerCase().includes(q) || 
-      (t.cuit || '').includes(q)
+      (t.razonSocial ?? '').toLowerCase().includes(q) || 
+      (t.cuit ?? '').includes(q)
     ).slice(0, 50);
   }, [transportistasForChoferRaw, searchTransportista]);
   
@@ -175,9 +175,9 @@ const EditPlatformUserModal: React.FC<Props> = ({ isOpen, onClose, user }) => {
     if (!searchChofer.trim()) return choferesConActual.slice(0, 50);
     const q = searchChofer.toLowerCase();
     return choferesConActual.filter((c: any) => 
-      (c.nombre || '').toLowerCase().includes(q) || 
-      (c.apellido || '').toLowerCase().includes(q) || 
-      (c.dni || '').includes(q)
+      (c.nombre ?? '').toLowerCase().includes(q) || 
+      (c.apellido ?? '').toLowerCase().includes(q) || 
+      (c.dni ?? '').includes(q)
     ).slice(0, 50);
   }, [choferesConActual, searchChofer]);
   
@@ -188,8 +188,8 @@ const EditPlatformUserModal: React.FC<Props> = ({ isOpen, onClose, user }) => {
       email: user.email,
       role: user.role,
       empresaId: user.empresaId ?? '',
-      nombre: user.nombre || '',
-      apellido: user.apellido || '',
+      nombre: user.nombre ?? '',
+      apellido: user.apellido ?? '',
       password: '',
       dadorCargaId: user.dadorCargaId ?? '',
       empresaTransportistaId: user.empresaTransportistaId ?? '',
@@ -203,7 +203,7 @@ const EditPlatformUserModal: React.FC<Props> = ({ isOpen, onClose, user }) => {
   // Roles disponibles según el rol del usuario actual
   const rolesDisponibles = useMemo(() => {
     if (!currentUser?.role) return [];
-    return PERMISOS_EDICION[currentUser.role] || [];
+    return PERMISOS_EDICION[currentUser.role] ?? [];
   }, [currentUser?.role]);
 
   // Efecto para cargar el dador para TRANSPORTISTA
@@ -253,8 +253,8 @@ const EditPlatformUserModal: React.FC<Props> = ({ isOpen, onClose, user }) => {
         email: user.email,
         role: user.role,
         empresaId: user.empresaId ?? '',
-        nombre: user.nombre || '',
-        apellido: user.apellido || '',
+        nombre: user.nombre ?? '',
+        apellido: user.apellido ?? '',
         password: '',
         dadorCargaId: user.dadorCargaId ?? '',
         empresaTransportistaId: user.empresaTransportistaId ?? '',
@@ -363,7 +363,7 @@ const EditPlatformUserModal: React.FC<Props> = ({ isOpen, onClose, user }) => {
 
   return (
     <div className="fixed inset-0 z-50 overflow-y-auto">
-      <div className="fixed inset-0 bg-black/40" onClick={onClose} />
+      <div className="fixed inset-0 bg-black/40" onClick={onClose} onKeyDown={(e) => e.key === 'Escape' && onClose()} role="button" tabIndex={0} aria-label="Cerrar modal" />
       <div className="flex min-h-full items-center justify-center p-4">
         <div className="relative bg-background rounded-lg shadow-xl w-full max-w-xl p-6">
           <h3 className="text-lg font-medium mb-6">Editar Usuario de Plataforma</h3>

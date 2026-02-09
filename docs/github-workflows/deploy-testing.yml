@@ -1,0 +1,170 @@
+# ============================================================================
+# DEPLOY TESTING WORKFLOW
+# ============================================================================
+# Propósito: Deploy automático al ambiente de Testing
+# Trigger: Push a rama develop
+# Target: 10.3.0.246
+# ============================================================================
+
+name: Deploy Testing
+
+on:
+  push:
+    branches:
+      - develop
+    paths:
+      - 'apps/**'
+      - 'packages/**'
+      - 'docker-compose*.yml'
+      - 'package.json'
+      - 'package-lock.json'
+
+  # Permitir ejecución manual
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-testing
+  cancel-in-progress: false
+
+env:
+  ENVIRONMENT: testing
+  SERVER_IP: 10.3.0.246
+  PROJECT_PATH: /home/administrador/monorepo-bca
+
+jobs:
+  deploy:
+    name: 🧪 Deploy to Testing
+    runs-on: ubuntu-latest
+    environment:
+      name: testing
+      url: http://10.3.0.246:8560
+
+    steps:
+      # ---------------------------------------------------------------------
+      # Checkout
+      # ---------------------------------------------------------------------
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # ---------------------------------------------------------------------
+      # Notificar inicio
+      # ---------------------------------------------------------------------
+      - name: Notify start
+        run: |
+          echo "🚀 Iniciando deploy a Testing"
+          echo "📦 Commit: ${{ github.sha }}"
+          echo "👤 Author: ${{ github.actor }}"
+          echo "📝 Message: ${{ github.event.head_commit.message }}"
+
+      # ---------------------------------------------------------------------
+      # Deploy via SSH
+      # ---------------------------------------------------------------------
+      - name: Deploy via SSH
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.TESTING_SSH_HOST }}
+          username: ${{ secrets.TESTING_SSH_USER }}
+          key: ${{ secrets.TESTING_SSH_KEY }}
+          port: 22
+          script_stop: true
+          script: |
+            set -e
+            
+            echo "=============================================="
+            echo "DEPLOY A TESTING - $(date +'%Y-%m-%d %H:%M:%S')"
+            echo "=============================================="
+            
+            cd ${{ env.PROJECT_PATH }}
+            
+            # Pull latest code
+            echo "📥 Pulling develop branch..."
+            git fetch origin
+            git checkout develop
+            git reset --hard origin/develop
+            
+            # Install dependencies
+            echo "📦 Installing dependencies..."
+            npm ci
+            
+            # Run migrations
+            echo "🔄 Running Prisma migrations..."
+            npx prisma migrate deploy --schema=apps/backend/prisma/schema.prisma || true
+            npx prisma migrate deploy --schema=apps/documentos/src/prisma/schema.prisma || true
+            npx prisma migrate deploy --schema=apps/remitos/src/prisma/schema.prisma || true
+            
+            # Generate Prisma clients
+            echo "🔄 Generating Prisma clients..."
+            npx prisma generate --schema=apps/backend/prisma/schema.prisma
+            npx prisma generate --schema=apps/documentos/src/prisma/schema.prisma
+            npx prisma generate --schema=apps/remitos/src/prisma/schema.prisma || true
+            
+            # Build and deploy
+            echo "🏗️ Building and deploying..."
+            docker compose -f docker-compose.dev.yml down || true
+            docker compose -f docker-compose.dev.yml up -d --build
+            
+            # Wait for services
+            echo "⏳ Waiting for services..."
+            sleep 20
+            
+            echo "=============================================="
+            echo "✅ DEPLOY COMPLETADO"
+            echo "=============================================="
+
+      # ---------------------------------------------------------------------
+      # Health Check
+      # ---------------------------------------------------------------------
+      - name: Health Check
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.TESTING_SSH_HOST }}
+          username: ${{ secrets.TESTING_SSH_USER }}
+          key: ${{ secrets.TESTING_SSH_KEY }}
+          port: 22
+          script: |
+            echo "🔍 Verificando servicios..."
+            
+            # Backend
+            if curl -sf http://localhost:4810/health > /dev/null 2>&1; then
+              echo "✅ Backend: OK"
+            else
+              echo "❌ Backend: FAILED"
+              exit 1
+            fi
+            
+            # Documentos
+            if curl -sf http://localhost:4812/health > /dev/null 2>&1; then
+              echo "✅ Documentos: OK"
+            else
+              echo "❌ Documentos: FAILED"
+              exit 1
+            fi
+            
+            # Frontend
+            if curl -sf http://localhost:8560 > /dev/null 2>&1; then
+              echo "✅ Frontend: OK"
+            else
+              echo "⚠️ Frontend: No responde (puede estar iniciando)"
+            fi
+            
+            # Container status
+            echo ""
+            echo "📊 Estado de contenedores:"
+            docker ps --filter name=bca --format "table {{.Names}}\t{{.Status}}"
+
+      # ---------------------------------------------------------------------
+      # Notificar resultado
+      # ---------------------------------------------------------------------
+      - name: Notify success
+        if: success()
+        run: |
+          echo "✅ Deploy a Testing completado"
+          echo "🌐 URL: http://10.3.0.246:8560"
+          echo "📦 Commit: ${{ github.sha }}"
+
+      - name: Notify failure
+        if: failure()
+        run: |
+          echo "❌ Deploy a Testing falló"
+          echo "📦 Commit: ${{ github.sha }}"
+          echo "🔍 Revisar logs para más detalles"

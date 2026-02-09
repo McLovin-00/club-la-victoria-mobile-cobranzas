@@ -254,7 +254,7 @@ const ClienteEquipoDetalle: React.FC = () => {
             <span className='text-gray-500 text-sm'>Camión:</span>
             <div className='font-medium'>
               {equipo.camion?.patente || '-'}
-              {equipo.camion?.marca && ` (${equipo.camion.marca} ${equipo.camion.modelo || ''})`}
+              {equipo.camion?.marca && ` (${equipo.camion.marca} ${equipo.camion.modelo ?? ''})`}
             </div>
           </div>
           <div>
@@ -265,7 +265,7 @@ const ClienteEquipoDetalle: React.FC = () => {
             <span className='text-gray-500 text-sm'>Chofer:</span>
             <div className='font-medium'>
               {equipo.chofer 
-                ? `${equipo.chofer.nombre || ''} ${equipo.chofer.apellido || ''} - DNI ${equipo.chofer.dni}`
+                ? `${equipo.chofer.nombre ?? ''} ${equipo.chofer.apellido ?? ''} - DNI ${equipo.chofer.dni}`
                 : '-'}
             </div>
           </div>
@@ -406,10 +406,12 @@ const ClienteEquipoDetalle: React.FC = () => {
       
       {/* Modal de Preview */}
       {previewUrl && (
-        <div className='fixed inset-0 z-50 flex items-center justify-center bg-black/60' onClick={handleClosePreview}>
+        <div className='fixed inset-0 z-50 flex items-center justify-center bg-black/60' onClick={handleClosePreview} onKeyDown={(e) => e.key === 'Escape' && handleClosePreview()} role="button" tabIndex={0} aria-label="Cerrar preview">
           <div 
             className='bg-white dark:bg-gray-800 rounded-lg shadow-xl w-[90vw] h-[90vh] max-w-5xl flex flex-col'
             onClick={e => e.stopPropagation()}
+            onKeyDown={e => e.stopPropagation()}
+            role="dialog"
           >
             <div className='flex items-center justify-between p-4 border-b'>
               <h3 className='text-lg font-semibold'>{previewTitle}</h3>

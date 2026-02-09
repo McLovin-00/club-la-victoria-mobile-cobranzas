@@ -5,6 +5,12 @@ import { AuthRequest } from '../types';
 import { createError } from './error.middleware';
 import { AppLogger } from '../config/logger';
 
+// Workaround para Express 5 charset bug
+function sendJson(res: Response, status: number, data: object): void {
+  res.setHeader('Content-Type', 'application/json; charset=utf-8');
+  res.status(status).send(JSON.stringify(data));
+}
+
 // Cargar JWT_PUBLIC_KEY desde archivo o variable de entorno
 function loadJwtPublicKey(): string {
   // Primero intentar desde PATH
@@ -51,11 +57,11 @@ export function authenticate(req: AuthRequest, res: Response, next: NextFunction
     next();
   } catch (error) {
     if ((error as any).name === 'JsonWebTokenError') {
-      res.status(401).json({ success: false, error: 'INVALID_TOKEN', message: 'Token inválido' });
+      sendJson(res, 401, { success: false, error: 'INVALID_TOKEN', message: 'Token inválido' });
       return;
     }
     if ((error as any).name === 'TokenExpiredError') {
-      res.status(401).json({ success: false, error: 'TOKEN_EXPIRED', message: 'Token expirado' });
+      sendJson(res, 401, { success: false, error: 'TOKEN_EXPIRED', message: 'Token expirado' });
       return;
     }
     next(error);
@@ -65,13 +71,13 @@ export function authenticate(req: AuthRequest, res: Response, next: NextFunction
 export function authorize(allowedRoles: string[]) {
   return (req: AuthRequest, res: Response, next: NextFunction): void => {
     if (!req.user) {
-      res.status(401).json({ success: false, error: 'UNAUTHORIZED', message: 'No autenticado' });
+      sendJson(res, 401, { success: false, error: 'UNAUTHORIZED', message: 'No autenticado' });
       return;
     }
     
     if (!allowedRoles.includes(req.user.role)) {
       AppLogger.warn(`🚫 Acceso denegado: ${req.user.email} (${req.user.role}) intentó acceder a recurso restringido`);
-      res.status(403).json({ success: false, error: 'FORBIDDEN', message: 'Acceso denegado' });
+      sendJson(res, 403, { success: false, error: 'FORBIDDEN', message: 'Acceso denegado' });
       return;
     }
     
@@ -82,8 +88,8 @@ export function authorize(allowedRoles: string[]) {
 // Roles que pueden subir remitos
 export const ROLES_UPLOAD = ['SUPERADMIN', 'ADMIN_INTERNO', 'DADOR_DE_CARGA', 'TRANSPORTISTA', 'CHOFER'];
 
-// Roles que pueden aprobar/rechazar/reprocesar
-export const ROLES_APPROVE = ['SUPERADMIN', 'ADMIN_INTERNO', 'DADOR_CARGA'];
+// Roles que pueden aprobar/rechazar/reprocesar (solo admins)
+export const ROLES_APPROVE = ['SUPERADMIN', 'ADMIN_INTERNO'];
 
 // Roles que pueden ver todos los remitos
 export const ROLES_VIEW_ALL = ['SUPERADMIN', 'ADMIN_INTERNO'];

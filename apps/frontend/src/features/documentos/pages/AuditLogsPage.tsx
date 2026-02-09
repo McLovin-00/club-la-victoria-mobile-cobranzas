@@ -70,16 +70,16 @@ const AuditLogsPage: React.FC = () => {
   const query = {
     page,
     limit,
-    from: params.get('from') || undefined,
-    to: params.get('to') || undefined,
-    userEmail: params.get('userEmail') || undefined,
-    userRole: params.get('userRole') || undefined,
-    method: params.get('method') || undefined,
+    from: params.get('from') ?? undefined,
+    to: params.get('to') ?? undefined,
+    userEmail: params.get('userEmail') ?? undefined,
+    userRole: params.get('userRole') ?? undefined,
+    method: params.get('method') ?? undefined,
     statusCode: params.get('statusCode') ? Number(params.get('statusCode')) : undefined,
-    action: params.get('action') || undefined,
-    entityType: params.get('entityType') || undefined,
+    action: params.get('action') ?? undefined,
+    entityType: params.get('entityType') ?? undefined,
     entityId: params.get('entityId') ? Number(params.get('entityId')) : undefined,
-    pathContains: params.get('pathContains') || undefined,
+    pathContains: params.get('pathContains') ?? undefined,
   };
   const { data, isLoading } = useGetAuditLogsQuery(query);
   const [visibleCols, setVisibleCols] = React.useState<Record<string, boolean>>({
@@ -204,11 +204,11 @@ const AuditLogsPage: React.FC = () => {
                   {visibleCols.accion && <td className='px-2 py-2'>{row.accion}</td>}
                   {visibleCols.metodo && <td className='px-2 py-2'>{row.method}</td>}
                   {visibleCols.status && <td className='px-2 py-2'>{row.statusCode}</td>}
-                  {visibleCols.usuario && <td className='px-2 py-2'>{row.userEmail || row.userId || ''}</td>}
+                  {visibleCols.usuario && <td className='px-2 py-2'>{(row.userEmail || row.userId) ?? ''}</td>}
                   {visibleCols.rol && <td className='px-2 py-2'>{row.userRole ?? ''}</td>}
                   {visibleCols.entidad && <td className='px-2 py-2'>
                     {row.entityType}{row.entityId ? `#${row.entityId}` : ''}
-                    {String(row.entityType || '').toUpperCase() === 'EQUIPO' && row.entityId ? (
+                    {String(row.entityType ?? '').toUpperCase() === 'EQUIPO' && row.entityId ? (
                       <a href={`/documentos/equipos/${row.entityId}/estado`} className='ml-2 underline text-blue-600'>ver</a>
                     ) : null}
                   </td>}

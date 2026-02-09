@@ -397,7 +397,7 @@ export class FlowiseService {
     const tmpDirs: string[] = [];
     const cleanup = async () => {
       for (const d of tmpDirs) {
-        try { await fs.rm(d, { recursive: true, force: true }); } catch {}
+        try { await fs.rm(d, { recursive: true, force: true }); } catch { /* Limpieza de temp no crítica */ }
       }
     };
 

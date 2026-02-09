@@ -68,13 +68,341 @@ type FormData = {
   clienteId?: number | '';
 };
 
+// Helper types para handlers de submit
+type SubmitContext = {
+  currentUser: any;
+  clienteMode: 'existing' | 'new';
+  dadorMode: 'existing' | 'new';
+  transportistaMode: 'existing' | 'new';
+  choferMode: 'existing' | 'new';
+  isDadorDeCargeUser: boolean;
+  isTransportistaUser: boolean;
+  currentUserDadorId?: number;
+  currentUserTransportistaId?: number;
+  createClient: any;
+  createDador: any;
+  createEmpresaTransportista: any;
+  createChofer: any;
+  registerClientWizard: any;
+  registerDadorWizard: any;
+  registerTransportistaWizard: any;
+  registerChoferWizard: any;
+  registerUser: any;
+  setTempPasswordToShow: (pw: string | null) => void;
+  reset: () => void;
+  onClose: () => void;
+};
+
+// Helper para validar permisos de creación de rol
+function hasPermissionToCreate(actorRole: string | undefined, targetRole: string): boolean {
+  if (!actorRole) return false;
+  const allowedRoles = PERMISOS_CREACION[actorRole] ?? [];
+  return allowedRoles.includes(targetRole);
+}
+
+// Helper para resolver ID de cliente
+async function resolveClienteId(
+  mode: 'existing' | 'new',
+  data: FormData,
+  createClient: any
+): Promise<number | undefined> {
+  if (mode === 'new') {
+    if (!data.clienteRazonSocial || !data.clienteCuit) {
+      showToast('Razón social y CUIT del cliente son obligatorios', 'error');
+      return undefined;
+    }
+    const created = await createClient({
+      razonSocial: data.clienteRazonSocial,
+      cuit: data.clienteCuit,
+      notas: data.clienteNotas ?? undefined,
+      activo: true,
+    }).unwrap();
+    return created?.id;
+  }
+  
+  if (!data.clienteId) {
+    showToast('Debe seleccionar un cliente', 'error');
+    return undefined;
+  }
+  return Number(data.clienteId);
+}
+
+// Handler para crear usuario CLIENTE
+async function handleClienteSubmit(data: FormData, ctx: SubmitContext): Promise<boolean> {
+  const { currentUser, clienteMode, createClient, registerClientWizard, setTempPasswordToShow } = ctx;
+  
+  if (!hasPermissionToCreate(currentUser?.role, 'CLIENTE')) {
+    showToast('No tiene permisos para crear usuarios CLIENTE', 'error');
+    return false;
+  }
+
+  const clienteIdFinal = await resolveClienteId(clienteMode, data, createClient);
+  if (!clienteIdFinal) return false;
+
+  const resp = await registerClientWizard({
+    email: data.email,
+    nombre: data.nombre ?? undefined,
+    apellido: data.apellido ?? undefined,
+    empresaId: data.empresaId ? Number(data.empresaId) : undefined,
+    clienteId: clienteIdFinal,
+  }).unwrap();
+
+  setTempPasswordToShow(resp.tempPassword);
+  showToast('Usuario CLIENTE creado. Copie la contraseña temporal.', 'success');
+  return true;
+}
+
+// Helper para manejar error de CUIT duplicado
+function handleDuplicateCuitError(err: any, cuit: string): number | null {
+  if (err?.status !== 409 || err?.data?.code !== 'DUPLICATE_CUIT') return null;
+  const existing = err.data.existingDador;
+  const useExisting = window.confirm(
+    `El CUIT ${cuit} ya está registrado como "${existing.razonSocial}".\n\n` +
+    `¿Desea asociar el nuevo usuario a este dador existente?`
+  );
+  return useExisting ? existing.id : null;
+}
+
+// Helper para crear nuevo dador
+async function createNewDador(
+  data: FormData,
+  createDador: any
+): Promise<{ id: number } | { error: any } | null> {
+  if (!data.dadorRazonSocial || !data.dadorCuit) {
+    showToast('Razón social y CUIT del dador son obligatorios', 'error');
+    return null;
+  }
+  try {
+    const created = await createDador({
+      razonSocial: data.dadorRazonSocial,
+      cuit: data.dadorCuit,
+      notas: data.dadorNotas ?? undefined,
+      activo: true,
+    }).unwrap();
+    return { id: created?.id };
+  } catch (err: any) {
+    const existingId = handleDuplicateCuitError(err, data.dadorCuit ?? '');
+    if (existingId) return { id: existingId };
+    if (err?.status === 409) return null;
+    return { error: err };
+  }
+}
+
+// Handler para crear usuario DADOR_DE_CARGA
+async function handleDadorSubmit(data: FormData, ctx: SubmitContext): Promise<boolean> {
+  const { currentUser, dadorMode, createDador, registerDadorWizard, setTempPasswordToShow } = ctx;
+  
+  if (!hasPermissionToCreate(currentUser?.role, 'DADOR_DE_CARGA')) {
+    showToast('No tiene permisos para crear usuarios DADOR DE CARGA', 'error');
+    return false;
+  }
+
+  let dadorIdFinal: number | undefined;
+  
+  if (dadorMode === 'new') {
+    const result = await createNewDador(data, createDador);
+    if (!result) return false;
+    if ('error' in result) throw result.error;
+    dadorIdFinal = result.id;
+  } else {
+    if (!data.dadorCargaId) {
+      showToast('Debe seleccionar un dador de carga', 'error');
+      return false;
+    }
+    dadorIdFinal = Number(data.dadorCargaId);
+  }
+
+  if (!dadorIdFinal) {
+    showToast('No se pudo determinar el dador a asociar', 'error');
+    return false;
+  }
+
+  const resp = await registerDadorWizard({
+    email: data.email,
+    nombre: data.nombre ?? undefined,
+    apellido: data.apellido ?? undefined,
+    empresaId: data.empresaId ? Number(data.empresaId) : undefined,
+    dadorCargaId: dadorIdFinal,
+  }).unwrap();
+
+  setTempPasswordToShow(resp.tempPassword);
+  showToast('Usuario DADOR DE CARGA creado. Copie la contraseña temporal.', 'success');
+  return true;
+}
+
+// Helper para obtener el dador efectivo
+function getEffectiveDadorId(
+  isDadorDeCargeUser: boolean,
+  currentUserDadorId: number | undefined,
+  formDadorId: number | '' | undefined
+): number | undefined {
+  if (isDadorDeCargeUser && currentUserDadorId) return currentUserDadorId;
+  return formDadorId ? Number(formDadorId) : undefined;
+}
+
+// Handler para crear usuario TRANSPORTISTA
+async function handleTransportistaSubmit(data: FormData, ctx: SubmitContext): Promise<boolean> {
+  const { currentUser, transportistaMode, isDadorDeCargeUser, currentUserDadorId,
+          createEmpresaTransportista, registerTransportistaWizard, setTempPasswordToShow } = ctx;
+  
+  if (!hasPermissionToCreate(currentUser?.role, 'TRANSPORTISTA')) {
+    showToast('No tiene permisos para crear usuarios TRANSPORTISTA', 'error');
+    return false;
+  }
+
+  const effectiveDadorId = getEffectiveDadorId(isDadorDeCargeUser, currentUserDadorId, data.transportistaDadorId);
+
+  const transportistaIdFinal = await resolveTransportistaId(
+    transportistaMode, data, effectiveDadorId, createEmpresaTransportista
+  );
+  
+  if (!transportistaIdFinal) return false;
+
+  const resp = await registerTransportistaWizard({
+    email: data.email,
+    nombre: data.nombre ?? undefined,
+    apellido: data.apellido ?? undefined,
+    empresaId: data.empresaId ? Number(data.empresaId) : undefined,
+    empresaTransportistaId: transportistaIdFinal,
+  }).unwrap();
+
+  setTempPasswordToShow(resp.tempPassword);
+  showToast('Usuario TRANSPORTISTA creado. Copie la contraseña temporal.', 'success');
+  return true;
+}
+
+// Helper para resolver ID de transportista
+async function resolveTransportistaId(
+  mode: 'existing' | 'new',
+  data: FormData,
+  effectiveDadorId: number | undefined,
+  createEmpresaTransportista: any
+): Promise<number | undefined> {
+  if (mode === 'new') {
+    if (!data.transportistaRazonSocial || !data.transportistaCuit || !effectiveDadorId) {
+      showToast('Razón social, CUIT y Dador de Carga son obligatorios', 'error');
+      return undefined;
+    }
+    const created = await createEmpresaTransportista({
+      dadorCargaId: Number(effectiveDadorId),
+      razonSocial: data.transportistaRazonSocial,
+      cuit: data.transportistaCuit,
+      notas: data.transportistaNotas ?? undefined,
+      activo: true,
+    }).unwrap();
+    return created?.id;
+  }
+  
+  if (!data.empresaTransportistaId) {
+    showToast('Debe seleccionar una empresa transportista', 'error');
+    return undefined;
+  }
+  return Number(data.empresaTransportistaId);
+}
+
+// Helper para resolver ID de chofer
+async function resolveChoferId(
+  mode: 'existing' | 'new',
+  data: FormData,
+  effectiveDadorId: number | undefined,
+  createChofer: any
+): Promise<number | undefined> {
+  if (mode === 'new') {
+    if (!data.choferDni || !effectiveDadorId) {
+      showToast('DNI y Dador de Carga del chofer son obligatorios', 'error');
+      return undefined;
+    }
+    const created = await createChofer({
+      dadorCargaId: Number(effectiveDadorId),
+      dni: data.choferDni,
+      nombre: data.choferNombre ?? undefined,
+      apellido: data.choferApellido ?? undefined,
+      activo: true,
+      phones: [],
+    }).unwrap();
+    return created?.id;
+  }
+  
+  if (!data.choferId) {
+    showToast('Debe seleccionar un chofer', 'error');
+    return undefined;
+  }
+  return Number(data.choferId);
+}
+
+// Handler para crear usuario CHOFER
+async function handleChoferSubmit(data: FormData, ctx: SubmitContext): Promise<boolean> {
+  const { currentUser, choferMode, isDadorDeCargeUser, isTransportistaUser, currentUserDadorId,
+          createChofer, registerChoferWizard, setTempPasswordToShow } = ctx;
+  
+  if (!hasPermissionToCreate(currentUser?.role, 'CHOFER')) {
+    showToast('No tiene permisos para crear usuarios CHOFER', 'error');
+    return false;
+  }
+
+  const isAutoUser = isDadorDeCargeUser || isTransportistaUser;
+  const effectiveChoferDadorId = getEffectiveDadorId(isAutoUser, currentUserDadorId, data.choferDadorId);
+
+  const choferIdFinal = await resolveChoferId(choferMode, data, effectiveChoferDadorId, createChofer);
+  if (!choferIdFinal) return false;
+
+  const finalNombre = choferMode === 'new' ? (data.choferNombre ?? undefined) : (data.nombre ?? undefined);
+  const finalApellido = choferMode === 'new' ? (data.choferApellido ?? undefined) : (data.apellido ?? undefined);
+  
+  const resp = await registerChoferWizard({
+    email: data.email,
+    nombre: finalNombre,
+    apellido: finalApellido,
+    empresaId: data.empresaId ? Number(data.empresaId) : undefined,
+    choferId: choferIdFinal,
+  }).unwrap();
+
+  setTempPasswordToShow(resp.tempPassword);
+  showToast('Usuario CHOFER creado. Copie la contraseña temporal.', 'success');
+  return true;
+}
+
+// Handler para roles genéricos (ADMIN, OPERATOR, etc.)
+async function handleGenericSubmit(data: FormData, ctx: SubmitContext): Promise<boolean> {
+  const { registerUser, reset, onClose } = ctx;
+  
+  const payload: any = {
+    email: data.email,
+    password: data.password,
+    role: data.role,
+    empresaId: data.empresaId ? Number(data.empresaId) : undefined,
+    nombre: data.nombre ?? undefined,
+    apellido: data.apellido ?? undefined,
+  };
+  
+  // Agregar asociación según rol
+  if (data.role === 'DADOR_DE_CARGA' && data.dadorCargaId) {
+    payload.dadorCargaId = Number(data.dadorCargaId);
+  }
+  if (data.role === 'TRANSPORTISTA' && data.empresaTransportistaId) {
+    payload.empresaTransportistaId = Number(data.empresaTransportistaId);
+  }
+  if (data.role === 'CHOFER' && data.choferId) {
+    payload.choferId = Number(data.choferId);
+  }
+  if (data.role === 'CLIENTE' && data.clienteId) {
+    payload.clienteId = Number(data.clienteId);
+  }
+  
+  await registerUser(payload).unwrap();
+  showToast('Usuario creado exitosamente', 'success');
+  reset();
+  onClose();
+  return true;
+}
+
 export const RegisterUserModal: React.FC<RegisterUserModalProps> = ({ isOpen, onClose }) => {
   const currentUser = useAppSelector(selectCurrentUser);
   // Solo SUPERADMIN necesita la lista de empresas
   const canSelectEmpresa = currentUser?.role === 'SUPERADMIN';
   const { data: empresas = [] } = useGetEmpresasQuery(undefined, { skip: !canSelectEmpresa });
   // Solo roles admin pueden ver dadores y clientes
-  const canSeeDadoresYClientes = ['SUPERADMIN', 'ADMIN', 'ADMIN_INTERNO'].includes(currentUser?.role || '');
+  const canSeeDadoresYClientes = ['SUPERADMIN', 'ADMIN', 'ADMIN_INTERNO'].includes(currentUser?.role ?? '');
   const { data: dadoresResp } = useGetDadoresQuery({}, { skip: !canSeeDadoresYClientes });
   const { data: clientesResp } = useGetClientsQuery({}, { skip: !canSeeDadoresYClientes });
   
@@ -171,8 +499,19 @@ export const RegisterUserModal: React.FC<RegisterUserModalProps> = ({ isOpen, on
   // Roles disponibles según el rol del usuario actual
   const rolesDisponibles = useMemo(() => {
     if (!currentUser?.role) return [];
-    return PERMISOS_CREACION[currentUser.role] || [];
+    return PERMISOS_CREACION[currentUser.role] ?? [];
   }, [currentUser?.role]);
+  
+  // Corregir el rol inicial cuando el modal se abre - usar el primer rol disponible
+  useEffect(() => {
+    if (isOpen && rolesDisponibles.length > 0) {
+      const currentRole = watch('role');
+      // Si el rol actual no está en la lista de roles disponibles, usar el primero
+      if (!rolesDisponibles.includes(currentRole)) {
+        setValue('role', rolesDisponibles[0]);
+      }
+    }
+  }, [isOpen, rolesDisponibles, setValue, watch]);
 
   // Reset estado cuando cambia el rol o se cierra el modal
   useEffect(() => {
@@ -215,10 +554,38 @@ export const RegisterUserModal: React.FC<RegisterUserModalProps> = ({ isOpen, on
 
   if (!isOpen) return null;
 
+  // Contexto compartido para los handlers de submit
+  const submitContext: SubmitContext = {
+    currentUser,
+    clienteMode,
+    dadorMode,
+    transportistaMode,
+    choferMode,
+    isDadorDeCargeUser,
+    isTransportistaUser,
+    currentUserDadorId,
+    currentUserTransportistaId,
+    createClient,
+    createDador,
+    createEmpresaTransportista,
+    createChofer,
+    registerClientWizard,
+    registerDadorWizard,
+    registerTransportistaWizard,
+    registerChoferWizard,
+    registerUser,
+    setTempPasswordToShow,
+    reset,
+    onClose,
+  };
+
   const onSubmit = async (data: FormData) => {
     try {
-      // Validar que todos los usuarios tengan empresa asignada
-      const finalEmpresaId = canSelectEmpresa ? (data.empresaId ? Number(data.empresaId) : undefined) : currentUser?.empresaId;
+      // Validar empresa asignada
+      const finalEmpresaId = canSelectEmpresa 
+        ? (data.empresaId ? Number(data.empresaId) : undefined) 
+        : currentUser?.empresaId;
+      
       if (!finalEmpresaId) {
         showToast('Debe seleccionar una empresa para el usuario', 'error');
         return;
@@ -457,26 +824,14 @@ export const RegisterUserModal: React.FC<RegisterUserModalProps> = ({ isOpen, on
         apellido: data.apellido || undefined,
       };
       
-      // Agregar asociación según rol
-      if (data.role === 'DADOR_DE_CARGA' && data.dadorCargaId) {
-        payload.dadorCargaId = Number(data.dadorCargaId);
+      const handler = roleHandlers[data.role];
+      if (handler) {
+        await handler(data, submitContext);
+      } else {
+        await handleGenericSubmit(data, submitContext);
       }
-      if (data.role === 'TRANSPORTISTA' && data.empresaTransportistaId) {
-        payload.empresaTransportistaId = Number(data.empresaTransportistaId);
-      }
-      if (data.role === 'CHOFER' && data.choferId) {
-        payload.choferId = Number(data.choferId);
-      }
-      if (data.role === 'CLIENTE' && data.clienteId) {
-        payload.clienteId = Number(data.clienteId);
-      }
-      
-      await registerUser(payload).unwrap();
-      showToast('Usuario creado exitosamente', 'success');
-      reset();
-      onClose();
     } catch (e: any) {
-      showToast(e?.data?.message || 'No se pudo crear el usuario', 'error');
+      showToast(e?.data?.message ?? 'No se pudo crear el usuario', 'error');
     }
   };
 
@@ -484,7 +839,7 @@ export const RegisterUserModal: React.FC<RegisterUserModalProps> = ({ isOpen, on
 
   return (
     <div className="fixed inset-0 z-50 overflow-y-auto">
-      <div className="fixed inset-0 bg-black/40" onClick={onClose} />
+      <div className="fixed inset-0 bg-black/40" onClick={onClose} onKeyDown={(e) => e.key === 'Escape' && onClose()} role="button" tabIndex={0} aria-label="Cerrar modal" />
       <div className="flex min-h-full items-center justify-center p-4">
         <div className="relative bg-background rounded-lg shadow-xl w-full max-w-xl p-6">
           <h3 className="text-lg font-medium mb-6">Nuevo Usuario</h3>
@@ -505,19 +860,23 @@ export const RegisterUserModal: React.FC<RegisterUserModalProps> = ({ isOpen, on
                 {errors.email && <p className="text-red-500 text-xs mt-1">{errors.email.message}</p>}
               </div>
 
-              {/* Nombre y Apellido */}
-              <div>
-                <label className="block text-sm font-medium mb-1">Nombre</label>
-                <Controller name="nombre" control={control} render={({ field }) => (
-                  <input type="text" className="w-full px-3 py-2 border rounded-md" {...field} />
-                )} />
-              </div>
-              <div>
-                <label className="block text-sm font-medium mb-1">Apellido</label>
-                <Controller name="apellido" control={control} render={({ field }) => (
-                  <input type="text" className="w-full px-3 py-2 border rounded-md" {...field} />
-                )} />
-              </div>
+              {/* Nombre y Apellido - ocultos cuando se crea CHOFER nuevo (se usan los datos del chofer) */}
+              {!(selectedRole === 'CHOFER' && choferMode === 'new') && (
+                <>
+                  <div>
+                    <label className="block text-sm font-medium mb-1">Nombre</label>
+                    <Controller name="nombre" control={control} render={({ field }) => (
+                      <input type="text" className="w-full px-3 py-2 border rounded-md" {...field} />
+                    )} />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium mb-1">Apellido</label>
+                    <Controller name="apellido" control={control} render={({ field }) => (
+                      <input type="text" className="w-full px-3 py-2 border rounded-md" {...field} />
+                    )} />
+                  </div>
+                </>
+              )}
 
               {/* Rol */}
               <div>
@@ -558,7 +917,7 @@ export const RegisterUserModal: React.FC<RegisterUserModalProps> = ({ isOpen, on
                 <div>
                   <label className="block text-sm font-medium mb-1">Empresa</label>
                   <div className="w-full px-3 py-2 border rounded-md bg-muted text-muted-foreground">
-                    {empresas.find((e: any) => e.id === currentUser?.empresaId)?.nombre || 'BCA'}
+                    {(currentUser as any)?.empresa?.nombre || 'Su empresa'}
                   </div>
                 </div>
               )}
@@ -971,10 +1330,10 @@ export const RegisterUserModal: React.FC<RegisterUserModalProps> = ({ isOpen, on
                 </>
               )}
 
-              {/* Password */}
-              {selectedRole !== 'CLIENTE' && (
+              {/* Password - solo para roles que NO usan wizard con contraseña auto-generada */}
+              {!['CLIENTE', 'DADOR_DE_CARGA', 'TRANSPORTISTA', 'CHOFER'].includes(selectedRole) && (
                 <div className="col-span-2">
-                  <label className="block text-sm font-medium mb-1">Password temporal *</label>
+                  <label className="block text-sm font-medium mb-1">Password *</label>
                   <Controller
                     name="password"
                     control={control}
@@ -1025,9 +1384,14 @@ export const RegisterUserModal: React.FC<RegisterUserModalProps> = ({ isOpen, on
                   />
                   <Button
                     type="button"
-                    onClick={() => {
-                      try { navigator.clipboard.writeText(tempPasswordToShow); } catch { /* Clipboard no disponible */ }
-                      showToast('Contraseña copiada', 'success');
+                    onClick={async () => {
+                      try { 
+                        await navigator.clipboard.writeText(tempPasswordToShow); 
+                        showToast('Contraseña copiada', 'success');
+                      } catch { 
+                        // Clipboard no disponible - intentar fallback
+                        showToast('No se pudo copiar automáticamente', 'warning');
+                      }
                     }}
                   >
                     Copiar

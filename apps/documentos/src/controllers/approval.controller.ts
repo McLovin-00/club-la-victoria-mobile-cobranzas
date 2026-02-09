@@ -114,7 +114,7 @@ export class ApprovalController {
         details: { ids, overrides },
       });
       // Refrescar vista materializada (best-effort)
-      try { (await import('../services/performance.service')).performanceService.refreshMaterializedView(); } catch {}
+      try { (await import('../services/performance.service')).performanceService.refreshMaterializedView(); } catch { /* Refresh async */ }
     } catch (error) {
       AppLogger.error('ApprovalController.batchApprove error:', error);
       res.status(500).json({ success: false, message: 'Error interno del servidor', code: 'INTERNAL_ERROR' });
@@ -162,7 +162,7 @@ export class ApprovalController {
       });
       try {
         webSocketService.notifyDocumentApproved({ documentId: doc.id, empresaId: doc.dadorCargaId, expiresAt: doc.expiresAt ? new Date(doc.expiresAt).toISOString() : null });
-      } catch {}
+      } catch { /* Notificación WS no crítica */ }
       res.json({ success: true, data: doc, message: 'Documento aprobado' });
       // Audit best-effort
       void AuditService.log({
@@ -177,7 +177,7 @@ export class ApprovalController {
         entityId: doc?.id,
         details: { confirmedEntityType, confirmedEntityId, confirmedExpiration, confirmedTemplateId },
       });
-      try { (await import('../services/performance.service')).performanceService.refreshMaterializedView(); } catch {}
+      try { (await import('../services/performance.service')).performanceService.refreshMaterializedView(); } catch { /* Refresh async */ }
     } catch (error) {
       AppLogger.error('ApprovalController.approveDocument error:', error);
       const msg = (error as any)?.message || '';
@@ -224,7 +224,7 @@ export class ApprovalController {
         entityId: doc?.id,
         details: { reason, reviewNotes },
       });
-      try { (await import('../services/performance.service')).performanceService.refreshMaterializedView(); } catch {}
+      try { (await import('../services/performance.service')).performanceService.refreshMaterializedView(); } catch { /* Refresh async */ }
     } catch (error) {
       AppLogger.error('ApprovalController.rejectDocument error:', error);
       const msg = (error as any)?.message || '';

@@ -356,7 +356,7 @@ const TransportistaBatchUploader: React.FC = () => {
   const [files, setFiles] = useState<FileList | null>(null);
   const [start, { data: job, isLoading }] = useUploadBatchDocsTransportistasMutation();
   const jobId = job?.jobId;
-  const { data: status } = useGetJobStatusQuery({ jobId: jobId || '' }, { skip: !jobId, pollingInterval: 1500 });
+  const { data: status } = useGetJobStatusQuery({ jobId: jobId ?? '' }, { skip: !jobId, pollingInterval: 1500 });
   const progress = Math.round((status?.job?.progress ?? 0) * 100);
   const state = status?.job?.status || (isLoading ? 'queued' : 'idle');
   const navigate = useNavigate();

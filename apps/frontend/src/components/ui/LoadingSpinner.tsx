@@ -20,7 +20,7 @@ const colorClasses: Record<NonNullable<LoadingSpinnerProps['variant']>, string> 
 
 export const LoadingSpinner: React.FC<LoadingSpinnerProps> = ({ size = 'md', variant = 'primary', text, className }) => {
   return (
-    <div className={`flex items-center gap-2 ${className || ''}`}>
+    <div className={`flex items-center gap-2 ${className ?? ''}`}>
       <div className={`animate-spin rounded-full border-t-transparent ${sizeClasses[size]} ${colorClasses[variant]}`} />
       {text && <span className='text-sm text-muted-foreground'>{text}</span>}
     </div>

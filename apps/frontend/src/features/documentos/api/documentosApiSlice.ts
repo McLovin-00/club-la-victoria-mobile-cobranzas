@@ -83,7 +83,7 @@ export const documentosApiSlice = createApi({
       return headers;
     },
   }),
-  tagTypes: ['DocumentTemplate', 'Document', 'Dashboard', 'Clients', 'Equipos', 'Search', 'ClientRequirements', 'Maestros', 'Approval', 'EmpresasTransportistas', 'ExtractedData', 'Notifications'],
+  tagTypes: ['DocumentTemplate', 'Document', 'Dashboard', 'Clients', 'Equipos', 'Search', 'ClientRequirements', 'PlantillasRequisito', 'Maestros', 'Approval', 'EmpresasTransportistas', 'ExtractedData', 'Notifications', 'Transferencias'],
   endpoints: (builder) => ({
     // =================================
     // COMPLIANCE
@@ -326,6 +326,309 @@ export const documentosApiSlice = createApi({
         url: `/clients/equipos/${equipoId}/check-client/${clienteId}?existingClienteIds=${existingClienteIds.join(',')}`,
       }),
       transformResponse: (response: any) => response?.data ?? { missingTemplates: [], newClientName: '' },
+    }),
+
+    // =================================
+    // PLANTILLAS DE REQUISITOS
+    // =================================
+    
+    // Lista todas las plantillas del tenant
+    getPlantillasRequisito: builder.query<
+      Array<{
+        id: number;
+        nombre: string;
+        descripcion?: string;
+        activo: boolean;
+        clienteId: number;
+        cliente: { id: number; razonSocial: string; activo?: boolean };
+        _count: { templates: number; equipos: number };
+      }>,
+      { activo?: boolean }
+    >({
+      query: ({ activo } = {}) => ({
+        url: `/plantillas${activo !== undefined ? `?activo=${String(activo)}` : ''}`,
+      }),
+      transformResponse: (r: any) => r?.data ?? [],
+      providesTags: ['PlantillasRequisito'],
+    }),
+
+    // Lista las plantillas de un cliente específico
+    getPlantillasByCliente: builder.query<
+      Array<{
+        id: number;
+        nombre: string;
+        descripcion?: string;
+        activo: boolean;
+        cliente: { id: number; razonSocial: string };
+        _count: { templates: number; equipos: number };
+      }>,
+      { clienteId: number; activo?: boolean }
+    >({
+      query: ({ clienteId, activo }) => ({
+        url: `/clients/${clienteId}/plantillas${activo !== undefined ? `?activo=${String(activo)}` : ''}`,
+      }),
+      transformResponse: (r: any) => r?.data ?? [],
+      providesTags: ['PlantillasRequisito'],
+    }),
+
+    // Obtiene una plantilla por ID con sus templates y equipos
+    getPlantillaById: builder.query<
+      {
+        id: number;
+        nombre: string;
+        descripcion?: string;
+        activo: boolean;
+        cliente: { id: number; razonSocial: string };
+        templates: Array<{
+          id: number;
+          templateId: number;
+          entityType: string;
+          obligatorio: boolean;
+          diasAnticipacion: number;
+          visibleChofer: boolean;
+          template: { id: number; name: string; entityType: string };
+        }>;
+        equipos: Array<{
+          equipo: { id: number; driverDniNorm: string; truckPlateNorm: string; trailerPlateNorm?: string; estado: string };
+        }>;
+      },
+      { id: number }
+    >({
+      query: ({ id }) => ({ url: `/plantillas/${id}` }),
+      transformResponse: (r: any) => r?.data ?? null,
+      providesTags: ['PlantillasRequisito'],
+    }),
+
+    // Crea una nueva plantilla para un cliente
+    createPlantillaRequisito: builder.mutation<
+      { id: number; nombre: string; descripcion?: string; activo: boolean; cliente: { id: number; razonSocial: string } },
+      { clienteId: number; nombre: string; descripcion?: string; activo?: boolean }
+    >({
+      query: ({ clienteId, ...body }) => ({
+        url: `/clients/${clienteId}/plantillas`,
+        method: 'POST',
+        body,
+      }),
+      transformResponse: (r: any) => r?.data,
+      invalidatesTags: ['PlantillasRequisito'],
+    }),
+
+    // Actualiza una plantilla
+    updatePlantillaRequisito: builder.mutation<
+      { id: number; nombre: string; descripcion?: string; activo: boolean },
+      { id: number; nombre?: string; descripcion?: string; activo?: boolean }
+    >({
+      query: ({ id, ...body }) => ({
+        url: `/plantillas/${id}`,
+        method: 'PUT',
+        body,
+      }),
+      transformResponse: (r: any) => r?.data,
+      invalidatesTags: ['PlantillasRequisito'],
+    }),
+
+    // Elimina una plantilla
+    deletePlantillaRequisito: builder.mutation<void, number>({
+      query: (id) => ({
+        url: `/plantillas/${id}`,
+        method: 'DELETE',
+      }),
+      invalidatesTags: ['PlantillasRequisito'],
+    }),
+
+    // Duplica una plantilla
+    duplicatePlantillaRequisito: builder.mutation<
+      { id: number; nombre: string },
+      { id: number; nuevoNombre: string }
+    >({
+      query: ({ id, nuevoNombre }) => ({
+        url: `/plantillas/${id}/duplicate`,
+        method: 'POST',
+        body: { nuevoNombre },
+      }),
+      transformResponse: (r: any) => r?.data,
+      invalidatesTags: ['PlantillasRequisito'],
+    }),
+
+    // Lista los templates de una plantilla
+    getPlantillaTemplates: builder.query<
+      Array<{
+        id: number;
+        templateId: number;
+        entityType: string;
+        obligatorio: boolean;
+        diasAnticipacion: number;
+        visibleChofer: boolean;
+        template: { id: number; name: string; entityType: string };
+      }>,
+      { plantillaId: number }
+    >({
+      query: ({ plantillaId }) => ({ url: `/plantillas/${plantillaId}/templates` }),
+      transformResponse: (r: any) => r?.data ?? [],
+      providesTags: ['PlantillasRequisito'],
+    }),
+
+    // Agrega un template a una plantilla
+    addPlantillaTemplate: builder.mutation<
+      any,
+      { plantillaId: number; templateId: number; entityType: string; obligatorio?: boolean; diasAnticipacion?: number; visibleChofer?: boolean }
+    >({
+      query: ({ plantillaId, ...body }) => ({
+        url: `/plantillas/${plantillaId}/templates`,
+        method: 'POST',
+        body,
+      }),
+      transformResponse: (r: any) => r?.data,
+      invalidatesTags: ['PlantillasRequisito'],
+    }),
+
+    // Actualiza la configuración de un template en una plantilla
+    updatePlantillaTemplate: builder.mutation<
+      any,
+      { plantillaId: number; templateConfigId: number; obligatorio?: boolean; diasAnticipacion?: number; visibleChofer?: boolean }
+    >({
+      query: ({ plantillaId, templateConfigId, ...body }) => ({
+        url: `/plantillas/${plantillaId}/templates/${templateConfigId}`,
+        method: 'PUT',
+        body,
+      }),
+      transformResponse: (r: any) => r?.data,
+      invalidatesTags: ['PlantillasRequisito'],
+    }),
+
+    // Elimina un template de una plantilla
+    removePlantillaTemplate: builder.mutation<void, { plantillaId: number; templateConfigId: number }>({
+      query: ({ plantillaId, templateConfigId }) => ({
+        url: `/plantillas/${plantillaId}/templates/${templateConfigId}`,
+        method: 'DELETE',
+      }),
+      invalidatesTags: ['PlantillasRequisito'],
+    }),
+
+    // Templates consolidados de múltiples plantillas
+    getConsolidatedTemplatesByPlantillas: builder.query<
+      {
+        templates: Array<{
+          templateId: number;
+          templateName: string;
+          entityType: string;
+          obligatorio: boolean;
+          diasAnticipacion: number;
+          visibleChofer: boolean;
+          plantillaIds: number[];
+          plantillaNames: string[];
+          clienteIds: number[];
+          clienteNames: string[];
+        }>;
+        byEntityType: Record<string, Array<{
+          templateId: number;
+          templateName: string;
+          entityType: string;
+          obligatorio: boolean;
+          diasAnticipacion: number;
+          visibleChofer: boolean;
+          plantillaIds: number[];
+          plantillaNames: string[];
+          clienteIds: number[];
+          clienteNames: string[];
+        }>>;
+      },
+      { plantillaIds: number[] }
+    >({
+      query: ({ plantillaIds }) => ({
+        url: `/plantillas/templates/consolidated?plantillaIds=${plantillaIds.join(',')}`,
+      }),
+      transformResponse: (r: any) => r?.data ?? { templates: [], byEntityType: {} },
+      providesTags: ['PlantillasRequisito'],
+    }),
+
+    // Lista las plantillas asociadas a un equipo
+    getEquipoPlantillas: builder.query<
+      Array<{
+        plantillaRequisito: {
+          id: number;
+          nombre: string;
+          cliente: { id: number; razonSocial: string };
+          _count: { templates: number };
+        };
+        asignadoDesde: string;
+        asignadoHasta?: string;
+      }>,
+      { equipoId: number; soloActivas?: boolean }
+    >({
+      query: ({ equipoId, soloActivas = true }) => ({
+        url: `/equipos/${equipoId}/plantillas${soloActivas ? '' : '?soloActivas=false'}`,
+      }),
+      transformResponse: (r: any) => r?.data ?? [],
+      providesTags: ['Equipos', 'PlantillasRequisito'],
+    }),
+
+    // Asocia una plantilla a un equipo
+    assignPlantillaToEquipo: builder.mutation<
+      any,
+      { equipoId: number; plantillaRequisitoId: number }
+    >({
+      query: ({ equipoId, plantillaRequisitoId }) => ({
+        url: `/equipos/${equipoId}/plantillas`,
+        method: 'POST',
+        body: { plantillaRequisitoId },
+      }),
+      transformResponse: (r: any) => r?.data,
+      invalidatesTags: ['Equipos', 'PlantillasRequisito'],
+    }),
+
+    // Desasocia una plantilla de un equipo
+    unassignPlantillaFromEquipo: builder.mutation<void, { equipoId: number; plantillaId: number }>({
+      query: ({ equipoId, plantillaId }) => ({
+        url: `/equipos/${equipoId}/plantillas/${plantillaId}`,
+        method: 'DELETE',
+      }),
+      invalidatesTags: ['Equipos', 'PlantillasRequisito'],
+    }),
+
+    // Templates consolidados de un equipo basándose en sus plantillas
+    getEquipoConsolidatedTemplates: builder.query<
+      {
+        templates: Array<{
+          templateId: number;
+          templateName: string;
+          entityType: string;
+          obligatorio: boolean;
+          diasAnticipacion: number;
+          visibleChofer: boolean;
+          plantillaIds: number[];
+          plantillaNames: string[];
+          clienteIds: number[];
+          clienteNames: string[];
+        }>;
+        byEntityType: Record<string, any[]>;
+      },
+      { equipoId: number }
+    >({
+      query: ({ equipoId }) => ({ url: `/equipos/${equipoId}/plantillas/consolidated` }),
+      transformResponse: (r: any) => r?.data ?? { templates: [], byEntityType: {} },
+      providesTags: ['Equipos', 'PlantillasRequisito'],
+    }),
+
+    // Verificar documentos faltantes al agregar plantilla a equipo
+    checkMissingDocsForPlantilla: builder.query<
+      {
+        missingTemplates: Array<{
+          templateId: number;
+          templateName: string;
+          entityType: string;
+          obligatorio: boolean;
+          isNewRequirement: boolean;
+        }>;
+        plantillaName: string;
+        clienteName: string;
+      },
+      { equipoId: number; plantillaId: number }
+    >({
+      query: ({ equipoId, plantillaId }) => ({
+        url: `/equipos/${equipoId}/plantillas/${plantillaId}/check`,
+      }),
+      transformResponse: (r: any) => r?.data ?? { missingTemplates: [], plantillaName: '', clienteName: '' },
     }),
 
     // Defaults
@@ -1249,6 +1552,143 @@ export const documentosApiSlice = createApi({
     }),
 
     // =================================
+    // PRE-CHECK DE DOCUMENTOS (Reutilización)
+    // =================================
+    preCheckDocumentos: builder.mutation<
+      {
+        entidades: Array<{
+          entityType: string;
+          entityId: number | null;
+          identificador: string;
+          nombre?: string;
+          existe: boolean;
+          dadorCargaActualId: number | null;
+          dadorCargaActualNombre?: string;
+          perteneceSolicitante: boolean;
+          requiereTransferencia: boolean;
+          equipoActual?: {
+            id: number;
+            choferNombre?: string;
+            camionPatente?: string;
+            acopladoPatente?: string;
+          };
+          asignadaAOtroEquipo: boolean;
+          documentos: Array<{
+            id: number;
+            templateId: number;
+            templateName: string;
+            estado: 'VIGENTE' | 'POR_VENCER' | 'VENCIDO' | 'PENDIENTE' | 'RECHAZADO' | 'FALTANTE';
+            expiresAt: string | null;
+            diasParaVencer: number | null;
+            reutilizable: boolean;
+            requiereTransferencia: boolean;
+          }>;
+          resumen: {
+            total: number;
+            vigentes: number;
+            porVencer: number;
+            vencidos: number;
+            pendientes: number;
+            rechazados: number;
+            faltantes: number;
+            completo: boolean;
+          };
+        }>;
+        hayEntidadesDeOtroDador: boolean;
+        requiereTransferencia: boolean;
+        dadorActualIds: number[];
+      },
+      { entidades: Array<{ entityType: string; identificador: string }>; clienteId?: number; dadorCargaId?: number }
+    >({
+      query: (body) => ({
+        url: '/equipos/pre-check',
+        method: 'POST',
+        body,
+      }),
+      transformResponse: (r: any) => r?.data ?? r,
+    }),
+
+    // =================================
+    // TRANSFERENCIAS DE ENTIDADES
+    // =================================
+    crearSolicitudTransferencia: builder.mutation<
+      { id: number; estado: string; entidades: any[]; equiposAfectados: number[] },
+      { dadorActualId: number; entidades: Array<{ tipo: string; id: number; identificador: string; nombre?: string }>; motivo?: string }
+    >({
+      query: (body) => ({
+        url: '/transferencias',
+        method: 'POST',
+        body,
+      }),
+      transformResponse: (r: any) => r?.data ?? r,
+      invalidatesTags: ['Transferencias'],
+    }),
+
+    getTransferenciasPendientes: builder.query<
+      { solicitudes: any[]; total: number },
+      void
+    >({
+      query: () => '/transferencias/pendientes',
+      transformResponse: (r: any) => r?.data ?? { solicitudes: [], total: 0 },
+      providesTags: ['Transferencias'],
+    }),
+
+    getTransferencias: builder.query<
+      { solicitudes: any[]; total: number },
+      { estado?: string; limit?: number; offset?: number }
+    >({
+      query: ({ estado, limit = 50, offset = 0 }) => ({
+        url: '/transferencias',
+        params: { estado, limit, offset },
+      }),
+      transformResponse: (r: any) => r?.data ?? { solicitudes: [], total: 0 },
+      providesTags: ['Transferencias'],
+    }),
+
+    getTransferencia: builder.query<any, { id: number }>({
+      query: ({ id }) => `/transferencias/${id}`,
+      transformResponse: (r: any) => r?.data ?? null,
+      providesTags: ['Transferencias'],
+    }),
+
+    aprobarTransferencia: builder.mutation<
+      { success: boolean; message: string; entidadesTransferidas: number },
+      { id: number }
+    >({
+      query: ({ id }) => ({
+        url: `/transferencias/${id}/aprobar`,
+        method: 'POST',
+      }),
+      transformResponse: (r: any) => r?.data ?? r,
+      invalidatesTags: ['Transferencias', 'Equipos', 'Maestros'],
+    }),
+
+    rechazarTransferencia: builder.mutation<
+      { success: boolean; message: string },
+      { id: number; motivoRechazo: string }
+    >({
+      query: ({ id, motivoRechazo }) => ({
+        url: `/transferencias/${id}/rechazar`,
+        method: 'POST',
+        body: { motivoRechazo },
+      }),
+      transformResponse: (r: any) => r?.data ?? r,
+      invalidatesTags: ['Transferencias'],
+    }),
+
+    cancelarTransferencia: builder.mutation<
+      { success: boolean; message: string },
+      { id: number }
+    >({
+      query: ({ id }) => ({
+        url: `/transferencias/${id}/cancelar`,
+        method: 'POST',
+      }),
+      transformResponse: (r: any) => r?.data ?? r,
+      invalidatesTags: ['Transferencias'],
+    }),
+
+    // =================================
     // DOCUMENTOS RECHAZADOS (DASHBOARD)
     // =================================
     getRejectedDocuments: builder.query<
@@ -1420,4 +1860,36 @@ export const {
   // Documentos rechazados
   useGetRejectedDocumentsQuery,
   useGetRejectedStatsQuery,
+  // Pre-check de documentos (reutilización)
+  usePreCheckDocumentosMutation,
+  // Transferencias de entidades
+  useCrearSolicitudTransferenciaMutation,
+  useGetTransferenciasPendientesQuery,
+  useGetTransferenciasQuery,
+  useGetTransferenciaQuery,
+  useAprobarTransferenciaMutation,
+  useRechazarTransferenciaMutation,
+  useCancelarTransferenciaMutation,
+  // Plantillas de requisitos
+  useGetPlantillasRequisitoQuery,
+  useGetPlantillasByClienteQuery,
+  useGetPlantillaByIdQuery,
+  useLazyGetPlantillaByIdQuery,
+  useCreatePlantillaRequisitoMutation,
+  useUpdatePlantillaRequisitoMutation,
+  useDeletePlantillaRequisitoMutation,
+  useDuplicatePlantillaRequisitoMutation,
+  useGetPlantillaTemplatesQuery,
+  useAddPlantillaTemplateMutation,
+  useUpdatePlantillaTemplateMutation,
+  useRemovePlantillaTemplateMutation,
+  useGetConsolidatedTemplatesByPlantillasQuery,
+  useLazyGetConsolidatedTemplatesByPlantillasQuery,
+  useGetEquipoPlantillasQuery,
+  useAssignPlantillaToEquipoMutation,
+  useUnassignPlantillaFromEquipoMutation,
+  useGetEquipoConsolidatedTemplatesQuery,
+  useLazyGetEquipoConsolidatedTemplatesQuery,
+  useCheckMissingDocsForPlantillaQuery,
+  useLazyCheckMissingDocsForPlantillaQuery,
 } = documentosApiSlice;

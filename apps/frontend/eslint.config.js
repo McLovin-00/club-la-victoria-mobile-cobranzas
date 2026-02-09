@@ -4,7 +4,8 @@ import reactHooks from 'eslint-plugin-react-hooks'
 import reactRefresh from 'eslint-plugin-react-refresh'
 import tseslint from 'typescript-eslint'
 
-export default tseslint.config(
+// Flat config array (sin tseslint.config deprecated)
+export default [
   { ignores: ['dist'] },
   {
     extends: [js.configs.recommended, ...tseslint.configs.recommended],
@@ -156,4 +157,4 @@ export default tseslint.config(
       'react-refresh/only-export-components': 'off',
     },
   },
-)
+]

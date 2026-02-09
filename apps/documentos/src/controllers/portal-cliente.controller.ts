@@ -52,10 +52,11 @@ function determineComplianceState(compliance: ReturnType<typeof ComplianceServic
     estadoCompliance = 'INCOMPLETO';
   } else if (tieneProximos) {
     estadoCompliance = 'PROXIMO_VENCER';
-    const proximos = compliance?.requirements.filter(r => r.state === 'PROXIMO' && r.expiresAt) || [];
+    const proximos = compliance?.requirements.filter(r => r.state === 'PROXIMO' && r.expiresAt) ?? [];
     if (proximos.length > 0) {
       const fechas = proximos.map(r => new Date(r.expiresAt!));
-      proximoVencimiento = fechas.reduce((a, b) => a < b ? a : b);
+      // Usar el primer elemento como valor inicial para evitar error en reduce vacío
+      proximoVencimiento = fechas.reduce((a, b) => (a < b ? a : b), fechas[0]);
     }
   }
 
@@ -204,6 +205,43 @@ interface EquipoEntities {
 }
 
 type EntityType = 'CHOFER' | 'CAMION' | 'ACOPLADO' | 'EMPRESA_TRANSPORTISTA';
+
+interface EntityMaps {
+  choferMap: Map<number, any>;
+  camionMap: Map<number, any>;
+  acopladoMap: Map<number, any>;
+}
+
+/**
+ * Carga las entidades relacionadas a equipos en batch
+ */
+async function loadRelatedEntities(equipos: Array<{ driverId: number; truckId: number; trailerId: number | null }>): Promise<EntityMaps> {
+  const choferIds = [...new Set(equipos.map(e => e.driverId))];
+  const camionIds = [...new Set(equipos.map(e => e.truckId))];
+  const acopladoIds = [...new Set(equipos.map(e => e.trailerId).filter((id): id is number => id !== null))];
+
+  const [choferes, camiones, acoplados] = await Promise.all([
+    prisma.chofer.findMany({ where: { id: { in: choferIds } } }),
+    prisma.camion.findMany({ where: { id: { in: camionIds } } }),
+    acopladoIds.length > 0 ? prisma.acoplado.findMany({ where: { id: { in: acopladoIds } } }) : Promise.resolve([]),
+  ]);
+
+  return {
+    choferMap: new Map(choferes.map(c => [c.id, c])),
+    camionMap: new Map(camiones.map(c => [c.id, c])),
+    acopladoMap: new Map(acoplados.map(a => [a.id, a])),
+  };
+}
+
+/**
+ * Aplica paginación a un array
+ */
+function paginate<T>(items: T[], page: number, limit: number): { data: T[]; total: number; totalPages: number } {
+  const total = items.length;
+  const totalPages = Math.ceil(total / limit);
+  const offset = (page - 1) * limit;
+  return { data: items.slice(offset, offset + limit), total, totalPages };
+}
 
 /**
  * Construye las condiciones de entidad para un equipo
@@ -448,7 +486,9 @@ async function getEquiposClienteParaDescarga(
   
   // Si no hay búsqueda, retornar todos ordenados
   if (!searchTerm) {
-    return equiposDelCliente.sort((a, b) => a - b);
+    const sorted = [...equiposDelCliente];
+    sorted.sort((a, b) => a - b);
+    return sorted;
   }
   
   // Filtrar por patente o DNI
@@ -467,7 +507,9 @@ async function getEquiposClienteParaDescarga(
     select: { id: true }
   });
   
-  return equiposFiltrados.map(e => e.id).sort((a, b) => a - b);
+  const ids = equiposFiltrados.map(e => e.id);
+  ids.sort((a, b) => a - b);
+  return ids;
 }
 
 interface DocFormateado {
@@ -578,23 +620,9 @@ export class PortalClienteController {
         },
       });
 
-      // QUERY 2-4: Cargar choferes, camiones y acoplados en batch
-      const choferIds = [...new Set(todosEquiposCliente.map(ec => ec.equipo.driverId))];
-      const camionIds = [...new Set(todosEquiposCliente.map(ec => ec.equipo.truckId))];
-      const acopladoIds = [...new Set(todosEquiposCliente.map(ec => ec.equipo.trailerId).filter(Boolean))] as number[];
-
-      const [choferes, camiones, acoplados] = await Promise.all([
-        prisma.chofer.findMany({ where: { id: { in: choferIds } } }),
-        prisma.camion.findMany({ where: { id: { in: camionIds } } }),
-        acopladoIds.length > 0 
-          ? prisma.acoplado.findMany({ where: { id: { in: acopladoIds } } })
-          : Promise.resolve([]),
-      ]);
-
-      // Indexar por ID para acceso O(1)
-      const choferMap = new Map(choferes.map(c => [c.id, c]));
-      const camionMap = new Map(camiones.map(c => [c.id, c]));
-      const acopladoMap = new Map(acoplados.map(a => [a.id, a]));
+      // QUERY 2-4: Cargar choferes, camiones y acoplados en batch (usando helper)
+      const equiposData = todosEquiposCliente.map(ec => ec.equipo);
+      const { choferMap, camionMap, acopladoMap } = await loadRelatedEntities(equiposData);
 
       // QUERY 5: Batch compliance (internamente hace 1-2 queries más)
       const equiposInfo: EquipoInfo[] = todosEquiposCliente.map(ec => ({
@@ -633,25 +661,15 @@ export class PortalClienteController {
       
       equiposFiltrados = filterByEstado(equiposFiltrados, estado);
       
-      // Paginación
-      const total = equiposFiltrados.length;
-      const totalPages = Math.ceil(total / limit);
-      const offset = (page - 1) * limit;
-      const equiposPaginados = equiposFiltrados.slice(offset, offset + limit);
+      // Paginación usando helper
+      const { data: equiposPaginados, total, totalPages } = paginate(equiposFiltrados, page, limit);
       
       res.json({
         success: true,
         data: {
           equipos: equiposPaginados,
           resumen,
-          pagination: {
-            page,
-            limit,
-            total,
-            totalPages,
-            hasNext: page < totalPages,
-            hasPrev: page > 1,
-          },
+          pagination: { page, limit, total, totalPages, hasNext: page < totalPages, hasPrev: page > 1 },
         },
       });
     } catch (error) {
@@ -921,7 +939,8 @@ export class PortalClienteController {
         select: { equipoId: true }
       });
       
-      const equiposPermitidos = asignaciones.map(a => a.equipoId).sort((a, b) => a - b);
+      const equiposPermitidos = asignaciones.map(a => a.equipoId);
+      equiposPermitidos.sort((a, b) => a - b);
       if (equiposPermitidos.length === 0) {
         return res.status(403).json({ success: false, message: 'No tiene acceso a estos equipos' });
       }

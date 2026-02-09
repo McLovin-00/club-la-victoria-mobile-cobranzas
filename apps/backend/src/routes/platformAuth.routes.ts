@@ -8,9 +8,7 @@ import {
   logAction,
   AuthRequest
 } from '../middlewares/platformAuth.middleware';
-import { loginRateLimiter as _loginRateLimiter, passwordChangeRateLimiter as _passwordChangeRateLimiter } from '../middlewares/rateLimit.middleware';
-const loginRateLimiter = _loginRateLimiter as unknown as RequestHandler;
-const passwordChangeRateLimiter = _passwordChangeRateLimiter as unknown as RequestHandler;
+import { loginRateLimiter, passwordChangeRateLimiter } from '../middlewares/rateLimit.middleware';
 import { prismaService } from '../config/prisma';
 import { AppLogger } from '../config/logger';
 
@@ -33,6 +31,93 @@ function canModifyUser(currentUser: any, targetUser: any): boolean {
   return false;
 }
 
+/** Construye condiciones de filtro por rol del usuario actual */
+function buildRoleConditions(user: any): any[] {
+  const conditions: any[] = [];
+  
+  switch (user.role) {
+    case 'ADMIN':
+      conditions.push({ empresaId: user.empresaId });
+      conditions.push({ role: { not: 'SUPERADMIN' } });
+      break;
+    case 'ADMIN_INTERNO':
+      conditions.push({ empresaId: user.empresaId });
+      conditions.push({ role: { notIn: ['SUPERADMIN', 'ADMIN'] } });
+      break;
+    case 'DADOR_DE_CARGA':
+      conditions.push({
+        OR: [
+          { creadoPorId: user.userId },
+          { dadorCargaId: user.dadorCargaId },
+        ]
+      });
+      conditions.push({ role: { in: ['TRANSPORTISTA', 'CHOFER'] } });
+      break;
+    case 'TRANSPORTISTA':
+      conditions.push({
+        OR: [
+          { creadoPorId: user.userId },
+          { empresaTransportistaId: user.empresaTransportistaId },
+        ]
+      });
+      conditions.push({ role: 'CHOFER' });
+      break;
+  }
+  
+  return conditions;
+}
+
+/** Construye condiciones de búsqueda por texto */
+function buildSearchConditions(search: string): any {
+  const searchTerm = search.trim();
+  const searchUpper = searchTerm.toUpperCase();
+  const rolesMatch = ['SUPERADMIN', 'ADMIN', 'ADMIN_INTERNO', 'OPERATOR', 'OPERADOR_INTERNO', 
+    'DADOR_DE_CARGA', 'TRANSPORTISTA', 'CHOFER', 'CLIENTE'].filter(r => r.includes(searchUpper));
+  
+  const searchConditions: any[] = [
+    { email: { contains: searchTerm, mode: 'insensitive' } },
+    { nombre: { contains: searchTerm, mode: 'insensitive' } },
+    { apellido: { contains: searchTerm, mode: 'insensitive' } },
+  ];
+  
+  if (rolesMatch.length > 0) {
+    searchConditions.push({ role: { in: rolesMatch } });
+  }
+  
+  return { OR: searchConditions };
+}
+
+/** Construye condiciones de filtro para listado de usuarios */
+function buildUserListConditions(
+  user: any,
+  query: { search?: string; role?: string; empresaId?: string }
+): any[] {
+  const conditions: any[] = [];
+
+  // Filtro por texto de búsqueda
+  const search = query.search;
+  if (search && typeof search === 'string' && search.trim()) {
+    conditions.push(buildSearchConditions(search));
+  }
+
+  // Filtro por rol específico
+  const role = query.role;
+  if (role && typeof role === 'string') {
+    conditions.push({ role: role.toUpperCase() });
+  }
+
+  // Filtro por empresa
+  const empresaId = query.empresaId;
+  if (empresaId && typeof empresaId === 'string') {
+    conditions.push({ empresaId: parseInt(empresaId) });
+  }
+
+  // Restricciones según el rol del usuario actual
+  conditions.push(...buildRoleConditions(user));
+
+  return conditions;
+}
+
 // ============================================================================
 // ROUTES
 // ============================================================================
@@ -47,7 +132,8 @@ const router = Router();
  */
 router.post(
   '/login',
-  loginRateLimiter, // Rate limiting para prevenir ataques de fuerza bruta
+  // NOSONAR: Cast requerido por incompatibilidad entre express-rate-limit y @types/express-serve-static-core
+  loginRateLimiter as unknown as RequestHandler,
   ValidationMiddleware.validateBody(z.object({
     email: z.string().email(),
     password: z.string().min(6),
@@ -196,7 +282,8 @@ router.get(
  */
 router.post(
   '/change-password',
-  passwordChangeRateLimiter, // Rate limiting más estricto para cambio de contraseña
+  // NOSONAR: Cast requerido por incompatibilidad entre express-rate-limit y @types/express-serve-static-core
+  passwordChangeRateLimiter as unknown as RequestHandler,
   authenticateUser,
   ValidationMiddleware.validateBody(z.object({
     currentPassword: z.string().min(8),
@@ -234,12 +321,12 @@ router.put(
 /**
  * @route DELETE /api/platform/auth/users/:id
  * @desc Eliminar usuario de plataforma
- * @access Private (Superadmin)
+ * @access Private (Superadmin, Admin Interno - solo usuarios de su empresa)
  */
 router.delete(
   '/users/:id',
   authenticateUser,
-  authorizeRoles(['SUPERADMIN']),
+  authorizeRoles(['SUPERADMIN', 'ADMIN_INTERNO']),
   logAction('PLATFORM_USER_DELETE'),
   PlatformAuthController.deleteUser
 );
@@ -314,68 +401,14 @@ router.get(
   async (req: AuthRequest, res: Response): Promise<void> => {
     try {
       const user = req.user!;
-      const { page = 1, limit = 10, search = '', role, empresaId } = req.query;
+      const { page = 1, limit = 10, search, role, empresaId } = req.query;
 
-      // Construir filtros usando AND para combinar correctamente
-      const conditions: any[] = [];
-
-      // Filtro por texto de búsqueda (email, nombre, apellido o rol)
-      if (search && typeof search === 'string' && search.trim()) {
-        const searchTerm = search.trim();
-        const searchUpper = searchTerm.toUpperCase();
-        // Verificar si busca por rol
-        const rolesMatch = ['SUPERADMIN', 'ADMIN', 'ADMIN_INTERNO', 'OPERATOR', 'OPERADOR_INTERNO', 
-          'DADOR_DE_CARGA', 'TRANSPORTISTA', 'CHOFER', 'CLIENTE'].filter(r => r.includes(searchUpper));
-        
-        const searchConditions: any[] = [
-          { email: { contains: searchTerm, mode: 'insensitive' } },
-          { nombre: { contains: searchTerm, mode: 'insensitive' } },
-          { apellido: { contains: searchTerm, mode: 'insensitive' } },
-        ];
-        
-        // Si el término coincide con roles, incluirlos
-        if (rolesMatch.length > 0) {
-          searchConditions.push({ role: { in: rolesMatch } });
-        }
-        
-        conditions.push({ OR: searchConditions });
-      }
-
-      // Filtro por rol específico (del query param)
-      if (role && typeof role === 'string') {
-        conditions.push({ role: role.toUpperCase() });
-      }
-
-      // Filtro por empresa
-      if (empresaId && typeof empresaId === 'string') {
-        conditions.push({ empresaId: parseInt(empresaId) });
-      }
-
-      // Restricciones según el rol del usuario actual
-      if (user.role === 'ADMIN') {
-        // Admin solo puede ver usuarios de su empresa y no puede ver otros superadmins
-        conditions.push({ empresaId: user.empresaId });
-        conditions.push({ role: { not: 'SUPERADMIN' } });
-      } else if (user.role === 'DADOR_DE_CARGA') {
-        // Dador de carga solo puede ver usuarios que él creó o que tienen su dadorCargaId
-        conditions.push({
-          OR: [
-            { creadoPorId: user.userId },
-            { dadorCargaId: (user as any).dadorCargaId },
-          ]
-        });
-        // Solo puede ver roles TRANSPORTISTA y CHOFER
-        conditions.push({ role: { in: ['TRANSPORTISTA', 'CHOFER'] } });
-      } else if (user.role === 'TRANSPORTISTA') {
-        // Transportista: igual que dador pero con empresaTransportistaId
-        conditions.push({
-          OR: [
-            { creadoPorId: user.userId },
-            { empresaTransportistaId: (user as any).empresaTransportistaId },
-          ]
-        });
-        conditions.push({ role: 'CHOFER' });
-      }
+      // Construir filtros usando helper
+      const conditions = buildUserListConditions(user, {
+        search: search as string,
+        role: role as string,
+        empresaId: empresaId as string,
+      });
       
       // Construir where final
       const where = conditions.length > 0 ? { AND: conditions } : {};

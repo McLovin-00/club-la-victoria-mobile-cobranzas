@@ -20,7 +20,7 @@ const ChoferPhonesInline: React.FC<{ choferId: number; initial: string[]; onSave
     <div className='mt-1'>
       <div className='flex flex-col gap-2 max-w-md'>
         {phones.map((p, i)=> (
-          <div key={i} className='flex gap-2'>
+          <div key={`phone-input-${i}`} className='flex gap-2'>
             <Input value={p} placeholder='+54911...' onChange={(e)=>{ const arr=[...phones]; arr[i]=e.target.value; setPhones(arr); }} />
             <Button variant='outline' onClick={()=> setPhones((arr)=> arr.filter((_,idx)=> idx!==i))} disabled={phones.length<=1}>Quitar</Button>
           </div>
@@ -81,7 +81,7 @@ const ChoferesPage: React.FC = () => {
         <div className='grid grid-cols-1 md:grid-cols-6 gap-2 items-end'>
           <select
             className='p-2 border rounded-md md:col-span-2 bg-background text-foreground'
-            value={dadorId || ''}
+            value={dadorId ?? ''}
             onChange={(e) => setDadorId(Number(e.target.value))}
           >
             <option value='' disabled>
@@ -108,7 +108,7 @@ const ChoferesPage: React.FC = () => {
       <div className='mb-4 grid grid-cols-1 md:grid-cols-6 gap-2 items-end'>
         <div className='flex flex-col gap-2 md:col-span-5'>
           {phones.map((p, idx) => (
-            <Input key={idx} placeholder='+54911...' value={p} onChange={(e)=>{
+            <Input key={`phone-field-${idx}`} placeholder='+54911...' value={p} onChange={(e)=>{
               const v = e.target.value; const arr = [...phones]; arr[idx] = v; setPhones(arr);
             }} />
           ))}
@@ -128,8 +128,8 @@ const ChoferesPage: React.FC = () => {
             setDni(''); setNombre(''); setApellido(''); setPhones(['']);
           } catch (error: any) {
             console.error('Error creating chofer:', error);
-            const rawMsg = (error?.data?.message || error?.data?.error || error?.error || '') as string;
-            const msg = (rawMsg || '').toString();
+            const rawMsg = ((error?.data?.message || error?.data?.error || error?.error) ?? '') as string;
+            const msg = (rawMsg ?? '').toString();
             const isDuplicate = msg.includes('Unique constraint failed') || msg.includes('P2002') || msg.toLowerCase().includes('unique constraint') || msg.toLowerCase().includes('ya existe');
             if (isDuplicate) {
               show(`El DNI ${dni} ya existe para el dador seleccionado.`, 'error');
@@ -156,7 +156,7 @@ const ChoferesPage: React.FC = () => {
                   <span className='text-sm text-muted-foreground'>{c.apellido ?? ''} {c.nombre ?? ''} · ID {c.id}</span>
                 </div>
                 <div className='flex gap-2'>
-                  <Button variant='outline' onClick={() => { setEditingId(c.id); setEditDni(c.dni); setEditNombre(c.nombre || ''); setEditApellido(c.apellido || ''); }}>Editar</Button>
+                  <Button variant='outline' onClick={() => { setEditingId(c.id); setEditDni(c.dni); setEditNombre(c.nombre ?? ''); setEditApellido(c.apellido ?? ''); }}>Editar</Button>
                   <Button variant='outline' onClick={() => updateChofer({ id: c.id, activo: !c.activo })}>{c.activo ? 'Desactivar' : 'Activar'}</Button>
                   <Button variant='destructive' onClick={() => setConfirmDeleteId(c.id)}>Borrar</Button>
                 </div>
@@ -171,7 +171,7 @@ const ChoferesPage: React.FC = () => {
                     <Button onClick={async ()=> {
                       if (editDni.length < 6) { show('DNI inválido', 'error'); return; }
                       try {
-                        await updateChofer({ id: c.id, dni: editDni, nombre: editNombre || undefined, apellido: editApellido || undefined }).unwrap();
+                        await updateChofer({ id: c.id, dni: editDni, nombre: editNombre ?? undefined, apellido: editApellido ?? undefined }).unwrap();
                         show('Chofer actualizado', 'success');
                         setEditingId(null);
                       } catch (e: any) {
@@ -185,7 +185,7 @@ const ChoferesPage: React.FC = () => {
               {/* Detalle inline con teléfonos */}
               <div className='mt-2 pl-1'>
                 <span className='text-sm font-medium'>Teléfonos (WhatsApp):</span>
-                <ChoferPhonesInline choferId={c.id} initial={c.phones || []} onSave={async (phones)=>{ await updateChofer({ id: c.id, phones }); }} />
+                <ChoferPhonesInline choferId={c.id} initial={c.phones ?? []} onSave={async (phones)=>{ await updateChofer({ id: c.id, phones }); }} />
               </div>
             </div>
           ))}

@@ -34,6 +34,11 @@ function registerRouteIfExists(path: string, router: any | null): void {
   }
 }
 
+// Helper: aplicar middleware opcional (silencia errores si el paquete no existe)
+function tryApplyMiddleware(_name: string, fn: () => void): void {
+  try { fn(); } catch { /* Middleware opcional no disponible */ }
+}
+
 // Helper: registrar rutas de documentos
 async function registerDocumentosRoutes(): Promise<void> {
   AppLogger.info('📄 Loading Documentos service routes');

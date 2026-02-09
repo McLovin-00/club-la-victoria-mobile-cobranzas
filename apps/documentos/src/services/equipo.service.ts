@@ -1190,7 +1190,7 @@ export class EquipoService {
     try {
       const { queueService } = await import('./queue.service');
       await queueService.addMissingCheckForEquipo(tenantEmpresaId, equipoId);
-    } catch {}
+    } catch { /* Encolar es best-effort */ }
     return updated;
   }
 
@@ -1378,7 +1378,7 @@ export class EquipoService {
       await resolveComponentConflicts(input.tenantEmpresaId, dniNorm, truckNorm, trailerNorm);
     }
 
-    // Crear equipo
+    // Crear equipo con activo=true explícito para evitar problemas de filtrado
     const equipo = await prisma.equipo.create({
       data: {
         tenantEmpresaId: input.tenantEmpresaId,
@@ -1392,6 +1392,7 @@ export class EquipoService {
         trailerPlateNorm: trailerNorm,
         validFrom: input.validFrom,
         validTo: input.validTo ?? null,
+        activo: true,
       },
     });
     // Ejecutar acciones post-creación
@@ -1449,7 +1450,7 @@ export class EquipoService {
     try {
       const { queueService } = await import('./queue.service');
       await queueService.addMissingCheckForEquipo(tenantEmpresaId, equipoId, 15 * 60 * 1000);
-    } catch {}
+    } catch { /* Encolar es best-effort */ }
     return assoc;
   }
 
@@ -1480,7 +1481,7 @@ export class EquipoService {
       // Registrar eliminación (nota: será eliminado al purgar history por FK)
       try {
         await tx.equipoHistory.create({ data: { equipoId, action: 'delete', component: 'system', originEquipoId: null, payload: { reason: 'user' } as any } });
-      } catch {}
+      } catch { /* History log no bloquea eliminación */ }
 
       // Borra asociaciones cliente vigentes
       await tx.equipoCliente.deleteMany({ where: { equipoId } });
@@ -1898,6 +1899,32 @@ export class EquipoService {
       data: { asignadoHasta: new Date() },
     });
 
+    // También cerrar las plantillas de requisito del cliente removido
+    // Buscar plantillas que pertenecen al cliente removido
+    const plantillasDelCliente = await prisma.plantillaRequisito.findMany({
+      where: { 
+        clienteId: input.clienteId,
+        tenantEmpresaId: input.tenantEmpresaId,
+      },
+      select: { id: true },
+    });
+
+    let plantillasCerradas = 0;
+    if (plantillasDelCliente.length > 0) {
+      const plantillaIds = plantillasDelCliente.map(p => p.id);
+      
+      // Cerrar asociaciones equipo-plantilla activas de este cliente
+      const result = await prisma.equipoPlantillaRequisito.updateMany({
+        where: {
+          equipoId: input.equipoId,
+          plantillaRequisitoId: { in: plantillaIds },
+          asignadoHasta: null, // Solo las activas
+        },
+        data: { asignadoHasta: new Date() },
+      });
+      plantillasCerradas = result.count;
+    }
+
     // Auditoría
     await AuditService.logEquipoChange({
       equipoId: input.equipoId,
@@ -1905,10 +1932,12 @@ export class EquipoService {
       accion: 'QUITAR_CLIENTE',
       campoModificado: 'cliente',
       valorAnterior: { clienteId: input.clienteId },
-      motivo: exclusiveDocIds.length > 0 ? `${exclusiveDocIds.length} documentos archivados` : undefined,
+      motivo: exclusiveDocIds.length > 0 || plantillasCerradas > 0 
+        ? `${exclusiveDocIds.length} documentos archivados, ${plantillasCerradas} plantillas desasociadas` 
+        : undefined,
     });
 
-    return { removed: true, archivedDocuments: exclusiveDocIds.length };
+    return { removed: true, archivedDocuments: exclusiveDocIds.length, plantillasRemovidas: plantillasCerradas };
   }
 
   /**

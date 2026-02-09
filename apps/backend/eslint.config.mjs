@@ -8,8 +8,9 @@ import { dirname } from 'path';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
-export default tseslint.config(
-  { ignores: ['dist/**', 'coverage/**', 'node_modules/**', 'src/services/strategies/**', 'scripts/**', 'src/types/**', 'src/seed/__tests__/**'] },
+// Flat config array (sin tseslint.config deprecated)
+export default [
+  { ignores: ['dist/**','coverage/**','node_modules/**','src/services/strategies/**','scripts/**','src/types/**'] },
   {
     files: ['**/*.ts'],
     languageOptions: {
@@ -32,6 +33,6 @@ export default tseslint.config(
       'no-empty': ['error', { allowEmptyCatch: true }],
     },
   }
-);
+];
 
 

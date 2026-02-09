@@ -98,7 +98,7 @@ const UserTableSkeleton: React.FC = memo(() => {
 
               {/* Filas skeleton */}
               {Array.from({ length: 5 }).map((_, index) => (
-                <div key={index} className='px-6 py-4 border-b border-border'>
+                <div key={`skeleton-user-${index}`} className='px-6 py-4 border-b border-border'>
                   <div className='flex items-center space-x-6'>
                     <div className='flex items-center space-x-3'>
                       <div className='w-8 h-8 bg-muted rounded-full animate-pulse'></div>

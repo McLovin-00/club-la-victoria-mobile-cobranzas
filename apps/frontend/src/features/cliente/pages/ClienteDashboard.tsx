@@ -40,7 +40,7 @@ const ClienteDashboard: React.FC = () => {
   // Búsqueda masiva por lista de DNIs o patentes
   const [showBulkSearch, setShowBulkSearch] = useState(false);
   const [bulkInput, setBulkInput] = useState('');
-  const [bulkType, setBulkType] = useState<'dni' | 'patente'>('dni');
+  const [_bulkType, _setBulkType] = useState<'dni' | 'patente'>('dni');
   
   
   // Solo ejecutar query si shouldFetch es true
@@ -138,7 +138,7 @@ const ClienteDashboard: React.FC = () => {
     const searchInput = document.createElement('input');
     searchInput.type = 'hidden';
     searchInput.name = 'searchTerm';
-    searchInput.value = searchTerm || '';
+    searchInput.value = searchTerm ?? '';
     form.appendChild(searchInput);
 
     const estadoInput = document.createElement('input');
@@ -451,7 +451,7 @@ TZI127
                             </div>
                             <div className='text-sm text-gray-600 dark:text-gray-400'>
                               {equipo.chofer 
-                                ? `${equipo.chofer.nombre || ''} ${equipo.chofer.apellido || ''} - DNI ${equipo.chofer.dni}`
+                                ? `${equipo.chofer.nombre ?? ''} ${equipo.chofer.apellido ?? ''} - DNI ${equipo.chofer.dni}`
                                 : 'Sin chofer asignado'}
                             </div>
                             {equipo.empresaTransportista && (

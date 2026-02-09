@@ -155,6 +155,13 @@ apps/e2e/playwright-report/
 apps/e2e/coverage/
 apps/e2e/.auth/
 
-# Archivos problemáticos de Windows
+# Archivos problemï¿½ticos de Windows
 **/nul
 nul
+# DocumentaciÃ³n de deployment con credenciales sensibles
+docs/DEPLOYMENT-10.8.10.20.md
+docs/DEPLOYMENT-10.3.0.243.md
+docs/DEPLOYMENT-10.3.0.246.md
+docs/DESPLIEGUE_10.8.10.20_PRODUCCION.md
+docs/DESPLIEGUE_10.3.0.243_STAGING.md
+docs/DESPLIEGUE_10.3.0.246_TESTING.md

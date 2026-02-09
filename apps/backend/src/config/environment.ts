@@ -40,7 +40,7 @@ function readFileIfExists(filePath?: string): string | undefined {
     if (fs.existsSync(p)) {
       return fs.readFileSync(p, 'utf8');
     }
-  } catch {}
+  } catch { /* Archivo no accesible */ }
   return undefined;
 }
 

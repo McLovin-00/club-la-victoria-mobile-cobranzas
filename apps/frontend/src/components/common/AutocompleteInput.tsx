@@ -56,7 +56,7 @@ export function AutocompleteInput({
         
         if (response.ok) {
           const data = await response.json();
-          setSuggestions(data.data || []);
+          setSuggestions(data.data ?? []);
         }
       } catch (error) {
         console.error('Error fetching suggestions:', error);

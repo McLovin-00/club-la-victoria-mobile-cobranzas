@@ -13,7 +13,7 @@ export default function ApprovalDetailPage() {
   const navigate = useNavigate();
   const { goBack } = useRoleBasedNavigation();
   const docId = Number(id);
-  const { data, isFetching, error, refetch } = useGetApprovalPendingByIdQuery({ id: docId }, { skip: !docId });
+  const { data, isFetching: _isFetching, error, refetch } = useGetApprovalPendingByIdQuery({ id: docId }, { skip: !docId });
   const [approve, { isLoading: approving }] = useApprovePendingDocumentMutation();
   const [reject, { isLoading: rejecting }] = useRejectPendingDocumentMutation();
   const [recheckWithAI, { isLoading: rechecking }] = useRecheckDocumentWithAIMutation();
@@ -29,7 +29,7 @@ export default function ApprovalDetailPage() {
   const location = useLocation();
 
   // Helpers de formato de fecha
-  const toYmd = (dmy: string): string => {
+  const _toYmd = (dmy: string): string => {
     const m = dmy.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
     if (!m) return '';
     const [_, dd, mm, yyyy] = m;
@@ -57,7 +57,7 @@ export default function ApprovalDetailPage() {
   const { data: templatesAll } = useGetTemplatesQuery();
 
   const normalizeLabel = (s?: string): string =>
-    String(s || '')
+    String(s ?? '')
       .normalize('NFD')
       .replace(/[\u0300-\u036f]/g, '')
       .replace(/\s+/g, ' ')
@@ -212,7 +212,7 @@ export default function ApprovalDetailPage() {
       ((meta as any)?.template?.name || (meta as any)?.template?.nombre) as any;
     
     // Intentar primero con el templateId existente del documento
-    if (existingTemplateId && String(existingTemplateName || '').toUpperCase() !== 'AUTO') {
+    if (existingTemplateId && String(existingTemplateName ?? '').toUpperCase() !== 'AUTO') {
       setTemplateId(existingTemplateId);
     } 
     // Si no hay o es AUTO, intentar mapear por tipo detectado
@@ -252,18 +252,18 @@ export default function ApprovalDetailPage() {
   // Requiere elegir plantilla si está en AUTO o no hay tipo detectado
   const mustChooseTemplate = useMemo(() => {
     const tplName: string | undefined = ((meta as any)?.template?.name || (meta as any)?.template?.nombre) as any;
-    const isAuto = String(tplName || '').toUpperCase() === 'AUTO';
+    const isAuto = String(tplName ?? '').toUpperCase() === 'AUTO';
     const hasDetectedType = Boolean((classification as any)?.detectedDocumentType);
     return isAuto || !hasDetectedType;
   }, [meta, classification]);
 
   const onApprove = async () => {
     if (!entityType || !entityId || !templateId || !expiresAt) return;
-    await approve({ id: docId, confirmedEntityType: entityType, confirmedEntityId: entityId, expiresAt, reviewNotes: reviewNotes || undefined, templateId: Number(templateId) });
+    await approve({ id: docId, confirmedEntityType: entityType, confirmedEntityId: entityId, expiresAt, reviewNotes: reviewNotes ?? undefined, templateId: Number(templateId) });
     navigate('/documentos/aprobacion');
   };
   const onReject = async () => {
-    await reject({ id: docId, reason: rejectReason || '', reviewNotes: reviewNotes || undefined });
+    await reject({ id: docId, reason: rejectReason ?? '', reviewNotes: reviewNotes ?? undefined });
     navigate('/documentos/aprobacion');
   };
   const onRecheck = async () => {
@@ -279,7 +279,7 @@ export default function ApprovalDetailPage() {
   // Disparidades del documento
   const disparidades = useMemo(() => {
     const clf = classification || (info as any)?.data?.classification;
-    return (clf as any)?.disparidades || [];
+    return (clf as any)?.disparidades ?? [];
   }, [classification, info]);
   
   const tieneDisparidades = disparidades.length > 0;
@@ -359,8 +359,8 @@ export default function ApprovalDetailPage() {
                   Disparidades detectadas
                 </div>
                 <div className="space-y-2">
-                  {disparidades.map((d: any, i: number) => (
-                    <DisparidadItem key={i} disparidad={d} />
+                  {disparidades.map((d: any) => (
+                    <DisparidadItem key={`${d.campo}-${d.mensaje?.slice(0, 20) || ''}`} disparidad={d} />
                   ))}
                 </div>
               </div>
