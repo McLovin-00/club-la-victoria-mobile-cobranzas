@@ -166,8 +166,8 @@ services:
 
   documentos:
     build:
-      context: /home/administrador/monorepo-bca
-      dockerfile: apps/documentos/Dockerfile
+      context: /home/administrador/monorepo-bca/apps/documentos
+      dockerfile: Dockerfile
     image: bca/documentos:246
     container_name: bca_documentos_246
     restart: always
@@ -229,8 +229,8 @@ services:
 
   remitos:
     build:
-      context: /home/administrador/monorepo-bca
-      dockerfile: apps/remitos/Dockerfile
+      context: /home/administrador/monorepo-bca/apps/remitos
+      dockerfile: Dockerfile
     image: bca/remitos:246
     container_name: bca_remitos_246
     restart: always
