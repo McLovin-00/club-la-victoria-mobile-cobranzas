@@ -281,29 +281,55 @@ const AltaEquipoCompletaPage: React.FC = () => {
     return ids;
   }, [templatesPorTipo, semiPatente]);
 
-  // Verificar si todos los documentos obligatorios están SELECCIONADOS Y tienen fecha de vencimiento
+  // Obtener IDs de documentos vigentes/reutilizables de todas las entidades
+  const docsReutilizablesIds = useMemo(() => {
+    const ids: number[] = [];
+    const entityTypes: EntityType[] = ['EMPRESA_TRANSPORTISTA', 'CHOFER', 'CAMION', 'ACOPLADO'];
+    for (const entityType of entityTypes) {
+      const result = getResult(entityType);
+      if (result?.documentosDetalle) {
+        for (const doc of result.documentosDetalle) {
+          if (doc.reutilizable && (doc.estado === 'VIGENTE' || doc.estado === 'POR_VENCER')) {
+            ids.push(doc.templateId);
+          }
+        }
+      }
+    }
+    return ids;
+  }, [getResult]);
+
+  // Verificar si todos los documentos obligatorios están SELECCIONADOS, tienen fecha de vencimiento, O son reutilizables
   const todosDocumentosSeleccionados = useMemo(() => {
     return templateIdsObligatorios.every((id) => {
+      // Si el documento ya está vigente/reutilizable, no requiere nueva carga
+      if (docsReutilizablesIds.includes(id)) return true;
+      
       const fileData = selectedFiles.get(id);
       // Debe tener archivo Y fecha de vencimiento
       return fileData && fileData.file && fileData.expiryDate;
     });
-  }, [templateIdsObligatorios, selectedFiles]);
+  }, [templateIdsObligatorios, selectedFiles, docsReutilizablesIds]);
 
   // Documentos sin fecha de vencimiento (para mostrar error específico)
+  // Excluir los que ya están vigentes/reutilizables
   const documentosSinVencimiento = useMemo(() => {
     return templateIdsObligatorios.filter((id) => {
+      // Si es reutilizable, no entra en la lista de "sin vencimiento"
+      if (docsReutilizablesIds.includes(id)) return false;
+      
       const fileData = selectedFiles.get(id);
       return fileData && fileData.file && !fileData.expiryDate;
     });
-  }, [templateIdsObligatorios, selectedFiles]);
+  }, [templateIdsObligatorios, selectedFiles, docsReutilizablesIds]);
 
-  // Progreso
+  // Progreso (incluye docs reutilizables como completados)
   const progreso = useMemo(() => {
     const total = templateIdsObligatorios.length;
-    const completados = templateIdsObligatorios.filter((id) => selectedFiles.has(id)).length;
+    const completados = templateIdsObligatorios.filter(
+      (id) => selectedFiles.has(id) || docsReutilizablesIds.includes(id)
+    ).length;
     return total > 0 ? Math.round((completados / total) * 100) : 0;
-  }, [templateIdsObligatorios, selectedFiles]);
+  }, [templateIdsObligatorios, selectedFiles, docsReutilizablesIds]);
 
   // Handler para cuando se selecciona un archivo (NO sube, solo guarda)
   const handleFileSelect = (templateId: number, file: File | null, expiryDate?: string) => {
@@ -1161,6 +1187,7 @@ const AltaEquipoCompletaPage: React.FC = () => {
         uploadedTemplateIds={Array.from(selectedFiles.keys())}
         selectOnlyMode={true}
         onFileSelect={handleFileSelect}
+        documentosExistentes={getResult('EMPRESA_TRANSPORTISTA')?.documentosDetalle}
       />
 
       <SeccionDocumentos
@@ -1175,6 +1202,7 @@ const AltaEquipoCompletaPage: React.FC = () => {
         uploadedTemplateIds={Array.from(selectedFiles.keys())}
         selectOnlyMode={true}
         onFileSelect={handleFileSelect}
+        documentosExistentes={getResult('CHOFER')?.documentosDetalle}
       />
 
       <SeccionDocumentos
@@ -1189,6 +1217,7 @@ const AltaEquipoCompletaPage: React.FC = () => {
         uploadedTemplateIds={Array.from(selectedFiles.keys())}
         selectOnlyMode={true}
         onFileSelect={handleFileSelect}
+        documentosExistentes={getResult('CAMION')?.documentosDetalle}
       />
 
       <SeccionDocumentos
@@ -1203,6 +1232,7 @@ const AltaEquipoCompletaPage: React.FC = () => {
         uploadedTemplateIds={Array.from(selectedFiles.keys())}
         selectOnlyMode={true}
         onFileSelect={handleFileSelect}
+        documentosExistentes={getResult('ACOPLADO')?.documentosDetalle}
       />
 
       {/* INDICADOR DE PRE-CHECK PASADO */}

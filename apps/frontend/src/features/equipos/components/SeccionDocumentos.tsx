@@ -1,5 +1,6 @@
 import React from 'react';
 import { DocumentoField } from './DocumentoField';
+import type { DocumentoExistente } from '../hooks/useEntityVerification';
 
 export interface Template {
   id: number;
@@ -19,6 +20,8 @@ export interface SeccionDocumentosProps {
   uploadedTemplateIds: number[];
   selectOnlyMode?: boolean; // Modo solo selección de archivos
   onFileSelect?: (templateId: number, file: File | null, expiryDate?: string) => void;
+  /** Documentos existentes para esta entidad (provenientes del pre-check) */
+  documentosExistentes?: DocumentoExistente[];
 }
 
 // NOTA: Si en el futuro hay templates que no requieren vencimiento,
@@ -39,9 +42,19 @@ export const SeccionDocumentos: React.FC<SeccionDocumentosProps> = ({
   uploadedTemplateIds,
   selectOnlyMode = false,
   onFileSelect,
+  documentosExistentes = [],
 }) => {
   const templatesCount = templates.length;
-  const uploadedCount = templates.filter((t) => uploadedTemplateIds.includes(t.id)).length;
+  
+  // Contar documentos vigentes existentes (reutilizables)
+  const docsVigentesIds = documentosExistentes
+    .filter(d => d.reutilizable && (d.estado === 'VIGENTE' || d.estado === 'POR_VENCER'))
+    .map(d => d.templateId);
+  
+  // Total de docs OK: los recién subidos + los vigentes existentes
+  const uploadedCount = templates.filter(
+    (t) => uploadedTemplateIds.includes(t.id) || docsVigentesIds.includes(t.id)
+  ).length;
 
   return (
     <div className='border border-gray-300 rounded-lg p-4 mb-4 bg-gray-50'>
@@ -61,6 +74,9 @@ export const SeccionDocumentos: React.FC<SeccionDocumentosProps> = ({
           {templates.map((template) => {
             // TODOS los documentos requieren fecha de vencimiento (decisión de negocio)
             const requiresExpiry = true;
+            
+            // Buscar si existe un documento para este template
+            const docExistente = documentosExistentes.find(d => d.templateId === template.id);
 
             return (
               <DocumentoField
@@ -76,6 +92,7 @@ export const SeccionDocumentos: React.FC<SeccionDocumentosProps> = ({
                 disabled={disabled}
                 selectOnlyMode={selectOnlyMode}
                 onFileSelect={onFileSelect}
+                documentoExistente={docExistente}
               />
             );
           })}

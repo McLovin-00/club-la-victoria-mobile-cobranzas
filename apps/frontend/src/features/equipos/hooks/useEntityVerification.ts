@@ -18,6 +18,26 @@ export interface EquipoAsignado {
   acopladoPatente?: string;
 }
 
+/** Estado de un documento existente */
+export type DocumentoEstado = 
+  | 'VIGENTE'
+  | 'POR_VENCER'
+  | 'VENCIDO'
+  | 'PENDIENTE'
+  | 'RECHAZADO'
+  | 'FALTANTE';
+
+/** Información de un documento existente para la entidad */
+export interface DocumentoExistente {
+  id: number;
+  templateId: number;
+  templateName: string;
+  estado: DocumentoEstado;
+  expiresAt: string | null;
+  diasParaVencer: number | null;
+  reutilizable: boolean;
+}
+
 export interface EntityVerificationResult {
   status: VerificationStatus;
   entityId: number | null;
@@ -26,12 +46,15 @@ export interface EntityVerificationResult {
   dadorActualNombre?: string;
   equipoActual?: EquipoAsignado;
   asignadaAOtroEquipo: boolean;
+  /** Resumen numérico de documentos */
   documentos: {
     vigentes: number;
     porVencer: number;
     vencidos: number;
     total: number;
   };
+  /** Lista detallada de documentos existentes para esta entidad */
+  documentosDetalle: DocumentoExistente[];
   error?: string;
 }
 
@@ -93,6 +116,7 @@ export function useEntityVerification(options: UseEntityVerificationOptions = {}
       dadorActualId: null,
       asignadaAOtroEquipo: false,
       documentos: { vigentes: 0, porVencer: 0, vencidos: 0, total: 0 },
+      documentosDetalle: [],
     };
     
     setResults(prev => new Map(prev).set(entityType, checkingResult));
@@ -113,6 +137,7 @@ export function useEntityVerification(options: UseEntityVerificationOptions = {}
           dadorActualId: null,
           asignadaAOtroEquipo: false,
           documentos: { vigentes: 0, porVencer: 0, vencidos: 0, total: 0 },
+          documentosDetalle: [],
           error: 'No se recibió respuesta del servidor',
         };
         setResults(prev => new Map(prev).set(entityType, errorResult));
@@ -128,6 +153,17 @@ export function useEntityVerification(options: UseEntityVerificationOptions = {}
         status = 'otro_dador';
       }
 
+      // Mapear documentos existentes del backend
+      const documentosDetalle: DocumentoExistente[] = (entidad.documentos || []).map((doc: any) => ({
+        id: doc.id,
+        templateId: doc.templateId,
+        templateName: doc.templateName,
+        estado: doc.estado as DocumentoEstado,
+        expiresAt: doc.expiresAt,
+        diasParaVencer: doc.diasParaVencer,
+        reutilizable: doc.reutilizable || false,
+      }));
+
       const result: EntityVerificationResult = {
         status,
         entityId: entidad.entityId,
@@ -142,6 +178,7 @@ export function useEntityVerification(options: UseEntityVerificationOptions = {}
           vencidos: entidad.resumen?.vencidos || 0,
           total: entidad.resumen?.total || 0,
         },
+        documentosDetalle,
       };
 
       setResults(prev => new Map(prev).set(entityType, result));
@@ -154,6 +191,7 @@ export function useEntityVerification(options: UseEntityVerificationOptions = {}
         dadorActualId: null,
         asignadaAOtroEquipo: false,
         documentos: { vigentes: 0, porVencer: 0, vencidos: 0, total: 0 },
+        documentosDetalle: [],
         error: err?.data?.message || 'Error al verificar',
       };
       setResults(prev => new Map(prev).set(entityType, errorResult));
