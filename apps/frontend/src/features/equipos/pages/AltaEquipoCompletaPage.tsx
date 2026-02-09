@@ -110,7 +110,7 @@ const AltaEquipoCompletaPage: React.FC = () => {
   const { verify, getResult, clearResult } = useEntityVerification({ dadorCargaId });
 
   // Permisos
-  const canUpload = ['SUPERADMIN', 'ADMIN', 'OPERATOR', 'ADMIN_INTERNO', 'DADOR_DE_CARGA', 'TRANSPORTISTA'].includes(role || '');
+  const canUpload = ['SUPERADMIN', 'ADMIN', 'OPERATOR', 'ADMIN_INTERNO', 'DADOR_DE_CARGA', 'TRANSPORTISTA'].includes(role ?? '');
   const isAdminInterno = role === 'ADMIN_INTERNO';
   const isTransportista = role === 'TRANSPORTISTA';
   
@@ -120,19 +120,42 @@ const AltaEquipoCompletaPage: React.FC = () => {
     { id: userEmpresaTransportistaId! },
     { skip: !isTransportista || !userEmpresaTransportistaId }
   );
-
+  
   // Listas de dadores y clientes
   const dadoresList = useMemo(() => {
     const raw = ((dadoresResp as any)?.data || (dadoresResp as any)?.list) ?? [];
     return Array.isArray(raw) ? raw : [];
   }, [dadoresResp]);
-
-  const clientesList = useMemo(() => {
-    const raw = (clientsResp as any)?.data || (clientsResp as any)?.list || [];
+  
+  const _clientesList = useMemo(() => {
+    const raw = ((clientsResp as any)?.data || (clientsResp as any)?.list) ?? [];
     return Array.isArray(raw) ? raw : [];
   }, [clientsResp]);
+  
+  // Determinar dadorCargaId según el rol del usuario
+  // - DADOR_DE_CARGA: DEBE usar su propio dadorCargaId (obligatorio)
+  // - TRANSPORTISTA: se asigna en el useEffect de empresaTransportistaData
+  // - ADMIN_INTERNO: selecciona manualmente
+  // - Otros roles admin: usan su dadorCargaId si lo tienen
+  const isDadorDeCarga = role === 'DADOR_DE_CARGA';
+  const dadorCargaIdMissing = isDadorDeCarga && !userDadorCargaId;
+  
+  useEffect(() => {
+    // Para DADOR_DE_CARGA: usar su dadorCargaId del perfil (obligatorio)
+    if (isDadorDeCarga && userDadorCargaId && !dadorCargaId) {
+      setDadorCargaId(userDadorCargaId);
+      return;
+    }
+    
+    // Para otros roles (excepto ADMIN_INTERNO que selecciona manual):
+    // Si tienen dadorCargaId en su perfil, usarlo
+    if (!isAdminInterno && !isTransportista && !isDadorDeCarga && userDadorCargaId && !dadorCargaId) {
+      setDadorCargaId(userDadorCargaId);
+    }
+    // NOTA: NO usar empresaId como fallback, son conceptos diferentes
+  }, [isAdminInterno, isTransportista, isDadorDeCarga, userDadorCargaId, dadorCargaId]);
 
-  // Si el usuario NO es ADMIN_INTERNO, usar su empresaId como dadorCargaId por defecto
+  // Si el usuario es TRANSPORTISTA, auto-completar datos de su empresa transportista
   useEffect(() => {
     if (isTransportista && empresaTransportistaData) {
       const nombre = (empresaTransportistaData.razonSocial || empresaTransportistaData.nombre) ?? '';
@@ -225,15 +248,15 @@ const AltaEquipoCompletaPage: React.FC = () => {
     }
 
     // Sin clientes seleccionados: usar todos los templates globales
-    const rawTemplates = (templatesResp as any)?.data || (templatesResp as any) || [];
-
+    const rawTemplates = ((templatesResp as any)?.data || (templatesResp as any)) ?? [];
+    
     // Mapear 'nombre' del backend a 'name' esperado por el componente
     const allTemplates = rawTemplates.map((t: any) => ({
       id: t.id,
       name: t.nombre || t.name, // El backend devuelve 'nombre'
       entityType: t.entityType,
     }));
-
+    
     return {
       EMPRESA_TRANSPORTISTA: allTemplates.filter((t: Template) => t.entityType === 'EMPRESA_TRANSPORTISTA'),
       CHOFER: allTemplates.filter((t: Template) => t.entityType === 'CHOFER'),
@@ -276,14 +299,14 @@ const AltaEquipoCompletaPage: React.FC = () => {
   // Calcular documentos obligatorios
   const templateIdsObligatorios = useMemo(() => {
     const ids: number[] = [
-      ...templatesPorTipo.EMPRESA_TRANSPORTISTA.map((t: any) => t.id),
-      ...templatesPorTipo.CHOFER.map((t: any) => t.id),
-      ...templatesPorTipo.CAMION.map((t: any) => t.id),
+      ...templatesPorTipo.EMPRESA_TRANSPORTISTA.map((t) => t.id),
+      ...templatesPorTipo.CHOFER.map((t) => t.id),
+      ...templatesPorTipo.CAMION.map((t) => t.id),
     ];
 
     // Si hay patente semi, agregar documentos de semi
     if (semiPatente && semiPatente.length >= 5) {
-      ids.push(...templatesPorTipo.ACOPLADO.map((t: any) => t.id));
+      ids.push(...templatesPorTipo.ACOPLADO.map((t) => t.id));
     }
 
     return ids;
@@ -576,26 +599,26 @@ const AltaEquipoCompletaPage: React.FC = () => {
       // ═══════════════════════════════════════════════════════════════════
       const payload = {
         dadorCargaId: dadorCargaId,
-
+        
         // Empresa Transportista
         empresaTransportistaCuit: cuitTransportista,
         empresaTransportistaNombre: empresaTransportista,
-
+        
         // Chofer
         choferDni: choferDni,
         choferNombre: choferNombre ?? undefined,
         choferApellido: choferApellido ?? undefined,
         choferPhones: choferPhones ? choferPhones.split(',').map((p) => p.trim()) : undefined,
-
+        
         // Camión
         camionPatente: tractorPatente,
-        camionMarca: tractorMarca || undefined,
-        camionModelo: tractorModelo || undefined,
-
+        camionMarca: tractorMarca ?? undefined,
+        camionModelo: tractorModelo ?? undefined,
+        
         // Acoplado (opcional)
         acopladoPatente: semiPatente || null,
-        acopladoTipo: semiTipo || undefined,
-
+        acopladoTipo: semiTipo ?? undefined,
+        
         // Clientes a asociar
         clienteIds: clienteIds.length > 0 ? clienteIds : undefined,
       };
@@ -680,9 +703,8 @@ const AltaEquipoCompletaPage: React.FC = () => {
           uploadedCount++;
           setMessage({ type: 'success', text: `⏳ Subidos ${uploadedCount}/${selectedFiles.size} documentos...` });
         } catch (err: any) {
-          const templateName = [...Object.values(templatesPorTipo)].flat().find((t) => t.id === templateId)?.name || 'Documento';
           const errorMsg = err?.data?.message || err?.message || 'Error desconocido';
-          uploadErrors.push(`${templateName}: ${errorMsg}`);
+          uploadErrors.push(`${template.name}: ${errorMsg}`);
         }
       }
 
@@ -721,9 +743,11 @@ const AltaEquipoCompletaPage: React.FC = () => {
         // ÉXITO COMPLETO
         // ═══════════════════════════════════════════════════════════════════
         setMessage({ type: 'success', text: '✅ Equipo creado exitosamente con todos sus documentos' });
+        // Mantener deshabilitado hasta la navegación
         setTimeout(() => {
           navigate(getHomeRoute());
         }, 2000);
+        return; // No rehabilitar el botón, vamos a navegar
       }
       // Rehabilitar botón si hubo errores en uploads pero no navegamos
       setIsSubmitting(false);
@@ -827,10 +851,11 @@ const AltaEquipoCompletaPage: React.FC = () => {
       {/* Mensaje */}
       {message && (
         <div
-          className={`mb-4 p-4 rounded-lg ${message.type === 'success'
-            ? 'bg-green-50 border border-green-200 text-green-800'
-            : 'bg-red-50 border border-red-200 text-red-800'
-            }`}
+          className={`mb-4 p-4 rounded-lg ${
+            message.type === 'success'
+              ? 'bg-green-50 border border-green-200 text-green-800'
+              : 'bg-red-50 border border-red-200 text-red-800'
+          }`}
         >
           {message.text}
         </div>
@@ -938,7 +963,7 @@ const AltaEquipoCompletaPage: React.FC = () => {
       </div>
 
       {/* DATOS BÁSICOS AGRUPADOS POR ENTIDAD */}
-
+      
       {/* EMPRESA TRANSPORTISTA */}
       <div className={`border rounded-lg p-6 mb-4 ${isTransportista ? 'bg-blue-50 border-blue-300' : 'bg-white border-gray-300'}`}>
         <h2 className='text-xl font-semibold text-gray-900 mb-4 flex items-center'>
@@ -950,7 +975,13 @@ const AltaEquipoCompletaPage: React.FC = () => {
             </span>
           )}
         </h2>
-
+        
+        {isTransportista && (
+          <div className='mb-4 bg-blue-100 border border-blue-200 rounded p-3 text-sm text-blue-800'>
+            ℹ️ Los datos de tu empresa transportista se completan automáticamente y no pueden modificarse.
+          </div>
+        )}
+        
         <div className='grid grid-cols-1 md:grid-cols-2 gap-4'>
           <div>
             <label className='block text-sm font-medium text-gray-700 mb-1'>
@@ -1005,7 +1036,7 @@ const AltaEquipoCompletaPage: React.FC = () => {
           <span className='bg-green-100 text-green-800 rounded-full w-8 h-8 flex items-center justify-center mr-3 text-sm font-bold'>2</span>
           👤 Chofer
         </h2>
-
+        
         <div className='grid grid-cols-1 md:grid-cols-3 gap-4'>
           <div>
             <label className='block text-sm font-medium text-gray-700 mb-1'>
@@ -1073,7 +1104,7 @@ const AltaEquipoCompletaPage: React.FC = () => {
           <span className='bg-orange-100 text-orange-800 rounded-full w-8 h-8 flex items-center justify-center mr-3 text-sm font-bold'>3</span>
           🚛 Tractor
         </h2>
-
+        
         <div className='grid grid-cols-1 md:grid-cols-3 gap-4'>
           <div>
             <label className='block text-sm font-medium text-gray-700 mb-1'>
@@ -1127,7 +1158,7 @@ const AltaEquipoCompletaPage: React.FC = () => {
           <span className='bg-purple-100 text-purple-800 rounded-full w-8 h-8 flex items-center justify-center mr-3 text-sm font-bold'>4</span>
           🚚 Semi / Acoplado
         </h2>
-
+        
         <div className='grid grid-cols-1 md:grid-cols-2 gap-4'>
           <div>
             <label className='block text-sm font-medium text-gray-700 mb-1'>
@@ -1160,7 +1191,7 @@ const AltaEquipoCompletaPage: React.FC = () => {
             />
           </div>
         </div>
-
+        
         {semiPatente && semiPatente.trim().length > 0 && (
           <div className='mt-3 bg-purple-50 border border-purple-200 rounded p-3 text-sm text-purple-800'>
             ℹ️ Al completar los datos básicos, aparecerá la sección de documentos del semi (5 documentos obligatorios)
@@ -1288,9 +1319,8 @@ const AltaEquipoCompletaPage: React.FC = () => {
 
         {/* Botón crear equipo */}
         <button
-          onClick={handleCrearEquipo}
-          data-testid='boton-crear-equipo'
-          disabled={!datosBasicosCompletos || !todosDocumentosSeleccionados || creatingEquipo}
+          onClick={preCheckPassed ? handleCrearEquipo : handleInitPreCheck}
+          disabled={!datosBasicosCompletos || !todosDocumentosSeleccionados || isSubmitting}
           className='px-8 py-3 text-lg font-semibold text-white bg-green-600 rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors shadow-lg'
         >
           {getSubmitButtonText(isSubmitting, preCheckPassed)}
