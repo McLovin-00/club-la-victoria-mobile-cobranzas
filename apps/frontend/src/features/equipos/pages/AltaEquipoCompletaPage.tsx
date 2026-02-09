@@ -111,7 +111,15 @@ const AltaEquipoCompletaPage: React.FC = () => {
 
   // Permisos
   const canUpload = ['SUPERADMIN', 'ADMIN', 'OPERATOR', 'ADMIN_INTERNO', 'DADOR_DE_CARGA', 'TRANSPORTISTA'].includes(role || '');
-  const isAdminInterno = (role as string) === 'ADMIN_INTERNO';
+  const isAdminInterno = role === 'ADMIN_INTERNO';
+  const isTransportista = role === 'TRANSPORTISTA';
+  
+  // Si el usuario es TRANSPORTISTA, obtener sus datos de empresa transportista
+  const userEmpresaTransportistaId = useAppSelector((s) => (s as any).auth?.user?.empresaTransportistaId) as number | undefined;
+  const { data: empresaTransportistaData } = useGetEmpresaTransportistaByIdQuery(
+    { id: userEmpresaTransportistaId! },
+    { skip: !isTransportista || !userEmpresaTransportistaId }
+  );
 
   // Listas de dadores y clientes
   const dadoresList = useMemo(() => {
