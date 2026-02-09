@@ -1,0 +1,38 @@
+# =============================================================================
+# Dockerfile.documentos - OPTIMIZADO (10.3.0.246 - TESTING)
+# =============================================================================
+# Multi-stage build: builder grande, runner mínimo
+# =============================================================================
+# syntax=docker/dockerfile:1.7
+
+# Stage 1: Compilar con todas las deps
+FROM node:20-alpine AS builder
+WORKDIR /app
+
+# Copiar todo y instalar deps completas del monorepo
+COPY . .
+RUN npm install && \
+    npx prisma generate --schema=apps/documentos/src/prisma/schema.prisma && \
+    npx tsc -p apps/documentos/tsconfig.standalone.json
+
+# Stage 2: Imagen de producción mínima
+FROM node:20-alpine AS runner
+WORKDIR /app
+ENV NODE_ENV=production
+
+# Copiar package.json e instalar SOLO deps de producción
+COPY apps/documentos/package.json ./
+RUN npm install --omit=dev --ignore-scripts && npm cache clean --force
+
+# Copiar artefactos compilados y prisma client
+COPY --from=builder /app/apps/documentos/dist ./dist
+COPY --from=builder /app/apps/documentos/src/prisma ./src/prisma
+COPY --from=builder /app/apps/documentos/node_modules/.prisma ./node_modules/.prisma
+COPY apps/documentos/scripts/entrypoint.sh ./
+
+RUN chmod +x ./entrypoint.sh && rm -rf /tmp/* /root/.npm
+
+EXPOSE 4812
+HEALTHCHECK --interval=30s --timeout=5s --start-period=15s --retries=3 \
+    CMD wget -qO- http://localhost:4812/health/ready || exit 1
+ENTRYPOINT ["./entrypoint.sh"]

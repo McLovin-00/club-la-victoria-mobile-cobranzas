@@ -1,34 +1,55 @@
 # =============================================================================
-# Dockerfile.backend - DESARROLLO/STAGING (10.3.0.243)
+# Dockerfile.backend - OPTIMIZADO v4 (10.3.0.246 - TESTING)
 # =============================================================================
-# Backend API con Node.js 20 Alpine
-# Incluye healthcheck y optimizaciones
+# Multi-stage build con monorepo completo para resolver workspaces
 # =============================================================================
+# syntax=docker/dockerfile:1.7
 
+# -----------------------------------------------------------------------------
+# Stage 1: Builder - Instalar dependencias y compilar
+# -----------------------------------------------------------------------------
 FROM node:20-alpine AS builder
-
 WORKDIR /app
 
-# Copiar todo el monorepo (necesario por workspaces y paths de tsconfig)
-COPY . .
+# Copiar todo el monorepo (necesario para npm workspaces)
+COPY package.json package-lock.json ./
+COPY apps ./apps
+COPY packages ./packages
+COPY tsconfig.json ./
 
-# Instalar dependencias de workspaces y compilar backend
+# Instalar dependencias del monorepo completo
 RUN --mount=type=cache,target=/root/.npm \
-    sh -c "npm config set legacy-peer-deps true && npm install --workspaces && npm run -w apps/backend build"
+    npm config set legacy-peer-deps true && \
+    npm install --include=dev
 
+# Generar Prisma client y compilar backend
+RUN npx prisma generate --schema=apps/backend/prisma/schema.prisma && \
+    npm run -w apps/backend build
+
+# -----------------------------------------------------------------------------
+# Stage 2: Runner - Imagen mínima de producción
+# -----------------------------------------------------------------------------
 FROM node:20-alpine AS runner
-
 WORKDIR /app
-
 ENV NODE_ENV=production
 
-COPY --from=builder /app/node_modules ./node_modules
+# Copiar solo lo necesario para ejecutar
 COPY --from=builder /app/apps/backend/dist ./apps/backend/dist
-COPY apps/backend/prisma ./apps/backend/prisma
+COPY --from=builder /app/apps/backend/prisma ./apps/backend/prisma
+COPY --from=builder /app/apps/backend/package.json ./apps/backend/
+COPY --from=builder /app/node_modules ./node_modules
+COPY --from=builder /app/package.json ./
+
+# Limpiar archivos innecesarios
+RUN rm -rf /root/.npm /tmp/* && \
+    find ./node_modules -name "*.md" -delete 2>/dev/null || true && \
+    find ./node_modules -name "test" -type d -exec rm -rf {} + 2>/dev/null || true && \
+    find ./node_modules -name "tests" -type d -exec rm -rf {} + 2>/dev/null || true && \
+    find ./node_modules -name "__tests__" -type d -exec rm -rf {} + 2>/dev/null || true
 
 EXPOSE 4810
 
 HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \
-    CMD wget -qO- http://localhost:4800/health || exit 1
+    CMD wget -qO- http://localhost:4810/health || exit 1
 
 CMD ["node", "apps/backend/dist/src/server.js"]
