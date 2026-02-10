@@ -37,11 +37,11 @@ pids
 *.pid.lock
 
 # Coverage
-# coverage/
-# *.lcov
-# .nyc_output
-# .coverage
-# junit.xml
+coverage/
+*.lcov
+.nyc_output
+.coverage
+junit.xml
 
 # Caches
 .cache
