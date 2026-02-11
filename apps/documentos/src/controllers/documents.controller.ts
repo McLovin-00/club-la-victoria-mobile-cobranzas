@@ -11,6 +11,7 @@ import { createError } from '../middlewares/error.middleware';
 import { MediaService, type MediaInput } from '../services/media.service';
 import { AuditService } from '../services/audit.service';
 import { parseParamId, parseParamIdOptional } from '../utils/params';
+import { normalizeExpirationToEndOfDayAR } from '../utils/expiration.utils';
 
 // ============================================================================
 // MULTER MIDDLEWARE PARA UPLOAD
@@ -81,14 +82,14 @@ function parseDateString(rawDate: string): Date | null {
   return null;
 }
 
-/** Extrae fecha de vencimiento del request */
+/** Extrae fecha de vencimiento del request y normaliza a fin de día Argentina */
 function extractExpirationDate(req: AuthRequest, templateId: string | number): Date | null {
   try {
     // 1. Intentar leer expiresAt directo del body
     const directExpiresAt = req.body?.expiresAt;
     if (directExpiresAt && typeof directExpiresAt === 'string') {
       const parsed = parseDateString(directExpiresAt);
-      if (parsed) return parsed;
+      if (parsed) return normalizeExpirationToEndOfDayAR(parsed);
     }
     
     // 2. Buscar en planilla.vencimientos
@@ -96,7 +97,7 @@ function extractExpirationDate(req: AuthRequest, templateId: string | number): D
     const vencimientos = planilla?.vencimientos || {};
     const rawExpiry = vencimientos[templateId] || vencimientos[String(templateId)];
     if (rawExpiry && typeof rawExpiry === 'string') {
-      return parseDateString(rawExpiry);
+      return normalizeExpirationToEndOfDayAR(parseDateString(rawExpiry));
     }
   } catch {
     AppLogger.warn('⚠️ No se pudo parsear la fecha de vencimiento');
@@ -828,7 +829,7 @@ export class DocumentsController {
       const id = parseParamId(req.params, 'id');
       const { expiresAt } = req.body || {};
       const next = await DocumentService.renew(id, {
-        expiresAt: expiresAt ? new Date(expiresAt) : undefined,
+        expiresAt: expiresAt ? normalizeExpirationToEndOfDayAR(new Date(expiresAt)) ?? undefined : undefined,
         requestedBy: (req.user as any)?.userId,
       });
       res.status(201).json({ success: true, data: next });

@@ -1,6 +1,7 @@
 import { db } from '../config/database';
 import { AppLogger } from '../config/logger';
 import type { DocumentStatus, Prisma } from '.prisma/documentos';
+import { normalizeExpirationToEndOfDayAR } from '../utils/expiration.utils';
 
 // ============================================================================
 // HELPERS DE NORMALIZACIÓN
@@ -417,7 +418,8 @@ export class ApprovalService {
       const finalEntityId = await resolveEntityId(tx, ctx, proposedVal);
 
       // 3. Validaciones
-      const finalExpiration = reviewData.confirmedExpiration || classification.detectedExpiration;
+      const rawExpiration = reviewData.confirmedExpiration || classification.detectedExpiration;
+      const finalExpiration = normalizeExpirationToEndOfDayAR(rawExpiration);
       const tplIdCandidate = reviewData.confirmedTemplateId ?? document.templateId;
 
       validateApprovalData({ finalEntityType, finalEntityId, tplIdCandidate, finalExpiration });

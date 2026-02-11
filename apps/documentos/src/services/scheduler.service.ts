@@ -45,12 +45,13 @@ export class SchedulerService {
   }
 
   /**
-   * Programar verificación de documentos vencidos (cada hora)
+   * Programar verificación de documentos vencidos (cada hora + midnight Argentina)
    */
   private scheduleDocumentExpirationCheck(): void {
-    const task = cron.schedule('0 * * * *', async () => {
+    // Verificación cada hora en punto
+    const hourlyTask = cron.schedule('0 * * * *', async () => {
       try {
-        AppLogger.info('🔍 Ejecutando verificación de documentos vencidos');
+        AppLogger.info('🔍 Ejecutando verificación de documentos vencidos (horaria)');
         const expiredCount = await DocumentService.checkExpiredDocuments();
         
         if (expiredCount > 0) {
@@ -61,10 +62,28 @@ export class SchedulerService {
       }
     });
 
-    this.tasks.set('document-expiration-check', task);
-    task.start();
+    this.tasks.set('document-expiration-check', hourlyTask);
+    hourlyTask.start();
+
+    // Verificación especial 5 minutos después de medianoche Argentina (03:05 UTC)
+    // Captura documentos que vencieron al fin del día anterior (02:59:59 UTC)
+    const midnightTask = cron.schedule('5 3 * * *', async () => {
+      try {
+        AppLogger.info('🔍 Ejecutando verificación de documentos vencidos (midnight AR)');
+        const expiredCount = await DocumentService.checkExpiredDocuments();
+        
+        if (expiredCount > 0) {
+          AppLogger.info(`⏰ Midnight AR: ${expiredCount} documentos marcados como vencidos`);
+        }
+      } catch (error) {
+        AppLogger.error('💥 Error en verificación midnight AR:', error);
+      }
+    });
+
+    this.tasks.set('document-expiration-check-midnight-ar', midnightTask);
+    midnightTask.start();
     
-    AppLogger.info('⏰ Tarea programada: Verificación de vencimientos (cada hora)');
+    AppLogger.info('⏰ Tarea programada: Verificación de vencimientos (cada hora + 00:05 AR)');
   }
 
   /**

@@ -3,6 +3,7 @@ import { minioService } from './minio.service';
 import { queueService } from './queue.service';
 import { AppLogger } from '../config/logger';
 import type { DocumentStatus } from '.prisma/documentos';
+import { DocumentEventHandlers } from './document-event-handlers.service';
 
 /**
  * DocumentService - Lógica de Negocio Central
@@ -86,25 +87,54 @@ export class DocumentService {
   }
 
   /**
-   * Verificar documentos vencidos
+   * Verificar documentos vencidos.
+   * Busca documentos cuya fecha de vencimiento ya pasó, los marca como VENCIDO
+   * y dispara event handlers individuales (notificaciones, re-evaluación de equipos).
    */
   static async checkExpiredDocuments(): Promise<number> {
     try {
       const now = new Date();
-      
-      const expiredCount = await db.getClient().document.updateMany({
+
+      // 1. Identificar documentos que deben vencer (no usar updateMany para poder disparar eventos)
+      const expiring = await db.getClient().document.findMany({
         where: {
           expiresAt: { lte: now },
           status: { not: 'VENCIDO' as DocumentStatus },
+          archived: false,
         },
+        select: { id: true },
+      });
+
+      if (expiring.length === 0) return 0;
+
+      // 2. Marcar como vencidos en bulk (eficiente para DB)
+      await db.getClient().document.updateMany({
+        where: { id: { in: expiring.map(d => d.id) } },
         data: { status: 'VENCIDO' as DocumentStatus },
       });
 
-      if (expiredCount.count > 0) {
-        AppLogger.warn(`⏰ ${expiredCount.count} documentos marcados como vencidos`);
+      AppLogger.warn(`⏰ ${expiring.length} documentos marcados como vencidos`);
+
+      // 3. Disparar event handlers individuales para notificaciones y re-evaluación
+      //    Procesar en batches de 20 con pausa para no saturar el sistema
+      const BATCH_SIZE = 20;
+      const BATCH_DELAY_MS = 1000;
+      for (let i = 0; i < expiring.length; i += BATCH_SIZE) {
+        const batch = expiring.slice(i, i + BATCH_SIZE);
+        for (const doc of batch) {
+          try {
+            await DocumentEventHandlers.onDocumentExpired(doc.id);
+          } catch (handlerError) {
+            AppLogger.error(`Error en event handler para documento vencido ${doc.id}:`, handlerError);
+          }
+        }
+        // Pausa entre batches para dar tiempo al debounce y no saturar
+        if (i + BATCH_SIZE < expiring.length) {
+          await new Promise(resolve => setTimeout(resolve, BATCH_DELAY_MS));
+        }
       }
 
-      return expiredCount.count;
+      return expiring.length;
     } catch (error) {
       AppLogger.error('Error verificando documentos vencidos:', error);
       return 0;

@@ -8,6 +8,7 @@ import { queueService } from '../services/queue.service';
 import { AppLogger } from '../config/logger';
 import { getEnvironment } from '../config/environment';
 import type { DocumentStatus } from '.prisma/documentos';
+import { normalizeExpirationToEndOfDayAR } from '../utils/expiration.utils';
 
 // ============================================================================
 // TIPOS
@@ -69,7 +70,8 @@ function parseSafeExpirationDate(dateStr: string | undefined): Date | undefined 
   const max = new Date(new Date().getFullYear() + 15, 0, 1);
   const min = new Date('1970-01-01');
   if (isNaN(d.getTime()) || d <= min || d >= max) return undefined;
-  return d;
+  // Normalizar a fin de día Argentina (UTC-3)
+  return normalizeExpirationToEndOfDayAR(d) ?? undefined;
 }
 
 function cleanError(error: any): { message: string; stack: string; code?: string; name: string } {
