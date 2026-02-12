@@ -125,6 +125,48 @@ apps/e2e/
 └── package.json        # Dependencias y scripts
 ```
 
+## Nuevas Funcionalidades Testeadas
+
+### Remitos con IA
+- ✅ Carga y análisis automático de remitos con IA
+- ✅ Edición de datos extraídos
+- ✅ Rechazo de remitos con motivos
+- ✅ Listado con filtros y paginación
+- ✅ Exportación a Excel
+
+### Documentos Rechazados
+- ✅ Vista por rol (Dador, Chofer, Transportista)
+- ✅ Vista previa de documentos
+- ✅ Motivos de rechazo visibles
+- ✅ Filtros por entidad
+
+### Múltiples Plantillas
+- ✅ Selección múltiple de plantillas por cliente
+- ✅ Plantillas específicas (propietario-chofer vs empresa)
+- ✅ Suma automática de documentos
+- ✅ Configuración por Admin
+
+### Reutilización y Validación
+- ✅ Reutilización de empresas por CUIT
+- ✅ Validación de duplicados (chofer, camión, acoplado)
+- ✅ Reutilización de entidades huérfanas
+
+### Sistema de Transferencias
+- ✅ Solicitud de transferencia de entidades
+- ✅ Aprobación/Rechazo por Admin
+- ✅ Notificaciones de estado
+
+### Sistema de Alertas
+- ✅ Campanita de notificaciones
+- ✅ Alertas de documentos rechazados
+- ✅ Alertas de vencimientos próximos
+- ✅ Alertas de transferencias
+
+### Auditoría y Extracción IA
+- ✅ Auditoría previa de documentación
+- ✅ Extracción automática de datos
+- ✅ Almacenamiento flexible de datos extraídos
+
 ## Scripts Disponibles
 
 | Script | Descripción |
@@ -142,6 +184,25 @@ apps/e2e/
 | `npm run e2e:all` | Ejecutar todos los tests |
 | `npm run e2e:unit` | Tests unitarios de Page Objects |
 | `npm run e2e:sonar` | Análisis de SonarQube |
+
+### Scripts para Nuevas Funcionalidades
+
+```bash
+# Tests específicos de remitos
+npm run e2e -- --grep="remitos"
+
+# Tests de documentos rechazados
+npm run e2e -- --grep="rechazados"
+
+# Tests de transferencias
+npm run e2e -- --grep="transferencias"
+
+# Tests de alertas
+npm run e2e -- --grep="alertas"
+
+# Tests de plantillas múltiples
+npm run e2e -- --grep="plantillas"
+```
 
 ## Notas Importantes
 

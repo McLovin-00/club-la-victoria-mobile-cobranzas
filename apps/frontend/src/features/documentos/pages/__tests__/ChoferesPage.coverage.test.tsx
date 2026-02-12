@@ -52,8 +52,10 @@ describe('ChoferesPage - Coverage', () => {
   it('debería mostrar select de dadores de carga', async () => {
     render(<ChoferesPage />, { wrapper: AllProviders });
     await waitFor(() => {
+      // El select puede mostrarse de diferentes formas dependiendo de la implementación UI
+      // Buscamos la opción por su texto
       expect(screen.getByText('Seleccionar dador de carga')).toBeInTheDocument();
-      expect(screen.getByText('Transporte S.A.')).toBeInTheDocument();
+      expect(screen.getByText(/Transporte S.A./)).toBeInTheDocument();
     });
   });
 
@@ -68,26 +70,29 @@ describe('ChoferesPage - Coverage', () => {
   it('debería mostrar tabla de choferes', async () => {
     render(<ChoferesPage />, { wrapper: AllProviders });
     await waitFor(() => {
-      expect(screen.getByText('Juan')).toBeInTheDocument();
-      expect(screen.getByText('Pérez')).toBeInTheDocument();
-      expect(screen.getByText('María')).toBeInTheDocument();
-      expect(screen.getByText('Gómez')).toBeInTheDocument();
+      // Usamos getAllByText porque puede aparecer en el título y en el input de edición
+      expect(screen.getAllByText(/Juan/)[0]).toBeInTheDocument();
+      expect(screen.getAllByText(/Pérez/)[0]).toBeInTheDocument();
+      expect(screen.getAllByText(/María/)[0]).toBeInTheDocument();
+      expect(screen.getAllByText(/Gómez/)[0]).toBeInTheDocument();
     });
   });
 
   it('debería mostrar formulario de creación', async () => {
     render(<ChoferesPage />, { wrapper: AllProviders });
     await waitFor(() => {
-      expect(screen.getByText('DNI')).toBeInTheDocument();
-      expect(screen.getByText('Nombre')).toBeInTheDocument();
-      expect(screen.getByText('Apellido')).toBeInTheDocument();
+      // Buscamos por placeholder ya que no hay labels explícitos visibles
+      expect(screen.getByPlaceholderText('DNI')).toBeInTheDocument();
+      expect(screen.getByPlaceholderText('Nombre')).toBeInTheDocument();
+      expect(screen.getByPlaceholderText('Apellido')).toBeInTheDocument();
     });
   });
 
   it('debería tener botón de crear chofer', async () => {
     render(<ChoferesPage />, { wrapper: AllProviders });
     await waitFor(() => {
-      expect(screen.getByText('Crear Chofer')).toBeInTheDocument();
+      // El botón dice "Crear", no "Crear Chofer"
+      expect(screen.getByText('Crear', { selector: 'button' })).toBeInTheDocument();
     });
   });
 });

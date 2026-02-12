@@ -23,30 +23,30 @@
         <div class='clearfix'>
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">81.19% </span>
+                <span class="strong">80.82% </span>
                 <span class="quiet">Statements</span>
-                <span class='fraction'>177/218</span>
+                <span class='fraction'>177/219</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">70.86% </span>
+                <span class="strong">70.39% </span>
                 <span class="quiet">Branches</span>
-                <span class='fraction'>214/302</span>
+                <span class='fraction'>214/304</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">66.15% </span>
+                <span class="strong">65.15% </span>
                 <span class="quiet">Functions</span>
-                <span class='fraction'>43/65</span>
+                <span class='fraction'>43/66</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">82.88% </span>
+                <span class="strong">82.44% </span>
                 <span class="quiet">Lines</span>
-                <span class='fraction'>155/187</span>
+                <span class='fraction'>155/188</span>
             </div>
         
             
@@ -1240,7 +1240,7 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -1747,13 +1747,13 @@ const EditPlatformUserModal: React.FC&lt;Props&gt; = ({ isOpen, onClose, user })
   const currentUser = useAppSelector(selectCurrentUser);
   
   // DADOR_DE_CARGA y TRANSPORTISTA solo pueden editar nombre, apellido y contraseña
-  const isRestrictedEditor = ['DADOR_DE_CARGA', 'TRANSPORTISTA'].includes(currentUser?.role || <span class="branch-1 cbranch-no" title="branch not covered" >'');</span>
+  const isRestrictedEditor = ['DADOR_DE_CARGA', 'TRANSPORTISTA'].includes(currentUser?.role ?? <span class="branch-1 cbranch-no" title="branch not covered" >'');</span>
   
   // Solo SUPERADMIN puede seleccionar empresa
   const canSelectEmpresa = currentUser?.role === 'SUPERADMIN';
   const { data: empresas = [] } = useGetEmpresasQuery(undefined, { skip: !canSelectEmpresa });
   // Solo roles admin pueden ver dadores y clientes
-  const canSeeDadoresYClientes = ['SUPERADMIN', 'ADMIN', 'ADMIN_INTERNO'].includes(currentUser?.role || <span class="branch-1 cbranch-no" title="branch not covered" >'');</span>
+  const canSeeDadoresYClientes = ['SUPERADMIN', 'ADMIN', 'ADMIN_INTERNO'].includes(currentUser?.role ?? <span class="branch-1 cbranch-no" title="branch not covered" >'');</span>
   const { data: dadoresResp } = useGetDadoresQuery({}, { skip: !canSeeDadoresYClientes });
   const { data: clientesResp } = useGetClientsQuery({}, { skip: !canSeeDadoresYClientes });
   
@@ -1772,7 +1772,7 @@ const EditPlatformUserModal: React.FC&lt;Props&gt; = ({ isOpen, onClose, user })
   // Para TRANSPORTISTA, usar su propia empresaTransportistaId
   const [selectedTransportistaForChofer, setSelectedTransportistaForChofer] = useState&lt;number | ''&gt;(
     currentUser?.role === 'TRANSPORTISTA' 
-      ? (currentUser as any).empresaTransportistaId || <span class="branch-1 cbranch-no" title="branch not covered" >user.empresaTransportistaId </span>|| <span class="branch-2 cbranch-no" title="branch not covered" >''</span>
+      ? ((currentUser as any).empresaTransportistaId || <span class="branch-1 cbranch-no" title="branch not covered" >user.empresaTransportistaId)</span> ?? <span class="branch-2 cbranch-no" title="branch not covered" >''</span>
       : (user.role === 'CHOFER' &amp;&amp; user.empresaTransportistaId ? user.empresaTransportistaId : '')
   );
   const [initialLoadDoneChofer, setInitialLoadDoneChofer] = useState(false);
@@ -1845,8 +1845,8 @@ const EditPlatformUserModal: React.FC&lt;Props&gt; = ({ isOpen, onClose, user })
     if (!searchTransportista.trim()) return transportistasRaw.slice(0, 50);
     const q = searchTransportista.toLowerCase();
     return transportistasRaw.filter((t: any) =&gt; 
-      (t.razonSocial || <span class="branch-1 cbranch-no" title="branch not covered" >''</span>).toLowerCase().includes(q) || 
-      (t.cuit || <span class="branch-1 cbranch-no" title="branch not covered" >''</span>).includes(q)
+      (t.razonSocial ?? <span class="branch-1 cbranch-no" title="branch not covered" >''</span>).toLowerCase().includes(q) || 
+      (t.cuit ?? <span class="branch-1 cbranch-no" title="branch not covered" >''</span>).includes(q)
     ).slice(0, 50);
   }, [transportistasRaw, searchTransportista]);
   
@@ -1854,8 +1854,8 @@ const EditPlatformUserModal: React.FC&lt;Props&gt; = ({ isOpen, onClose, user })
     if (!searchTransportista.trim()) return transportistasForChoferRaw.slice(0, 50);
     const q = searchTransportista.toLowerCase();
     return transportistasForChoferRaw.filter((t: any) =&gt; 
-      (t.razonSocial || <span class="branch-1 cbranch-no" title="branch not covered" >''</span>).toLowerCase().includes(q) || 
-      (t.cuit || <span class="branch-1 cbranch-no" title="branch not covered" >''</span>).includes(q)
+      (t.razonSocial ?? <span class="branch-1 cbranch-no" title="branch not covered" >''</span>).toLowerCase().includes(q) || 
+      (t.cuit ?? <span class="branch-1 cbranch-no" title="branch not covered" >''</span>).includes(q)
     ).slice(0, 50);
   }, [transportistasForChoferRaw, searchTransportista]);
   
@@ -1864,9 +1864,9 @@ const EditPlatformUserModal: React.FC&lt;Props&gt; = ({ isOpen, onClose, user })
     if (!searchChofer.trim()) return choferesConActual.slice(0, 50);
     const q = searchChofer.toLowerCase();
     return choferesConActual.filter((c: any) =&gt; 
-      (c.nombre || <span class="branch-1 cbranch-no" title="branch not covered" >''</span>).toLowerCase().includes(q) || 
-      (c.apellido || <span class="branch-1 cbranch-no" title="branch not covered" >''</span>).toLowerCase().includes(q) || 
-      (c.dni || <span class="branch-1 cbranch-no" title="branch not covered" >''</span>).includes(q)
+      (c.nombre ?? <span class="branch-1 cbranch-no" title="branch not covered" >''</span>).toLowerCase().includes(q) || 
+      (c.apellido ?? <span class="branch-1 cbranch-no" title="branch not covered" >''</span>).toLowerCase().includes(q) || 
+      (c.dni ?? <span class="branch-1 cbranch-no" title="branch not covered" >''</span>).includes(q)
     ).slice(0, 50);
   }, [choferesConActual, searchChofer]);
   
@@ -1877,8 +1877,8 @@ const EditPlatformUserModal: React.FC&lt;Props&gt; = ({ isOpen, onClose, user })
       email: user.email,
       role: user.role,
       empresaId: user.empresaId ?? '',
-      nombre: user.nombre || '',
-      apellido: user.apellido || '',
+      nombre: user.nombre ?? '',
+      apellido: user.apellido ?? '',
       password: '',
       dadorCargaId: user.dadorCargaId ?? '',
       empresaTransportistaId: user.empresaTransportistaId ?? '',
@@ -1892,7 +1892,7 @@ const EditPlatformUserModal: React.FC&lt;Props&gt; = ({ isOpen, onClose, user })
   // Roles disponibles según el rol del usuario actual
   const rolesDisponibles = useMemo(() =&gt; {
     <span class="missing-if-branch" title="if path not taken" >I</span>if (!currentUser?.role) <span class="cstat-no" title="statement not covered" >return [];</span>
-    return PERMISOS_EDICION[currentUser.role] || <span class="branch-1 cbranch-no" title="branch not covered" >[];</span>
+    return PERMISOS_EDICION[currentUser.role] ?? <span class="branch-1 cbranch-no" title="branch not covered" >[];</span>
   }, [currentUser?.role]);
 &nbsp;
   // Efecto para cargar el dador para TRANSPORTISTA
@@ -1942,8 +1942,8 @@ const EditPlatformUserModal: React.FC&lt;Props&gt; = ({ isOpen, onClose, user })
         email: user.email,
         role: user.role,
         empresaId: user.empresaId ?? '',
-        nombre: user.nombre || '',
-        apellido: user.apellido || '',
+        nombre: user.nombre ?? '',
+        apellido: user.apellido ?? '',
         password: '',
         dadorCargaId: user.dadorCargaId ?? '',
         empresaTransportistaId: user.empresaTransportistaId ?? '',
@@ -2052,7 +2052,7 @@ const EditPlatformUserModal: React.FC&lt;Props&gt; = ({ isOpen, onClose, user })
 &nbsp;
   return (
     &lt;div className="fixed inset-0 z-50 overflow-y-auto"&gt;
-      &lt;div className="fixed inset-0 bg-black/40" onClick={onClose} /&gt;
+      &lt;div className="fixed inset-0 bg-black/40" onClick={onClose} onKeyDown={<span class="fstat-no" title="function not covered" >(e</span>) =&gt; <span class="cstat-no" title="statement not covered" >e.key === 'Escape' &amp;&amp; onClose()} r</span>ole="button" tabIndex={0} aria-label="Cerrar modal" /&gt;
       &lt;div className="flex min-h-full items-center justify-center p-4"&gt;
         &lt;div className="relative bg-background rounded-lg shadow-xl w-full max-w-xl p-6"&gt;
           &lt;h3 className="text-lg font-medium mb-6"&gt;Editar Usuario de Plataforma&lt;/h3&gt;
@@ -2506,7 +2506,7 @@ export default EditPlatformUserModal;
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2026-01-23T02:19:09.303Z
+                at 2026-02-12T16:13:21.311Z
             </div>
         <script src="../../prettify.js"></script>
         <script>

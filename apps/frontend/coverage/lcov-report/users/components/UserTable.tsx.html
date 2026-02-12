@@ -23,30 +23,30 @@
         <div class='clearfix'>
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">34.23% </span>
+                <span class="strong">33.92% </span>
                 <span class="quiet">Statements</span>
-                <span class='fraction'>38/111</span>
+                <span class='fraction'>38/112</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">19.14% </span>
+                <span class="strong">18.75% </span>
                 <span class="quiet">Branches</span>
-                <span class='fraction'>18/94</span>
+                <span class='fraction'>18/96</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">13.88% </span>
+                <span class="strong">13.51% </span>
                 <span class="quiet">Functions</span>
-                <span class='fraction'>5/36</span>
+                <span class='fraction'>5/37</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">35.57% </span>
+                <span class="strong">35.23% </span>
                 <span class="quiet">Lines</span>
-                <span class='fraction'>37/104</span>
+                <span class='fraction'>37/105</span>
             </div>
         
             
@@ -770,7 +770,7 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -1434,7 +1434,7 @@ const DeleteConfirmation: React.FC&lt;DeleteConfirmationProps&gt; = ({
 &nbsp;
   return (
     &lt;div className='fixed inset-0 z-50 overflow-y-auto'&gt;
-      &lt;div className='fixed inset-0 bg-black bg-opacity-50 transition-opacity' onClick={onCancel} /&gt;
+      &lt;div className='fixed inset-0 bg-black bg-opacity-50 transition-opacity' onClick={onCancel} onKeyDown={<span class="fstat-no" title="function not covered" >(e</span>) =&gt; <span class="cstat-no" title="statement not covered" >e.key === 'Escape' &amp;&amp; onCancel()} r</span>ole="button" tabIndex={0} aria-label="Cerrar confirmación" /&gt;
       &lt;div className='flex min-h-full items-center justify-center p-4'&gt;
         &lt;div className='relative bg-background rounded-lg shadow-xl max-w-md w-full p-6'&gt;
           &lt;div className='flex items-center gap-3 mb-4'&gt;
@@ -1538,9 +1538,9 @@ export const UserTable: React.FC = () =&gt; {
   const { data: empresasResponse, isLoading: loadingEmpresas } = useGetEmpresasQuery();
   const [deleteUser, { isLoading: isDeleting }] = useDeleteUserMutation();
 &nbsp;
-  const users = usersResponse?.data || [];
+  const users = usersResponse?.data ?? [];
   const totalUsers = usersResponse?.total || 0;
-  const empresas = empresasResponse || [];
+  const empresas = empresasResponse ?? [];
 &nbsp;
   // Forzar refetch cuando cambia el usuario logueado (especialmente para admins)
   useEffect(() =&gt; {
@@ -1627,7 +1627,7 @@ export const UserTable: React.FC = () =&gt; {
   const handleRoleFilter = useCallback(<span class="fstat-no" title="function not covered" >(r</span>ole: UserRole | '') =&gt; {
 <span class="cstat-no" title="statement not covered" >    setQueryParams(<span class="fstat-no" title="function not covered" >prev =&gt; (<span class="cstat-no" title="statement not covered" >{</span></span></span>
       ...prev,
-      role: role || undefined,
+      role: role ?? undefined,
       page: 1,
     }));
   }, []);
@@ -1635,7 +1635,7 @@ export const UserTable: React.FC = () =&gt; {
   const handleEmpresaFilter = useCallback(<span class="fstat-no" title="function not covered" >(e</span>mpresaId: number | '') =&gt; {
 <span class="cstat-no" title="statement not covered" >    setQueryParams(<span class="fstat-no" title="function not covered" >prev =&gt; (<span class="cstat-no" title="statement not covered" >{</span></span></span>
       ...prev,
-      empresaId: empresaId || undefined,
+      empresaId: empresaId ?? undefined,
       page: 1,
     }));
   }, []);
@@ -1824,7 +1824,7 @@ export const UserTable: React.FC = () =&gt; {
                   Filtrar por rol
                 &lt;/label&gt;
                 &lt;select
-                  value={queryParams.role || ''}
+                  value={queryParams.role ?? ''}
                   onChange={<span class="fstat-no" title="function not covered" >e =&gt; <span class="cstat-no" title="statement not covered" >h</span>andleRoleFilter(e.target.value as UserRole | '')}</span>
                   className='w-full px-3 py-2 border border-border rounded-md bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary'
                 &gt;
@@ -1844,7 +1844,7 @@ export const UserTable: React.FC = () =&gt; {
                     Filtrar por empresa
                   &lt;/label&gt;
                   &lt;select
-                    value={queryParams.empresaId || ''}
+                    value={queryParams.empresaId ?? ''}
                     onChange={<span class="fstat-no" title="function not covered" >e =&gt;</span>
 <span class="cstat-no" title="statement not covered" >                      handleEmpresaFilter(e.target.value ? parseInt(e.target.value) : '')</span>
                     }
@@ -2062,7 +2062,7 @@ export const UserTable: React.FC = () =&gt; {
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2026-01-23T02:19:09.303Z
+                at 2026-02-12T16:13:21.311Z
             </div>
         <script src="../../prettify.js"></script>
         <script>

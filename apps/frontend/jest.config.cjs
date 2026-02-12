@@ -76,42 +76,22 @@ module.exports = {
 
   // Recolectar cobertura de estos archivos
   collectCoverageFrom: [
-    // Incluir API slices y servicios que tienen buenos tests
-    'src/features/**/api/**/*.ts',
-    'src/features/**/services/**/*.ts',
-    'src/features/**/controllers/**/*.ts',
-    // Incluir componentes que tienen tests
-    'src/features/**/components/**/*.{ts,tsx}',
-    'src/features/auth/**/*.{ts,tsx}',
-    // Exclusiones: tipos, tests, stories, entry points
+    // Incluir código fuente general
+    'src/**/*.{ts,tsx}',
+    // Exclusiones técnicas: tipos, tests, stories, entry points
     '!src/**/*.d.ts',
     '!src/**/*.test.{ts,tsx}',
     '!src/**/*.spec.{ts,tsx}',
     '!src/**/*.stories.{ts,tsx}',
     '!src/vite-env.d.ts',
-    // Excluir lo difícil de testear
-    '!src/constants/**',
-    '!src/types/**',
+    '!src/main.tsx',
+    '!src/App.tsx',
+    // Excluir configuración de tests
     '!src/test-utils/**',
     '!src/__tests__/**',
-    '!src/utils/**',
-    '!src/lib/**',
-    '!src/contexts/**',
-    // TODOS los hooks
-    '!src/hooks/**',
-    // Servicios WebSocket
-    '!src/services/websocket.service.ts',
-    // Store
-    '!src/store/**',
-    // UI components
-    '!src/components/ui/**',
-    '!src/components/layout/**',
-    '!src/components/mobile/**',
-    '!src/components/providers/**',
-    '!src/components/transportistas/**',
-    // Pages
-    '!src/pages/**',
-    '!src/features/**/pages/**',
+    // Excluir constantes y tipos puros (no tienen lógica que probar)
+    '!src/constants/**',
+    '!src/types/**',
   ],
 
   // Reportes de cobertura (lcov para SonarQube, text para consola)

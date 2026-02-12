@@ -1,0 +1,310 @@
+﻿{
+    "total":  6,
+    "p":  1,
+    "ps":  500,
+    "paging":  {
+                   "pageIndex":  1,
+                   "pageSize":  500,
+                   "total":  6
+               },
+    "effortTotal":  34,
+    "issues":  [
+                   {
+                       "key":  "AZxEUsnWsb4zXcdfd5Px",
+                       "rule":  "typescript:S4325",
+                       "severity":  "MINOR",
+                       "component":  "monorepo-bca:apps/documentos/src/controllers/evolution-config.controller.ts",
+                       "project":  "monorepo-bca",
+                       "line":  26,
+                       "hash":  "be723b12b8fdfacd7aa7a1a327f80852",
+                       "textRange":  {
+                                         "startLine":  26,
+                                         "endLine":  26,
+                                         "startOffset":  68,
+                                         "endOffset":  99
+                                     },
+                       "flows":  [
+
+                                 ],
+                       "status":  "OPEN",
+                       "message":  "This assertion is unnecessary since it does not change the type of the expression.",
+                       "effort":  "1min",
+                       "debt":  "1min",
+                       "tags":  [
+                                    "redundant"
+                                ],
+                       "creationDate":  "2026-02-09T21:29:31+0000",
+                       "updateDate":  "2026-02-09T21:29:31+0000",
+                       "type":  "CODE_SMELL",
+                       "scope":  "MAIN",
+                       "quickFixAvailable":  true,
+                       "messageFormattings":  [
+
+                                              ]
+                   },
+                   {
+                       "key":  "AZw2ENTzsb4zXcdfdQWj",
+                       "rule":  "javascript:S1874",
+                       "severity":  "MINOR",
+                       "component":  "monorepo-bca:packages/types/eslint.config.mjs",
+                       "project":  "monorepo-bca",
+                       "hash":  "938c291c951f15e9218e208a81394cf4",
+                       "textRange":  {
+                                         "startLine":  5,
+                                         "endLine":  5,
+                                         "startOffset":  24,
+                                         "endOffset":  30
+                                     },
+                       "flows":  [
+
+                                 ],
+                       "resolution":  "FIXED",
+                       "status":  "CLOSED",
+                       "message":  "\u0027config\u0027 is deprecated. ESLint core now provides this functionality via `defineConfig()`,\nwhich we now recommend instead. See  {@link  https://typescript-eslint.io/packages/typescript-eslint/#config-deprecated } .",
+                       "effort":  "15min",
+                       "debt":  "15min",
+                       "tags":  [
+                                    "cwe",
+                                    "obsolete"
+                                ],
+                       "creationDate":  "2026-02-07T03:03:20+0000",
+                       "updateDate":  "2026-02-07T03:13:48+0000",
+                       "closeDate":  "2026-02-07T03:13:48+0000",
+                       "type":  "CODE_SMELL",
+                       "scope":  "MAIN",
+                       "quickFixAvailable":  false,
+                       "messageFormattings":  [
+
+                                              ]
+                   },
+                   {
+                       "key":  "AZw2ENTwsb4zXcdfdQWi",
+                       "rule":  "javascript:S1874",
+                       "severity":  "MINOR",
+                       "component":  "monorepo-bca:packages/utils/eslint.config.mjs",
+                       "project":  "monorepo-bca",
+                       "hash":  "938c291c951f15e9218e208a81394cf4",
+                       "textRange":  {
+                                         "startLine":  5,
+                                         "endLine":  5,
+                                         "startOffset":  24,
+                                         "endOffset":  30
+                                     },
+                       "flows":  [
+
+                                 ],
+                       "resolution":  "FIXED",
+                       "status":  "CLOSED",
+                       "message":  "\u0027config\u0027 is deprecated. ESLint core now provides this functionality via `defineConfig()`,\nwhich we now recommend instead. See  {@link  https://typescript-eslint.io/packages/typescript-eslint/#config-deprecated } .",
+                       "effort":  "15min",
+                       "debt":  "15min",
+                       "tags":  [
+                                    "cwe",
+                                    "obsolete"
+                                ],
+                       "creationDate":  "2026-02-07T03:03:20+0000",
+                       "updateDate":  "2026-02-07T03:13:48+0000",
+                       "closeDate":  "2026-02-07T03:13:48+0000",
+                       "type":  "CODE_SMELL",
+                       "scope":  "MAIN",
+                       "quickFixAvailable":  false,
+                       "messageFormattings":  [
+
+                                              ]
+                   },
+                   {
+                       "key":  "AZwviO0Msb4zXcdfdIe2",
+                       "rule":  "typescript:S4325",
+                       "severity":  "MINOR",
+                       "component":  "monorepo-bca:apps/backend/src/routes/platformAuth.routes.ts",
+                       "project":  "monorepo-bca",
+                       "hash":  "569d3710ce754cc21dccf282987eea29",
+                       "textRange":  {
+                                         "startLine":  51,
+                                         "endLine":  51,
+                                         "startOffset":  27,
+                                         "endOffset":  38
+                                     },
+                       "flows":  [
+
+                                 ],
+                       "resolution":  "FIXED",
+                       "status":  "CLOSED",
+                       "message":  "This assertion is unnecessary since it does not change the type of the expression.",
+                       "effort":  "1min",
+                       "debt":  "1min",
+                       "tags":  [
+                                    "redundant"
+                                ],
+                       "creationDate":  "2026-02-05T20:37:41+0000",
+                       "updateDate":  "2026-02-05T20:42:34+0000",
+                       "closeDate":  "2026-02-05T20:42:34+0000",
+                       "type":  "CODE_SMELL",
+                       "scope":  "MAIN",
+                       "quickFixAvailable":  true,
+                       "messageFormattings":  [
+
+                                              ]
+                   },
+                   {
+                       "key":  "AZwviO0Msb4zXcdfdIe3",
+                       "rule":  "typescript:S4325",
+                       "severity":  "MINOR",
+                       "component":  "monorepo-bca:apps/backend/src/routes/platformAuth.routes.ts",
+                       "project":  "monorepo-bca",
+                       "hash":  "3de0bf5e68f5e96932fc9914904ecdf0",
+                       "textRange":  {
+                                         "startLine":  60,
+                                         "endLine":  60,
+                                         "startOffset":  37,
+                                         "endOffset":  48
+                                     },
+                       "flows":  [
+
+                                 ],
+                       "resolution":  "FIXED",
+                       "status":  "CLOSED",
+                       "message":  "This assertion is unnecessary since it does not change the type of the expression.",
+                       "effort":  "1min",
+                       "debt":  "1min",
+                       "tags":  [
+                                    "redundant"
+                                ],
+                       "creationDate":  "2026-02-05T20:37:41+0000",
+                       "updateDate":  "2026-02-05T20:42:34+0000",
+                       "closeDate":  "2026-02-05T20:42:34+0000",
+                       "type":  "CODE_SMELL",
+                       "scope":  "MAIN",
+                       "quickFixAvailable":  true,
+                       "messageFormattings":  [
+
+                                              ]
+                   },
+                   {
+                       "key":  "AZxEUsnvsb4zXcdfd5Py",
+                       "rule":  "typescript:S4325",
+                       "severity":  "MINOR",
+                       "component":  "monorepo-bca:apps/documentos/src/utils/swaggerUi.ts",
+                       "project":  "monorepo-bca",
+                       "line":  14,
+                       "hash":  "26708d646ea82a3fe5dc246112dc3ab3",
+                       "textRange":  {
+                                         "startLine":  14,
+                                         "endLine":  14,
+                                         "startOffset":  12,
+                                         "endOffset":  22
+                                     },
+                       "flows":  [
+
+                                 ],
+                       "status":  "OPEN",
+                       "message":  "This assertion is unnecessary since it does not change the type of the expression.",
+                       "effort":  "1min",
+                       "debt":  "1min",
+                       "tags":  [
+                                    "redundant"
+                                ],
+                       "creationDate":  "2026-01-16T12:22:11+0000",
+                       "updateDate":  "2026-02-09T21:29:31+0000",
+                       "type":  "CODE_SMELL",
+                       "scope":  "MAIN",
+                       "quickFixAvailable":  true,
+                       "messageFormattings":  [
+
+                                              ]
+                   }
+               ],
+    "components":  [
+                       {
+                           "key":  "monorepo-bca:packages/types/eslint.config.mjs",
+                           "enabled":  false,
+                           "qualifier":  "FIL",
+                           "name":  "eslint.config.mjs",
+                           "longName":  "packages/types/eslint.config.mjs",
+                           "path":  "packages/types/eslint.config.mjs"
+                       },
+                       {
+                           "key":  "monorepo-bca:packages/utils/eslint.config.mjs",
+                           "enabled":  false,
+                           "qualifier":  "FIL",
+                           "name":  "eslint.config.mjs",
+                           "longName":  "packages/utils/eslint.config.mjs",
+                           "path":  "packages/utils/eslint.config.mjs"
+                       },
+                       {
+                           "key":  "monorepo-bca:apps/backend/src/routes/platformAuth.routes.ts",
+                           "enabled":  true,
+                           "qualifier":  "FIL",
+                           "name":  "platformAuth.routes.ts",
+                           "longName":  "apps/backend/src/routes/platformAuth.routes.ts",
+                           "path":  "apps/backend/src/routes/platformAuth.routes.ts"
+                       },
+                       {
+                           "key":  "monorepo-bca:apps/documentos/src/controllers/evolution-config.controller.ts",
+                           "enabled":  true,
+                           "qualifier":  "FIL",
+                           "name":  "evolution-config.controller.ts",
+                           "longName":  "apps/documentos/src/controllers/evolution-config.controller.ts",
+                           "path":  "apps/documentos/src/controllers/evolution-config.controller.ts"
+                       },
+                       {
+                           "key":  "monorepo-bca:apps/documentos/src/utils/swaggerUi.ts",
+                           "enabled":  true,
+                           "qualifier":  "FIL",
+                           "name":  "swaggerUi.ts",
+                           "longName":  "apps/documentos/src/utils/swaggerUi.ts",
+                           "path":  "apps/documentos/src/utils/swaggerUi.ts"
+                       },
+                       {
+                           "key":  "monorepo-bca",
+                           "enabled":  true,
+                           "qualifier":  "TRK",
+                           "name":  "Monorepo BCA",
+                           "longName":  "Monorepo BCA"
+                       }
+                   ],
+    "facets":  [
+                   {
+                       "property":  "severities",
+                       "values":  [
+                                      {
+                                          "val":  "MINOR",
+                                          "count":  6
+                                      },
+                                      {
+                                          "val":  "INFO",
+                                          "count":  0
+                                      },
+                                      {
+                                          "val":  "MAJOR",
+                                          "count":  0
+                                      },
+                                      {
+                                          "val":  "CRITICAL",
+                                          "count":  0
+                                      },
+                                      {
+                                          "val":  "BLOCKER",
+                                          "count":  0
+                                      }
+                                  ]
+                   },
+                   {
+                       "property":  "types",
+                       "values":  [
+                                      {
+                                          "val":  "CODE_SMELL",
+                                          "count":  6
+                                      },
+                                      {
+                                          "val":  "BUG",
+                                          "count":  0
+                                      },
+                                      {
+                                          "val":  "VULNERABILITY",
+                                          "count":  0
+                                      }
+                                  ]
+                   }
+               ]
+}

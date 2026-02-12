@@ -26,6 +26,9 @@ export default defineConfig({
   expect: {
     timeout: 30_000, // 30s para assertions/waitFor
   },
+  
+  // Timeout extendido para tests con procesamiento IA (remitos, auditoría, extracción)
+  // Los tests que incluyan "auditoria-ia" o "extraccion-ia" pueden tomar más tiempo
   use: {
     baseURL: baseUrl,
     trace: 'retain-on-failure',

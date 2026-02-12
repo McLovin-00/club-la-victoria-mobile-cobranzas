@@ -1829,23 +1829,23 @@ export function RemitoDetail({ remito: initialRemito, onBack, canApprove = <span
   useEffect(() =&gt; {
     <span class="missing-if-branch" title="else path not taken" >E</span>if (remito) {
       setEditData({
-        numeroRemito: remito.numeroRemito || '',
+        numeroRemito: remito.numeroRemito ?? '',
         fechaOperacion: remito.fechaOperacion ? new Date(remito.fechaOperacion).toISOString().split('T')[0] : '',
-        emisorNombre: remito.emisorNombre || '',
-        emisorDetalle: remito.emisorDetalle || '',
-        clienteNombre: remito.clienteNombre || '',
-        producto: remito.producto || '',
-        transportistaNombre: remito.transportistaNombre || '',
-        choferNombre: remito.choferNombre || '',
-        choferDni: remito.choferDni || '',
-        patenteChasis: remito.patenteChasis || '',
-        patenteAcoplado: remito.patenteAcoplado || '',
-        pesoOrigenBruto: remito.pesoOrigenBruto?.toString() || '',
-        pesoOrigenTara: remito.pesoOrigenTara?.toString() || '',
-        pesoOrigenNeto: remito.pesoOrigenNeto?.toString() || '',
-        pesoDestinoBruto: remito.pesoDestinoBruto?.toString() || '',
-        pesoDestinoTara: remito.pesoDestinoTara?.toString() || '',
-        pesoDestinoNeto: remito.pesoDestinoNeto?.toString() || '',
+        emisorNombre: remito.emisorNombre ?? '',
+        emisorDetalle: remito.emisorDetalle ?? '',
+        clienteNombre: remito.clienteNombre ?? '',
+        producto: remito.producto ?? '',
+        transportistaNombre: remito.transportistaNombre ?? '',
+        choferNombre: remito.choferNombre ?? '',
+        choferDni: remito.choferDni ?? '',
+        patenteChasis: remito.patenteChasis ?? '',
+        patenteAcoplado: remito.patenteAcoplado ?? '',
+        pesoOrigenBruto: remito.pesoOrigenBruto?.toString() ?? '',
+        pesoOrigenTara: remito.pesoOrigenTara?.toString() ?? '',
+        pesoOrigenNeto: remito.pesoOrigenNeto?.toString() ?? '',
+        pesoDestinoBruto: remito.pesoDestinoBruto?.toString() ?? '',
+        pesoDestinoTara: remito.pesoDestinoTara?.toString() ?? '',
+        pesoDestinoNeto: remito.pesoDestinoNeto?.toString() ?? '',
       });
     }
   }, [remito]);
@@ -1932,23 +1932,23 @@ export function RemitoDetail({ remito: initialRemito, onBack, canApprove = <span
   const handleCancelEdit = () =&gt; {
     // Restaurar datos originales
     setEditData({
-      numeroRemito: remito.numeroRemito || <span class="branch-1 cbranch-no" title="branch not covered" >'',</span>
+      numeroRemito: remito.numeroRemito ?? <span class="branch-1 cbranch-no" title="branch not covered" >'',</span>
       fechaOperacion: remito.fechaOperacion ? new Date(remito.fechaOperacion).toISOString().split('T')[0] : <span class="branch-1 cbranch-no" title="branch not covered" >'',</span>
-      emisorNombre: remito.emisorNombre || <span class="branch-1 cbranch-no" title="branch not covered" >'',</span>
-      emisorDetalle: remito.emisorDetalle || <span class="branch-1 cbranch-no" title="branch not covered" >'',</span>
-      clienteNombre: remito.clienteNombre || <span class="branch-1 cbranch-no" title="branch not covered" >'',</span>
-      producto: remito.producto || <span class="branch-1 cbranch-no" title="branch not covered" >'',</span>
-      transportistaNombre: remito.transportistaNombre || <span class="branch-1 cbranch-no" title="branch not covered" >'',</span>
-      choferNombre: remito.choferNombre || <span class="branch-1 cbranch-no" title="branch not covered" >'',</span>
-      choferDni: remito.choferDni || <span class="branch-1 cbranch-no" title="branch not covered" >'',</span>
-      patenteChasis: remito.patenteChasis || <span class="branch-1 cbranch-no" title="branch not covered" >'',</span>
-      patenteAcoplado: remito.patenteAcoplado || <span class="branch-1 cbranch-no" title="branch not covered" >'',</span>
-      pesoOrigenBruto: remito.pesoOrigenBruto?.toString() || <span class="branch-1 cbranch-no" title="branch not covered" >'',</span>
-      pesoOrigenTara: remito.pesoOrigenTara?.toString() || <span class="branch-1 cbranch-no" title="branch not covered" >'',</span>
-      pesoOrigenNeto: remito.pesoOrigenNeto?.toString() || <span class="branch-1 cbranch-no" title="branch not covered" >'',</span>
-      pesoDestinoBruto: remito.pesoDestinoBruto?.toString() || <span class="branch-1 cbranch-no" title="branch not covered" >'',</span>
-      pesoDestinoTara: remito.pesoDestinoTara?.toString() || <span class="branch-1 cbranch-no" title="branch not covered" >'',</span>
-      pesoDestinoNeto: remito.pesoDestinoNeto?.toString() || <span class="branch-1 cbranch-no" title="branch not covered" >'',</span>
+      emisorNombre: remito.emisorNombre ?? <span class="branch-1 cbranch-no" title="branch not covered" >'',</span>
+      emisorDetalle: remito.emisorDetalle ?? <span class="branch-1 cbranch-no" title="branch not covered" >'',</span>
+      clienteNombre: remito.clienteNombre ?? <span class="branch-1 cbranch-no" title="branch not covered" >'',</span>
+      producto: remito.producto ?? <span class="branch-1 cbranch-no" title="branch not covered" >'',</span>
+      transportistaNombre: remito.transportistaNombre ?? <span class="branch-1 cbranch-no" title="branch not covered" >'',</span>
+      choferNombre: remito.choferNombre ?? <span class="branch-1 cbranch-no" title="branch not covered" >'',</span>
+      choferDni: remito.choferDni ?? <span class="branch-1 cbranch-no" title="branch not covered" >'',</span>
+      patenteChasis: remito.patenteChasis ?? <span class="branch-1 cbranch-no" title="branch not covered" >'',</span>
+      patenteAcoplado: remito.patenteAcoplado ?? <span class="branch-1 cbranch-no" title="branch not covered" >'',</span>
+      pesoOrigenBruto: remito.pesoOrigenBruto?.toString() ?? <span class="branch-1 cbranch-no" title="branch not covered" >'',</span>
+      pesoOrigenTara: remito.pesoOrigenTara?.toString() ?? <span class="branch-1 cbranch-no" title="branch not covered" >'',</span>
+      pesoOrigenNeto: remito.pesoOrigenNeto?.toString() ?? <span class="branch-1 cbranch-no" title="branch not covered" >'',</span>
+      pesoDestinoBruto: remito.pesoDestinoBruto?.toString() ?? <span class="branch-1 cbranch-no" title="branch not covered" >'',</span>
+      pesoDestinoTara: remito.pesoDestinoTara?.toString() ?? <span class="branch-1 cbranch-no" title="branch not covered" >'',</span>
+      pesoDestinoNeto: remito.pesoDestinoNeto?.toString() ?? <span class="branch-1 cbranch-no" title="branch not covered" >'',</span>
     });
     setIsEditing(false);
   };
@@ -2222,7 +2222,7 @@ export function RemitoDetail({ remito: initialRemito, onBack, canApprove = <span
                 &lt;InfoRow 
                   icon={UserIcon} 
                   label="Nombre" 
-                  value={`${remito.choferCargadorNombre || <span class="branch-1 cbranch-no" title="branch not covered" >''} </span>${remito.choferCargadorApellido || <span class="branch-1 cbranch-no" title="branch not covered" >''}`.</span>trim() || <span class="branch-1 cbranch-no" title="branch not covered" >'-'} </span>
+                  value={`${remito.choferCargadorNombre ?? <span class="branch-1 cbranch-no" title="branch not covered" >''} </span>${remito.choferCargadorApellido ?? <span class="branch-1 cbranch-no" title="branch not covered" >''}`.</span>trim() || <span class="branch-1 cbranch-no" title="branch not covered" >'-'} </span>
                 /&gt;
                 &lt;InfoRow 
                   label="DNI" 
@@ -2569,7 +2569,7 @@ function EditableRow({
               focus:ring-2 focus:ring-amber-500 focus:border-amber-500
               ${small ? 'text-sm' : 'text-base'}
               ${highlight ? 'font-semibold' : ''}
-              ${className || ''}
+              ${className ?? ''}
             `}
           /&gt;
           {suffix &amp;&amp; (
@@ -2587,7 +2587,7 @@ function EditableRow({
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2026-01-23T02:19:09.383Z
+                at 2026-02-12T16:13:21.404Z
             </div>
         <script src="../../prettify.js"></script>
         <script>
