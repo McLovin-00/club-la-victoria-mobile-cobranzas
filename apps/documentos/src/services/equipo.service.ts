@@ -2024,12 +2024,19 @@ export class EquipoService {
 
     const clienteIds = equipo.clientes.map(c => c.clienteId);
 
-    // Obtener todos los requisitos de todos los clientes
-    const requisitos = await prisma.clienteDocumentRequirement.findMany({
-      where: { clienteId: { in: clienteIds } },
-      include: { 
+    // Obtener requisitos desde PlantillaRequisitoTemplate (fuente de verdad actual)
+    const requisitos = await prisma.plantillaRequisitoTemplate.findMany({
+      where: {
+        plantillaRequisito: {
+          clienteId: { in: clienteIds },
+          activo: true,
+        },
+      },
+      include: {
         template: true,
-        cliente: { select: { id: true, razonSocial: true } },
+        plantillaRequisito: {
+          include: { cliente: { select: { id: true, razonSocial: true } } },
+        },
       },
     });
 
@@ -2041,7 +2048,7 @@ export class EquipoService {
       obligatorio: boolean;
       diasAnticipacion: number;
       requeridoPor: Array<{ clienteId: number; clienteName: string }>;
-      documentoActual?: any;
+      documentoActual?: { id: number; status: string; expiresAt: Date | null; estado: string } | null;
     }> = new Map();
 
     for (const req of requisitos) {
@@ -2052,16 +2059,20 @@ export class EquipoService {
           templateName: req.template.name,
           entityType: req.entityType,
           obligatorio: req.obligatorio,
-          diasAnticipacion: req.diasAnticipacion ?? 30,
+          diasAnticipacion: req.diasAnticipacion,
           requeridoPor: [],
         });
       }
       const item = consolidado.get(key)!;
-      item.requeridoPor.push({ 
-        clienteId: req.cliente.id, 
-        clienteName: req.cliente.razonSocial,
+      item.requeridoPor.push({
+        clienteId: req.plantillaRequisito.cliente.id,
+        clienteName: req.plantillaRequisito.cliente.razonSocial,
       });
       if (req.obligatorio) item.obligatorio = true;
+      // Mayor anticipación gana
+      if (req.diasAnticipacion > item.diasAnticipacion) {
+        item.diasAnticipacion = req.diasAnticipacion;
+      }
     }
 
     // Buscar documentos actuales para cada requisito

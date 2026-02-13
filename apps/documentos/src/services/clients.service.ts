@@ -13,21 +13,28 @@ type ConsolidatedTemplate = {
 // Helper: merge un requisito en el mapa consolidado
 function mergeRequirement(
   map: Map<string, ConsolidatedTemplate>,
-  req: { templateId: number; entityType: string; obligatorio: boolean; diasAnticipacion: number; clienteId: number; template?: { name: string } | null; cliente?: { razonSocial: string } | null }
+  req: {
+    templateId: number;
+    entityType: string;
+    obligatorio: boolean;
+    diasAnticipacion: number;
+    clienteId: number;
+    templateName: string;
+    clienteName: string;
+  }
 ): void {
   const key = `${req.templateId}:${req.entityType}`;
   const existing = map.get(key);
-  const clienteName = req.cliente?.razonSocial || `Cliente ${req.clienteId}`;
 
   if (!existing) {
     map.set(key, {
       templateId: req.templateId,
-      templateName: req.template?.name || `Template ${req.templateId}`,
+      templateName: req.templateName,
       entityType: req.entityType,
       obligatorio: req.obligatorio,
       diasAnticipacion: req.diasAnticipacion,
       clienteIds: [req.clienteId],
-      clienteNames: [clienteName],
+      clienteNames: [req.clienteName],
     });
     return;
   }
@@ -35,7 +42,7 @@ function mergeRequirement(
   // Agregar cliente si no existe
   if (!existing.clienteIds.includes(req.clienteId)) {
     existing.clienteIds.push(req.clienteId);
-    existing.clienteNames.push(clienteName);
+    existing.clienteNames.push(req.clienteName);
   }
   // Obligatorio gana
   if (req.obligatorio) existing.obligatorio = true;
@@ -43,6 +50,35 @@ function mergeRequirement(
   if (req.diasAnticipacion > existing.diasAnticipacion) {
     existing.diasAnticipacion = req.diasAnticipacion;
   }
+}
+
+/**
+ * Obtiene o crea la plantilla activa por defecto de un cliente.
+ * Si el cliente tiene varias plantillas activas, usa la primera.
+ */
+async function getOrCreateDefaultPlantilla(
+  tx: Parameters<Parameters<typeof prisma.$transaction>[0]>[0],
+  tenantEmpresaId: number,
+  clienteId: number
+): Promise<{ id: number }> {
+  const existing = await tx.plantillaRequisito.findFirst({
+    where: { tenantEmpresaId, clienteId, activo: true },
+    select: { id: true },
+    orderBy: { createdAt: 'asc' },
+  });
+
+  if (existing) return existing;
+
+  return tx.plantillaRequisito.create({
+    data: {
+      tenantEmpresaId,
+      clienteId,
+      nombre: 'Requisitos Generales',
+      descripcion: 'Plantilla de requisitos por defecto.',
+      activo: true,
+    },
+    select: { id: true },
+  });
 }
 
 export class ClientsService {
@@ -55,11 +91,9 @@ export class ClientsService {
 
   static async create(input: { tenantEmpresaId: number; razonSocial: string; cuit: string; activo?: boolean; notas?: string }) {
     return prisma.$transaction(async (tx) => {
-      // 1. Crear el cliente
       const cliente = await tx.cliente.create({ data: input });
 
-      // 2. Crear una PlantillaRequisito vacía por defecto
-      // El usuario configurará los templates manualmente
+      // Crear una PlantillaRequisito vacía por defecto
       await tx.plantillaRequisito.create({
         data: {
           tenantEmpresaId: input.tenantEmpresaId,
@@ -80,70 +114,119 @@ export class ClientsService {
 
   static async remove(tenantEmpresaId: number, id: number) {
     return prisma.$transaction(async (tx) => {
-      // Eliminar dependencias: requisitos del cliente
+      // Obtener IDs de plantillas antes de borrarlas
+      const plantillas = await tx.plantillaRequisito.findMany({
+        where: { tenantEmpresaId, clienteId: id },
+        select: { id: true },
+      });
+      const plantillaIds = plantillas.map(p => p.id);
+
+      // Eliminar asociaciones equipo-plantilla
+      if (plantillaIds.length > 0) {
+        await tx.equipoPlantillaRequisito.deleteMany({
+          where: { plantillaRequisitoId: { in: plantillaIds } },
+        });
+      }
+      // Eliminar plantillas del cliente (cascade elimina PlantillaRequisitoTemplate)
+      await tx.plantillaRequisito.deleteMany({ where: { tenantEmpresaId, clienteId: id } });
+      // Limpiar tabla legada si aún tiene datos
       await tx.clienteDocumentRequirement.deleteMany({ where: { tenantEmpresaId, clienteId: id } });
       // Eliminar asociaciones equipo-cliente
       await tx.equipoCliente.deleteMany({ where: { clienteId: id, equipo: { tenantEmpresaId } } });
-      // Finalmente, borrar el cliente
+      // Borrar el cliente
       return tx.cliente.delete({ where: { id } });
     });
   }
 
+  /**
+   * Agrega un requisito a la plantilla activa del cliente.
+   * Mantiene compatibilidad con la API existente.
+   */
   static async addRequirement(tenantEmpresaId: number, clienteId: number, input: {
     templateId: number;
-    entityType: 'CHOFER' | 'CAMION' | 'ACOPLADO';
+    entityType: 'CHOFER' | 'CAMION' | 'ACOPLADO' | 'EMPRESA_TRANSPORTISTA';
     obligatorio?: boolean;
     diasAnticipacion?: number;
     visibleChofer?: boolean;
   }) {
-    return prisma.clienteDocumentRequirement.create({
-      data: {
-        tenantEmpresaId,
-        clienteId,
-        templateId: input.templateId,
-        entityType: input.entityType as any,
-        obligatorio: input.obligatorio ?? true,
-        diasAnticipacion: input.diasAnticipacion ?? 0,
-        visibleChofer: input.visibleChofer ?? true,
-      },
+    return prisma.$transaction(async (tx) => {
+      const plantilla = await getOrCreateDefaultPlantilla(tx, tenantEmpresaId, clienteId);
+
+      return tx.plantillaRequisitoTemplate.create({
+        data: {
+          tenantEmpresaId,
+          plantillaRequisitoId: plantilla.id,
+          templateId: input.templateId,
+          entityType: input.entityType as any, // NOSONAR - EntityType enum match
+          obligatorio: input.obligatorio ?? true,
+          diasAnticipacion: input.diasAnticipacion ?? 0,
+          visibleChofer: input.visibleChofer ?? true,
+        },
+        include: { template: true },
+      });
     });
   }
 
+  /**
+   * Lista los requisitos del cliente desde PlantillaRequisitoTemplate.
+   * Devuelve formato compatible con el frontend.
+   */
   static async listRequirements(tenantEmpresaId: number, clienteId: number) {
-    return prisma.clienteDocumentRequirement.findMany({
-      where: { tenantEmpresaId, clienteId },
+    return prisma.plantillaRequisitoTemplate.findMany({
+      where: {
+        tenantEmpresaId,
+        plantillaRequisito: { clienteId, activo: true },
+      },
       include: { template: true },
       orderBy: [{ entityType: 'asc' }, { templateId: 'asc' }],
     });
   }
 
-  static async removeRequirement(tenantEmpresaId: number, clienteId: number, requirementId: number) {
-    return prisma.clienteDocumentRequirement.delete({
+  /**
+   * Elimina un requisito de PlantillaRequisitoTemplate por ID.
+   */
+  static async removeRequirement(_tenantEmpresaId: number, _clienteId: number, requirementId: number) {
+    return prisma.plantillaRequisitoTemplate.delete({
       where: { id: requirementId },
     });
   }
 
   /**
    * Obtiene los templates consolidados para múltiples clientes.
-   * Aplica la lógica de unión: si un template es requerido por cualquier cliente, se incluye.
-   * Si hay conflictos (obligatorio vs opcional), gana el obligatorio.
-   * Si hay diferente diasAnticipacion, gana el mayor.
+   * Lee desde PlantillaRequisitoTemplate (fuente de verdad).
+   * Aplica la lógica de unión: obligatorio gana, mayor anticipación gana.
    */
   static async getConsolidatedTemplates(tenantEmpresaId: number, clienteIds: number[]) {
     if (clienteIds.length === 0) {
       return { templates: [], byEntityType: {} };
     }
 
-    const requirements = await prisma.clienteDocumentRequirement.findMany({
-      where: { tenantEmpresaId, clienteId: { in: clienteIds } },
-      include: { template: true, cliente: { select: { id: true, razonSocial: true } } },
+    const requirements = await prisma.plantillaRequisitoTemplate.findMany({
+      where: {
+        tenantEmpresaId,
+        plantillaRequisito: { clienteId: { in: clienteIds }, activo: true },
+      },
+      include: {
+        template: true,
+        plantillaRequisito: {
+          include: { cliente: { select: { id: true, razonSocial: true } } },
+        },
+      },
       orderBy: [{ entityType: 'asc' }, { templateId: 'asc' }],
     });
 
     // Consolidar usando helper
     const consolidated = new Map<string, ConsolidatedTemplate>();
     for (const req of requirements) {
-      mergeRequirement(consolidated, req);
+      mergeRequirement(consolidated, {
+        templateId: req.templateId,
+        entityType: req.entityType,
+        obligatorio: req.obligatorio,
+        diasAnticipacion: req.diasAnticipacion,
+        clienteId: req.plantillaRequisito.clienteId,
+        templateName: req.template?.name || `Template ${req.templateId}`,
+        clienteName: req.plantillaRequisito.cliente?.razonSocial || `Cliente ${req.plantillaRequisito.clienteId}`,
+      });
     }
 
     const templates = Array.from(consolidated.values());
@@ -165,7 +248,7 @@ export class ClientsService {
 
   /**
    * Calcula qué documentos faltan cuando se agrega un nuevo cliente a un equipo existente.
-   * Útil para mostrar alertas informativas.
+   * Lee desde PlantillaRequisitoTemplate (fuente de verdad).
    */
   static async getMissingDocumentsForNewClient(
     tenantEmpresaId: number,
@@ -173,15 +256,22 @@ export class ClientsService {
     newClienteId: number,
     existingClienteIds: number[]
   ) {
-    // Requisitos del nuevo cliente
-    const newClientReqs = await prisma.clienteDocumentRequirement.findMany({
-      where: { tenantEmpresaId, clienteId: newClienteId },
+    // Requisitos del nuevo cliente (desde plantillas activas)
+    const newClientReqs = await prisma.plantillaRequisitoTemplate.findMany({
+      where: {
+        tenantEmpresaId,
+        plantillaRequisito: { clienteId: newClienteId, activo: true },
+      },
       include: { template: true },
     });
 
-    // Requisitos de los clientes existentes (consolidados)
-    const existingReqs = await prisma.clienteDocumentRequirement.findMany({
-      where: { tenantEmpresaId, clienteId: { in: existingClienteIds } },
+    // Requisitos de los clientes existentes (para detectar nuevos)
+    const existingReqs = await prisma.plantillaRequisitoTemplate.findMany({
+      where: {
+        tenantEmpresaId,
+        plantillaRequisito: { clienteId: { in: existingClienteIds }, activo: true },
+      },
+      select: { templateId: true, entityType: true },
     });
 
     const existingKeys = new Set(existingReqs.map(r => `${r.templateId}:${r.entityType}`));
@@ -210,7 +300,7 @@ export class ClientsService {
     });
 
     // Documentos que YA tiene el equipo
-    const entityClauses: any[] = [];
+    const entityClauses: Array<{ entityType: any; entityId: number }> = [];
     if (equipo.empresaTransportistaId) {
       entityClauses.push({ entityType: 'EMPRESA_TRANSPORTISTA' as any, entityId: equipo.empresaTransportistaId });
     }
@@ -253,5 +343,3 @@ export class ClientsService {
     };
   }
 }
-
-

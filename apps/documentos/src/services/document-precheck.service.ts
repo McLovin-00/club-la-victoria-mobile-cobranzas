@@ -294,33 +294,48 @@ async function buscarEquipoAsignado(
  * Obtiene los templates requeridos para una entidad (opcional: por cliente)
  */
 async function obtenerTemplatesRequeridos(
-  tenantEmpresaId: number,
+  _tenantEmpresaId: number,
   entityType: EntityType,
   clienteId?: number
 ): Promise<{ templateId: number; templateName: string; obligatorio: boolean }[]> {
   if (clienteId) {
-    // Requisitos específicos del cliente
-    const requisitos = await prisma.clienteDocumentRequirement.findMany({
-      where: { tenantEmpresaId, clienteId, entityType },
-      select: { 
-        templateId: true, 
+    // Requisitos desde PlantillaRequisitoTemplate (fuente de verdad actual)
+    const templates = await prisma.plantillaRequisitoTemplate.findMany({
+      where: {
+        entityType,
+        plantillaRequisito: { clienteId, activo: true },
+      },
+      select: {
+        templateId: true,
         obligatorio: true,
         template: { select: { name: true } },
       },
     });
-    return requisitos.map(r => ({
-      templateId: r.templateId,
-      templateName: r.template.name,
-      obligatorio: r.obligatorio,
-    }));
+
+    // Deduplicar por templateId (un cliente puede tener múltiples plantillas)
+    const dedup = new Map<number, { templateId: number; templateName: string; obligatorio: boolean }>();
+    for (const t of templates) {
+      const existing = dedup.get(t.templateId);
+      if (!existing) {
+        dedup.set(t.templateId, {
+          templateId: t.templateId,
+          templateName: t.template.name,
+          obligatorio: t.obligatorio,
+        });
+      } else if (t.obligatorio && !existing.obligatorio) {
+        // Obligatorio gana
+        existing.obligatorio = true;
+      }
+    }
+    return [...dedup.values()];
   }
   
   // Todos los templates activos para el tipo de entidad
-  const templates = await prisma.documentTemplate.findMany({
+  const allTemplates = await prisma.documentTemplate.findMany({
     where: { entityType, active: true },
     select: { id: true, name: true },
   });
-  return templates.map(t => ({
+  return allTemplates.map(t => ({
     templateId: t.id,
     templateName: t.name,
     obligatorio: true, // Sin cliente específico, todos son obligatorios
