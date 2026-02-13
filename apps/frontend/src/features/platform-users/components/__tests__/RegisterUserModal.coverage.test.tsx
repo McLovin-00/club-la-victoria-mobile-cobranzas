@@ -15,6 +15,10 @@ describe('RegisterUserModal - Coverage', () => {
   let mockUseGetClientsQuery: jest.Mock;
   let mockUseGetEmpresasTransportistasQuery: jest.Mock;
   let mockUseGetEmpresaTransportistaChoferesQuery: jest.Mock;
+  let mockCreateClient: jest.Mock;
+  let mockCreateDador: jest.Mock;
+  let mockCreateEmpresaTransportista: jest.Mock;
+  let mockCreateChofer: jest.Mock;
   let mockRegisterPlatformUser: jest.Mock;
   let mockRegisterClientWizard: jest.Mock;
   let mockRegisterDadorWizard: jest.Mock;
@@ -71,11 +75,31 @@ describe('RegisterUserModal - Coverage', () => {
     mockUseGetClientsQuery = jest.fn();
     mockUseGetEmpresasTransportistasQuery = jest.fn();
     mockUseGetEmpresaTransportistaChoferesQuery = jest.fn();
+    mockCreateClient = jest.fn();
+    mockCreateDador = jest.fn();
+    mockCreateEmpresaTransportista = jest.fn();
+    mockCreateChofer = jest.fn();
     await jest.unstable_mockModule('@/features/documentos/api/documentosApiSlice', () => ({
       useGetDadoresQuery: (...args: unknown[]) => mockUseGetDadoresQuery(...args),
       useGetClientsQuery: (...args: unknown[]) => mockUseGetClientsQuery(...args),
       useGetEmpresasTransportistasQuery: (...args: unknown[]) => mockUseGetEmpresasTransportistasQuery(...args),
       useGetEmpresaTransportistaChoferesQuery: (...args: unknown[]) => mockUseGetEmpresaTransportistaChoferesQuery(...args),
+      useCreateClientMutation: () => [
+        (...args: unknown[]) => mockCreateClient(...args),
+        { isLoading: false },
+      ],
+      useCreateDadorMutation: () => [
+        (...args: unknown[]) => mockCreateDador(...args),
+        { isLoading: false },
+      ],
+      useCreateEmpresaTransportistaMutation: () => [
+        (...args: unknown[]) => mockCreateEmpresaTransportista(...args),
+        { isLoading: false },
+      ],
+      useCreateChoferMutation: () => [
+        (...args: unknown[]) => mockCreateChofer(...args),
+        { isLoading: false },
+      ],
     }));
 
     // Mock platform users API
@@ -179,6 +203,11 @@ describe('RegisterUserModal - Coverage', () => {
     mockUseGetEmpresasTransportistasQuery.mockReturnValue({ data: { list: mockTransportistas } });
     mockUseGetEmpresaTransportistaChoferesQuery.mockReturnValue({ data: mockChoferes });
 
+    mockCreateClient.mockReturnValue({ unwrap: () => Promise.resolve({ id: 99, razonSocial: 'New Client' }) });
+    mockCreateDador.mockReturnValue({ unwrap: () => Promise.resolve({ id: 99, razonSocial: 'New Dador' }) });
+    mockCreateEmpresaTransportista.mockReturnValue({ unwrap: () => Promise.resolve({ id: 99, razonSocial: 'New Transportista' }) });
+    mockCreateChofer.mockReturnValue({ unwrap: () => Promise.resolve({ id: 99, nombre: 'New', apellido: 'Chofer' }) });
+
     mockRegisterPlatformUser.mockReturnValue({ unwrap: () => Promise.resolve({}) });
     mockRegisterClientWizard.mockReturnValue({ unwrap: () => Promise.resolve({ tempPassword: 'TempPass123!' }) });
     mockRegisterDadorWizard.mockReturnValue({ unwrap: () => Promise.resolve({ tempPassword: 'TempPass123!' }) });
@@ -240,6 +269,12 @@ describe('RegisterUserModal - Coverage', () => {
       const onClose = jest.fn();
       render(<RegisterUserModal isOpen={true} onClose={onClose} />);
 
+      const roleSelect = screen.getAllByRole('combobox')[0];
+      fireEvent.change(roleSelect, { target: { value: 'OPERATOR', name: 'role' } });
+      await waitFor(() => {
+        expect(roleSelect).toHaveValue('OPERATOR');
+      });
+
       // Fill form
       fireEvent.change(screen.getByPlaceholderText('usuario@empresa.com'), {
         target: { value: 'test@test.com' },
@@ -250,11 +285,17 @@ describe('RegisterUserModal - Coverage', () => {
 
       // Select empresa
       const empresaSelect = screen.getAllByRole('combobox')[1];
-      fireEvent.change(empresaSelect, { target: { value: '1' } });
+      fireEvent.change(empresaSelect, { target: { value: '1', name: 'empresaId' } });
+      await waitFor(() => {
+        expect(empresaSelect).toHaveValue('1');
+      });
 
       // Submit
       await act(async () => {
-        fireEvent.click(screen.getByText('Crear Usuario'));
+        const form = screen.getByText('Crear Usuario').closest('form');
+        if (form) {
+          fireEvent.submit(form);
+        }
       });
 
       await waitFor(() => {
@@ -265,6 +306,12 @@ describe('RegisterUserModal - Coverage', () => {
 
     it('debería mostrar error cuando no se selecciona empresa', async () => {
       render(<RegisterUserModal isOpen={true} onClose={jest.fn()} />);
+
+      const roleSelect = screen.getAllByRole('combobox')[0];
+      fireEvent.change(roleSelect, { target: { value: 'OPERATOR', name: 'role' } });
+      await waitFor(() => {
+        expect(roleSelect).toHaveValue('OPERATOR');
+      });
 
       fireEvent.change(screen.getByPlaceholderText('usuario@empresa.com'), {
         target: { value: 'test@test.com' },
@@ -290,6 +337,12 @@ describe('RegisterUserModal - Coverage', () => {
 
       render(<RegisterUserModal isOpen={true} onClose={jest.fn()} />);
 
+      const roleSelect = screen.getAllByRole('combobox')[0];
+      fireEvent.change(roleSelect, { target: { value: 'OPERATOR', name: 'role' } });
+      await waitFor(() => {
+        expect(roleSelect).toHaveValue('OPERATOR');
+      });
+
       fireEvent.change(screen.getByPlaceholderText('usuario@empresa.com'), {
         target: { value: 'test@test.com' },
       });
@@ -298,10 +351,16 @@ describe('RegisterUserModal - Coverage', () => {
       });
 
       const empresaSelect = screen.getAllByRole('combobox')[1];
-      fireEvent.change(empresaSelect, { target: { value: '1' } });
+      fireEvent.change(empresaSelect, { target: { value: '1', name: 'empresaId' } });
+      await waitFor(() => {
+        expect(empresaSelect).toHaveValue('1');
+      });
 
       await act(async () => {
-        fireEvent.click(screen.getByText('Crear Usuario'));
+        const form = screen.getByText('Crear Usuario').closest('form');
+        if (form) {
+          fireEvent.submit(form);
+        }
       });
 
       await waitFor(() => {
@@ -459,9 +518,6 @@ describe('RegisterUserModal - Coverage', () => {
       fireEvent.change(screen.getByPlaceholderText('usuario@empresa.com'), {
         target: { value: 'dador@test.com' },
       });
-      fireEvent.change(screen.getByPlaceholderText('Mín. 8 caracteres'), {
-        target: { value: 'Password123!' },
-      });
 
       const empresaSelect = screen.getAllByRole('combobox')[1];
       fireEvent.change(empresaSelect, { target: { value: '1' } });
@@ -498,11 +554,6 @@ describe('RegisterUserModal - Coverage', () => {
       fireEvent.change(screen.getByPlaceholderText('usuario@empresa.com'), {
         target: { value: 'dador@test.com' },
       });
-      
-      // Password is required for non-CLIENTE roles (even in wizard mode, form validation requires it)
-      fireEvent.change(screen.getByPlaceholderText('Mín. 8 caracteres'), {
-        target: { value: 'Password123!' },
-      });
 
       const empresaSelect = screen.getAllByRole('combobox')[1];
       fireEvent.change(empresaSelect, { target: { value: '1' } });
@@ -534,11 +585,6 @@ describe('RegisterUserModal - Coverage', () => {
       fireEvent.change(screen.getByPlaceholderText('usuario@empresa.com'), {
         target: { value: 'dador@test.com' },
       });
-      
-      // Password is required for non-CLIENTE roles
-      fireEvent.change(screen.getByPlaceholderText('Mín. 8 caracteres'), {
-        target: { value: 'Password123!' },
-      });
 
       const empresaSelect = screen.getAllByRole('combobox')[1];
       fireEvent.change(empresaSelect, { target: { value: '1' } });
@@ -561,9 +607,6 @@ describe('RegisterUserModal - Coverage', () => {
 
       fireEvent.change(screen.getByPlaceholderText('usuario@empresa.com'), {
         target: { value: 'dador@test.com' },
-      });
-      fireEvent.change(screen.getByPlaceholderText('Mín. 8 caracteres'), {
-        target: { value: 'Password123!' },
       });
 
       const empresaSelect = screen.getAllByRole('combobox')[1];
@@ -600,9 +643,6 @@ describe('RegisterUserModal - Coverage', () => {
       fireEvent.change(screen.getByPlaceholderText('usuario@empresa.com'), {
         target: { value: 'trans@test.com' },
       });
-      fireEvent.change(screen.getByPlaceholderText('Mín. 8 caracteres'), {
-        target: { value: 'Password123!' },
-      });
 
       const empresaSelect = screen.getAllByRole('combobox')[1];
       fireEvent.change(empresaSelect, { target: { value: '1' } });
@@ -634,9 +674,6 @@ describe('RegisterUserModal - Coverage', () => {
 
       fireEvent.change(screen.getByPlaceholderText('usuario@empresa.com'), {
         target: { value: 'trans@test.com' },
-      });
-      fireEvent.change(screen.getByPlaceholderText('Mín. 8 caracteres'), {
-        target: { value: 'Password123!' },
       });
 
       const empresaSelect = screen.getAllByRole('combobox')[1];
@@ -670,11 +707,6 @@ describe('RegisterUserModal - Coverage', () => {
 
       fireEvent.change(screen.getByPlaceholderText('usuario@empresa.com'), {
         target: { value: 'trans@test.com' },
-      });
-      
-      // Password is required for non-CLIENTE roles
-      fireEvent.change(screen.getByPlaceholderText('Mín. 8 caracteres'), {
-        target: { value: 'Password123!' },
       });
 
       const empresaSelect = screen.getAllByRole('combobox')[1];
@@ -722,11 +754,6 @@ describe('RegisterUserModal - Coverage', () => {
       fireEvent.change(screen.getByPlaceholderText('usuario@empresa.com'), {
         target: { value: 'chofer@test.com' },
       });
-      
-      // Password is required for non-CLIENTE roles
-      fireEvent.change(screen.getByPlaceholderText('Mín. 8 caracteres'), {
-        target: { value: 'Password123!' },
-      });
 
       const empresaSelect = screen.getAllByRole('combobox')[1];
       fireEvent.change(empresaSelect, { target: { value: '1' } });
@@ -769,11 +796,6 @@ describe('RegisterUserModal - Coverage', () => {
       fireEvent.change(screen.getByPlaceholderText('usuario@empresa.com'), {
         target: { value: 'chofer@test.com' },
       });
-      
-      // Password is required for non-CLIENTE roles
-      fireEvent.change(screen.getByPlaceholderText('Mín. 8 caracteres'), {
-        target: { value: 'Password123!' },
-      });
 
       const empresaSelect = screen.getAllByRole('combobox')[1];
       fireEvent.change(empresaSelect, { target: { value: '1' } });
@@ -805,11 +827,6 @@ describe('RegisterUserModal - Coverage', () => {
 
       fireEvent.change(screen.getByPlaceholderText('usuario@empresa.com'), {
         target: { value: 'chofer@test.com' },
-      });
-      
-      // Password is required for non-CLIENTE roles
-      fireEvent.change(screen.getByPlaceholderText('Mín. 8 caracteres'), {
-        target: { value: 'Password123!' },
       });
 
       const empresaSelect = screen.getAllByRole('combobox')[1];
@@ -998,6 +1015,12 @@ describe('RegisterUserModal - Coverage', () => {
     it('debería incluir nombre y apellido en payload', async () => {
       render(<RegisterUserModal isOpen={true} onClose={jest.fn()} />);
 
+      const roleSelect = screen.getAllByRole('combobox')[0];
+      fireEvent.change(roleSelect, { target: { value: 'OPERATOR', name: 'role' } });
+      await waitFor(() => {
+        expect(roleSelect).toHaveValue('OPERATOR');
+      });
+
       fireEvent.change(screen.getByPlaceholderText('usuario@empresa.com'), {
         target: { value: 'test@test.com' },
       });
@@ -1014,10 +1037,16 @@ describe('RegisterUserModal - Coverage', () => {
       if (apellidoInput) fireEvent.change(apellidoInput, { target: { value: 'Pérez' } });
 
       const empresaSelect = screen.getAllByRole('combobox')[1];
-      fireEvent.change(empresaSelect, { target: { value: '1' } });
+      fireEvent.change(empresaSelect, { target: { value: '1', name: 'empresaId' } });
+      await waitFor(() => {
+        expect(empresaSelect).toHaveValue('1');
+      });
 
       await act(async () => {
-        fireEvent.click(screen.getByText('Crear Usuario'));
+        const form = screen.getByText('Crear Usuario').closest('form');
+        if (form) {
+          fireEvent.submit(form);
+        }
       });
 
       await waitFor(() => {

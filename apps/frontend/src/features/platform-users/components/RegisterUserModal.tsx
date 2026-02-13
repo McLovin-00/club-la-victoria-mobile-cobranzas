@@ -5,7 +5,7 @@ import { Spinner } from '../../../components/ui/spinner';
 import { showToast } from '../../../components/ui/Toast.utils';
 import { useRegisterClientWizardMutation, useRegisterDadorWizardMutation, useRegisterTransportistaWizardMutation, useRegisterChoferWizardMutation, useRegisterPlatformUserMutation } from '../api/platformUsersApiSlice';
 import { useGetEmpresasQuery } from '../../empresas/api/empresasApiSlice';
-import { useGetDadoresQuery, useGetEmpresasTransportistasQuery, useGetEmpresaTransportistaChoferesQuery, useGetClientsQuery } from '../../documentos/api/documentosApiSlice';
+import { useGetDadoresQuery, useGetEmpresasTransportistasQuery, useGetEmpresaTransportistaChoferesQuery, useGetClientsQuery, useCreateClientMutation, useCreateDadorMutation, useCreateEmpresaTransportistaMutation, useCreateChoferMutation } from '../../documentos/api/documentosApiSlice';
 import { useAppSelector } from '../../../store/hooks';
 import { selectCurrentUser } from '../../auth/authSlice';
 
@@ -396,6 +396,13 @@ async function handleGenericSubmit(data: FormData, ctx: SubmitContext): Promise<
   return true;
 }
 
+const roleHandlers: Record<string, (data: FormData, ctx: SubmitContext) => Promise<boolean>> = {
+  CLIENTE: handleClienteSubmit,
+  DADOR_DE_CARGA: handleDadorSubmit,
+  TRANSPORTISTA: handleTransportistaSubmit,
+  CHOFER: handleChoferSubmit,
+};
+
 export const RegisterUserModal: React.FC<RegisterUserModalProps> = ({ isOpen, onClose }) => {
   const currentUser = useAppSelector(selectCurrentUser);
   // Solo SUPERADMIN necesita la lista de empresas
@@ -464,6 +471,10 @@ export const RegisterUserModal: React.FC<RegisterUserModalProps> = ({ isOpen, on
   const [registerDadorWizard, { isLoading: _isLoadingWizardDador }] = useRegisterDadorWizardMutation();
   const [registerTransportistaWizard, { isLoading: _isLoadingWizardTransportista }] = useRegisterTransportistaWizardMutation();
   const [registerChoferWizard, { isLoading: _isLoadingWizardChofer }] = useRegisterChoferWizardMutation();
+  const [createClient] = useCreateClientMutation();
+  const [createDador] = useCreateDadorMutation();
+  const [createEmpresaTransportista] = useCreateEmpresaTransportistaMutation();
+  const [createChofer] = useCreateChoferMutation();
   const { control, handleSubmit, reset, watch, setValue, formState: { errors } } = useForm<FormData>({
     defaultValues: {
       email: '',

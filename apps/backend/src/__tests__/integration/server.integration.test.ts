@@ -11,8 +11,10 @@ describe('Server Integration Tests', () => {
     let app: Application;
 
     beforeAll(async () => {
+        // Evita dependencia de DB real en tests de integración básicos.
+        process.env.SKIP_DB_INIT = 'true';
         // Initialize app with real configuration
-        app = await initializeApp(false);
+        app = await initializeApp(true);
     });
 
     describe('Health and Status Endpoints', () => {

@@ -35,6 +35,10 @@ export const prismaMock = {
   empresa: createModelMock(),
   dadorCarga: createModelMock(),
   cliente: createModelMock(),
+  // Plantillas de requisitos
+  plantillaRequisito: createModelMock(),
+  plantillaRequisitoTemplate: createModelMock(),
+  equipoPlantillaRequisito: createModelMock(),
   equipo: createModelMock(),
   equipoHistory: createModelMock(),
   equipoCliente: createModelMock(),
@@ -47,6 +51,8 @@ export const prismaMock = {
   alertRule: createModelMock(),
   user: createModelMock(),
   internalNotification: createModelMock(),
+  // Transferencias
+  solicitudTransferencia: createModelMock(),
   
   // Transaction and raw queries
   $transaction: jest.fn((fn) => {

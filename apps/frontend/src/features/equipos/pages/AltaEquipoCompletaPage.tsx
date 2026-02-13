@@ -20,14 +20,14 @@ import { useEntityVerification, EntityType } from '../hooks/useEntityVerificatio
 import { EntityStatusBadge } from '../components/EntityStatusBadge';
 
 /** Helper para clases CSS de badge de entidad en precheck (evita ternarios anidados) */
-function getEntityBadgeClass(existe: boolean, perteneceSolicitante: boolean): string {
+export function getEntityBadgeClass(existe: boolean, perteneceSolicitante: boolean): string {
   if (!existe) return 'bg-blue-100 text-blue-800';
   if (perteneceSolicitante) return 'bg-green-100 text-green-800';
   return 'bg-yellow-100 text-yellow-800';
 }
 
 /** Helper para texto del botón de submit (evita ternarios anidados) */
-function getSubmitButtonText(isSubmitting: boolean, preCheckPassed: boolean): string {
+export function getSubmitButtonText(isSubmitting: boolean, preCheckPassed: boolean): string {
   if (isSubmitting) return 'Creando Equipo y Subiendo Documentos...';
   if (preCheckPassed) return '✓ Crear Equipo con Todos los Documentos';
   return '🔍 Verificar y Crear Equipo';

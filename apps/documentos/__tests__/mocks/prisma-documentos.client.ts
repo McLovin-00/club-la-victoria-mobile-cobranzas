@@ -32,6 +32,8 @@ export const prismaMock = {
   acoplado: createModelMock(),
   empresaTransportista: createModelMock(),
   dadorCarga: createModelMock(),
+  cliente: createModelMock(),
+  clienteDocumentRequirement: createModelMock(),
   systemConfig: createModelMock(),
   notificationLog: createModelMock(),
 

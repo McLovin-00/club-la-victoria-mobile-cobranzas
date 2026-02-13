@@ -9,15 +9,18 @@
  */
 import { describe, it, expect, jest, beforeEach } from '@jest/globals';
 
+type UserRole = 'user' | 'admin';
+type CurrentUser = { id: number; role: UserRole; empresaId: number };
+
 describe('users - flujo completo CRUD', () => {
   beforeEach(() => {
     jest.clearAllMocks();
   });
 
   it('debería crear usuario nuevo', async () => {
-    const mockCreateUser = jest.fn(() =>
+    const mockCreateUser = jest.fn((data: typeof newUserData) =>
       Promise.resolve({
-        data: { success: true, data: { id: 15, email: 'nuevo@example.com', role: 'user' } },
+        data: { success: true, data: { id: 15, email: data.email, role: data.role } },
       })
     );
 
@@ -51,7 +54,7 @@ describe('users - flujo completo CRUD', () => {
   });
 
   it('debería poder editarse', async () => {
-    const mockUpdateUser = jest.fn((id, data) =>
+    const mockUpdateUser = jest.fn((id: number, data: typeof updatedData) =>
       Promise.resolve({
         data: { success: true, data: { id, ...data } },
       })
@@ -84,9 +87,9 @@ describe('users - flujo completo CRUD', () => {
   });
 
   it('debería poder eliminarse', async () => {
-    const mockDeleteUser = jest.fn(() =>
+    const mockDeleteUser = jest.fn((id: number) =>
       Promise.resolve({
-        data: { success: true, data: { id: 20 } },
+        data: { success: true, data: { id } },
       })
     );
 
@@ -112,7 +115,7 @@ describe('users - flujo completo CRUD', () => {
   });
 
   it('debería manejar error de validación al crear', async () => {
-    const mockCreateUser = jest.fn(() =>
+    const mockCreateUser = jest.fn((data: typeof invalidData) =>
       Promise.reject({
         status: 400,
         data: {
@@ -143,7 +146,7 @@ describe('users - flujo completo CRUD', () => {
   });
 
   it('debería manejar email duplicado al crear', async () => {
-    const mockCreateUser = jest.fn(() =>
+    const mockCreateUser = jest.fn((data: typeof duplicateEmailData) =>
       Promise.reject({
         status: 409,
         data: {
@@ -226,7 +229,7 @@ describe('users - filtrado y búsqueda', () => {
   });
 
   it('debería limpiar filtros', () => {
-    let queryParams = {
+    let queryParams: { page: number; search: string; role: string; empresaId?: number } = {
       search: 'juan',
       role: 'admin',
       empresaId: 5,
@@ -448,7 +451,7 @@ describe('users - refetch al cambiar usuario', () => {
 
   it('debería refetch cuando currentUser cambia', () => {
     const mockRefetch = jest.fn();
-    let currentUser = null;
+    let currentUser: CurrentUser | null = null;
 
     // Usuario se loguea
     currentUser = { id: 1, role: 'admin' as const, empresaId: 5 };
@@ -459,7 +462,7 @@ describe('users - refetch al cambiar usuario', () => {
 
   it('debería refetch cuando currentUser.role cambia', () => {
     const mockRefetch = jest.fn();
-    let currentUser = { id: 1, role: 'user' as const, empresaId: 5 };
+    let currentUser: CurrentUser = { id: 1, role: 'user', empresaId: 5 };
 
     // El rol del usuario cambia (ej. promovido a admin)
     currentUser = { ...currentUser, role: 'admin' };
@@ -484,9 +487,14 @@ describe('users - refetch al cambiar usuario', () => {
     const currentUser = { id: 1, role: 'admin' as const, empresaId: 5 };
 
     // Algún otro estado cambia pero no currentUser
-    const otherState = { somethingElse: 'changed' };
+    const previousUser = currentUser;
+    const nextUser = { ...currentUser };
+    const hasUserChanged =
+      previousUser.id !== nextUser.id ||
+      previousUser.role !== nextUser.role ||
+      previousUser.empresaId !== nextUser.empresaId;
 
-    if (!otherState.currentUser) {
+    if (hasUserChanged) {
       mockRefetch();
     }
 
@@ -531,9 +539,9 @@ describe('users - integración de componentes', () => {
 
   it('debería cerrar UserModal después de crear exitosamente', async () => {
     let isModalOpen = true;
-    const mockCreateUser = jest.fn(() =>
+    const mockCreateUser = jest.fn((data: { email: string }) =>
       Promise.resolve({
-        data: { success: true, data: { id: 10, email: 'new@example.com' } },
+        data: { success: true, data: { id: 10, email: data.email } },
       })
     );
 
@@ -628,6 +636,7 @@ describe('users - manejo de errores integrado', () => {
     const timeoutMs = 30000;
     let timedOut = false;
 
+    jest.useFakeTimers();
     const timeoutPromise = new Promise((_, reject) => {
       setTimeout(() => {
         timedOut = true;
@@ -635,8 +644,10 @@ describe('users - manejo de errores integrado', () => {
       }, timeoutMs);
     });
 
+    jest.advanceTimersByTime(timeoutMs);
     await expect(timeoutPromise).rejects.toThrow('Timeout');
     expect(timedOut).toBe(true);
+    jest.useRealTimers();
   });
 
   it('debería reintentar automáticamente al recibir error 500', async () => {
@@ -686,13 +697,13 @@ describe('users - flujos multi-step', () => {
   });
 
   it('debería crear y luego editar el mismo usuario', async () => {
-    const mockCreate = jest.fn(() =>
+    const mockCreate = jest.fn((data: { email: string; password: string; confirmPassword: string; role: UserRole; empresaId: number | null }) =>
       Promise.resolve({
-        data: { success: true, data: { id: 50, email: 'new@example.com', role: 'user' } },
+        data: { success: true, data: { id: 50, email: data.email, role: data.role } },
       })
     );
 
-    const mockUpdate = jest.fn((id, data) =>
+    const mockUpdate = jest.fn((id: number, data: { email: string; role: UserRole; empresaId: number }) =>
       Promise.resolve({
         data: { success: true, data: { id, ...data } },
       })

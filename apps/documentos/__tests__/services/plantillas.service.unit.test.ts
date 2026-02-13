@@ -961,6 +961,79 @@ describe('PlantillasService - Consolidación y Equipos', () => {
       expect(result.byEntityType.CHOFER).toBeDefined();
     });
 
+    it('debe mergear correctamente requisitos duplicados (sin duplicar IDs) y aplicar reglas de consolidación', async () => {
+      const tenantEmpresaId = 1;
+      const plantillaIds = [5, 6];
+
+      prismaMock.plantillaRequisitoTemplate.findMany.mockResolvedValueOnce([
+        // Primer requisito (sin template y sin cliente)
+        {
+          id: 1,
+          templateId: 200,
+          entityType: 'CAMION',
+          obligatorio: false,
+          diasAnticipacion: 5,
+          visibleChofer: false,
+          plantillaRequisitoId: 5,
+          plantillaRequisito: {
+            id: 5,
+            nombre: 'Plantilla A',
+            cliente: null,
+          },
+          template: null,
+        },
+        // Duplicado mismo template/entityType en otra plantilla: obliga=true, anticipación mayor y visibleChofer=true
+        {
+          id: 2,
+          templateId: 200,
+          entityType: 'CAMION',
+          obligatorio: true,
+          diasAnticipacion: 30,
+          visibleChofer: true,
+          plantillaRequisitoId: 6,
+          plantillaRequisito: {
+            id: 6,
+            nombre: 'Plantilla B',
+            cliente: { id: 20, razonSocial: 'Cliente Y' },
+          },
+          template: { id: 200, name: 'RTO' },
+        },
+        // Repetición exacta de plantillaRequisitoId=6 (no debe duplicar)
+        {
+          id: 3,
+          templateId: 200,
+          entityType: 'CAMION',
+          obligatorio: false,
+          diasAnticipacion: 10,
+          visibleChofer: false,
+          plantillaRequisitoId: 6,
+          plantillaRequisito: {
+            id: 6,
+            nombre: 'Plantilla B',
+            cliente: { id: 20, razonSocial: 'Cliente Y' },
+          },
+          template: { id: 200, name: 'RTO' },
+        },
+      ] as any);
+
+      const result = await PlantillasService.getConsolidatedTemplates(tenantEmpresaId, plantillaIds);
+
+      expect(result.templates).toHaveLength(1);
+      const consolidated = result.templates[0] as any;
+
+      // Reglas de consolidación
+      expect(consolidated.templateId).toBe(200);
+      expect(consolidated.entityType).toBe('CAMION');
+      expect(consolidated.obligatorio).toBe(true); // obligatorio gana
+      expect(consolidated.diasAnticipacion).toBe(30); // mayor anticipación gana
+      expect(consolidated.visibleChofer).toBe(true); // si alguno lo setea, queda true
+
+      // No debe duplicar IDs
+      expect(consolidated.plantillaIds.sort()).toEqual([5, 6]);
+      expect(consolidated.clienteIds.sort()).toEqual([0, 20]);
+      expect(consolidated.clienteNames).toEqual(expect.arrayContaining(['Sin cliente', 'Cliente Y']));
+    });
+
     it('debe agrupar correctamente por entityType (DADOR, EMPRESA_TRANSPORTISTA, etc)', async () => {
       // Arrange
       const mockRequirements = [

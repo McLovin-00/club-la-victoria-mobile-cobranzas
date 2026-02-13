@@ -11,6 +11,7 @@ module.exports = {
     '^@/(.*)$': '<rootDir>/src/$1',
     '^@tests/(.*)$': '<rootDir>/src/__tests__/$1',
     '^\\.prisma/documentos$': '<rootDir>/__tests__/mocks/prisma-documentos.client.ts',
+    '^\\.prisma/documentos': '<rootDir>/__tests__/mocks/prisma-documentos.client.ts',
   },
   transform: {
     '^.+\\.ts$': ['ts-jest', { isolatedModules: true }],
@@ -26,7 +27,6 @@ module.exports = {
     '!src/**/__tests__/**',
     '!src/**/*.test.ts',
     '!src/**/*.spec.ts',
-    '!src/prisma/**',
     '!src/**/*.d.ts',
   ],
   coverageDirectory: '<rootDir>/coverage',

@@ -393,6 +393,10 @@ PR → CI (lint + test + build) → Code Review → Merge a main
 - **[Arquitectura](./docs/ARCHITECTURE.md)** - Arquitectura del sistema
 - **[Recursos de Hardware](./docs/RESOURCES_HARDWARE.md)** - Especificación de recursos y límites por ambiente
 
+### Testing
+- **[Troubleshooting de Cobertura](./docs/testing/COVERAGE_TROUBLESHOOTING.md)** - Solución a problemas comunes de cobertura
+- **[Jest Best Practices](./docs/testing/JEST_BEST_PRACTICES.md)** - Guía completa de configuración y mejores prácticas
+
 ### Roles y Equipo
 - **[Estructura de Roles Atomizada](./docs/ESTRUCTURA_ROLES_ATOMIZADA.md)** - Definición profesional de 7 roles claramente separados
 - **[Plan de Implementación de Roles](./docs/PLAN_IMPLEMENTACION_ROLES.md)** - Plan pragmático de mejora y crecimiento del equipo
@@ -429,6 +433,8 @@ npm test -- frontend           # Solo frontend
 
 **Objetivo de cobertura**: ≥ 80%
 
+**⚠️ Importante**: Si la cobertura muestra 0% a pesar de que los tests pasan, ver [Troubleshooting de Cobertura](./docs/testing/COVERAGE_TROUBLESHOOTING.md)
+
 ### SonarQube (Coverage)
 > En Windows/PowerShell, usar los scripts del repo (evitan `bash`).
 
@@ -448,6 +454,11 @@ npx playwright test            # Tests E2E
 npx playwright test --ui       # Modo UI
 npx playwright show-report     # Ver reporte
 ```
+
+### Documentación de Testing
+
+- **[Troubleshooting de Cobertura](./docs/testing/COVERAGE_TROUBLESHOOTING.md)** - Solución a problemas comunes de cobertura
+- **[Jest Best Practices](./docs/testing/JEST_BEST_PRACTICES.md)** - Guía completa de configuración y mejores prácticas
 
 **E2E en Staging**: 3-5 pruebas críticas del flujo de negocio
 

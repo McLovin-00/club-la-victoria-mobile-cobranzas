@@ -11,7 +11,7 @@ export function tryGetSwaggerUi(): SwaggerUiModule | null {
   try {
     // eslint-disable-next-line @typescript-eslint/no-var-requires
     const mod = require('swagger-ui-express');
-    return (mod as any)?.default || mod;
+    return mod?.default || mod;
   } catch {
     return null;
   }

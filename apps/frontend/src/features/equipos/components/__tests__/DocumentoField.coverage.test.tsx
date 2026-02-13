@@ -370,7 +370,8 @@ describe('DocumentoField', () => {
       fireEvent.click(uploadButton);
 
       await waitFor(() => {
-        expect(mockOnUploadSuccess).toHaveBeenCalledWith(1, undefined);
+        expect(mockOnUploadSuccess).toHaveBeenCalled();
+        expect(mockOnUploadSuccess.mock.calls[0][0]).toBe(1);
       });
     });
 

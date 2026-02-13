@@ -1,43 +1,23 @@
 /**
- * Tests for documentos prisma/seed.ts
+ * Tests for prisma/seed.ts - Simple coverage test
  */
 
-import { describe, it, expect, jest, beforeEach } from '@jest/globals';
+import { describe, it, expect } from '@jest/globals';
 
-// Mock Prisma
-jest.mock('../../src/config/database', () => ({
-  prisma: {
-    dadorCarga: {
-      upsert: jest.fn().mockResolvedValue({ id: 1, nombre: 'Test Dador' }),
-    },
-    cliente: {
-      upsert: jest.fn().mockResolvedValue({ id: 1, nombre: 'Test Cliente' }),
-    },
-    empresaTransportista: {
-      upsert: jest.fn().mockResolvedValue({ id: 1, nombre: 'Test Transportista' }),
-    },
-    $disconnect: jest.fn().mockResolvedValue(undefined),
-  },
-}));
-
-jest.mock('../../src/config/logger', () => ({
-  AppLogger: {
-    info: jest.fn(),
-    error: jest.fn(),
-    warn: jest.fn(),
-    debug: jest.fn(),
-  },
-}));
-
-describe('prisma seed', () => {
-  beforeEach(() => {
-    jest.clearAllMocks();
+describe('prisma seed coverage', () => {
+  it('should import seed.ts main function', async () => {
+    // Import the seed module - main should be exported now
+    const seedModule = await import('../../src/prisma/seed');
+    
+    // Verify main is exported as a function
+    expect(typeof seedModule.main).toBe('function');
   });
 
-  it('el archivo seed.ts existe y se puede importar', async () => {
-    // seed.ts tiene un main() que ejecuta la seed
-    // Solo verificamos que el módulo existe
-    expect(true).toBe(true);
+  it('should export helper functions', async () => {
+    // Import all exported functions
+    const seedModule = await import('../../src/prisma/seed');
+    
+    // Verify exports
+    expect(typeof seedModule.main).toBe('function');
   });
 });
-

@@ -41,10 +41,17 @@ jest.mock('../../src/config/logger', () => ({
   },
 }));
 
+jest.mock('../../src/services/document-event-handlers.service', () => ({
+  DocumentEventHandlers: {
+    onDocumentExpired: jest.fn().mockResolvedValue(undefined),
+  },
+}));
+
 // Import después de mocks
 import { DocumentService } from '../../src/services/document.service';
 import { minioService } from '../../src/services/minio.service';
 import { queueService } from '../../src/services/queue.service';
+import { DocumentEventHandlers } from '../../src/services/document-event-handlers.service';
 
 describe('DocumentService', () => {
   beforeEach(() => {
@@ -123,38 +130,79 @@ describe('DocumentService', () => {
         }),
       });
     });
+
+    it('should handle errors gracefully', async () => {
+      mockDocument.update.mockRejectedValue(new Error('DB error'));
+
+      await expect(DocumentService.markDocumentAsRejected(1)).resolves.not.toThrow();
+    });
   });
 
   describe('checkExpiredDocuments', () => {
     it('should mark expired documents as VENCIDO', async () => {
-      mockDocument.updateMany.mockResolvedValue({ count: 5 });
+      mockDocument.findMany.mockResolvedValue([
+        { id: 1 },
+        { id: 2 },
+        { id: 3 },
+      ]);
+      mockDocument.updateMany.mockResolvedValue({ count: 3 });
 
       const result = await DocumentService.checkExpiredDocuments();
 
-      expect(result).toBe(5);
-      expect(mockDocument.updateMany).toHaveBeenCalledWith({
+      expect(result).toBe(3);
+      expect(mockDocument.findMany).toHaveBeenCalledWith({
         where: {
           expiresAt: { lte: expect.any(Date) },
           status: { not: 'VENCIDO' },
+          archived: false,
         },
+        select: { id: true },
+      });
+      expect(mockDocument.updateMany).toHaveBeenCalledWith({
+        where: { id: { in: [1, 2, 3] } },
         data: { status: 'VENCIDO' },
       });
     });
 
     it('should return 0 if no documents expired', async () => {
-      mockDocument.updateMany.mockResolvedValue({ count: 0 });
+      mockDocument.findMany.mockResolvedValue([]);
+
+      const result = await DocumentService.checkExpiredDocuments();
+
+      expect(result).toBe(0);
+      expect(mockDocument.updateMany).not.toHaveBeenCalled();
+    });
+
+    it('should return 0 on error', async () => {
+      mockDocument.findMany.mockRejectedValue(new Error('DB error'));
 
       const result = await DocumentService.checkExpiredDocuments();
 
       expect(result).toBe(0);
     });
 
-    it('should return 0 on error', async () => {
-      mockDocument.updateMany.mockRejectedValue(new Error('DB error'));
+    it('should process documents in batches and call event handlers', async () => {
+      const docs = Array.from({ length: 25 }, (_, i) => ({ id: i + 1 }));
+      mockDocument.findMany.mockResolvedValue(docs);
+      mockDocument.updateMany.mockResolvedValue({ count: 25 });
 
       const result = await DocumentService.checkExpiredDocuments();
 
-      expect(result).toBe(0);
+      expect(result).toBe(25);
+      expect(DocumentEventHandlers.onDocumentExpired).toHaveBeenCalledTimes(25);
+    });
+
+    it('should handle event handler errors gracefully', async () => {
+      mockDocument.findMany.mockResolvedValue([{ id: 1 }, { id: 2 }]);
+      mockDocument.updateMany.mockResolvedValue({ count: 2 });
+      (DocumentEventHandlers.onDocumentExpired as jest.Mock)
+        .mockRejectedValueOnce(new Error('Handler error'))
+        .mockResolvedValueOnce(undefined);
+
+      const result = await DocumentService.checkExpiredDocuments();
+
+      expect(result).toBe(2);
+      expect(DocumentEventHandlers.onDocumentExpired).toHaveBeenCalledTimes(2);
     });
   });
 
@@ -177,6 +225,19 @@ describe('DocumentService', () => {
         rechazado: 5,
         vencido: 3,
       });
+    });
+
+    it('should handle VALIDANDO status', async () => {
+      mockDocument.groupBy.mockResolvedValue([
+        { status: 'VALIDANDO', _count: { status: 15 } },
+        { status: 'PENDIENTE', _count: { status: 5 } },
+      ]);
+
+      const result = await DocumentService.getDocumentStats(100, 50);
+
+      expect(result.validando).toBe(15);
+      expect(result.pendiente).toBe(5);
+      expect(result.total).toBe(20);
     });
 
     it('should return zeros on error', async () => {

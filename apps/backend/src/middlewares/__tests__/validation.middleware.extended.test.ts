@@ -27,6 +27,9 @@ describe('ValidationMiddleware Extended Tests', () => {
         method: 'POST',
         originalUrl: '/api/test',
         ip: '127.0.0.1',
+        // Express usa `req.socket.remoteAddress` (y Node legacy `req.connection.remoteAddress`)
+        // según versión/entorno. Para tests, seteamos ambos.
+        socket: { remoteAddress: '192.168.1.1' },
         connection: { remoteAddress: '192.168.1.1' },
         ...overrides,
     });

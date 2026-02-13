@@ -230,11 +230,17 @@ async function main(): Promise<void> {
   console.log('✅ Seed completado: cliente demo, requisitos, equipo y documentos');
 }
 
-main()
-  .catch((e) => {
-    console.error('❌ Error seeding documentos:', e);
-    process.exit(1);
-  })
-  .finally(async () => {
-    await prisma.$disconnect();
-  });
+// Export main for testing
+export { main };
+
+// Only run main() when executed directly (not when imported for tests)
+if (require.main === module) {
+  main()
+    .catch((e) => {
+      console.error('❌ Error seeding documentos:', e);
+      process.exit(1);
+    })
+    .finally(async () => {
+      await prisma.$disconnect();
+    });
+}

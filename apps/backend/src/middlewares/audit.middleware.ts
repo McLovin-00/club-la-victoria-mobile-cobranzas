@@ -37,6 +37,8 @@ function getClientIP(req: Request): string {
     (req.headers['x-forwarded-for'] as string)?.split(',')[0] ||
     (req.headers['x-real-ip'] as string) ||
     req.socket?.remoteAddress ||
+    // Fallback legacy de Node (algunas herramientas/mocks setean `connection`).
+    (req as any).connection?.remoteAddress ||
     req.ip ||
     'unknown'
   );

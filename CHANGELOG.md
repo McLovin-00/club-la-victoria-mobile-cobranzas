@@ -1,43 +1,45 @@
+# Changelog
+
+Todos los cambios notables en este proyecto serán documentados en este archivo.
+
+El formato está basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.0.0/),
+y este proyecto adhiere a [Semantic Versioning](https://semver.org/lang/es/).
+
 ## [Unreleased]
 
 ### Fixed
-- Scripts de cobertura/SonarQube compatibles con Windows/PowerShell (sin dependencia de `bash`).
-- SonarQube: `sonar.test.inclusions` ahora incluye `*.test.tsx` / `*.spec.tsx` para que los tests de frontend no cuenten como código productivo en coverage.
-
-### Changed
-- SonarQube: coverage “overall” limitado por `sonar.coverage.inclusions` para fast-track a >=80%.
-- Merge de `lcov.info` con reescritura de `SF:` para que SonarQube pueda mapear coverage en monorepo (prefijo `apps/...` / `packages/...`).
-
-## [1.5.0] - 2025-10-07
-
-### Changed
-- Repository reduced to 3 services: `apps/backend`, `apps/frontend`, `apps/documentos`.
-- Removed gateway, chat-processor and calidad apps and all references in backend, frontend, docs and infra.
-- Default database names unified to `monorepo-bca` across `.env` and fallbacks.
-- Updated Prisma output for `apps/documentos` to avoid client/type conflicts.
-
-### Fixed
-- Lint errors in `apps/documentos` (unused variables, flat config alignment).
-- Frontend build issues due to stale imports and removed routes.
-
-### Infra
-- Docker Compose cleaned (dev/hybrid/prod) to keep only required infra (PostgreSQL, Redis, MinIO, Nginx; Flowise kept per user request in specific stack).
-
-## [1.4.0] - 2025-08-29
-
-### Fixed
-- Frontend build failure in `documentos` UI by replacing console calls and adjusting vite remove-console.
-- ESLint errors across backend routes (`docs.routes.ts`, `transportistas.ts`).
-- OpenAPI YAML indentation and missing `$ref` for Transportistas.
-- Documentos ESLint config to include tests; unused imports removed.
+- **[Frontend]** Corregida cobertura de tests que mostraba 0% a pesar de tener tests pasando
+  - Agregado `coverageProvider: 'v8'` en `jest.config.cjs` para compatibilidad con SWC
+  - La cobertura ahora refleja correctamente el estado real de los tests
+  - Incremento de ~51k a ~80k líneas en el reporte LCOV mergeado
 
 ### Added
-- Standalone Docker build for `apps/documentos` with `tsconfig.standalone.json` and prune.
-- Local `UserRole` enum to decouple from Prisma client in `documentos`.
-- New mobile-first components and hooks (FAB, TouchFeedback, Calendario, etc.).
-- Approval queue and detail pages with KPIs.
+- **[Docs]** Nueva documentación de testing:
+  - `docs/testing/COVERAGE_TROUBLESHOOTING.md` - Guía de solución de problemas de cobertura
+  - `docs/testing/JEST_BEST_PRACTICES.md` - Mejores prácticas y configuración de Jest
+- **[Frontend]** Comentarios mejorados en `jest.config.cjs` explicando la importancia del coverage provider
 
-### CI/CD
-- Green pipelines for backend, documentos, and frontend (lint/build/tests/OpenAPI bundle).
+### Changed
+- **[README]** Agregadas referencias a la nueva documentación de testing
 
+---
 
+## Formato de Entradas
+
+### Added
+Para nuevas funcionalidades.
+
+### Changed
+Para cambios en funcionalidades existentes.
+
+### Deprecated
+Para funcionalidades que serán removidas en próximas versiones.
+
+### Removed
+Para funcionalidades removidas.
+
+### Fixed
+Para corrección de bugs.
+
+### Security
+Para cambios relacionados con seguridad.

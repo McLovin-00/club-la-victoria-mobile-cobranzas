@@ -100,6 +100,13 @@ module.exports = {
   // Directorio de salida de cobertura
   coverageDirectory: '<rootDir>/coverage',
 
+  // Provider de cobertura: v8 es más rápido y compatible con SWC
+  // IMPORTANTE: Cuando se usa @swc/jest como transformador, DEBE usarse 'v8' como provider.
+  // El provider 'babel' (default) NO instrumenta correctamente el código con SWC,
+  // resultando en cobertura 0% aunque los tests pasen.
+  // Ver: https://jestjs.io/docs/configuration#coverageprovider-string
+  coverageProvider: 'v8',
+
   // Umbrales de cobertura (incrementar gradualmente)
   // TODO: Subir a 80% cuando se refactoricen los tests
   coverageThreshold: {
