@@ -129,6 +129,8 @@ model Document {
   @@index([status, expiresAt])
   @@index([templateId])
   @@index([archived])
+  @@index([uploadedAt(sort: Desc)])
+  @@index([dadorCargaId, templateId, entityType, entityId])
   @@map("documents")
 }
 

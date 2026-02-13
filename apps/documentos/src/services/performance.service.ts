@@ -41,15 +41,9 @@ export class PerformanceService {
       return;
     }
 
-    // Si existe la vista pero sin la columna tenant_id (estructura vieja), la eliminamos y recreamos
-    const mvColumns = await db.getClient().$queryRawUnsafe<Array<{ exists: boolean }>>(`
-      SELECT EXISTS (
-        SELECT 1 FROM information_schema.columns 
-        WHERE table_name = '${this.mvName}' AND column_name = 'tenant_id'
-      ) AS exists;
-    `);
-    const mvHasTenantId = mvColumns[0]?.exists === true;
-    if (!mvHasTenantId) {
+    // Detectar si la vista necesita recrearse (estructura vieja sin tenant_id o sin filtro archived)
+    const mvNeedsRecreation = await this.checkMvNeedsRecreation();
+    if (mvNeedsRecreation) {
       await db.getClient().$executeRawUnsafe(`DROP MATERIALIZED VIEW IF EXISTS ${this.mvName} CASCADE;`);
     }
 
@@ -66,6 +60,7 @@ export class PerformanceService {
         COUNT(d.id)                             AS total_count,
         NOW()                                   AS last_updated
       FROM documents d
+      WHERE d.archived = false
       GROUP BY 1,2,3,4;
     `;
     await db.getClient().$executeRawUnsafe(createSql);
@@ -75,6 +70,28 @@ export class PerformanceService {
       CREATE UNIQUE INDEX IF NOT EXISTS ${this.mvUniqueIdx}
       ON ${this.mvName} (tenant_id, empresa_id, entity_type, entity_id);
     `);
+  }
+
+  /**
+   * Verifica si la vista materializada necesita recrearse.
+   * Retorna true si: no tiene columna tenant_id, o su definición no filtra archived.
+   */
+  private async checkMvNeedsRecreation(): Promise<boolean> {
+    const mvColumns = await db.getClient().$queryRawUnsafe<Array<{ exists: boolean }>>(`
+      SELECT EXISTS (
+        SELECT 1 FROM information_schema.columns
+        WHERE table_name = '${this.mvName}' AND column_name = 'tenant_id'
+      ) AS exists;
+    `);
+    if (!mvColumns[0]?.exists) return true;
+
+    // Verificar si la definición incluye el filtro archived = false
+    const mvDef = await db.getClient().$queryRawUnsafe<Array<{ definition: string }>>(`
+      SELECT definition FROM pg_matviews WHERE matviewname = '${this.mvName}';
+    `);
+    if (!mvDef[0]?.definition) return true;
+    const hasArchivedFilter = mvDef[0].definition.includes('archived');
+    return !hasArchivedFilter;
   }
 
   /**

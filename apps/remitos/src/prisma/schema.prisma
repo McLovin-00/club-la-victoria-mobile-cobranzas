@@ -163,6 +163,8 @@ model Remito {
   @@index([patenteAcoplado])
   @@index([fechaOperacion])
   @@index([cargadoPorUserId])
+  @@index([tenantEmpresaId, createdAt(sort: Desc)])
+  @@index([tenantEmpresaId, dadorCargaId, estado])
   @@map("remitos")
 }
 
