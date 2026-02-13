@@ -145,28 +145,32 @@ export class DocumentArchiveService {
       const { db } = await import('../config/database');
       const client: any = db.getClient?.();
 
-      if (!client?.clienteDocumentRequirement) return [];
+      if (!client?.plantillaRequisitoTemplate) return [];
 
-      // Obtener requisitos del cliente que se va a quitar
-      const clientRequirements = await client.clienteDocumentRequirement.findMany({
-        where: { clienteId: params.clienteId },
+      // Requisitos del cliente que se va a quitar (desde PlantillaRequisitoTemplate)
+      const clientRequirements = await client.plantillaRequisitoTemplate.findMany({
+        where: {
+          plantillaRequisito: { clienteId: params.clienteId, activo: true },
+        },
         select: { templateId: true, entityType: true },
       });
 
-      // Obtener requisitos de los otros clientes
-      const otherRequirements = await client.clienteDocumentRequirement.findMany({
-        where: { clienteId: { in: params.otherClienteIds } },
+      // Requisitos de los otros clientes
+      const otherRequirements = await client.plantillaRequisitoTemplate.findMany({
+        where: {
+          plantillaRequisito: { clienteId: { in: params.otherClienteIds }, activo: true },
+        },
         select: { templateId: true, entityType: true },
       });
 
       // Crear set de requisitos de otros clientes
       const otherReqSet = new Set(
-        otherRequirements.map((r: any) => `${r.templateId}-${r.entityType}`)
+        otherRequirements.map((r: { templateId: number; entityType: string }) => `${r.templateId}-${r.entityType}`)
       );
 
       // Filtrar requisitos exclusivos del cliente a quitar
       const exclusiveReqs = clientRequirements.filter(
-        (r: any) => !otherReqSet.has(`${r.templateId}-${r.entityType}`)
+        (r: { templateId: number; entityType: string }) => !otherReqSet.has(`${r.templateId}-${r.entityType}`)
       );
 
       if (exclusiveReqs.length === 0) return [];
@@ -210,7 +214,7 @@ export class DocumentArchiveService {
             select: { id: true },
           });
 
-          exclusiveDocIds.push(...docs.map((d: any) => d.id));
+          exclusiveDocIds.push(...docs.map((d: { id: number }) => d.id));
         }
       }
 

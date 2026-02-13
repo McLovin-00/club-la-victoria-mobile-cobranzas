@@ -211,15 +211,35 @@ async function loadEquipoClienteAssignments(equipoIds: number[]): Promise<Map<nu
 }
 
 async function loadRequirements(clienteIds: number[]): Promise<Map<number, Requisito[]>> {
-  const requisitos = await prisma.clienteDocumentRequirement.findMany({
-    where: { clienteId: { in: clienteIds } },
-    select: { clienteId: true, templateId: true, entityType: true, obligatorio: true, diasAnticipacion: true },
+  // Lee desde PlantillaRequisitoTemplate (fuente de verdad actual)
+  // a través de las plantillas activas de cada cliente
+  const templates = await prisma.plantillaRequisitoTemplate.findMany({
+    where: {
+      plantillaRequisito: {
+        clienteId: { in: clienteIds },
+        activo: true,
+      },
+    },
+    select: {
+      templateId: true,
+      entityType: true,
+      obligatorio: true,
+      diasAnticipacion: true,
+      plantillaRequisito: { select: { clienteId: true } },
+    },
   });
 
   const map = new Map<number, Requisito[]>();
-  for (const r of requisitos) {
-    if (!map.has(r.clienteId)) map.set(r.clienteId, []);
-    map.get(r.clienteId)!.push(r as Requisito);
+  for (const t of templates) {
+    const clienteId = t.plantillaRequisito.clienteId;
+    if (!map.has(clienteId)) map.set(clienteId, []);
+    map.get(clienteId)!.push({
+      clienteId,
+      templateId: t.templateId,
+      entityType: t.entityType,
+      obligatorio: t.obligatorio,
+      diasAnticipacion: t.diasAnticipacion,
+    });
   }
   return map;
 }
@@ -345,8 +365,11 @@ export class ComplianceService {
     const equipo = await prisma.equipo.findUnique({ where: { id: equipoId } });
     if (!equipo) return [];
 
-    const requisitos = await prisma.clienteDocumentRequirement.findMany({
-      where: { clienteId },
+    // Lee desde PlantillaRequisitoTemplate (fuente de verdad actual)
+    const requisitos = await prisma.plantillaRequisitoTemplate.findMany({
+      where: {
+        plantillaRequisito: { clienteId, activo: true },
+      },
       select: { templateId: true, entityType: true, obligatorio: true, diasAnticipacion: true },
     });
 
@@ -370,7 +393,7 @@ export class ComplianceService {
       const doc = await prisma.document.findFirst({
         where: {
           templateId: r.templateId,
-          entityType: r.entityType as any,
+          entityType: r.entityType as EntityType, // NOSONAR - already correct type from Prisma
           entityId,
           tenantEmpresaId: equipo.tenantEmpresaId,
           dadorCargaId: equipo.dadorCargaId,
@@ -378,16 +401,23 @@ export class ComplianceService {
         orderBy: { uploadedAt: 'desc' },
       });
 
-      const { state } = computeDocumentState(doc as any, r as Requisito, now);
+      const reqAsRequisito: Requisito = {
+        clienteId,
+        templateId: r.templateId,
+        entityType: r.entityType,
+        obligatorio: r.obligatorio,
+        diasAnticipacion: r.diasAnticipacion,
+      };
+      const { state } = computeDocumentState(doc as DocumentInfo | null, reqAsRequisito, now);
 
       results.push({
         templateId: r.templateId,
-        entityType: r.entityType, // NOSONAR - already correct type
+        entityType: r.entityType as EntityType,
         obligatorio: r.obligatorio,
         diasAnticipacion: r.diasAnticipacion,
         state,
         documentId: doc?.id,
-        documentStatus: doc?.status, // NOSONAR - already DocumentStatus
+        documentStatus: doc?.status,
         expiresAt: doc?.expiresAt ?? null,
       });
     }
