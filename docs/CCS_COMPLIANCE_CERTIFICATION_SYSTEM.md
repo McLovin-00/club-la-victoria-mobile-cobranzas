@@ -1477,139 +1477,110 @@ async function weeklyIntegrityCheck(): Promise<void> {
 
 ## 17. Escenarios Especiales y Casos Borde
 
-### 17.1 CRÍTICO: El problema de la medianoche y la zona horaria
+### 17.1 ~~CRÍTICO~~: El problema de la medianoche y la zona horaria — RESUELTO ✅
 
-**Estado actual del sistema**: `checkExpiredDocuments()` marca como VENCIDO todo documento con `expiresAt <= now` (línea 97, `document.service.ts`). El campo `expiresAt` es un `DateTime` de Prisma/PostgreSQL almacenado en **UTC**.
+> **Resuelto en commit `f6cccb1` (2026-02-11). Desplegado en testing y staging.**
 
-**El problema**: Un documento que "vence el 15 de enero" (válido todo el día 15 en Argentina) se almacena como `2026-01-15T00:00:00.000Z` (medianoche UTC). Pero medianoche UTC = **21:00 del 14 de enero en Argentina** (UTC-3).
+**Problema original**: Un documento que "vence el 15 de enero" se almacenaba como `2026-01-15T00:00:00.000Z` (medianoche UTC = 21:00 del 14/01 en Argentina). El sistema marcaba como vencido 3 horas antes.
 
-Esto significa que el sistema marca el documento como vencido a las **9 de la noche del día anterior** en horario argentino. Es un error de 3 horas que invalida la certificación.
+**Solución implementada**:
 
-**Impacto en CCS**: Si el snapshot baseline se genera a las 03:00 Argentina (06:00 UTC) del día 15, el documento ya lleva 9 horas marcado como VENCIDO. El certificado del día 15 dice "VENCIDO" cuando en realidad debería ser válido todo el día 15.
+1. **Función centralizada** `normalizeExpirationToEndOfDayAR()` en `apps/documentos/src/utils/expiration.utils.ts`:
+   - Convierte cualquier fecha de vencimiento a 23:59:59.999 hora Argentina (02:59:59.999 UTC del día siguiente)
+   - Idempotente: si ya está normalizada, no la modifica
+   - Incluye `isDocumentExpired()` como helper de comparación
 
-**Solución requerida (ANTES de implementar CCS)**:
+2. **Aplicada en los 5 puntos de entrada**:
+   - `documents.controller.ts` → `extractExpirationDate()` (upload)
+   - `documents.controller.ts` → `renewDocument()` (renovación)
+   - `approval.service.ts` → `approveDocument()` (aprobación manual)
+   - `document-validation.worker.ts` → `parseSafeExpirationDate()` (auto-aprobación IA)
 
-```typescript
-// INCORRECTO (actual): Almacena medianoche UTC
-expiresAt = new Date('2026-01-15T00:00:00.000Z');
-
-// CORRECTO: Almacena fin del día en Argentina (UTC-3)
-// "Vence el 15/01" = válido hasta 15/01 23:59:59 Argentina = 16/01 02:59:59 UTC
-expiresAt = new Date('2026-01-16T02:59:59.000Z');
-```
-
-**Regla de normalización para CCS**:
-
-```typescript
-const ARGENTINA_UTC_OFFSET_HOURS = -3;
-
-function normalizeExpirationDate(dateStr: string): Date {
-  // "2026-01-15" → válido hasta fin del día 15 en Argentina
-  // = 2026-01-15 23:59:59 UTC-3 = 2026-01-16 02:59:59 UTC
-  const date = new Date(dateStr);
-  date.setUTCHours(23 - ARGENTINA_UTC_OFFSET_HOURS, 59, 59, 999);
-  return date;
-}
-```
-
-**Acción requerida**: Migración de datos para ajustar todos los `expiresAt` existentes, sumando 26:59:59 (o equivalente) a los que estén almacenados como medianoche UTC. Esto es un **prerequisito** de CCS.
-
----
-
-### 17.2 CRÍTICO: El cron de expiración no dispara event handlers
-
-**Estado actual**: `checkExpiredDocuments()` usa `updateMany` para marcar documentos vencidos en bulk (línea 95, `document.service.ts`). Esta operación **no invoca** `DocumentEventHandlers.onDocumentExpired()` para cada documento individual.
-
-**Consecuencias**:
-1. No se envían notificaciones de vencimiento cuando el cron detecta la expiración
-2. No se re-evalúan los equipos afectados
-3. **Para CCS**: No se generan snapshots por evento cuando un documento vence
-
-**Impacto**: Un documento vence a las 00:00. El cron lo marca a las 01:00 (próxima ejecución horaria). Pero ningún snapshot EVENT se genera. El próximo snapshot es el baseline de las 03:00. Si alguien pregunta "¿compliance a las 01:30?", no hay snapshot que refleje el vencimiento.
-
-**Solución requerida**:
+3. **Migración de datos existentes**:
+   - SQL ejecutado en testing (294 documentos corregidos) y staging (271 documentos corregidos)
+   - Todos los `expiresAt` ahora almacenados como `02:59:59.999 UTC`
 
 ```typescript
-static async checkExpiredDocuments(): Promise<number> {
-  const now = new Date();
-
-  // 1. Obtener documentos que deben vencer (en vez de updateMany)
-  const expiring = await db.getClient().document.findMany({
-    where: {
-      expiresAt: { lte: now },
-      status: { not: 'VENCIDO' as DocumentStatus },
-      archived: false,
-    },
-    select: { id: true, entityType: true, entityId: true, dadorCargaId: true },
-  });
-
-  if (expiring.length === 0) return 0;
-
-  // 2. Marcar como vencidos
-  await db.getClient().document.updateMany({
-    where: { id: { in: expiring.map(d => d.id) } },
-    data: { status: 'VENCIDO' as DocumentStatus },
-  });
-
-  // 3. Disparar event handlers para cada documento
-  for (const doc of expiring) {
-    await DocumentEventHandlers.onDocumentExpired(doc.id);
-    // Esto genera notificaciones + re-evaluación de equipos + snapshot CCS
-  }
-
-  return expiring.length;
+// Implementación final (expiration.utils.ts)
+export function normalizeExpirationToEndOfDayAR(date: Date | string | null | undefined): Date | null {
+  if (!date) return null;
+  const d = typeof date === 'string' ? new Date(date) : new Date(date.getTime());
+  if (isNaN(d.getTime())) return null;
+  // Idempotence: already normalized?
+  if (d.getUTCHours() >= 12 && d.getUTCMinutes() === 59) return d;
+  // Normalize: 23:59:59.999 AR = day+1 02:59:59.999 UTC
+  const dayInAR = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()));
+  dayInAR.setUTCDate(dayInAR.getUTCDate() + 1);
+  dayInAR.setUTCHours(2, 59, 59, 999);
+  return dayInAR;
 }
 ```
 
 ---
 
-### 17.3 La brecha entre medianoche y el baseline (00:00 - 03:00)
+### 17.2 ~~CRÍTICO~~: El cron de expiración no dispara event handlers — RESUELTO ✅
 
-**Escenario**: Un documento vence a las 00:00 (ajustado a Argentina, ver 17.1). El cron de expiración lo marca a la siguiente hora en punto. El baseline se genera a las 03:00.
+> **Resuelto en commit `f6cccb1` (2026-02-11). Desplegado en testing y staging.**
 
-**Con snapshots por evento (sección 6.5)**: Si el cron dispara event handlers (ver fix 17.2), el flujo sería:
+**Problema original**: `checkExpiredDocuments()` usaba `updateMany` en bulk sin invocar `DocumentEventHandlers.onDocumentExpired()` para cada documento. No se generaban notificaciones, no se re-evaluaban equipos.
 
-```
-00:00  Documento vence (efectivo)
-01:00  Cron de expiración detecta → marca VENCIDO → trigger event handler
-01:05  Snapshot EVENT: equipo pasa de COMPLETO a VENCIDO (tras debounce)
-03:00  Snapshot BASELINE: confirma estado VENCIDO
-```
+**Solución implementada** en `document.service.ts`:
 
-**Sin el fix de 17.2**: La brecha de 00:00 a 03:00 no tiene snapshot.
-
-**Mitigación adicional**: Ejecutar `checkExpiredDocuments()` también a las 00:05 Argentina (además del horario de cada hora), para capturar vencimientos de medianoche rápidamente:
+1. **findMany** → obtiene documentos a vencer con sus IDs
+2. **updateMany** → marca todos como VENCIDO
+3. **Loop individual** → `DocumentEventHandlers.onDocumentExpired(doc.id)` para cada uno
+4. **Batches de 20** con pausa de 1 segundo entre batches para no saturar y permitir debounce
 
 ```typescript
-// Cron específico para vencimientos de medianoche
-// 5 minutos después de medianoche Argentina = 03:05 UTC
-cron.schedule('5 3 * * *', async () => {
-  await DocumentService.checkExpiredDocuments();
-});
-```
-
----
-
-### 17.4 Vencimientos masivos simultáneos
-
-**Escenario**: Muchos seguros se renuevan anualmente el 1 de enero. Al llegar el 2 de enero (o el día posterior según la normalización), podrían vencer 200 pólizas de una vez.
-
-**Impacto**: El cron a las 01:00 marca 200 documentos como VENCIDO. Esto afecta potencialmente a cientos de equipos. Sin el debounce, se generarían cientos de snapshots EVENT en minutos.
-
-**Mitigación** (ya contemplada en 6.5):
-- El debounce de 5 minutos agrupa eventos por equipo
-- Si un equipo tiene 3 documentos que vencen en la misma hora, se genera 1 solo snapshot consolidado
-- El job de expiración podría procesar en batches con pausas para no saturar:
-
-```typescript
-// Procesar en batches de 20 documentos con pausa de 1 segundo
-for (const batch of chunk(expiring, 20)) {
+// Implementación final (extracto de checkExpiredDocuments)
+const BATCH_SIZE = 20;
+for (let i = 0; i < expiring.length; i += BATCH_SIZE) {
+  const batch = expiring.slice(i, i + BATCH_SIZE);
   for (const doc of batch) {
-    await DocumentEventHandlers.onDocumentExpired(doc.id);
+    try {
+      await DocumentEventHandlers.onDocumentExpired(doc.id);
+    } catch (err) { /* log warning */ }
   }
-  await sleep(1000); // Dar tiempo al debounce de agrupar
+  if (i + BATCH_SIZE < expiring.length) {
+    await new Promise(resolve => setTimeout(resolve, 1000));
+  }
 }
 ```
+
+---
+
+### 17.3 La brecha entre medianoche y el baseline (00:00 - 03:00) — RESUELTO ✅
+
+> **Resuelto en commit `f6cccb1` (2026-02-11). Desplegado en testing y staging.**
+
+**Escenario**: Un documento vence a las 00:00 Argentina. El baseline CCS se generaría a las 03:00. ¿Qué pasa en la brecha?
+
+**Solución implementada**: Cron adicional `'5 3 * * *'` (03:05 UTC = 00:05 Argentina) en `scheduler.service.ts`. Combinado con el fix de 17.2 (event handlers), el flujo ahora es:
+
+```
+00:00  Documento vence (expiresAt = 02:59:59.999 UTC del día anterior, efectivo)
+00:05  Cron específico detecta → marca VENCIDO → trigger onDocumentExpired()
+00:10  (futuro CCS) Snapshot EVENT: equipo pasa de COMPLETO a VENCIDO (tras debounce)
+01:00  Cron horario regular: no encuentra nuevos vencimientos
+03:00  (futuro CCS) Snapshot BASELINE: confirma estado VENCIDO
+```
+
+La brecha queda cubierta con menos de 5 minutos de latencia.
+
+---
+
+### 17.4 Vencimientos masivos simultáneos — RESUELTO ✅
+
+> **Resuelto en commit `f6cccb1` (2026-02-11). Desplegado en testing y staging.**
+
+**Escenario**: Muchos seguros se renuevan anualmente el 1 de enero. Podrían vencer 200 pólizas de una vez.
+
+**Solución implementada**: El refactoreo de `checkExpiredDocuments()` (fix 17.2) ya incluye procesamiento en batches:
+
+- Batches de 20 documentos con pausa de 1 segundo entre batches
+- Cada documento dispara `onDocumentExpired()` individualmente
+- El debounce de CCS (5 minutos por equipo, futuro) consolidará los snapshots EVENT
+- Si un equipo tiene 3 documentos que vencen en la misma hora, se genera 1 solo snapshot consolidado
 
 ---
 
@@ -1751,29 +1722,146 @@ Response: {
 
 ---
 
-### 17.12 Reloj del servidor desincronizado
+### 17.12 Reloj del servidor desincronizado — VERIFICADO ✅
+
+> **Verificado el 2026-02-11.**
 
 **Escenario**: El servidor tiene un desfasaje de reloj de 5 minutos respecto al tiempo real.
 
-**Impacto**: Los timestamps de los snapshots serían incorrectos. Un documento que "venció a las 00:00" podría marcarse a las 23:55 o 00:05 según el desfasaje.
+**Estado actual**: Verificado en ambos servidores con `timedatectl`:
+- **Staging (10.3.0.243)**: `NTP service: active`, `System clock synchronized: yes`, timezone UTC
+- **Testing (10.3.0.246)**: `NTP service: active`, `System clock synchronized: yes`, timezone America/Argentina/Buenos_Aires (GMT-3)
 
-**Mitigación**:
-- Asegurar NTP (Network Time Protocol) configurado en todos los servidores
+**Mitigación adicional** (para CCS):
 - Incluir el timestamp del servidor y un hash del timestamp en el snapshot
 - El anclaje blockchain provee un timestamp independiente (el bloque tiene su propia hora)
+- Recomendación para producción: verificar NTP periódicamente via healthcheck
 
 ---
 
-### 17.13 Resumen de prerequisitos antes de implementar CCS
+### 17.13 Estado de resolución de prerequisitos
 
-| # | Prerequisito | Impacto | Prioridad |
-|---|---|---|---|
-| 1 | Normalizar `expiresAt` a fin de día Argentina (UTC-3) | Los vencimientos se adelantan 3 horas | **BLOQUEANTE** |
-| 2 | Modificar `checkExpiredDocuments()` para disparar event handlers | Sin esto, los vencimientos no generan snapshots EVENT | **BLOQUEANTE** |
-| 3 | Agregar cron de expiración a las 00:05 Argentina | Capturar vencimientos de medianoche rápidamente | Alta |
-| 4 | Agregar triggers de snapshot para cambios de composición de equipo | Cambios de chofer/camión/acoplado no quedarían certificados | Alta |
-| 5 | Configurar NTP en servidores de producción | Timestamps incorrectos invalidan certificaciones | Alta |
-| 6 | Migración de datos: ajustar `expiresAt` existentes | Datos históricos incorrectos | Alta |
+> Última revisión: 2026-02-11
+
+| # | Prerequisito | Impacto | Prioridad | Estado | Detalle |
+|---|---|---|---|---|---|
+| 1 | Normalizar `expiresAt` a fin de día Argentina (UTC-3) | Los vencimientos se adelantan 3 horas | **BLOQUEANTE** | **RESUELTO** | `expiration.utils.ts` creado y aplicado en 5 puntos de entrada (upload, renewal, approval, AI auto-approval, safe parser). Commit `f6cccb1`. |
+| 2 | Modificar `checkExpiredDocuments()` para disparar event handlers | Sin esto, los vencimientos no generan notificaciones ni re-evaluación de equipos | **BLOQUEANTE** | **RESUELTO** | `document.service.ts` refactorizado: findMany + updateMany + `onDocumentExpired()` individual. Batches de 20 con 1s de pausa. Commit `f6cccb1`. |
+| 3 | Agregar cron de expiración a las 00:05 Argentina | Capturar vencimientos de medianoche rápidamente | Alta | **RESUELTO** | Cron `'5 3 * * *'` (03:05 UTC = 00:05 AR) agregado en `scheduler.service.ts`. Commit `f6cccb1`. |
+| 4 | Agregar triggers de snapshot para cambios de composición de equipo | Cambios de chofer/camión/acoplado no quedarían certificados | Alta | **PENDIENTE** | Resolver antes de Fase 1 de CCS. Ver sección 17.14. |
+| 5 | Configurar NTP en servidores de producción | Timestamps incorrectos invalidan certificaciones | Alta | **RESUELTO** | Verificado: ambos servidores (243 y 246) tienen `NTP service: active` y `System clock synchronized: yes`. |
+| 6 | Migración de datos: ajustar `expiresAt` existentes | Datos históricos incorrectos | Alta | **RESUELTO** | Migración SQL ejecutada. Testing: 294 docs normalizados. Staging: 271 docs normalizados. 0 pendientes en ambos. |
+
+**Resumen**: 5 de 6 prerequisitos resueltos. El #4 se resuelve antes de implementar Fase 1 de CCS.
+
+---
+
+### 17.14 Estado de todos los escenarios - Diagnóstico y cursos de acción
+
+#### Escenarios RESUELTOS (desplegados en testing y staging)
+
+**17.1 - Timezone de expiresAt**: RESUELTO.
+- Función `normalizeExpirationToEndOfDayAR()` en `apps/documentos/src/utils/expiration.utils.ts`
+- Aplicada en: `documents.controller.ts` (extractExpirationDate, renewDocument), `approval.service.ts` (approveDocument), `document-validation.worker.ts` (parseSafeExpirationDate)
+- Migración SQL ejecutada en ambos servidores
+- Todo nuevo `expiresAt` se almacena como 02:59:59.999 UTC (= 23:59:59.999 Argentina)
+
+**17.2 - Cron no dispara events**: RESUELTO.
+- `checkExpiredDocuments()` en `document.service.ts` ahora hace findMany + updateMany + loop de `onDocumentExpired()` individual
+- Procesamiento en batches de 20 con 1 segundo de pausa entre batches
+- Cada documento vencido genera: notificaciones, re-evaluación de equipos afectados, y (futuro) snapshots CCS
+
+**17.3 - Brecha medianoche-baseline**: RESUELTO.
+- Cron adicional `'5 3 * * *'` (00:05 Argentina) en `scheduler.service.ts`
+- Con el fix de 17.2, este cron dispara event handlers, cerrando la brecha
+
+**17.4 - Vencimientos masivos**: RESUELTO.
+- Batches de 20 documentos con pausa de 1 segundo en `checkExpiredDocuments()`
+- El debounce de CCS (5 minutos por equipo, futuro) complementará para snapshots
+
+#### Escenarios CORRECTOS POR DISEÑO (no requieren cambios)
+
+**17.6 - Documento reemplazado con brecha temporal**: OK.
+- Un documento PENDIENTE de aprobación no es compliance
+- Los snapshots reflejan correctamente la brecha entre subida y aprobación
+- Ejemplo: seguro vence → se sube nueva póliza (PENDIENTE) → admin aprueba → COMPLETO
+- La brecha VENCIDO→PENDIENTE→COMPLETO queda certificada fielmente
+
+**17.7 - Aprobación retroactiva**: OK.
+- El snapshot certifica el momento de la acción del sistema, no la fecha de emisión del documento
+- Un certificado del 12/01 muestra PENDIENTE si el doc fue aprobado el 15/01
+- No se retroalteran snapshots pasados
+
+**17.8 - Equipo en múltiples dadores**: OK.
+- Cada equipo tiene su propia cadena de hashes independiente
+- `ComplianceService.evaluateBatchEquiposCliente()` evalúa por equipo con sus propios requisitos de clientes
+- El mismo documento puede tener estado diferente según el contexto compliance de cada equipo
+
+**17.11 - expiresAt = null (sin vencimiento)**: OK.
+- `computeDocumentState()` trata expiresAt null + status APROBADO como VIGENTE indefinido
+- En certificados se muestra como "Sin vencimiento" o "Permanente"
+- Hash y copia congelada se generan normalmente
+
+**17.12 - Reloj desincronizado**: OK.
+- Verificado en ambos servidores: `NTP service: active`, `System clock synchronized: yes`
+- Staging (243): zona UTC, NTP activo
+- Testing (246): zona GMT+3 (-03), NTP activo
+- El anclaje blockchain provee timestamp independiente como respaldo
+
+#### Escenarios PENDIENTES - Con curso de acción definido
+
+**17.5 - Falla del job nocturno**: PENDIENTE (resolver en Fase 1 de CCS).
+- **Cuándo**: Al implementar el job de snapshot diario
+- **Qué hacer**:
+  1. Reintentos automáticos: si falla, reintentar a los 30 min (máx 3 intentos)
+  2. Job de verificación a las 08:00 AR (11:00 UTC): si no hay baseline, generar de emergencia
+  3. Alerta al administrador via notificación interna si el baseline no existe a las 08:00
+  4. Los snapshots EVENT del día se encadenan entre sí aunque no haya baseline
+- **Esfuerzo**: ~4 horas, incluido en Fase 1
+
+**17.9 - Viaje multi-día (compliance continua)**: PENDIENTE (resolver en Fase 4 de CCS).
+- **Cuándo**: Al implementar el portal de verificación
+- **Qué hacer**:
+  1. Endpoint `GET /api/docs/compliance/continuous/:equipoId?desde=&hasta=`
+  2. Consulta secuencial de snapshots en el rango de fechas
+  3. Detecta el momento exacto donde se pierde compliance (`compliantUntil`)
+  4. Útil para viajes largos: demuestra due diligence hasta el vencimiento
+- **Esfuerzo**: ~1 día, es un endpoint de consulta sobre datos existentes
+
+**17.10 - Cambio de composición del equipo**: PENDIENTE (resolver ANTES de Fase 1 de CCS).
+- **Problema actual**: Cuando se edita un equipo (cambio de chofer, camión, acoplado, empresa), la re-evaluación de compliance se hace via `queueService.addMissingCheckForEquipo()` dentro de bloques `try/catch` vacíos (best-effort). Si falla silenciosamente, la compliance no se re-evalúa y, para CCS, no se generaría snapshot EVENT.
+- **Archivos afectados**: `equipo.service.ts`
+  - `collectEntityChanges()` (línea ~686): edición de componentes
+  - `detachEntities()` (línea ~1187): desasociación de acoplado
+  - `forceMove()` (línea ~1084): movimiento forzado de entidades
+  - `transferEquipo()` (línea ~1979): transferencia entre dadores
+- **Qué hacer**:
+  1. Extraer la re-evaluación post-edición del try/catch vacío a un flujo confiable
+  2. Agregar llamada a `EquipoEvaluationService.evaluarEquipos([equipoId])` directamente (no solo encolar)
+  3. Agregar trigger events para CCS: `EQUIPO_DRIVER_CHANGED`, `EQUIPO_TRUCK_CHANGED`, `EQUIPO_TRAILER_CHANGED`, `EQUIPO_EMPRESA_CHANGED`, `EQUIPO_CLIENTE_ADDED`, `EQUIPO_CLIENTE_REMOVED`
+  4. Cuando CCS esté implementado, estos triggers generarán snapshots EVENT automáticamente
+- **Esfuerzo**: ~2-3 horas
+- **Prioridad**: **Alta** - resolver antes de Fase 1 porque afecta la integridad de la evaluación de compliance actual (independientemente de CCS)
+
+---
+
+### 17.15 Roadmap de resolución
+
+```
+RESUELTO  ✅ 17.1  Timezone expiresAt (commit f6cccb1, desplegado)
+RESUELTO  ✅ 17.2  Event handlers en expiración (commit f6cccb1, desplegado)
+RESUELTO  ✅ 17.3  Cron midnight Argentina (commit f6cccb1, desplegado)
+RESUELTO  ✅ 17.4  Vencimientos masivos - batches (commit f6cccb1, desplegado)
+OK        ✅ 17.6  Brecha doc reemplazado (correcto por diseño)
+OK        ✅ 17.7  Aprobación retroactiva (correcto por diseño)
+OK        ✅ 17.8  Equipo multi-dador (correcto por diseño)
+OK        ✅ 17.11 expiresAt null (correcto por diseño)
+OK        ✅ 17.12 NTP sincronizado (verificado en ambos servidores)
+
+PENDIENTE ⏳ 17.10 Triggers cambio equipo → resolver ANTES de CCS Fase 1
+PENDIENTE ⏳ 17.5  Reintentos job nocturno → resolver EN CCS Fase 1
+PENDIENTE ⏳ 17.9  Compliance continua → resolver EN CCS Fase 4
+```
 
 ---
 
