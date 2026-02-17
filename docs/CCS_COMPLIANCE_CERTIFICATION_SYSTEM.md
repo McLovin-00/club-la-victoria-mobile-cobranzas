@@ -2,11 +2,14 @@
 
 ## Sistema de Certificación de Compliance para Equipos de Transporte
 
-**Versión**: 1.1  
-**Fecha**: 2026-02-11  
+**Versión**: 2.0  
+**Fecha**: 2026-02-17  
 **Autor**: Equipo de Arquitectura BCA  
 **Estado**: Diseño aprobado, pendiente implementación  
-**Changelog**: v1.1 - Agregado sistema de snapshots por evento (sección 6.5)
+**Changelog**:
+- v2.0 - Rediseño mayor: acceso exclusivamente autenticado (eliminación de verificación pública), marcas de agua en documentos, cifrado en reposo, AI propietaria on-premise, integración completa de prevención de fraude (sección 19), modelo de PDF autoverificable para terceros externos
+- v1.2 - Agregada sección 19: Prevención de Fraude y Verificación de Autenticidad Documental
+- v1.1 - Agregado sistema de snapshots por evento (sección 6.5)
 
 ---
 
@@ -25,8 +28,8 @@
 7. [Cadena de Hashes (Hash Chain)](#7-cadena-de-hashes-hash-chain)
 8. [Anclaje en Blockchain](#8-anclaje-en-blockchain)
 9. [Copia Congelada de Documentos (Nivel 3)](#9-copia-congelada-de-documentos-nivel-3)
-10. [Sistema de Verificación Pública](#10-sistema-de-verificación-pública)
-11. [Generación de Certificados PDF](#11-generación-de-certificados-pdf)
+10. [Consulta de Certificados (Acceso Autenticado)](#10-consulta-de-certificados-acceso-autenticado)
+11. [Generación de Certificados PDF (autoverificables)](#11-generación-de-certificados-pdf-autoverificables)
 12. [API Endpoints](#12-api-endpoints)
 13. [Scheduling y Jobs](#13-scheduling-y-jobs)
 14. [Estimaciones de Almacenamiento](#14-estimaciones-de-almacenamiento)
@@ -34,6 +37,8 @@
 16. [Fases de Implementación](#16-fases-de-implementación)
 17. [Escenarios Especiales y Casos Borde](#17-escenarios-especiales-y-casos-borde)
 18. [Consideraciones Futuras](#18-consideraciones-futuras)
+19. [Prevención de Fraude y Verificación de Autenticidad Documental](#19-prevención-de-fraude-y-verificación-de-autenticidad-documental)
+20. [Glosario](#20-glosario)
 
 ---
 
@@ -41,18 +46,21 @@
 
 El Compliance Certification System (CCS) permite certificar de forma criptográficamente verificable que un equipo de transporte (chofer + camión + acoplado + empresa transportista) cumplía con todos los requisitos documentales en una fecha determinada.
 
-El sistema genera **snapshots diarios automáticos** del estado de compliance de cada equipo activo, los firma digitalmente con RS256, los encadena mediante hashes (hash chain inmutable) y ancla periódicamente la cadena en una **blockchain pública** como prueba de existencia temporal.
+El sistema genera **snapshots automáticos** (diarios y por evento) del estado de compliance de cada equipo activo, los firma digitalmente con RS256, los encadena mediante hashes (hash chain inmutable) y ancla periódicamente la cadena en una **blockchain pública** como prueba de existencia temporal.
 
-Adicionalmente, se generan **copias congeladas** de los documentos originales (PDFs) vinculadas a cada certificado, permitiendo que un tercero no solo verifique el estado declarado sino que acceda a la evidencia documental real.
+Adicionalmente, se generan **copias congeladas** de los documentos originales vinculadas a cada certificado, se aplican **marcas de agua** dinámicas al servir documentos, se valida la autenticidad contra **fuentes oficiales** (SSN, ARCA, CNRT), y toda la IA de verificación corre **on-premise** para garantizar soberanía de datos.
+
+**Principio de acceso**: Todo acceso a certificados y documentos es **exclusivamente autenticado**. No existen endpoints públicos ni links de verificación sin login. Cada rol (dador, cliente, transportista, chofer) accede únicamente a la información que le corresponde desde su portal. Para terceros externos (reguladores, aseguradoras, jueces), se genera un **PDF autoverificable** que contiene la información criptográfica necesaria para validación offline independiente.
 
 ### Propuesta de valor
 
-| Actor | Beneficio |
-|---|---|
-| **Dador de carga** | Prueba irrefutable de que mantuvo su flota en compliance |
-| **Cliente** | Garantía verificable de que los equipos asignados cumplían requisitos |
-| **Regulador/Auditor** | Prueba con peso probatorio: firma digital + anclaje blockchain |
-| **Aseguradora** | Evidencia de due diligence documental en caso de siniestro |
+| Actor | Beneficio | Mecanismo de acceso |
+|---|---|---|
+| **Dador de carga** | Prueba irrefutable de que mantuvo su flota en compliance | Portal autenticado, generación de PDFs |
+| **Cliente** | Garantía verificable de que los equipos asignados cumplían requisitos | Portal autenticado, solo sus equipos asignados |
+| **Regulador/Auditor** | Prueba con peso probatorio: firma digital + anclaje blockchain | PDF autoverificable + Polygonscan |
+| **Aseguradora** | Evidencia de due diligence documental en caso de siniestro | PDF autoverificable provisto por el dador |
+| **Transportista** | Visibilidad de su propio estado documental | Portal autenticado, solo sus equipos |
 
 ---
 
@@ -89,26 +97,36 @@ Un sistema que genere, cada día, un **certificado inmutable** del estado de com
 
 | ID | Requisito | Prioridad |
 |---|---|---|
-| RF-01 | Generar snapshot diario automático de compliance de cada equipo activo | Alta |
-| RF-02 | Firmar cada snapshot con clave privada RS256 | Alta |
-| RF-03 | Encadenar snapshots mediante hash del snapshot anterior | Alta |
-| RF-04 | Generar copia congelada de los documentos asociados al snapshot | Alta |
-| RF-05 | Anclar el Merkle root diario en blockchain pública | Alta |
-| RF-06 | Permitir verificación pública sin autenticación (por token/QR) | Alta |
-| RF-07 | Generar certificado PDF descargable con QR de verificación | Media |
-| RF-08 | Permitir al dador generar certificados bajo demanda para fechas pasadas | Media |
-| RF-09 | Permitir al cliente verificar compliance de equipos asignados | Media |
-| RF-10 | Soportar certificación de flota completa (múltiples equipos, una fecha) | Media |
+| RF-01 | Generar snapshot diario automático (baseline) de compliance de cada equipo activo | Alta |
+| RF-02 | Generar snapshot por evento cuando un documento cambie de estado o cambie la composición del equipo | Alta |
+| RF-03 | Firmar cada snapshot con clave privada RS256 | Alta |
+| RF-04 | Encadenar snapshots mediante hash del snapshot anterior (hash chain por equipo) | Alta |
+| RF-05 | Generar copia congelada de los documentos asociados al snapshot | Alta |
+| RF-06 | Anclar el Merkle root diario en blockchain pública (Polygon) | Alta |
+| RF-07 | Consulta de certificados exclusivamente autenticada, filtrada por rol y permisos del usuario | Alta |
+| RF-08 | Aplicar marca de agua dinámica (visible + invisible) a todo documento servido, identificando al usuario que lo consulta | Alta |
+| RF-09 | Registrar declaración jurada electrónica del cargador al momento de subir cada documento | Alta |
+| RF-10 | Generar certificado PDF autoverificable con datos criptográficos completos para validación offline | Alta |
+| RF-11 | Permitir al dador generar certificados bajo demanda para fechas/horas pasadas | Media |
+| RF-12 | Permitir al cliente consultar compliance de sus equipos asignados desde su portal | Media |
+| RF-13 | Soportar certificación de flota completa (múltiples equipos, una fecha) | Media |
+| RF-14 | Cifrar documentos en reposo (MinIO SSE + disco LUKS) | Media |
+| RF-15 | Ejecutar toda la IA de verificación documental (OCR, clasificación, scoring) on-premise sin enviar datos a servicios externos | Media |
+| RF-16 | Verificar documentos contra fuentes oficiales cuando esté disponible (SSN para pólizas, ARCA para constancias fiscales) | Media |
+| RF-17 | Calcular y almacenar un nivel de confianza (trustLevel) en cada snapshot basado en las capas de verificación aplicadas | Media |
 
 ### 3.2 No funcionales
 
 | ID | Requisito | Métrica |
 |---|---|---|
 | RNF-01 | Snapshot de 1000 equipos en < 5 minutos | Job nocturno |
-| RNF-02 | Verificación pública responde en < 500ms | P95 |
+| RNF-02 | Consulta autenticada de certificados responde en < 500ms | P95 |
 | RNF-03 | Almacenamiento de snapshots escalable a 3 años | ~2M registros |
-| RNF-04 | Anclaje blockchain con costo < $1 USD/día | Polygon/Bitcoin |
-| RNF-05 | Copias congeladas accesibles durante 2 años mínimo | Política MinIO |
+| RNF-04 | Anclaje blockchain con costo < $1 USD/día | Polygon |
+| RNF-05 | Copias congeladas accesibles durante 2 años mínimo | Política MinIO WORM |
+| RNF-06 | Aplicación de marca de agua on-the-fly en < 2 segundos por documento | P95 |
+| RNF-07 | Ningún dato documental (imagen, PDF) sale de la infraestructura propia | Auditoría de red |
+| RNF-08 | Documentos cifrados en reposo con AES-256 (MinIO SSE) | Verificable via config |
 
 ### 3.3 Volumen estimado
 
@@ -124,53 +142,69 @@ Un sistema que genere, cada día, un **certificado inmutable** del estado de com
 ## 4. Arquitectura General
 
 ```
-┌─────────────────────────────────────────────────────────────┐
-│                    CAPA DE PRESENTACIÓN                       │
-│                                                               │
-│  Portal Dador          Portal Cliente         Portal Público  │
-│  ┌──────────────┐     ┌──────────────┐     ┌──────────────┐  │
-│  │ Generar       │     │ Ver compliance│     │ Verificar     │  │
-│  │ certificado   │     │ de equipos    │     │ certificado   │  │
-│  │ bajo demanda  │     │ asignados     │     │ por token/QR  │  │
-│  └──────┬───────┘     └──────┬───────┘     └──────┬───────┘  │
-└─────────┼───────────────────┼───────────────────┼───────────┘
-          │                   │                   │
-          ▼                   ▼                   ▼
-┌─────────────────────────────────────────────────────────────┐
-│                    CAPA DE SERVICIOS                          │
-│                                                               │
-│  ┌─────────────────────────────────────────────────────┐     │
-│  │            ComplianceCertificationService              │     │
-│  │                                                       │     │
-│  │  ┌─────────────┐ ┌──────────────┐ ┌──────────────┐  │     │
-│  │  │  Snapshot    │ │  Hash Chain   │ │  Blockchain   │  │     │
-│  │  │  Generator   │ │  Manager      │ │  Anchor       │  │     │
-│  │  └──────┬──────┘ └──────┬───────┘ └──────┬───────┘  │     │
-│  │         │               │                │           │     │
-│  │  ┌──────┴──────┐ ┌──────┴───────┐ ┌──────┴───────┐  │     │
-│  │  │  Document   │ │  Certificate  │ │  Verification │  │     │
-│  │  │  Freezer    │ │  PDF Builder  │ │  Service      │  │     │
-│  │  └─────────────┘ └──────────────┘ └──────────────┘  │     │
-│  └─────────────────────────────────────────────────────┘     │
-│                                                               │
-│  Servicios existentes reutilizados:                           │
-│  ┌─────────────────┐ ┌─────────────────┐ ┌──────────────┐   │
-│  │ ComplianceService│ │  MinIOService    │ │EquipoService │   │
-│  └─────────────────┘ └─────────────────┘ └──────────────┘   │
-└─────────────────────────────────────────────────────────────┘
-          │                   │                   │
-          ▼                   ▼                   ▼
-┌─────────────────────────────────────────────────────────────┐
-│                    CAPA DE PERSISTENCIA                       │
-│                                                               │
-│  ┌──────────────┐  ┌──────────────┐  ┌──────────────────┐   │
-│  │  PostgreSQL   │  │  MinIO        │  │  Blockchain       │   │
-│  │              │  │              │  │  (Polygon/Bitcoin) │   │
-│  │ - Snapshots  │  │ - Docs       │  │                    │   │
-│  │ - Merkle     │  │   congelados │  │ - Merkle root      │   │
-│  │ - Tokens     │  │ - PDFs cert. │  │   diario           │   │
-│  └──────────────┘  └──────────────┘  └──────────────────┘   │
-└─────────────────────────────────────────────────────────────┘
+┌──────────────────────────────────────────────────────────────────────┐
+│                       CAPA DE PRESENTACIÓN                            │
+│                   (todo acceso requiere autenticación)                 │
+│                                                                       │
+│  Portal Dador/Admin     Portal Cliente       Portal Transportista     │
+│  ┌────────────────┐    ┌────────────────┐   ┌────────────────┐       │
+│  │ Generar certs   │    │ Ver compliance  │   │ Ver estado      │       │
+│  │ bajo demanda    │    │ de SUS equipos  │   │ de SUS equipos  │       │
+│  │ Descargar PDF   │    │ Descargar docs  │   │ Ver faltantes   │       │
+│  │ Ver toda la     │    │ (con watermark) │   │                 │       │
+│  │ flota + audit   │    │ Ver blockchain  │   │                 │       │
+│  └───────┬────────┘    └───────┬────────┘   └───────┬────────┘       │
+└──────────┼─────────────────────┼─────────────────────┼────────────────┘
+           │                     │                     │
+           ▼                     ▼                     ▼
+┌──────────────────────────────────────────────────────────────────────┐
+│                       CAPA DE SERVICIOS                               │
+│                                                                       │
+│  ┌────────────────────────────────────────────────────────────┐      │
+│  │              ComplianceCertificationService                  │      │
+│  │                                                              │      │
+│  │  ┌──────────────┐ ┌──────────────┐ ┌──────────────────┐   │      │
+│  │  │  Snapshot     │ │  Hash Chain   │ │  Blockchain       │   │      │
+│  │  │  Generator    │ │  Manager      │ │  Anchor           │   │      │
+│  │  └──────┬───────┘ └──────┬───────┘ └──────┬───────────┘   │      │
+│  │         │                │                │                │      │
+│  │  ┌──────┴───────┐ ┌─────┴────────┐ ┌─────┴────────────┐  │      │
+│  │  │  Document    │ │  Certificate  │ │  Watermark         │  │      │
+│  │  │  Freezer     │ │  PDF Builder  │ │  Service           │  │      │
+│  │  └──────────────┘ └──────────────┘ └──────────────────┘  │      │
+│  └────────────────────────────────────────────────────────────┘      │
+│                                                                       │
+│  ┌────────────────────────────────────────────────────────────┐      │
+│  │                Capa de Verificación de Fraude                │      │
+│  │                                                              │      │
+│  │  ┌──────────────┐ ┌──────────────┐ ┌──────────────────┐   │      │
+│  │  │  AI on-prem   │ │  External     │ │  Trust            │   │      │
+│  │  │  OCR + Class.  │ │  Verification │ │  Scoring          │   │      │
+│  │  │  + Scoring     │ │  (SSN, ARCA)  │ │  Engine           │   │      │
+│  │  └──────────────┘ └──────────────┘ └──────────────────┘   │      │
+│  └────────────────────────────────────────────────────────────┘      │
+│                                                                       │
+│  Servicios existentes reutilizados:                                   │
+│  ┌──────────────────┐ ┌──────────────────┐ ┌──────────────────┐     │
+│  │ ComplianceService │ │  MinIOService     │ │ EquipoService    │     │
+│  └──────────────────┘ └──────────────────┘ └──────────────────┘     │
+└──────────────────────────────────────────────────────────────────────┘
+           │                     │                     │
+           ▼                     ▼                     ▼
+┌──────────────────────────────────────────────────────────────────────┐
+│                       CAPA DE PERSISTENCIA                            │
+│                    (todo cifrado en reposo)                            │
+│                                                                       │
+│  ┌──────────────────┐ ┌──────────────────┐ ┌──────────────────┐     │
+│  │  PostgreSQL       │ │  MinIO (SSE)      │ │  Blockchain       │     │
+│  │  (disco LUKS)     │ │  (Object Lock)    │ │  (Polygon)        │     │
+│  │                   │ │                   │ │                   │     │
+│  │ - Snapshots       │ │ - Docs congelados │ │ - Merkle root     │     │
+│  │ - Merkle anchors  │ │   (cifrados AES)  │ │   diario          │     │
+│  │ - Audit logs      │ │ - PDFs cert.      │ │                   │     │
+│  │ - Declaraciones   │ │   (WORM)          │ │                   │     │
+│  └──────────────────┘ └──────────────────┘ └──────────────────┘     │
+└──────────────────────────────────────────────────────────────────────┘
 ```
 
 ---
@@ -245,10 +279,18 @@ model ComplianceSnapshot {
   // Firma RS256 del contentHash usando la clave privada del sistema
   signature         String   @map("signature") @db.Text
 
-  // --- VERIFICACIÓN ---
+  // --- CONFIANZA Y VERIFICACIÓN ---
 
-  // Token corto para verificación pública (8 caracteres alfanuméricos)
-  verificationToken String   @unique @map("verification_token") @db.VarChar(16)
+  // Nivel de confianza en la autenticidad de los documentos (calculado por las capas de fraude)
+  trustLevel        CCSTrustLevel @default(UNVERIFIED) @map("trust_level")
+
+  // Desglose del cálculo de confianza (JSON)
+  // Estructura: { documentsVerifiedExternally, documentsWithDeclaration,
+  //   documentsWithHighScore, documentsWithAlerts, transportistaReputationScore }
+  trustBreakdown    Json?    @map("trust_breakdown")
+
+  // Referencia interna del certificado (UUID corto para URLs internas del portal)
+  certificateRef    String   @unique @default(uuid()) @map("certificate_ref") @db.Uuid
 
   // --- DOCUMENTOS CONGELADOS ---
 
@@ -280,7 +322,7 @@ model ComplianceSnapshot {
   @@index([equipoId, fecha, timestamp])
   @@index([equipoId, timestamp])
   @@index([dadorCargaId, fecha])
-  @@index([verificationToken])
+  @@index([certificateRef])
   @@index([contentHash])
   @@index([snapshotType, fecha])
   @@map("compliance_snapshots")
@@ -312,7 +354,7 @@ model DailyMerkleAnchor {
   // Número de bloque donde se incluyó
   blockNumber       Int?     @map("block_number")
 
-  // URL del explorador para verificación pública
+  // URL del explorador blockchain (Polygonscan) para verificación independiente
   explorerUrl       String?  @map("explorer_url") @db.VarChar(500)
 
   // Estado del anclaje
@@ -332,47 +374,76 @@ model DailyMerkleAnchor {
   @@map("daily_merkle_anchors")
 }
 
-/// Tokens de acceso para verificación pública y compartir certificados.
-/// Permite acceso sin autenticación a snapshots específicos.
-model CertificateAccessToken {
+/// Registro de auditoría de acceso a certificados y documentos congelados.
+/// Cada vez que un usuario autenticado consulta un certificado o descarga un
+/// documento, se crea un registro inmutable.
+model CertificateAccessAudit {
   id                String   @id @default(uuid()) @db.Uuid
   tenantEmpresaId   Int      @map("tenant_empresa_id")
 
-  // Quién generó el token
-  createdByUserId   Int      @map("created_by_user_id")
+  // Quién accedió
+  userId            Int      @map("user_id")
+  userEmail         String   @map("user_email") @db.VarChar(255)
+  userRole          String   @map("user_role") @db.VarChar(50)
 
-  // Tipo de token
-  tokenType         CCSTokenType @map("token_type")
+  // Qué accedió
+  snapshotId        String?  @map("snapshot_id") @db.Uuid
+  equipoId          Int?     @map("equipo_id")
+  accessType        CCSAccessType @map("access_type")
 
-  // Token público (12 caracteres alfanuméricos, URL-safe)
-  publicToken       String   @unique @map("public_token") @db.VarChar(24)
+  // Detalles
+  // Para DOCUMENT_VIEW/DOWNLOAD: índice del documento, templateId, nombre
+  // Para CERTIFICATE_VIEW: datos del certificado consultado
+  // Para PDF_DOWNLOAD: referencia al PDF generado
+  details           Json?    @map("details")
 
-  // Alcance del token
-  // Para SINGLE: un equipoId + una fecha
-  // Para RANGE: un equipoId + fecha desde/hasta
-  // Para FLEET: lista de equipoIds + una fecha
-  equipoIds         Int[]    @map("equipo_ids")
-  fechaDesde        DateTime @map("fecha_desde") @db.Date
-  fechaHasta        DateTime @map("fecha_hasta") @db.Date
+  // Marca de agua aplicada (referencia del tracking code)
+  watermarkCode     String?  @map("watermark_code") @db.VarChar(32)
 
-  // Permisos
-  allowDocumentDownload Boolean @default(true) @map("allow_document_download")
+  // Contexto de la request
+  ipAddress         String   @map("ip_address") @db.VarChar(45)
+  userAgent         String?  @map("user_agent") @db.VarChar(500)
 
-  // Vigencia del token
-  expiresAt         DateTime? @map("expires_at")
-  active            Boolean   @default(true)
+  createdAt         DateTime @default(now()) @map("created_at")
 
-  // Auditoría de uso
-  accessCount       Int       @default(0) @map("access_count")
-  lastAccessedAt    DateTime? @map("last_accessed_at")
-  lastAccessedIp    String?   @map("last_accessed_ip") @db.VarChar(45)
+  @@index([tenantEmpresaId, userId])
+  @@index([snapshotId])
+  @@index([equipoId, createdAt])
+  @@index([watermarkCode])
+  @@map("certificate_access_audit")
+}
 
-  createdAt         DateTime  @default(now()) @map("created_at")
+/// Declaración jurada electrónica asociada a la carga de un documento.
+/// Se crea al momento en que el usuario confirma la declaración al subir un archivo.
+/// Inmutable: una vez creada, no se modifica ni se elimina.
+model DocumentUploadDeclaration {
+  id                String   @id @default(uuid()) @db.Uuid
+  tenantEmpresaId   Int      @map("tenant_empresa_id")
 
-  @@index([publicToken])
-  @@index([tenantEmpresaId, createdByUserId])
-  @@index([expiresAt])
-  @@map("certificate_access_tokens")
+  // Documento al que se asocia la declaración
+  documentId        Int      @map("document_id")
+
+  // Quién declaró
+  userId            Int      @map("user_id")
+  userEmail         String   @map("user_email") @db.VarChar(255)
+  userRole          String   @map("user_role") @db.VarChar(50)
+
+  // Hash SHA-256 del archivo al momento de la declaración
+  // Permite vincular la declaración al archivo exacto subido
+  fileHashAtDeclaration String @map("file_hash_at_declaration") @db.VarChar(64)
+
+  // Versión del texto legal de la declaración (para auditabilidad si cambia)
+  declarationVersion    String @default("1.0") @map("declaration_version") @db.VarChar(10)
+
+  // Contexto del dispositivo (hash de IP por privacidad, no IP cruda)
+  ipHash            String   @map("ip_hash") @db.VarChar(64)
+  userAgent         String?  @map("user_agent") @db.VarChar(500)
+
+  createdAt         DateTime @default(now()) @map("created_at")
+
+  @@index([documentId])
+  @@index([tenantEmpresaId, userId])
+  @@map("document_upload_declarations")
 }
 
 // --- ENUMS ---
@@ -397,11 +468,21 @@ enum CCSAnchorStatus {
   FAILED                // Falló el envío (se reintenta)
 }
 
-enum CCSTokenType {
-  SINGLE                // Un equipo, una fecha
-  RANGE                 // Un equipo, rango de fechas
-  FLEET                 // Múltiples equipos, una fecha
-  RECURRING             // Actualización diaria automática
+enum CCSTrustLevel {
+  HIGH                  // >80% docs verificados externamente o score promedio >0.85 sin alertas
+  MEDIUM                // Docs con declaración jurada, sin verificación externa completa
+  LOW                   // Al menos un doc con alerta activa o score <0.60
+  UNVERIFIED            // Sin verificación externa ni scoring
+}
+
+enum CCSAccessType {
+  CERTIFICATE_VIEW      // Consultó un certificado
+  CERTIFICATE_PDF       // Descargó el PDF de un certificado
+  DOCUMENT_VIEW         // Visualizó un documento congelado (con watermark)
+  DOCUMENT_DOWNLOAD     // Descargó un documento congelado (con watermark)
+  HASH_VERIFICATION     // Solicitó verificación de hash de un documento
+  CHAIN_VERIFICATION    // Verificó la integridad de la cadena
+  TIMELINE_VIEW         // Consultó la timeline de compliance
 }
 ```
 
@@ -541,7 +622,7 @@ enum CCSTokenType {
 │     │ f. Calcular contentHash = SHA-256(JSON canónico)   │    │
 │     │ g. Obtener previousHash del snapshot anterior      │    │
 │     │ h. Firmar contentHash con RS256                    │    │
-│     │ i. Generar verificationToken (8 chars aleatorios)  │    │
+│     │ i. Generar certificateRef (UUID)                    │    │
 │     │ j. Copiar documentos a bucket de compliance        │    │
 │     │ k. Insertar ComplianceSnapshot en DB               │    │
 │     └────────────────────────────────────────────────────┘    │
@@ -1052,223 +1133,379 @@ Esto reduce el almacenamiento en ~80% (la mayoría de los documentos no cambian 
 
 ---
 
-## 10. Sistema de Verificación Pública
+## 10. Consulta de Certificados (Acceso Autenticado)
 
-### 10.1 Flujo de verificación por token
+> **Principio fundamental**: No existe ningún endpoint público de consulta de certificados. Todo acceso requiere autenticación JWT y se filtra por rol y permisos. La trazabilidad es completa: cada consulta queda registrada con la identidad del usuario.
 
-```
-┌──────────┐         ┌──────────────┐         ┌──────────────┐
-│  Cliente  │ ──(1)──▶│  GET /verify  │ ──(2)──▶│  Buscar       │
-│  (browser)│         │  /:token      │         │  snapshot por  │
-│           │         │  (sin auth)   │         │  token         │
-│           │◀──(5)── │              │◀──(3)── │              │
-│           │         │              │ ──(4)──▶│  Verificar     │
-│  Ver      │         │  Renderizar  │         │  firma +       │
-│  resultado│         │  resultado   │         │  cadena +      │
-│  + docs   │         │              │         │  merkle proof  │
-└──────────┘         └──────────────┘         └──────────────┘
-```
+### 10.1 Modelo de acceso por rol
 
-### 10.2 Respuesta de verificación
+| Rol | Qué puede ver | Qué puede descargar | Restricción |
+|---|---|---|---|
+| **SUPERADMIN** | Todos los certificados de todos los tenants | Todos los documentos, PDFs | Sin restricción |
+| **ADMIN / ADMIN_INTERNO** | Todos los certificados de su tenant | Todos los documentos, PDFs | Solo su `tenantEmpresaId` |
+| **DADOR_DE_CARGA** | Certificados de equipos de su dador | Documentos, PDFs | Solo sus equipos (`dadorCargaId`) |
+| **CLIENTE** | Certificados de equipos que tiene asignados | Documentos con marca de agua | Solo equipos donde `equipoCliente.clienteId` = su clienteId |
+| **TRANSPORTISTA** | Estado documental de sus propios equipos | Sus propios documentos | No accede a certificados formales del CCS |
+| **CHOFER** | Estado de sus propios documentos | Sus propios documentos | No accede a certificados del CCS |
 
-```jsonc
-{
-  "verified": true,
-  "certificate": {
-    "id": "550e8400-e29b-41d4-a716-446655440000",
-    "fecha": "2026-01-15",
-    "timestamp": "2026-01-15T10:15:00.000Z",
-    "snapshotType": "EVENT",
-    "daySequence": 1,
-    "triggerEvent": "DOCUMENT_APPROVED",
-    "estadoGlobal": "COMPLETO",
-    "equipo": {
-      "chofer": { "dni": "24644385", "nombre": "NELSON LEONEL PALMA" },
-      "camion": { "patente": "AB123CD", "marca": "SCANIA R500" },
-      "acoplado": { "patente": "XY789ZW", "tipo": "SEMI" },
-      "empresaTransportista": { "cuit": "20-12345678-9", "razonSocial": "TRANSPORTES DEL SUR S.A." }
-    },
-    "documentos": [
-      {
-        "nombre": "Licencia Nacional de Conducir",
-        "entidad": "Chofer - 24644385",
-        "estado": "VIGENTE",
-        "vencimiento": "2026-06-30",
-        "downloadUrl": "/api/docs/compliance/verify/ABC12345/doc/0"
-      }
-      // ... más documentos
-    ],
-    "clientes": ["ARCOR S.A."],
-    "timeline": [
-      { "timestamp": "2026-01-15T03:00:00Z", "type": "BASELINE", "estado": "INCOMPLETO" },
-      { "timestamp": "2026-01-15T10:15:00Z", "type": "EVENT", "estado": "COMPLETO", "event": "ART aprobada" },
-      { "timestamp": "2026-01-15T14:30:00Z", "type": "EVENT", "estado": "VENCIDO", "event": "Seguro venció" }
-    ],
-    "verificacion": {
-      "firmaValida": true,
-      "cadenaIntegra": true,
-      "blockchainAnclado": true,
-      "blockchainTx": "0x1234...abcd",
-      "blockchainExplorer": "https://polygonscan.com/tx/0x1234...abcd",
-      "merkleProofValido": true
-    }
-  }
-}
-```
-
-> Nota: el campo `timeline` muestra todos los snapshots del día para ese equipo, permitiendo al verificador ver la evolución intra-día de la compliance. El snapshot devuelto es el que corresponde al momento consultado (ver sección 6.6).
-
-### 10.3 Acceso a documentos congelados
-
-Cuando el token tiene `allowDocumentDownload: true`, cada documento incluye una URL temporal para descarga:
+### 10.2 Flujo de consulta del cliente
 
 ```
-GET /api/docs/compliance/verify/{token}/doc/{index}
+┌────────────────┐       ┌──────────────────┐       ┌──────────────────┐
+│  Cliente        │       │  Portal           │       │  Backend          │
+│  (autenticado)  │       │  (React)          │       │  (Express + CCS)  │
+│                 │       │                   │       │                   │
+│  1. Login       │──────▶│                   │──────▶│ JWT + role check  │
+│                 │◀──────│                   │◀──────│ → token válido    │
+│                 │       │                   │       │                   │
+│  2. "Mis        │──────▶│ GET /equipos      │──────▶│ Filtra por        │
+│     Equipos"    │◀──────│  ?clienteId=X     │◀──────│ equipoCliente     │
+│                 │       │                   │       │ → solo SUS equipos│
+│                 │       │                   │       │                   │
+│  3. Equipo 19   │──────▶│ GET /compliance/  │──────▶│ Verifica permiso  │
+│     → Certs     │◀──────│  equipos/19/certs │◀──────│ → lista de certs  │
+│                 │       │                   │       │                   │
+│  4. Ver cert    │──────▶│ GET /compliance/  │──────▶│ Verifica firma    │
+│     detalle     │◀──────│  snapshots/:id    │◀──────│ + cadena + merkle │
+│                 │       │                   │       │ + blockchain      │
+│                 │       │                   │       │ → cert verificado │
+│                 │       │                   │       │                   │
+│  5. Ver doc     │──────▶│ GET /compliance/  │──────▶│ 1. Verifica perm. │
+│     (Póliza)    │◀──────│  snapshots/:id/   │◀──────│ 2. Obtiene copia  │
+│                 │       │  docs/:idx        │       │    congelada      │
+│     (con marca  │       │                   │       │ 3. Aplica marca   │
+│      de agua)   │       │                   │       │    de agua        │
+│                 │       │                   │       │ 4. Registra audit │
+│                 │       │                   │       │ 5. Retorna doc    │
+└────────────────┘       └──────────────────┘       └──────────────────┘
 ```
 
-Este endpoint:
-1. Valida el token y su vigencia
-2. Obtiene la ruta del documento congelado en MinIO
-3. Genera una presigned URL (15 minutos)
-4. Redirige al cliente a la presigned URL
-5. Registra el acceso en `accessCount` / `lastAccessedAt`
+### 10.3 Qué ve el cliente al consultar un certificado
+
+**Vista de lista (pestaña "Certificados de Compliance" en la página del equipo):**
+
+```
+┌──────────────────────────────────────────────────────────────────┐
+│  Certificados de Compliance - Equipo 19 - Prosil S.A.            │
+│                                                                   │
+│  Fecha/Hora          Tipo       Estado       Confianza  Blockchain│
+│  ─────────────────────────────────────────────────────────────────│
+│  16/02/26 03:00     BASELINE   ● COMPLETO   🟢 HIGH    ✅ Anclado│
+│  15/02/26 14:30     EVENTO     ● VENCIDO    🟢 HIGH    ✅ Anclado│
+│  15/02/26 10:15     EVENTO     ● COMPLETO   🟢 HIGH    ✅ Anclado│
+│  15/02/26 03:00     BASELINE   ● INCOMPLETO 🟡 MEDIUM  ✅ Anclado│
+│  14/02/26 03:00     BASELINE   ● COMPLETO   🟢 HIGH    ✅ Anclado│
+│                                                                   │
+│  [◀ Anterior]  Página 1 de 12  [Siguiente ▶]                    │
+└──────────────────────────────────────────────────────────────────┘
+```
+
+**Vista de detalle (al hacer click en un certificado):**
+
+Sección 1 — **Verificación criptográfica** (prominente, lo primero):
+- Firma RS256: Válida / Inválida
+- Cadena de integridad: Íntegra / Rota (con posición en la cadena)
+- Anclaje blockchain: Confirmado en Polygon, bloque #45,231,789 (link a Polygonscan)
+- Merkle proof: Válido (incluido en el root anclado)
+- Trust Level: HIGH / MEDIUM / LOW / UNVERIFIED (con tooltip explicando los criterios)
+
+Sección 2 — **Datos del equipo** (congelados al momento del certificado):
+- Chofer, Camión, Acoplado, Empresa Transportista (con identificadores)
+
+Sección 3 — **Tabla de documentos por entidad**:
+- Cada documento con: nombre, estado, vencimiento, verificación externa (si aplica), botón "Ver documento"
+- Columna adicional: "Declaración jurada" (checkmark si el cargador firmó la declaración)
+
+Sección 4 — **Timeline del día** (si es un equipo con múltiples eventos):
+- Muestra la evolución intra-día de la compliance con cada transición
+
+Sección 5 — **Acciones**:
+- "Descargar PDF" (genera PDF autoverificable, registra en audit)
+- "Descargar Excel" (resumen tabular)
+- "Verificar integridad de cadena" (ejecuta verificación on-demand)
+
+### 10.4 Servicio de documentos con marca de agua
+
+Cada vez que un documento congelado se sirve a un usuario, se aplica una marca de agua dinámica en tiempo real. **El archivo original en MinIO nunca se modifica.**
+
+#### Marca de agua visible
+
+Se superpone en diagonal sobre todas las páginas del documento:
+
+```
+Línea 1: "CONSULTADO POR: YPF S.A. (juan.perez@ypf.com)"
+Línea 2: "FECHA: 16/02/2026 15:30:42 UTC"
+Línea 3: "TRACKING: WM-A7K92M"
+```
+
+- Opacidad: 15-20% (legible sin impedir lectura del contenido)
+- Color: gris oscuro sobre fondo claro, o gris claro sobre fondo oscuro
+- Rotación: -30° en diagonal
+- Repetición: cada ~200px para cubrir toda la superficie
+
+#### Marca de agua invisible (esteganográfica)
+
+Adicionalmente, se embeben datos invisibles:
+- Bits de información codificados en los valores menos significativos de los píxeles (LSB)
+- Payload: userId + timestamp + snapshotId (suficiente para identificar la fuente de una fuga)
+- Resistente a: recompresión JPEG moderada, redimensionamiento, impresión y re-escaneo parcial
+- El código de tracking `WM-A7K92M` se registra en `CertificateAccessAudit.watermarkCode`
+
+#### Excepción para verificación de hash
+
+Un endpoint especial sirve el documento **sin marca de agua** exclusivamente para que el usuario pueda verificar que el SHA-256 coincide con el registrado en el certificado. Este endpoint:
+- Requiere autenticación
+- No permite descarga directa (muestra solo el hash calculado del archivo en tiempo real)
+- Registra el acceso como `HASH_VERIFICATION` en el audit
+
+### 10.5 Acceso para terceros externos (sin cuenta en el sistema)
+
+Cuando el dador necesita presentar un certificado ante un regulador, aseguradora, juez u otro tercero que no tiene cuenta en BCA:
+
+**Mecanismo: PDF autoverificable offline** (ver sección 11 para detalle del PDF)
+
+1. El dador genera y descarga el PDF desde su portal autenticado
+2. El PDF contiene todos los datos del certificado + datos criptográficos completos
+3. El dador envía el PDF al tercero por el canal que prefiera (email, impreso, etc.)
+4. El tercero puede verificar **sin acceder al sistema BCA**:
+   - Toma los datos criptográficos del PDF
+   - Verifica la firma RS256 con la clave pública de BCA (publicada en el sitio web corporativo)
+   - Verifica el Merkle proof recalculando el root
+   - Verifica el root en Polygonscan (blockchain pública, accesible sin credenciales)
+5. Si el tercero necesita ver los documentos originales, el dador los adjunta al envío (con su marca de agua de "Descargado por [dador]")
+
+**El PDF tiene un QR** que apunta a la URL del certificado en el portal: `https://bca.dominio.com/documentos/certificados/{certificateRef}`. Si alguien escanea el QR:
+- Sin login: ve la pantalla de login
+- Con login y con permiso: ve el certificado completo
+- Con login pero sin permiso: ve "Acceso denegado"
+
+**Este diseño garantiza** que la información confidencial nunca se expone sin autenticación, pero que la verificación criptográfica (hashes, firma, blockchain) es siempre posible de forma independiente porque se basa en criptografía de clave pública y blockchain, ambas verificables sin confiar en el sistema BCA.
 
 ---
 
-## 11. Generación de Certificados PDF
+## 11. Generación de Certificados PDF (autoverificables)
+
+El PDF es el **único artefacto que sale del perímetro autenticado**. Por eso, debe ser autosuficiente para verificación: contiene toda la información criptográfica necesaria para que un tercero sin acceso al sistema pueda validar su autenticidad de forma independiente.
 
 ### 11.1 Contenido del PDF
 
 ```
-┌────────────────────────────────────────────────────┐
-│                                                      │
-│  ╔══════════════════════════════════════════════╗    │
-│  ║  CERTIFICADO DE COMPLIANCE DOCUMENTAL        ║    │
-│  ║  Sistema BCA - Gestión de Transporte         ║    │
-│  ╚══════════════════════════════════════════════╝    │
-│                                                      │
-│  Fecha de certificación: 15 de enero de 2026        │
-│  Certificado N°: CCS-2026-0115-00047                │
-│  Token de verificación: ABC12345                     │
-│                                                      │
-│  ┌────────────────────────────────────────────┐     │
-│  │ EQUIPO                                      │     │
-│  ├────────────────────────────────────────────┤     │
-│  │ Chofer:      NELSON LEONEL PALMA           │     │
-│  │              DNI 24.644.385                │     │
-│  │ Camión:      Patente AB 123 CD             │     │
-│  │              SCANIA R500                    │     │
-│  │ Acoplado:    Patente XY 789 ZW             │     │
-│  │              SEMI                           │     │
-│  │ Transportista: TRANSPORTES DEL SUR S.A.    │     │
-│  │              CUIT 20-12345678-9             │     │
-│  └────────────────────────────────────────────┘     │
-│                                                      │
-│  ┌────────────────────────────────────────────┐     │
-│  │ ESTADO DE DOCUMENTACIÓN          ● COMPLETO│     │
-│  ├──────────────────────┬─────────┬───────────┤     │
-│  │ Documento            │ Estado  │ Vence     │     │
-│  ├──────────────────────┼─────────┼───────────┤     │
-│  │ Licencia de Conducir │ ✅ OK   │ 30/06/26  │     │
-│  │ Seguro del Vehículo  │ ✅ OK   │ 15/03/26  │     │
-│  │ VTV Camión           │ ✅ OK   │ 20/08/26  │     │
-│  │ VTV Acoplado         │ ✅ OK   │ 12/09/26  │     │
-│  │ ART                  │ ✅ OK   │ 01/04/26  │     │
-│  │ RUTA / Habilitación  │ ✅ OK   │ 30/12/26  │     │
-│  └──────────────────────┴─────────┴───────────┘     │
-│                                                      │
-│  ┌────────────────────────────────────────────┐     │
-│  │ VERIFICACIÓN CRIPTOGRÁFICA                  │     │
-│  ├────────────────────────────────────────────┤     │
-│  │ Content Hash:  a3f2b8c1d4e5...             │     │
-│  │ Firma RS256:   Válida ✅                    │     │
-│  │ Cadena:        Íntegra ✅ (registro #47)   │     │
-│  │ Blockchain:    Polygon tx 0x1234...abcd    │     │
-│  │ Bloque:        #45,231,789                  │     │
-│  └────────────────────────────────────────────┘     │
-│                                                      │
-│  ┌──────┐  Verificar este certificado:              │
-│  │ [QR] │  https://bca.dominio.com/verificar/       │
-│  │      │  ABC12345                                  │
-│  └──────┘                                            │
-│                                                      │
-│  Este certificado fue generado automáticamente por   │
-│  el sistema BCA y firmado digitalmente. Los datos    │
-│  están anclados en la blockchain de Polygon.         │
-│  La alteración de cualquier dato invalida la firma.  │
-│                                                      │
-└────────────────────────────────────────────────────┘
+┌──────────────────────────────────────────────────────────┐
+│                                                            │
+│  ╔════════════════════════════════════════════════════╗   │
+│  ║  CERTIFICADO DE COMPLIANCE DOCUMENTAL              ║   │
+│  ║  Sistema BCA - Gestión de Transporte               ║   │
+│  ╚════════════════════════════════════════════════════╝   │
+│                                                            │
+│  Fecha de certificación: 15 de enero de 2026              │
+│  Hora exacta: 10:15:00 UTC (07:15:00 Argentina)          │
+│  Certificado N°: CCS-2026-0115-00047                      │
+│  Tipo: EVENTO (ART aprobada)                              │
+│  Nivel de confianza: ALTO                                 │
+│                                                            │
+│  ┌──────────────────────────────────────────────────┐    │
+│  │ EQUIPO                                            │    │
+│  ├──────────────────────────────────────────────────┤    │
+│  │ Chofer:      NELSON LEONEL PALMA                  │    │
+│  │              DNI 24.644.385                       │    │
+│  │ Camión:      Patente AB 123 CD                    │    │
+│  │              SCANIA R500                           │    │
+│  │ Acoplado:    Patente XY 789 ZW                    │    │
+│  │              SEMI                                  │    │
+│  │ Transportista: TRANSPORTES DEL SUR S.A.           │    │
+│  │              CUIT 20-12345678-9                    │    │
+│  └──────────────────────────────────────────────────┘    │
+│                                                            │
+│  ┌──────────────────────────────────────────────────┐    │
+│  │ ESTADO DE DOCUMENTACIÓN              ● COMPLETO   │    │
+│  ├───────────────────────┬────────┬──────┬──────────┤    │
+│  │ Documento             │ Estado │Vence │Verif.ext.│    │
+│  ├───────────────────────┼────────┼──────┼──────────┤    │
+│  │ Licencia de Conducir  │ ✅ OK  │30/06 │ -        │    │
+│  │ Seguro del Vehículo   │ ✅ OK  │15/03 │SSN ✅    │    │
+│  │ VTV Camión            │ ✅ OK  │20/08 │ -        │    │
+│  │ VTV Acoplado          │ ✅ OK  │12/09 │ -        │    │
+│  │ ART                   │ ✅ OK  │01/04 │ -        │    │
+│  │ Constancia ARCA       │ ✅ OK  │ -    │ARCA ✅   │    │
+│  └───────────────────────┴────────┴──────┴──────────┘    │
+│                                                            │
+│  ┌──────────────────────────────────────────────────┐    │
+│  │ VERIFICACIÓN CRIPTOGRÁFICA                        │    │
+│  ├──────────────────────────────────────────────────┤    │
+│  │ Content Hash: a3f2b8c1d4e5f6a7b8c9d0e1f2a3b4c5  │    │
+│  │               d6e7f8a9b0c1d2e3f4a5b6c7d8e9f0a1  │    │
+│  │ Previous Hash: b4c3d2e1f0a9b8c7d6e5f4a3b2c1d0e9 │    │
+│  │               f8a7b6c5d4e3f2a1b0c9d8e7f6a5b4c3  │    │
+│  │ Firma RS256: [base64, primera línea visible,      │    │
+│  │               completa en Anexo A]                │    │
+│  │                                                    │    │
+│  │ Merkle Root:  c5d4e3f2a1b0c9d8e7f6a5b4c3d2e1f0  │    │
+│  │               a9b8c7d6e5f4a3b2c1d0e9f8a7b6c5d4  │    │
+│  │ Merkle Index: 47 de 1523 snapshots                │    │
+│  │                                                    │    │
+│  │ Blockchain:   Polygon (Mainnet)                    │    │
+│  │ TX Hash:      0x1234567890abcdef...               │    │
+│  │ Bloque:       #45,231,789                          │    │
+│  │ Explorer:     polygonscan.com/tx/0x1234...         │    │
+│  └──────────────────────────────────────────────────┘    │
+│                                                            │
+│  ┌──────────────────────────────────────────────────┐    │
+│  │ CÓMO VERIFICAR ESTE CERTIFICADO SIN ACCESO AL    │    │
+│  │ SISTEMA BCA (verificación independiente):         │    │
+│  │                                                    │    │
+│  │ 1. Obtenga la clave pública RS256 de BCA desde:   │    │
+│  │    https://bca.dominio.com/.well-known/ccs-key    │    │
+│  │                                                    │    │
+│  │ 2. Recalcule el Content Hash:                      │    │
+│  │    SHA-256 de los datos canónicos (ver Anexo B)    │    │
+│  │                                                    │    │
+│  │ 3. Verifique la firma RS256 del Content Hash       │    │
+│  │    con la clave pública                            │    │
+│  │                                                    │    │
+│  │ 4. Verifique el Merkle proof (Anexo C) para        │    │
+│  │    confirmar inclusión en el Merkle Root            │    │
+│  │                                                    │    │
+│  │ 5. Busque la transacción en Polygonscan y          │    │
+│  │    confirme que el Merkle Root coincide             │    │
+│  └──────────────────────────────────────────────────┘    │
+│                                                            │
+│  ┌──────┐  Acceso al certificado en el portal:            │
+│  │ [QR] │  https://bca.dominio.com/documentos/            │
+│  │      │  certificados/550e8400-e29b-41d4-a716           │
+│  └──────┘  (requiere credenciales de acceso)              │
+│                                                            │
+│  ANEXO A: Firma RS256 completa (base64)                   │
+│  ANEXO B: Datos canónicos (JSON serializado)              │
+│  ANEXO C: Merkle proof (lista de hashes hermanos)         │
+│                                                            │
+│  Generado por: admin@bca.com (ADMIN_INTERNO)              │
+│  Fecha de generación del PDF: 16/02/2026 15:30 UTC       │
+│  Marca de agua: WM-B8J43N                                 │
+│                                                            │
+│  Este certificado fue generado por el sistema BCA y       │
+│  firmado digitalmente. Los datos están anclados en la     │
+│  blockchain de Polygon. La alteración de cualquier dato   │
+│  invalida la firma RS256 y el Merkle proof.               │
+│                                                            │
+└──────────────────────────────────────────────────────────┘
 ```
 
-### 11.2 Librería de generación
+### 11.2 Anexos del PDF
 
-Se utilizará `pdfkit` (ya presente en el proyecto para otras funcionalidades) para generar los certificados PDF. Los PDFs se almacenan en el bucket de compliance junto a las copias congeladas.
+El PDF incluye 3 anexos técnicos que permiten verificación offline completa:
+
+**Anexo A** — Firma RS256 completa en base64 (puede ser de varios cientos de caracteres). Un auditor técnico la copia y la verifica con `openssl dgst -sha256 -verify pubkey.pem -signature sig.bin data.bin`.
+
+**Anexo B** — JSON canónico completo del snapshot (los mismos datos que se hashearon para producir el Content Hash). Esto permite a un tercero recalcular el hash y verificar que coincide. El JSON está formateado con indentación para legibilidad pero se incluye también la versión canónica (una línea, keys ordenadas) como texto monoespaciado.
+
+**Anexo C** — Merkle proof: lista ordenada de hashes hermanos con indicación de posición (izquierda/derecha). Siguiendo el algoritmo estándar, se puede recalcular el Merkle root a partir del Content Hash y estos hashes.
+
+### 11.3 Marca de agua en el PDF
+
+El PDF de certificado se genera con marca de agua visible que identifica a quien lo generó:
+- "Generado por: [nombre del usuario] ([email]) - [fecha/hora]"
+- Código de tracking registrado en `CertificateAccessAudit`
+- Si el PDF se filtra, se puede rastrear hasta el usuario que lo generó
+
+### 11.4 Librería de generación
+
+Se utilizará `pdfkit` (ya presente en el proyecto) para generar los certificados PDF. Los PDFs se almacenan en el bucket de compliance junto a las copias congeladas. Cada generación de PDF queda registrada en `CertificateAccessAudit` con `accessType: CERTIFICATE_PDF`.
 
 ---
 
 ## 12. API Endpoints
 
-### 12.1 Endpoints autenticados (Portal Dador / Admin)
+> **Todos los endpoints requieren autenticación JWT** (`Authorization: Bearer <token>`). Los datos se filtran según el rol del usuario autenticado y sus permisos (tenant, dador, cliente).
+
+### 12.1 Endpoints de certificados (Dador / Admin)
 
 ```
 # Generar certificado bajo demanda para un equipo y fecha/hora
 POST /api/docs/compliance/certificates
 Body: { equipoId: number, fecha: string, hora?: string }
+Roles: SUPERADMIN, ADMIN, ADMIN_INTERNO, DADOR_DE_CARGA
 # Si hora es null, se usa el último snapshot del día (23:59:59)
 # Si hora es "10:30", se busca el snapshot vigente a las 10:30
-Response: { certificateId, verificationToken, pdfUrl, snapshotTimestamp }
+Response: { certificateId, certificateRef, pdfUrl, snapshotTimestamp }
 
 # Generar certificado de flota (múltiples equipos, una fecha)
 POST /api/docs/compliance/certificates/fleet
 Body: { equipoIds: number[], fecha: string, clienteId?: number }
-Response: { certificates: Array<{ equipoId, certificateId, verificationToken }>, fleetToken }
+Roles: SUPERADMIN, ADMIN, ADMIN_INTERNO, DADOR_DE_CARGA
+Response: { certificates: Array<{ equipoId, certificateId, certificateRef }> }
 
-# Listar certificados generados
+# Listar certificados / snapshots
 GET /api/docs/compliance/certificates?equipoId=&fechaDesde=&fechaHasta=&page=&limit=
+Roles: SUPERADMIN, ADMIN, ADMIN_INTERNO, DADOR_DE_CARGA, CLIENTE
+# Para CLIENTE: filtro automático por sus equipos asignados
 Response: { certificates: [...], total, page, totalPages }
+```
 
-# Generar token de acceso para compartir
-POST /api/docs/compliance/certificates/share
-Body: { certificateIds: string[], tokenType, expiresInDays?: number, allowDocumentDownload: boolean }
-Response: { publicToken, verificationUrl, expiresAt }
+### 12.2 Endpoints de consulta (todos los roles autenticados)
 
+```
 # Ver historial de compliance de un equipo (incluyendo eventos intra-día)
 GET /api/docs/compliance/history/:equipoId?fechaDesde=&fechaHasta=&includeEvents=true
-Response: { snapshots: Array<{ fecha, timestamp, snapshotType, triggerEvent?, estadoGlobal, contentHash }> }
+Roles: SUPERADMIN, ADMIN, ADMIN_INTERNO, DADOR_DE_CARGA, CLIENTE
+# CLIENTE: solo si equipoCliente.clienteId coincide
 # Con includeEvents=false (default), solo devuelve baselines
 # Con includeEvents=true, devuelve baselines + eventos (timeline completa)
+Response: { snapshots: Array<{ fecha, timestamp, snapshotType, triggerEvent?, estadoGlobal, trustLevel, contentHash }> }
+
+# Ver detalle de un snapshot / certificado (incluye verificación criptográfica en vivo)
+GET /api/docs/compliance/snapshots/:id
+Roles: SUPERADMIN, ADMIN, ADMIN_INTERNO, DADOR_DE_CARGA, CLIENTE
+# Ejecuta verificación: firma RS256, hash chain, merkle proof, blockchain
+Response: { snapshot: { ... }, verification: { firmaValida, cadenaIntegra, merkleProofValido, blockchainAnclado, blockchainTx, explorerUrl } }
 
 # Verificar integridad de la cadena de un equipo
 GET /api/docs/compliance/chain/:equipoId/verify
+Roles: SUPERADMIN, ADMIN, ADMIN_INTERNO
 Response: { valid: boolean, chainLength: number, brokenAt?: string }
 
 # Estado del anclaje blockchain del día
 GET /api/docs/compliance/anchor/:fecha
-Response: { merkleRoot, anchorStatus, transactionHash, explorerUrl }
+Roles: SUPERADMIN, ADMIN, ADMIN_INTERNO
+Response: { merkleRoot, anchorStatus, transactionHash, explorerUrl, snapshotCount }
 ```
 
-### 12.2 Endpoints públicos (sin autenticación)
+### 12.3 Endpoints de documentos congelados (con marca de agua)
 
 ```
-# Verificar certificado por token (opcionalmente especificar hora)
-GET /api/docs/compliance/verify/:token?hora=10:30
-# Sin hora: devuelve el snapshot al que apunta el token
-# Con hora: busca el snapshot del equipo vigente a esa hora dentro del rango del token
-Response: { verified, certificate: { ..., timeline: [...] }, verificacion: { ... } }
+# Ver/descargar documento congelado de un snapshot (con marca de agua visible + invisible)
+GET /api/docs/compliance/snapshots/:snapshotId/docs/:index
+Roles: SUPERADMIN, ADMIN, ADMIN_INTERNO, DADOR_DE_CARGA, CLIENTE
+# CLIENTE: solo si tiene permiso sobre el equipo
+# Aplica marca de agua dinámica con identidad del usuario
+# Registra acceso en CertificateAccessAudit
+Response: application/pdf (con marca de agua)
 
-# Descargar documento congelado (si el token lo permite)
-GET /api/docs/compliance/verify/:token/doc/:index
-Response: Redirect a presigned URL de MinIO
+# Verificar hash de un documento (sin descargar, sin marca de agua)
+POST /api/docs/compliance/snapshots/:snapshotId/docs/:index/verify-hash
+Roles: SUPERADMIN, ADMIN, ADMIN_INTERNO, DADOR_DE_CARGA, CLIENTE
+# Calcula SHA-256 del archivo original en MinIO y lo compara con el registrado
+Response: { matches: boolean, expectedHash: string, calculatedHash: string }
 
-# Descargar PDF del certificado
-GET /api/docs/compliance/verify/:token/pdf
+# Descargar PDF del certificado (con marca de agua del descargador)
+GET /api/docs/compliance/snapshots/:snapshotId/pdf
+Roles: SUPERADMIN, ADMIN, ADMIN_INTERNO, DADOR_DE_CARGA, CLIENTE
+# Genera PDF autoverificable con anexos criptográficos
+# Aplica marca de agua identificando al descargador
+# Registra acceso en CertificateAccessAudit
 Response: application/pdf
-
-# Verificar hash de un documento contra el certificado
-POST /api/docs/compliance/verify/:token/check-hash
-Body: { documentIndex: number, fileHash: string }
-Response: { matches: boolean, expectedHash: string }
 ```
+
+### 12.4 Endpoint de clave pública (único endpoint sin autenticación)
+
+```
+# Obtener la clave pública RS256 del CCS para verificación offline de firmas
+GET /api/docs/compliance/.well-known/ccs-key
+# Sin autenticación - la clave pública es información pública por definición
+# Devuelve la clave en formato PEM y JWK
+Response: { pem: string, jwk: object, kid: string, algorithm: "RS256" }
+```
+
+Este es el **único endpoint que no requiere autenticación**, y solo expone la clave pública (que por definición es pública y no compromete la seguridad). Es necesario para que terceros externos puedan verificar firmas de los PDFs autoverificables.
 
 ---
 
@@ -1346,8 +1583,9 @@ async function weeklyIntegrityCheck(): Promise<void> {
 | ComplianceSnapshot (baselines) | ~2 KB | 1,000 | 365,000 |
 | ComplianceSnapshot (eventos) | ~2 KB | ~1,000 (promedio) | ~365,000 |
 | DailyMerkleAnchor | ~0.5 KB | 1 | 365 |
-| CertificateAccessToken | ~0.3 KB | ~20 | ~7,300 |
-| **Total DB anual** | | | **~1.5 GB** |
+| CertificateAccessAudit | ~0.5 KB | ~200 | ~73,000 |
+| DocumentUploadDeclaration | ~0.3 KB | ~50 | ~18,250 |
+| **Total DB anual** | | | **~1.8 GB** |
 
 > Nota: con snapshots por evento, el volumen de DB se duplica aproximadamente respecto a solo baselines. Sigue siendo trivial para PostgreSQL.
 
@@ -1373,105 +1611,263 @@ async function weeklyIntegrityCheck(): Promise<void> {
 
 ## 15. Seguridad
 
-### 15.1 Clave de firma
+### 15.1 Clave de firma RS256
 
-- Se reutiliza el par de claves RS256 existente (`JWT_PRIVATE_KEY` / `JWT_PUBLIC_KEY`)
-- La clave privada **nunca** se expone en endpoints públicos
-- Los endpoints de verificación usan la clave **pública** para validar firmas
-- Consideración futura: rotar a un par de claves dedicado para CCS, separado de JWT
+- Se reutiliza el par de claves RS256 existente (`JWT_PRIVATE_KEY` / `JWT_PUBLIC_KEY`) para la primera fase
+- La clave privada **nunca** se expone en endpoints — solo la clave pública se publica en `/.well-known/ccs-key`
+- Consideración para fases posteriores: rotar a un par de claves **dedicado** para CCS (`CCS_PRIVATE_KEY` / `CCS_PUBLIC_KEY`), separado de JWT de sesión
+- Key ID (`kid`) almacenado en cada snapshot para soportar rotación futura (ver sección 18.5)
+- Cada snapshot incluye el `kid` de la clave usada para su firma, permitiendo verificar snapshots antiguos con claves anteriores
 
-### 15.2 Tokens de verificación
+### 15.2 Control de acceso basado en roles
 
-- Generados con `crypto.randomBytes(6).toString('base64url')` (8 caracteres)
-- Entropía: 48 bits = ~281 billones de combinaciones (suficiente para el volumen esperado)
-- Rate-limiting en el endpoint de verificación: 30 requests/minuto por IP
-- El token no revela información sobre el equipo ni el dador
+- **Todo acceso a certificados y documentos requiere JWT válido** — no existen endpoints públicos de consulta
+- El sistema de permisos filtra por: `tenantEmpresaId`, `dadorCargaId`, `clienteId`, `transportistaId`, `choferId`
+- Un cliente solo puede ver certificados de equipos que tiene asignados en `equipo_cliente`
+- Un dador solo puede ver certificados de equipos de sus flotas
+- Cada consulta registra una entrada inmutable en `CertificateAccessAudit`
+- Rate-limiting por usuario: 60 requests/minuto para consultas, 10/minuto para generación de PDFs
+- Logs de acceso retenidos por 5 años (no eliminables por usuario, solo por política de retención automática)
 
 ### 15.3 Acceso a documentos congelados
 
-- Las presigned URLs de MinIO expiran en 15 minutos
-- Solo se generan si el `CertificateAccessToken` tiene `allowDocumentDownload: true`
-- Se registra cada acceso (IP, timestamp, contador)
-- El dador puede revocar tokens en cualquier momento (`active: false`)
+- Los documentos nunca se sirven directamente desde MinIO al usuario (no hay presigned URLs directas)
+- El backend hace proxy del documento desde MinIO, le aplica marca de agua, y lo sirve al usuario
+- Esto garantiza que:
+  - **Siempre** se aplica marca de agua (no hay forma de obtener el documento sin ella)
+  - **Siempre** se registra el acceso en el audit trail
+  - Las credenciales de MinIO **nunca** se exponen al cliente
+- El único caso donde el documento se sirve sin marca de agua es para verificación de hash (endpoint `/verify-hash`), y en ese caso el backend solo devuelve el hash calculado, nunca el archivo
 
 ### 15.4 Inmutabilidad
 
-- Los snapshots son write-once: no existen endpoints de actualización ni eliminación
-- La cadena de hashes detecta cualquier alteración retroactiva
-- El anclaje blockchain es verificable independientemente del sistema BCA
-- Las copias congeladas en MinIO pueden configurarse con Object Lock (WORM) si se requiere
+- Los snapshots son **write-once**: no existen endpoints de actualización ni eliminación
+- La cadena de hashes detecta cualquier alteración retroactiva (el hash anterior está incluido en el contenido firmado)
+- El anclaje blockchain es verificable **independientemente** del sistema BCA (cualquiera con el Merkle root puede verificar en Polygonscan)
+- Las copias congeladas en MinIO se configuran con **Object Lock (WORM)**: una vez escritas, ni el admin puede borrarlas antes de la fecha de retención
+- Los registros de `CertificateAccessAudit` y `DocumentUploadDeclaration` son append-only (no hay endpoints UPDATE/DELETE)
 
 ### 15.5 Wallet blockchain
 
 - La clave privada del wallet se almacena en variable de entorno (`CCS_ANCHOR_WALLET_PRIVATE_KEY`)
-- El wallet solo necesita un balance mínimo de MATIC para gas (~$1 cubre meses de operación)
-- Monitorear balance y alertar cuando baje de un umbral
+- **Nunca** se expone en logs ni respuestas de API
+- El wallet solo necesita un balance mínimo de MATIC para gas (~$1 cubre meses de operación en Polygon)
+- Monitorear balance y alertar cuando baje del umbral configurado
+- Wallet separado del wallet operativo de la empresa (si existe)
+
+### 15.6 Cifrado en reposo
+
+| Capa | Mecanismo | Protege contra |
+|---|---|---|
+| **Disco del servidor** | LUKS (Linux Unified Key Setup) con AES-256-XTS | Robo físico del servidor o disco |
+| **MinIO** | Server-Side Encryption (SSE-S3) con clave maestra en HashiCorp Vault o env var | Acceso no autorizado al bucket de MinIO |
+| **PostgreSQL** | Disco LUKS + TDE si se usa PostgreSQL Enterprise (opcional) | Acceso directo a los archivos de datos de PG |
+| **Backups** | GPG simétrico (AES-256) antes de transferir a almacenamiento externo | Interceptación de backups |
+
+**Supuestos importantes:**
+- La clave de cifrado de disco (LUKS) se desbloquea al boot con una clave en un volumen separado o por operador
+- La clave de MinIO SSE es diferente a la clave LUKS
+- Las claves nunca se almacenan en el mismo volumen que los datos cifrados
+- Rotación anual de claves SSE (MinIO soporta rekeying transparente)
+
+### 15.7 Soberanía de datos y AI propietaria
+
+**Requisito absoluto: ningún documento sale de la infraestructura propia.**
+
+| Componente | Modelo | Ejecución | Justificación |
+|---|---|---|---|
+| OCR | Tesseract 5 o PaddleOCR | On-premise (Docker) | Extracción de texto sin enviar a APIs externas |
+| Clasificación de documentos | Modelo fine-tuned (BERT/DistilBERT) | On-premise (Docker) | Detecta tipo de doc y campos clave |
+| Scoring de autenticidad | LLM local (Mistral 7B o Llama 3) via Ollama/Flowise | On-premise (Docker) | Análisis de coherencia, detección de anomalías |
+| ELA (Error Level Analysis) | Sharp + librería propia | On-premise (Node.js) | Detección de manipulación de imágenes |
+| Verificación externa | API de SSN, ARCA (scraping controlado) | On-premise (request directo) | Validación contra fuentes oficiales |
+
+**Controles de soberanía:**
+- Firewall del servidor de AI: solo permite tráfico entrante desde los servidores de la aplicación BCA
+- No se permite salida a internet desde el contenedor de AI (excepto actualizaciones de modelos controladas)
+- Los modelos se descargan y actualizan manualmente por el equipo de operaciones
+- Auditoría trimestral de tráfico de red para verificar que no hay fugas de datos
+
+### 15.8 Marcas de agua (watermarking)
+
+Las marcas de agua son un control de **trazabilidad ante fugas** y un **disuasorio** para compartir documentos indebidamente.
+
+**Marca de agua visible:**
+- Se aplica en el backend al momento de servir el documento (nunca se almacena el doc con marca de agua)
+- Contenido: identidad del usuario + fecha/hora + código de tracking
+- Posición: diagonal, repetida, 15-20% opacidad
+- Resistente a: recorte parcial (se repite en toda la superficie)
+
+**Marca de agua invisible (esteganográfica):**
+- Se embeben bits de información en los valores LSB (Least Significant Bit) de los píxeles
+- Payload: `userId + timestamp + snapshotId`
+- Sobrevive: recompresión JPEG moderada (~85%), redimensionamiento hasta 50%, impresión y re-escaneo
+- No sobrevive: recompresión agresiva (<50%), OCR + reconstrucción de texto, rotación extrema
+- Cada marca de agua tiene un código de tracking (`WM-XXXXXX`) registrado en `CertificateAccessAudit`
+- En caso de fuga, se puede identificar al usuario que obtuvo el documento
+
+**Implementación:**
+- Para PDFs: se usa `pdfkit` para superponer la marca visible, `pdf-lib` para inspección
+- Para imágenes (fotos de documentos): se usa `sharp` para marca visible + `steg-write` para marca invisible
+- El servicio `WatermarkService` es stateless y se invoca on-the-fly (no se almacenan versiones watermarked)
+
+### 15.9 Protección de documentos en tránsito
+
+- Todo el tráfico entre servicios usa HTTPS (TLS 1.2+)
+- Dentro de la red Docker interna, el tráfico entre contenedores es aislado por red virtual
+- Las conexiones a MinIO dentro de Docker usan HTTP (aceptable en red interna aislada) pero se puede habilitar TLS si se expone MinIO externamente
+- La conexión a PostgreSQL usa SSL si está configurado (`sslmode=require`)
+- Las conexiones al frontend se hacen via Nginx con HTTPS obligatorio y HSTS
 
 ---
 
 ## 16. Fases de Implementación
 
-### Fase 1: Snapshots diarios + Cadena de Hashes (1 semana)
+### Fase 1: Snapshots + Cadena de Hashes + Declaración Jurada (2 semanas)
 
 **Entregables**:
-- Migración Prisma: tablas `ComplianceSnapshot`, `DailyMerkleAnchor`, `CertificateAccessToken`
+- Migración Prisma: tablas `ComplianceSnapshot`, `DailyMerkleAnchor`, `CertificateAccessAudit`, `DocumentUploadDeclaration`
 - Servicio `ComplianceCertificationService`:
   - `generateSnapshot(equipoId, fecha)` (para baselines)
   - `generateEventSnapshot(equipoId, event, documentId)` (para eventos)
-  - `generateDailySnapshots()` (batch nocturno)
+  - `generateDailySnapshots()` (batch nocturno con reintentos automáticos)
   - `getSnapshotAtTime(equipoId, targetDateTime)` (resolución temporal)
   - `computeContentHash(data)`
   - `signSnapshot(contentHash)`
   - `buildMerkleTree(snapshots)`
-- Job nocturno con cron configurable
+- Job nocturno con cron configurable + reintentos automáticos en caso de fallo
 - Integración con event handlers existentes (onDocumentApproved, onDocumentRejected, etc.)
 - Debounce de eventos via Redis (ventana de 5 minutos por equipo)
-- Endpoint de verificación básico: `GET /api/docs/compliance/verify/:token`
+- **Declaración jurada electrónica**: modal en el frontend al subir documentos, registro en `DocumentUploadDeclaration`
+- **Cifrado en reposo**: configurar MinIO SSE-S3 + LUKS en discos de datos
+- Endpoint de consulta autenticado: `GET /api/docs/compliance/snapshots/:id`
+- Middleware de auditoría: toda consulta crea `CertificateAccessAudit`
 
-**Criterio de aceptación**: 
+**Criterio de aceptación**:
 - Snapshot baseline diario funcionando para todos los equipos activos
 - Snapshots por evento generados al aprobar/rechazar/vencer un documento
+- Declaración jurada registrada para toda carga de documento nueva
 - Consulta por hora devuelve el snapshot correcto
-- Verificable por token
+- Toda consulta queda registrada en audit trail
+- Datos cifrados en reposo (verificable en config de MinIO y LUKS)
 
-### Fase 2: Copias Congeladas + Verificación Completa (1 semana)
+### Fase 2: Copias Congeladas + Marcas de Agua (2 semanas)
 
 **Entregables**:
 - Servicio `DocumentFreezerService`:
   - `freezeDocuments(snapshot)` (completo para baselines)
   - `freezeSingleDocument(snapshot, documentId)` (solo el doc cambiado para eventos)
-  - `getPresignedUrl(snapshot, docIndex)`
-  - `verifyDocumentHash(snapshot, docIndex, hash)`
+  - `verifyDocumentHash(snapshot, docIndex)`
 - Deduplicación de archivos congelados (referencia a baseline para eventos)
-- Endpoint de descarga de documentos congelados
-- Endpoint de verificación de hash de documentos
+- MinIO Object Lock (WORM) habilitado en bucket de compliance
+- Servicio `WatermarkService`:
+  - `applyVisibleWatermark(document, userInfo)` (marca visible dinámica)
+  - `applyInvisibleWatermark(image, trackingPayload)` (esteganografía LSB)
+  - `extractWatermark(image)` (para investigación de fugas)
+- Endpoint de documentos con marca de agua: `GET /api/docs/compliance/snapshots/:id/docs/:idx`
+- Endpoint de verificación de hash (sin descargar): `POST /api/docs/compliance/snapshots/:id/docs/:idx/verify-hash`
 - Endpoint autenticado para generar certificados bajo demanda (con hora opcional)
 
-**Criterio de aceptación**: Documentos congelados accesibles desde el endpoint de verificación pública, incluyendo documentos de snapshots por evento.
+**Criterio de aceptación**:
+- Documentos congelados accesibles solo via endpoints autenticados, con marca de agua
+- Verificación de hash funcional sin exponer el documento original
+- WORM activo: intentar borrar un doc congelado falla con error
 
-### Fase 3: Blockchain + PDF (1 semana)
+### Fase 3: Blockchain + PDF Autoverificable (1-2 semanas)
 
 **Entregables**:
 - Integración con Polygon:
-  - Contrato `ComplianceAnchor` deployado
-  - Servicio de envío de transacciones
-  - Job de reintento de anclajes fallidos
-- Generación de PDF con QR
+  - Contrato `ComplianceAnchor` deployado en Polygon Mainnet
+  - Servicio de envío de transacciones con reintentos
+  - Job de reintento de anclajes fallidos (hasta 3 intentos con backoff exponencial)
+  - Monitoreo de balance de wallet con alertas
+- Generación de PDF autoverificable con `pdfkit`:
+  - Datos del certificado + verificación criptográfica
+  - Anexos A (firma), B (datos canónicos), C (Merkle proof)
+  - Marca de agua identificando al generador del PDF
+  - QR apuntando al portal autenticado
+  - Instrucciones de verificación independiente
 - Merkle proof almacenado en cada snapshot
-- Endpoint de verificación completa (firma + cadena + merkle + blockchain)
+- Publicación de clave pública en `/.well-known/ccs-key`
 
-**Criterio de aceptación**: Merkle root anclado diariamente en Polygon, verificable en Polygonscan.
+**Criterio de aceptación**:
+- Merkle root anclado diariamente en Polygon, verificable en Polygonscan
+- PDF descargable que permite verificación offline completa a un tercero
+- QR del PDF lleva a login del portal (no a endpoint público)
 
-### Fase 4: Portal de Verificación + Tokens Compartidos (3-5 días)
+### Fase 4: Portales Autenticados de Consulta (2 semanas)
 
 **Entregables**:
-- Página web de verificación pública (componente React)
-- Endpoints de generación y gestión de tokens de acceso
-- Integración en portal dador: botón "Generar certificado"
-- Integración en portal cliente: vista de compliance certificada
-- Dashboard de tokens emitidos y su uso
+- Frontend — Portal Dador/Admin:
+  - Pestaña "Certificados CCS" en la página de equipo
+  - Vista de detalle de certificado con verificación en vivo
+  - Botón "Generar Certificado" bajo demanda (con hora opcional)
+  - Botón "Descargar PDF" y "Verificar Cadena"
+  - Dashboard de certificados de flota completa
+- Frontend — Portal Cliente:
+  - Vista de compliance certificada de equipos asignados
+  - Listado de certificados con filtros (fecha, estado, confianza)
+  - Descarga de documentos (con marca de agua visible)
+  - Indicador visual de verificación blockchain
+- Frontend — Portal Transportista:
+  - Vista de estado documental de sus equipos (simplificado)
+- Auditoría:
+  - Dashboard de accesos para SUPERADMIN (quién vio qué, cuándo)
+  - Exportación de logs de acceso
 
-**Criterio de aceptación**: Un cliente puede recibir un link, ver el certificado, descargar documentos y verificar la autenticidad en blockchain.
+**Criterio de aceptación**:
+- Un cliente autenticado ve los certificados de sus equipos asignados y puede descargar documentos con marca de agua
+- Un dador genera PDFs y los descarga para enviar a terceros
+- Toda acción queda registrada en el audit trail
+- Un SUPERADMIN puede ver el dashboard de accesos
+
+### Fase 5: Verificación contra Fuentes Oficiales (3-4 semanas)
+
+**Entregables**:
+- Integraciones con fuentes oficiales (prioridad según disponibilidad):
+  - SSN (Superintendencia de Seguros): verificación de vigencia de pólizas
+  - ARCA (ex AFIP): verificación de constancia de inscripción / situación fiscal
+  - CNRT (consulta de habilitaciones de transporte) — cuando esté disponible
+  - DNRPA (verificación de titularidad vehicular) — investigación
+- Servicio `ExternalVerificationService`:
+  - `verifyDocument(document, templateType)` → resultado + confianza
+  - Cache de resultados (24h para evitar requests excesivos)
+  - Retry con backoff para fuentes inestables
+- Campo `externalVerifications` agregado al snapshot (JSON con resultados por documento)
+- Columna "Verificación externa" en la tabla de documentos del certificado
+
+**Criterio de aceptación**:
+- Pólizas de seguro se verifican contra SSN (al menos vigencia + N° de póliza)
+- Constancias fiscales se verifican contra ARCA
+- El certificado muestra el resultado de la verificación externa
+
+### Fase 6: AI de Scoring + Trust Level (3-4 semanas)
+
+**Entregables**:
+- Stack de AI on-premise:
+  - Contenedor Docker con Ollama + Mistral 7B (o Llama 3 8B)
+  - Contenedor Docker con PaddleOCR para extracción de texto
+  - Contenedor Docker con Sharp para ELA (Error Level Analysis)
+- Servicio `DocumentScoringService`:
+  - `scoreDocument(document)` → `{ score: 0-1, alerts: [], details: {} }`
+  - Score basado en: metadata (30%), ELA (20%), OCR coherencia (30%), LLM (20%)
+  - Alertas automáticas para score < 0.60
+- Servicio `TrustScoringEngine`:
+  - Calcula `trustLevel` del snapshot basado en:
+    - % de docs verificados externamente
+    - Score promedio de AI
+    - Existencia de declaraciones juradas
+    - Alertas activas
+    - Reputación del transportista (historial de fraude)
+  - Almacena `trustLevel` y `trustBreakdown` en el snapshot
+- Dashboard de alertas de fraude para ADMIN
+- Inspección de metadata automática al subir documentos
+
+**Criterio de aceptación**:
+- Cada documento subido recibe un score de autenticidad
+- Los snapshots reflejan el `trustLevel` calculado
+- Alertas de fraude aparecen en el dashboard de admin
+- Toda la AI corre on-premise sin salida de datos a internet
 
 ---
 
@@ -1867,53 +2263,544 @@ PENDIENTE ⏳ 17.9  Compliance continua → resolver EN CCS Fase 4
 
 ## 18. Consideraciones Futuras
 
-### 18.1 Certificación para organismos públicos
+### 18.1 Certificación con validez legal reforzada (para sede judicial / organismos públicos)
 
-Si se requiere presentar certificaciones ante la CNRT, aseguradoras o en sede judicial:
-- Agregar sello de tiempo RFC 3161 (TSA) como complemento al blockchain
-- Evaluar firma digital con certificado X.509 emitido por autoridad certificante argentina
-- Los anclajes en blockchain constituyen prueba de existencia temporal bajo legislación argentina (Ley 27.275 de acceso a información pública, principio de transparencia)
+Si se requiere presentar certificaciones ante la CNRT, aseguradoras o en sede judicial, el modelo actual (PDF autoverificable + blockchain) puede reforzarse con:
+
+- **Sello de tiempo RFC 3161 (TSA)**: contratar un servicio de TSA certificado (por ejemplo, el de la ONTI argentina) para que cada snapshot reciba un sello de tiempo con validez legal. Esto complementa la prueba de blockchain con un sello emitido por una autoridad reconocida.
+- **Firma digital con certificado X.509**: usar un certificado de firma digital emitido por una autoridad certificante argentina (AC-RAIZ / AC-ONTI) para firmar los PDFs con firma digital calificada (bajo Ley 25.506 de Firma Digital). Esto otorga al PDF la misma validez legal que un documento firmado ante escribano.
+- **Pericia forense**: los anclajes en blockchain constituyen prueba de existencia temporal. La cadena hash + WORM + audit trail conforman un ecosistema de evidencia digital que cumple con la Ley 26.388 (delitos informáticos) y estándares de cadena de custodia digital.
+
+**Mecanismo de entrega a terceros sin cuenta:**
+El dador genera el PDF autoverificable desde su portal, lo descarga (con marca de agua identificándolo), y lo presenta al organismo. El organismo verifica el PDF de forma independiente (clave pública + blockchain). Si necesita documentos originales, el dador los adjunta con su marca de agua. **Nunca se otorga acceso al sistema a un tercero externo.**
 
 ### 18.2 Multi-tenant
 
-El diseño ya soporta multi-tenant: cada snapshot incluye `tenantEmpresaId`. Los buckets de MinIO están separados por tenant. Los Merkle trees podrían separarse por tenant o mantenerse unificados (un solo root = mayor eficiencia de anclaje).
+El diseño ya soporta multi-tenant: cada snapshot incluye `tenantEmpresaId`. Los buckets de MinIO están separados por tenant. Los Merkle trees se mantienen unificados (un solo root por día = mayor eficiencia de anclaje, un solo costo de blockchain). El `tenantEmpresaId` se incluye en el contenido hasheado, así que cada tenant puede verificar sus propios snapshots independientemente.
 
-### 18.3 API para integraciones externas
+### 18.3 API para integraciones externas (autenticada con API Keys)
 
 Exponer una API REST documentada (OpenAPI) para que sistemas de terceros (ERPs, TMSs) puedan:
 - Solicitar certificados programáticamente
 - Verificar compliance antes de asignar cargas
 - Integrar el estado de compliance en sus propios dashboards
 
+**Mecanismo de autenticación**: API Keys con scopes (no JWT de usuario):
+- Cada integración recibe un par de claves (client_id + client_secret)
+- Los scopes definen qué equipos/clientes puede consultar
+- Rate-limiting estricto por API key
+- Las API Keys se gestionan desde el portal Admin
+- Toda consulta via API Key queda registrada en el audit trail
+
 ### 18.4 Notificaciones proactivas
 
-- Notificar al dador cuando un equipo pasa de COMPLETO a INCOMPLETO
-- Alertar al cliente cuando un equipo asignado pierde compliance
-- Resumen semanal de compliance de flota
+- Notificar al dador cuando un equipo pasa de COMPLETO a INCOMPLETO (email + in-app)
+- Alertar al cliente cuando un equipo asignado pierde compliance (email + in-app)
+- Resumen semanal de compliance de flota (email programado)
+- Alerta de fraude: notificación inmediata al admin cuando un score de AI cae por debajo del umbral
 
 ### 18.5 Rotación de claves
 
 Implementar un mecanismo de rotación de claves RS256:
 - Almacenar Key ID (`kid`) en cada snapshot
-- Mantener claves públicas históricas para verificar snapshots antiguos
+- El endpoint `/.well-known/ccs-key` devuelve todas las claves públicas activas (actual + históricas)
+- Mantener claves públicas históricas para verificar snapshots antiguos (mínimo 5 años después de rotación)
 - Rotar anualmente o ante compromiso
+- Los PDFs generados incluyen el `kid` para que el verificador sepa qué clave usar
+
+### 18.6 Auditoría de marcas de agua
+
+Si se detecta una fuga de documentos, implementar un flujo de investigación:
+1. El admin sube la imagen/PDF filtrado al sistema
+2. El sistema extrae la marca de agua invisible (esteganografía)
+3. Identifica: usuario, fecha/hora, snapshot consultado
+4. Se cruza con el registro de `CertificateAccessAudit`
+5. Se genera un reporte de incidente
 
 ---
 
-## Glosario
+## 19. Prevención de Fraude y Verificación de Autenticidad Documental
+
+### 19.1 El problema
+
+El CCS certifica que un equipo de transporte **tenía documentación vigente y aprobada** en una fecha determinada. Sin embargo, la certificación por sí sola no garantiza que los documentos subidos al sistema sean **auténticos**. Un documento falsificado (póliza editada, licencia adulterada, constancia inventada) que sea aprobado por un operador pasaría todas las validaciones del CCS: tendría su hash, su firma, su anclaje en blockchain, pero la información de base sería falsa.
+
+La prevención de fraude documental es un complemento indispensable del CCS. Mientras el CCS responde **"¿tenía los documentos al día?"**, la capa de autenticidad responde **"¿esos documentos son reales?"**.
+
+### 19.2 Tres dimensiones del problema
+
+Es fundamental distinguir tres aspectos que se resuelven con herramientas diferentes:
+
+| Dimensión | Pregunta clave | Herramientas |
+|---|---|---|
+| **Autenticidad del documento** | ¿Es este el documento original emitido por la entidad? | Verificación contra fuentes oficiales, análisis forense |
+| **Integridad post-carga** | ¿Nadie lo alteró después de subirlo? | SHA-256 + firma RS256 + hash chain + blockchain (ya resuelto por CCS) |
+| **Responsabilidad del cargador** | ¿Quién lo subió y se responsabiliza de su veracidad? | Declaración jurada electrónica, audit trail, firma electrónica |
+
+La dimensión 2 ya está resuelta por el CCS (secciones 6-8). Las dimensiones 1 y 3 se abordan en esta sección.
+
+### 19.3 Estrategia de defensa en profundidad
+
+La solución no es una sola técnica sino múltiples capas complementarias, cada una con distinto costo, impacto y nivel de certeza:
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                   CAPAS DE DEFENSA CONTRA FRAUDE                  │
+│                                                                   │
+│  ┌─────────────────────────────────────────────────────────┐     │
+│  │ CAPA 5: Auditoría Humana y Proceso                      │     │
+│  │ Auditorías aleatorias, blacklists, penalización          │     │
+│  ├─────────────────────────────────────────────────────────┤     │
+│  │ CAPA 4: Detección de Anomalías (ML/AI)                  │     │
+│  │ Scoring de confianza, detección de patrones sospechosos  │     │
+│  ├─────────────────────────────────────────────────────────┤     │
+│  │ CAPA 3: Análisis de Consistencia y Metadatos            │     │
+│  │ Inspección de PDF, OCR + cross-reference, ELA            │     │
+│  ├─────────────────────────────────────────────────────────┤     │
+│  │ CAPA 2: Declaración Jurada Electrónica                  │     │
+│  │ No repudio, responsabilidad legal, audit trail           │     │
+│  ├─────────────────────────────────────────────────────────┤     │
+│  │ CAPA 1: Verificación contra Fuentes Oficiales           │     │
+│  │ SSN, ARCA, DNRPA, SRT, CNRT (la más fuerte)             │     │
+│  └─────────────────────────────────────────────────────────┘     │
+│                                                                   │
+│  ┌─────────────────────────────────────────────────────────┐     │
+│  │ CCS (ya implementado): Integridad post-carga             │     │
+│  │ SHA-256, RS256, hash chain, blockchain, copias congeladas│     │
+│  └─────────────────────────────────────────────────────────┘     │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+### 19.4 Capa 1: Verificación contra fuentes oficiales (Argentina)
+
+Esta es la capa más efectiva: si se puede confirmar que los datos del documento son reales consultando al organismo emisor, la falsificación se vuelve prácticamente imposible. No importa si el PDF fue editado si los datos que contiene coinciden con la fuente oficial.
+
+#### 19.4.1 Fuentes verificables
+
+| Documento | Organismo | Mecanismo | Datos verificables | Viabilidad |
+|---|---|---|---|---|
+| **Póliza de seguro** | SSN (Superintendencia de Seguros de la Nación) | Consulta pública web + API | Nro. póliza, asegurado, vigencia, aseguradora, vehículo cubierto | **Alta** - consulta pública disponible |
+| **Constancia ARCA (ex-AFIP)** | ARCA | API REST pública por CUIT | CUIT, razón social, condición fiscal, monotributo/responsable inscripto, actividad | **Alta** - API estable y documentada |
+| **Licencia de conducir** | CENALEC / SICVT | Consulta por DNI + Categoría | Nro. licencia, categoría (A, B, D, etc.), vigencia, jurisdicción emisora | **Media** - requiere convenio o scraping de consulta pública |
+| **RTO / VTV** | Registros de Inspección Técnica (jurisdiccional) | Varía por provincia/municipio | Dominio, fecha de aprobación, vigencia, planta de inspección | **Media** - fragmentado por jurisdicción |
+| **Cédula del vehículo** | DNRPA (Dirección Nacional de Registros de Propiedad del Automotor) | Consulta por dominio | Dominio, titular, DNI/CUIT titular, marca, modelo, año | **Media** - consulta básica es pública |
+| **ART con nómina** | SRT (Superintendencia de Riesgos del Trabajo) | Consulta por CUIT empleador | ART activa, CUIT empleador, nómina de empleados cubiertos | **Media** - requiere convenio institucional |
+| **Habilitación de transporte** | CNRT (Comisión Nacional de Regulación del Transporte) | RUTA/RUTE - consulta pública | Habilitación vigente, tipo de servicio, vehículos habilitados | **Alta** - consulta pública web disponible |
+
+#### 19.4.2 Modelo de integración propuesto
+
+```
+┌──────────────────────────────────────────────────────────────┐
+│              FLUJO DE VERIFICACIÓN EXTERNA                     │
+│                                                                │
+│  1. Documento subido al sistema                                │
+│  2. OCR extrae datos clave:                                    │
+│     - Nro. de póliza / CUIT / DNI / Dominio / Nro. licencia   │
+│     - Fecha de vigencia declarada                              │
+│     - Entidad emisora                                          │
+│                                                                │
+│  3. Si el tipo de documento tiene fuente oficial:              │
+│     ┌────────────────────────────────────────────────────┐    │
+│     │  consultar API/web del organismo                    │    │
+│     │  ┌──────────────────────────────────────────┐      │    │
+│     │  │ ¿Datos del OCR coinciden con fuente?     │      │    │
+│     │  │                                          │      │    │
+│     │  │  SÍ → Verificación = CONFIRMADA          │      │    │
+│     │  │       (badge verde en el documento)       │      │    │
+│     │  │                                          │      │    │
+│     │  │  NO → Verificación = DISCREPANCIA         │      │    │
+│     │  │       (alerta al aprobador + bloqueo)     │      │    │
+│     │  │                                          │      │    │
+│     │  │  ERROR/NO DISPONIBLE → PENDIENTE          │      │    │
+│     │  │       (no bloquea, pero flaggea)          │      │    │
+│     │  └──────────────────────────────────────────┘      │    │
+│     └────────────────────────────────────────────────────┘    │
+│                                                                │
+│  4. Resultado se almacena en el documento:                     │
+│     verificationSource, verificationStatus, verificationDate   │
+│                                                                │
+│  5. El CCS registra el resultado de verificación en el snapshot│
+└──────────────────────────────────────────────────────────────┘
+```
+
+#### 19.4.3 Datos adicionales para el snapshot CCS
+
+Al integrar la verificación externa, cada documento en `documentosData` del snapshot incluiría campos adicionales:
+
+```jsonc
+{
+  "templateId": 8,
+  "templateName": "Póliza de Seguro del Vehículo",
+  "entityType": "CAMION",
+  "entityId": 18,
+  "status": "VIGENTE",
+  "documentId": 287,
+  "expiresAt": "2026-03-15T00:00:00.000Z",
+  "fileHash": "b4c3d2e1f0a9b8c7...",
+  // --- Nuevos campos de verificación ---
+  "verification": {
+    "source": "SSN",                    // Fuente consultada
+    "status": "CONFIRMED",              // CONFIRMED | DISCREPANCY | PENDING | NOT_AVAILABLE
+    "verifiedAt": "2026-01-05T10:30:00Z",
+    "policyNumber": "****4567",          // Dato verificado (parcialmente enmascarado)
+    "expiresAtConfirmed": "2026-03-15",  // Fecha de vigencia confirmada por fuente oficial
+    "confidenceScore": 0.98             // Score de confianza (1.0 = máximo)
+  }
+}
+```
+
+Esto fortalece enormemente el peso probatorio del certificado CCS: no solo se certifica que "el documento existía y estaba aprobado", sino que "los datos del documento fueron confirmados contra la fuente oficial".
+
+#### 19.4.4 Prioridad de integración
+
+| # | Fuente | Impacto | Esfuerzo | Prioridad |
+|---|---|---|---|---|
+| 1 | **SSN** (Pólizas de seguro) | Muy alto - seguros es donde más fraude hay y más riesgo legal existe | Medio (scraping de consulta pública o API) | **P1** |
+| 2 | **ARCA** (Constancias fiscales) | Alto - valida existencia legal de la empresa/persona | Bajo (API REST pública y documentada) | **P1** |
+| 3 | **CNRT** (Habilitaciones de transporte) | Alto - valida que el vehículo está habilitado | Medio (consulta pública web) | **P2** |
+| 4 | **DNRPA** (Cédula del vehículo) | Medio - valida titularidad y datos del vehículo | Medio (consulta web) | **P2** |
+| 5 | **CENALEC** (Licencia de conducir) | Alto - pero acceso es más restringido | Alto (requiere convenio) | **P3** |
+| 6 | **SRT** (ART y cobertura) | Medio | Alto (requiere convenio institucional) | **P3** |
+
+---
+
+### 19.5 Capa 2: Declaración jurada electrónica y no repudio
+
+#### 19.5.1 Marco legal
+
+Argentina tiene marco legal sólido para la firma electrónica:
+
+- **Ley 25.506 de Firma Digital**: Distingue entre **firma digital** (con certificado emitido por AC habilitada, equivalente a firma ológrafa) y **firma electrónica** (cualquier dato electrónico que identifique al firmante, con valor probatorio menor pero válido).
+- **Artículos 292-296 del Código Penal**: Tipifican los delitos de falsificación de documento público y privado, uso de documento falso, y certificaciones falsas.
+
+#### 19.5.2 Implementación: Declaración jurada al momento de carga
+
+En lugar de exigir firma digital PKI (que requeriría que cada transportista tenga un certificado digital, generando una barrera de adopción altísima), se implementa una **declaración jurada electrónica** al momento de subir cada documento:
+
+**Texto de la declaración:**
+
+> *"Declaro bajo juramento que el documento adjunto es copia fiel del original y que los datos contenidos son verídicos. Comprendo que la presentación de documentación adulterada, falsificada o apócrifa constituye delito penal conforme a los artículos 292 a 296 del Código Penal de la Nación Argentina, y que esta declaración tiene carácter de declaración jurada en los términos del artículo 109 del Código Penal."*
+
+**Datos capturados y almacenados en el audit log:**
+
+| Dato | Finalidad |
+|---|---|
+| `userId` | Identidad del cargador (usuario autenticado) |
+| `timestamp` (UTC) | Momento exacto de la declaración |
+| `ipAddress` | Dirección IP del dispositivo |
+| `userAgent` | Navegador/dispositivo utilizado |
+| `documentHash` (SHA-256) | Hash del archivo subido (vincula la declaración al archivo exacto) |
+| `declarationVersion` | Versión del texto de declaración (para auditabilidad si cambia) |
+| `accepted` | Boolean: el usuario aceptó explícitamente (requiere checkbox o botón confirmatorio) |
+
+**Efecto legal:**
+- No previene el fraude per se, pero genera una **disuasión legal fuerte** (el cargador sabe que hay registro inalterable de su responsabilidad)
+- Crea **evidencia procesal** admisible en caso de disputa (quién subió qué, cuándo y desde dónde)
+- Combinada con el hash chain del CCS, la declaración es **inalterable retroactivamente**
+
+#### 19.5.3 Integración con CCS
+
+El snapshot CCS incluiría en `documentosData` un campo `uploaderDeclaration`:
+
+```jsonc
+{
+  "templateId": 8,
+  "templateName": "Póliza de Seguro",
+  // ... campos existentes ...
+  "uploaderDeclaration": {
+    "userId": 142,
+    "userEmail": "transportista@empresa.com",
+    "userRole": "TRANSPORTISTA",
+    "declaredAt": "2026-01-05T09:00:00Z",
+    "ipHash": "a1b2c3d4...",           // Hash de la IP (no la IP en sí, por privacidad)
+    "declarationVersion": "1.0",
+    "documentHashAtDeclaration": "b4c3d2e1..."  // Coincide con fileHash
+  }
+}
+```
+
+Esto permite verificar que **la misma persona que declaró la autenticidad es quien subió exactamente ese archivo, y que el archivo no fue modificado entre la declaración y la certificación.**
+
+#### 19.5.4 Sobre la firma digital PKI (nivel superior, opcional)
+
+Si en el futuro se requiere un nivel de certeza aún mayor (ej: exigencia regulatoria de la CNRT o requerimiento judicial), se podría habilitar **opcionalmente** la firma digital con certificado X.509:
+
+- El cargador firma el documento con su certificado digital personal
+- La firma se valida contra la cadena de certificación de la AC Raíz de la República Argentina
+- Esto eleva la declaración al nivel de firma ológrafa (Ley 25.506, art. 3)
+
+**Recomendación**: No implementar como requisito obligatorio (barrera de adopción). Habilitarlo como opción premium o para documentos de alto valor (pólizas de seguro de gran monto, habilitaciones especiales).
+
+---
+
+### 19.6 Capa 3: Análisis de consistencia y metadatos
+
+#### 19.6.1 Inspección de metadatos del archivo
+
+Cada archivo subido (PDF o imagen) contiene metadatos que revelan información sobre su origen y posible manipulación:
+
+**Para archivos PDF:**
+
+| Metadato | Qué revela | Indicador de fraude |
+|---|---|---|
+| `Producer` / `Creator` | Software que generó el PDF | Un certificado de seguro generado con "Adobe Photoshop" o "GIMP" es sospechoso |
+| `CreationDate` | Fecha de creación del archivo | Si el PDF dice "Emitido el 15/01" pero fue creado el 20/01, es sospechoso |
+| `ModDate` | Última fecha de modificación | Si `ModDate` difiere significativamente de `CreationDate`, fue editado |
+| Fuentes embebidas | Tipografías utilizadas | Inconsistencia de fuentes sugiere edición |
+| Versión PDF | Versión del formato | Cambios de versión tras edición |
+
+**Para imágenes (JPEG, PNG):**
+
+| Metadato | Qué revela | Indicador de fraude |
+|---|---|---|
+| EXIF `Make` / `Model` | Cámara/escáner utilizado | Puede verificarse consistencia entre cargas del mismo usuario |
+| EXIF `DateTime` | Fecha de captura | Inconsistencias con la fecha declarada |
+| DPI / Resolución | Resolución de la imagen | Zonas con DPI diferente al resto indican edición |
+| Compresión JPEG | Nivel de compresión | Regiones con diferente nivel de compresión (detectable via ELA) |
+
+#### 19.6.2 Error Level Analysis (ELA)
+
+El ELA es una técnica de análisis forense de imágenes que detecta manipulación:
+
+1. Se re-comprime la imagen a un nivel de calidad conocido (ej: JPEG 95%)
+2. Se compara pixel a pixel con la imagen original
+3. Las regiones que fueron editadas (pegadas, retocadas) presentan **niveles de error diferentes** al resto de la imagen
+4. La diferencia se visualiza como un mapa de calor: las zonas "calientes" son sospechosas
+
+**Aplicabilidad**: Útil para licencias de conducir, DNIs y certificados escaneados donde alguien podría haber pegado una foto o alterado una fecha.
+
+**Limitación**: No es infalible. Un falsificador sofisticado puede contrarrestar ELA. Es una señal más dentro del scoring, no un veredicto definitivo.
+
+#### 19.6.3 OCR + Cross-reference de datos
+
+Ya existente parcialmente en el flujo de IA (Flowise), esta capa se fortalece:
+
+1. **Extracción OCR** de datos clave del documento: números de póliza, CUIT, DNI, patentes, fechas de vigencia, nombre del titular
+2. **Comparación automática** contra datos del sistema:
+   - ¿El CUIT del documento coincide con el CUIT del transportista en el sistema?
+   - ¿La patente del certificado de seguro coincide con la patente del camión?
+   - ¿El DNI de la licencia coincide con el DNI del chofer?
+   - ¿Las fechas de vigencia son coherentes (no están en el pasado)?
+3. **Alertas automáticas** cuando hay discrepancias
+
+Ejemplo de discrepancias detectables:
+
+| Tipo | Dato en el documento (OCR) | Dato en el sistema | Resultado |
+|---|---|---|---|
+| Patente incorrecta | Seguro cubre "AB 123 CD" | Camión tiene patente "AB 456 EF" | Alerta: documento para otro vehículo |
+| DNI no coincide | Licencia a nombre de DNI 30.000.000 | Chofer tiene DNI 25.000.000 | Alerta: licencia de otra persona |
+| Fecha incoherente | Vigencia hasta "15/01/2025" | Fecha actual: febrero 2026 | Alerta: documento ya vencido al momento de carga |
+| CUIT inexistente | Constancia ARCA de CUIT 20-99999999-9 | Consulta ARCA: CUIT no existe | Alerta: documento apócrifo |
+
+---
+
+### 19.7 Capa 4: Detección de anomalías con ML/AI
+
+#### 19.7.1 Enfoque a corto plazo: scoring con LLM existente
+
+Aprovechando la integración actual con Flowise/LLM, se puede implementar un **score de confianza** al momento de la carga:
+
+El modelo analiza el documento y asigna un score de 0.0 a 1.0 basado en:
+
+- **Consistencia visual**: ¿El formato es consistente con documentos del mismo emisor ya aprobados?
+- **Coherencia de datos**: ¿Los datos extraídos por OCR son internamente coherentes?
+- **Patrón de emisor**: ¿Los metadatos del PDF coinciden con el patrón esperado para ese emisor? (ej: las pólizas de La Caja suelen venir generadas con software X, DPI Y)
+- **Historial del cargador**: ¿Este usuario ha tenido documentos rechazados antes? ¿Con qué frecuencia?
+
+**Reglas de routing basadas en score:**
+
+| Score | Acción | Nivel de revisión |
+|---|---|---|
+| 0.85 - 1.00 | Aprobación acelerada (revisión rápida) | El aprobador ve badge verde "Alta confianza" |
+| 0.60 - 0.84 | Revisión normal | Sin badge, flujo estándar |
+| 0.30 - 0.59 | Revisión detallada obligatoria | Badge amarillo "Verificación adicional recomendada" |
+| 0.00 - 0.29 | Bloqueo + escalamiento | Badge rojo "Sospechoso", requiere verificación manual con fuente externa |
+
+**Punto clave**: El score nunca reemplaza la aprobación humana. Solo prioriza y guía la atención del aprobador.
+
+#### 19.7.2 Enfoque a largo plazo: detección de anomalías no supervisada
+
+Con volumen suficiente de documentos verificados (>1000 por tipo de plantilla):
+
+1. **Modelo de normalidad**: Entrenar un modelo (autoencoder, isolation forest, o similar) sobre documentos aprobados y verificados para aprender "cómo se ve un documento normal" por tipo
+2. **Detección de outliers**: Los documentos que se desvían significativamente del patrón se flaggean
+3. **Feedback loop**: Los documentos rechazados por fraude confirmado alimentan el modelo como ejemplos negativos
+4. **Evolución**: Con el tiempo, el modelo mejora su capacidad de discriminación
+
+**Requisitos de datos mínimos**: ~500 documentos aprobados por tipo de plantilla para un modelo útil. Con 86 requisitos actuales y múltiples equipos, esto se alcanza en los primeros meses de operación.
+
+#### 19.7.3 Indicadores de fraude basados en comportamiento
+
+Sin ML, hay patrones detectables con reglas simples:
+
+| Patrón | Indicador | Acción |
+|---|---|---|
+| Mismo hash para documentos de diferentes entidades | Un mismo PDF se subió como "seguro" para 3 camiones diferentes | Alerta automática |
+| Todos los documentos vencen el mismo día | Un transportista sube 15 documentos que todos vencen el 31/12 | Verificación aleatoria |
+| Carga masiva a fin de mes | Se suben 40 documentos el último día antes de un plazo | Revisión detallada muestreada |
+| Tamaño/resolución anómalos | PDF de 30KB cuando los normales son ~200KB | Flag por documento inusualmente liviano |
+| Metadatos borrados | PDF sin metadatos (deliberadamente stripped) | Flag: posible intento de ocultar origen |
+
+---
+
+### 19.8 Capa 5: Auditoría humana y proceso
+
+Ningún sistema técnico reemplaza los controles de proceso organizacionales:
+
+#### 19.8.1 Auditorías aleatorias periódicas
+
+- **Frecuencia**: Mensual
+- **Muestra**: 5-10% de documentos aprobados en el período
+- **Método**: Selección aleatoria estratificada por tipo de documento y transportista
+- **Verificación**: Contactar al emisor original (aseguradora, ART, organismo) para confirmar autenticidad
+- **Registro**: Resultado de la auditoría se almacena en el sistema y alimenta el scoring de confianza
+
+#### 19.8.2 Blacklist y penalización
+
+- **Primera infracción detectada**: Advertencia formal + re-verificación obligatoria de todos los documentos del transportista
+- **Segunda infracción**: Suspensión temporal de la cuenta (30 días)
+- **Tercera infracción o fraude grave**: Bloqueo permanente + denuncia penal (con la evidencia del audit trail + declaración jurada)
+
+#### 19.8.3 Verificación cruzada entre emisores conocidos
+
+Con el volumen creciente de documentos, la plataforma puede construir una base de referencia:
+
+- Si 50 pólizas de "Seguros La Caja" siempre tienen cierto formato y metadatos, la póliza #51 que difiera significativamente es sospechosa
+- Los certificados de ART de una empresa específica deberían incluir siempre a los mismos empleados (consistencia de nómina)
+- Las RTOs de una planta de inspección deberían tener formato consistente
+
+---
+
+### 19.9 Integración con el CCS: el campo `trustLevel`
+
+El CCS ya registra `estadoGlobal` (COMPLETO, INCOMPLETO, VENCIDO, PARCIAL). Con las capas de prevención de fraude, se agrega un campo complementario **`trustLevel`** que indica el nivel de confianza en la autenticidad:
+
+```jsonc
+{
+  "estadoGlobal": "COMPLETO",
+  "trustLevel": "HIGH",         // HIGH | MEDIUM | LOW | UNVERIFIED
+  "trustBreakdown": {
+    "documentsVerifiedExternally": 8,    // Confirmados contra fuente oficial
+    "documentsWithDeclaration": 15,      // Con declaración jurada
+    "documentsWithHighScore": 12,        // Score > 0.85
+    "documentsWithAlerts": 0,            // Con alertas activas
+    "lastAuditDate": "2026-01-15",       // Última auditoría del transportista
+    "transportistaReputationScore": 0.95 // Score acumulado del transportista
+  }
+}
+```
+
+**Niveles de confianza:**
+
+| Trust Level | Criterio | Indicador visual |
+|---|---|---|
+| **HIGH** | >80% de documentos verificados externamente O score promedio >0.85 sin alertas | Verde |
+| **MEDIUM** | Documentos con declaración jurada, sin verificación externa completa, sin alertas | Amarillo |
+| **LOW** | Al menos un documento con alerta activa o score <0.60 | Naranja |
+| **UNVERIFIED** | Sin verificación externa ni scoring | Gris |
+
+El `trustLevel` se incluye en el certificado PDF y en la respuesta autenticada de consulta de certificados, dando al verificador una idea clara no solo de si la documentación estaba "al día" sino de cuánta confianza hay en su autenticidad.
+
+---
+
+### 19.10 Sello de tiempo certificado (TSA RFC 3161)
+
+Como complemento al anclaje blockchain, se puede utilizar un servicio de **Timestamping Authority (TSA)** conforme a RFC 3161:
+
+- El hash del snapshot se envía a una TSA certificada (ej: TSA de la AC Raíz de Argentina)
+- La TSA devuelve un token firmado que prueba que el hash existía en ese momento exacto
+- Esto tiene **validez legal directa** en Argentina (Ley 25.506), a diferencia del blockchain que tiene validez probatoria pero no está explícitamente regulado
+
+**Cuándo usar TSA vs Blockchain:**
+
+| Criterio | TSA (RFC 3161) | Blockchain (Polygon) |
+|---|---|---|
+| **Validez legal explícita** | Sí (Ley 25.506) | Indirecta (prueba pericial) |
+| **Costo** | Variable (por sello) | ~$0.01/día |
+| **Independencia** | Depende de la TSA | Descentralizado |
+| **Verificación** | Requiere la cadena de certificación de la TSA | Cualquiera puede verificar |
+| **Recomendación** | Para documentos de alto valor legal | Para operación diaria masiva |
+
+**Propuesta**: Usar blockchain (Polygon) para el anclaje diario masivo (barato, descentralizado). Agregar TSA opcionalmente para certificados individuales que requieran máximo peso legal (ej: antes de una auditoría CNRT o tras un siniestro).
+
+---
+
+### 19.11 Matriz de prioridades de implementación
+
+| # | Capa | Acción | Esfuerzo | Impacto | Prioridad |
+|---|---|---|---|---|---|
+| 1 | Capa 2 | Declaración jurada electrónica al cargar documentos | Bajo (1-2 días) | Alto (disuasión + legal) | **P1 - Inmediata** |
+| 2 | Capa 3 | Inspección de metadatos del PDF/imagen al subir | Bajo-Medio (2-3 días) | Medio (detecta ediciones burdas) | **P1 - Inmediata** |
+| 3 | Capa 1 | Integración SSN para verificar pólizas de seguro | Medio (1-2 semanas) | Muy alto (seguros = mayor riesgo) | **P1 - Sprint siguiente** |
+| 4 | Capa 3 | OCR + cross-reference contra datos del sistema | Medio (1 semana) | Alto (detecta inconsistencias básicas) | **P2** |
+| 5 | Capa 1 | Integración ARCA para constancias fiscales | Medio (1 semana) | Alto (valida existencia legal) | **P2** |
+| 6 | Capa 4 | Scoring de confianza con LLM (Flowise) | Medio (1-2 semanas) | Medio-Alto (prioriza revisión) | **P2** |
+| 7 | Capa 5 | Proceso de auditorías aleatorias (organizacional, no tech) | Bajo (procedimiento) | Alto (disuasión + detección) | **P2** |
+| 8 | Capa 4 | Reglas de detección de patrones sospechosos | Medio (1 semana) | Medio (heurísticas simples) | **P3** |
+| 9 | Capa 3 | Error Level Analysis (ELA) para imágenes | Alto (2 semanas) | Medio (análisis forense) | **P3** |
+| 10 | Capa 4 | ML de detección de anomalías (no supervisado) | Alto (1-2 meses) | Alto (a largo plazo) | **P4** |
+| 11 | Capa 1 | Integración CNRT, DNRPA, CENALEC, SRT | Alto (1-2 meses) | Alto (verificación completa) | **P4** |
+| 12 | Capa 2 | Firma digital PKI opcional (certificado X.509) | Alto (requiere integración con AC) | Alto (máximo peso legal) | **P5 - Futuro** |
+
+---
+
+### 19.12 Integración con las fases CCS principales
+
+Las capas de prevención de fraude se integran directamente en las fases CCS definidas en la sección 16:
+
+| Fase CCS | Capas de fraude incluidas |
+|---|---|
+| **Fase 1** (Snapshots + Hash Chain) | Declaración jurada electrónica, inspección básica de metadatos, registro de `trustLevel` en snapshots, cifrado en reposo |
+| **Fase 2** (Copias Congeladas + Watermark) | Marcas de agua visibles + invisibles, WORM en MinIO |
+| **Fase 4** (Portales Autenticados) | Dashboard de alertas, auditoría de accesos, verificación de cadena desde portal |
+| **Fase 5** (Verificación Fuentes Oficiales) | SSN, ARCA, OCR + cross-reference |
+| **Fase 6** (AI Scoring + Trust Level) | LLM scoring on-premise, detección de anomalías, ELA, reglas de patrones |
+
+Las auditorías aleatorias (Capa 5) y la firma PKI/TSA (Capa 1 reforzada) quedan como consideraciones futuras (sección 18.1).
+
+---
+
+## 20. Glosario
 
 | Término | Definición |
 |---|---|
-| **Snapshot** | Captura inmutable del estado de compliance de un equipo en una fecha |
-| **Content Hash** | SHA-256 del contenido canónico del snapshot |
-| **Hash Chain** | Cadena de hashes donde cada snapshot incluye el hash del anterior |
-| **Merkle Tree** | Estructura de árbol binario de hashes que permite verificar inclusión eficientemente |
-| **Merkle Root** | Hash raíz del Merkle tree, representa todos los snapshots de un día |
-| **Merkle Proof** | Conjunto mínimo de hashes necesarios para demostrar que un leaf está en el tree |
-| **Anclaje** | Publicación del Merkle root en una blockchain pública |
-| **Copia congelada** | Copia del documento PDF almacenada de forma inmutable en el momento de la certificación |
-| **Token de verificación** | Identificador corto que permite acceso público a un certificado |
-| **Presigned URL** | URL temporal de MinIO que permite descarga sin autenticación |
-| **RS256** | Algoritmo de firma digital RSA con SHA-256 |
-| **Polygon** | Blockchain pública compatible con Ethereum, de bajo costo |
-| **WORM** | Write Once Read Many: política de almacenamiento inmutable |
+| **AC** | Autoridad Certificante: entidad que emite certificados digitales (ej: AC-ONTI en Argentina) |
+| **Acceso autenticado** | Todo acceso a certificados y documentos del CCS requiere JWT válido; no existen endpoints públicos de consulta |
+| **Anclaje** | Publicación del Merkle root en una blockchain pública como prueba inmutable de existencia |
+| **ARCA** | Agencia de Recaudación y Control Aduanero (ex-AFIP): administración tributaria argentina |
+| **Audit trail** | Registro inmutable en `CertificateAccessAudit` de toda consulta a certificados y documentos |
+| **Baseline** | Snapshot diario automático generado por el job nocturno, refleja el estado completo del equipo |
+| **CENALEC** | Centro Nacional de Licencias de Conducir |
+| **Certificate Ref** | UUID único del snapshot, usado como referencia interna en URLs del portal autenticado |
+| **Cifrado en reposo** | Protección de datos almacenados: LUKS para discos, SSE-S3 para MinIO, GPG para backups |
+| **CNRT** | Comisión Nacional de Regulación del Transporte |
+| **Content Hash** | SHA-256 del contenido canónico (JSON serializado con keys ordenadas) del snapshot |
+| **Copia congelada** | Copia inmutable del documento almacenada en MinIO con Object Lock (WORM) al momento de la certificación |
+| **Declaración jurada electrónica** | Compromiso legal del cargador sobre la autenticidad del documento, registrado en `DocumentUploadDeclaration` con hash del archivo, IP y timestamp |
+| **DNRPA** | Dirección Nacional de Registros de la Propiedad del Automotor |
+| **ELA** | Error Level Analysis: técnica forense que detecta regiones manipuladas en imágenes analizando diferencias de compresión JPEG |
+| **Esteganografía** | Técnica de ocultar información (marca de agua invisible) en los bits menos significativos de los píxeles de una imagen |
+| **Event snapshot** | Snapshot generado por un evento específico (aprobación, rechazo, vencimiento de documento) en tiempo real |
+| **Hash Chain** | Cadena donde cada snapshot incluye el hash del anterior, formando una secuencia verificable de integridad |
+| **LUKS** | Linux Unified Key Setup: estándar de cifrado de disco completo para Linux |
+| **Marca de agua visible** | Texto superpuesto en diagonal sobre documentos servidos, identificando al usuario consultante |
+| **Marca de agua invisible** | Datos binarios embebidos en píxeles (LSB) que sobreviven recompresión e identifican la fuente de una fuga |
+| **Merkle Proof** | Conjunto mínimo de hashes hermanos necesarios para demostrar que un snapshot está incluido en un Merkle root |
+| **Merkle Root** | Hash raíz del Merkle tree, representa la totalidad de los snapshots de un día |
+| **Merkle Tree** | Estructura de árbol binario de hashes que permite verificar inclusión eficientemente en O(log n) |
+| **Object Lock (WORM)** | Write Once Read Many: política de MinIO que impide borrar o modificar objetos antes de su fecha de retención |
+| **PDF autoverificable** | PDF de certificado que incluye firma, Merkle proof y datos suficientes para verificación offline sin acceso al sistema |
+| **PKI** | Public Key Infrastructure: infraestructura de certificados digitales para firma electrónica |
+| **Polygon** | Blockchain pública compatible con Ethereum, usada por su bajo costo de transacción (~$0.01/tx) |
+| **RS256** | Algoritmo de firma digital RSA con SHA-256, usado para firmar snapshots del CCS |
+| **Score de confianza** | Valor numérico (0.0-1.0) calculado por la AI on-premise que indica la probabilidad de autenticidad de un documento |
+| **Soberanía de datos** | Principio de que ningún documento ni dato documental sale de la infraestructura propia; toda AI corre on-premise |
+| **SSE-S3** | Server-Side Encryption de MinIO: cifrado automático de objetos con clave maestra gestionada por el servidor |
+| **SSN** | Superintendencia de Seguros de la Nación: organismo regulador de seguros en Argentina |
+| **SRT** | Superintendencia de Riesgos del Trabajo: regula las ART en Argentina |
+| **Snapshot** | Captura inmutable del estado de compliance de un equipo en un momento dado (baseline o evento) |
+| **TSA** | Timestamping Authority: servicio de sellado de tiempo conforme RFC 3161, con validez legal directa |
+| **Trust Level** | Clasificación de confianza del snapshot (HIGH, MEDIUM, LOW, UNVERIFIED) basada en verificaciones externas, scoring y declaraciones |
+| **Watermark code** | Código de tracking (`WM-XXXXXX`) que vincula una marca de agua con el registro de auditoría del acceso |
