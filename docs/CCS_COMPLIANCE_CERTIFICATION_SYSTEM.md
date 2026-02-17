@@ -2,11 +2,12 @@
 
 ## Sistema de Certificación de Compliance para Equipos de Transporte
 
-**Versión**: 2.0  
+**Versión**: 2.1  
 **Fecha**: 2026-02-17  
 **Autor**: Equipo de Arquitectura BCA  
 **Estado**: Diseño aprobado, pendiente implementación  
 **Changelog**:
+- v2.1 - Agregada sección 20: Sistema de Aprobación Automatizada por Consenso de IA (3 vision LLMs, golden set por plantilla, canales verde/amarillo/rojo, rollout gradual). Actualización de Fase 6 y 7
 - v2.0 - Rediseño mayor: acceso exclusivamente autenticado (eliminación de verificación pública), marcas de agua en documentos, cifrado en reposo, AI propietaria on-premise, integración completa de prevención de fraude (sección 19), modelo de PDF autoverificable para terceros externos
 - v1.2 - Agregada sección 19: Prevención de Fraude y Verificación de Autenticidad Documental
 - v1.1 - Agregado sistema de snapshots por evento (sección 6.5)
@@ -38,7 +39,19 @@
 17. [Escenarios Especiales y Casos Borde](#17-escenarios-especiales-y-casos-borde)
 18. [Consideraciones Futuras](#18-consideraciones-futuras)
 19. [Prevención de Fraude y Verificación de Autenticidad Documental](#19-prevención-de-fraude-y-verificación-de-autenticidad-documental)
-20. [Glosario](#20-glosario)
+20. [Sistema de Aprobación Automatizada por Consenso de IA](#20-sistema-de-aprobación-automatizada-por-consenso-de-ia)
+    - 20.1: [Fundamentos y justificación](#201-fundamentos-y-justificación)
+    - 20.2: [Arquitectura: tres vision LLMs on-premise](#202-arquitectura-tres-vision-llms-on-premise)
+    - 20.3: [Golden Set por plantilla](#203-golden-set-por-plantilla)
+    - 20.4: [Prompt unificado por plantilla](#204-prompt-unificado-por-plantilla)
+    - 20.5: [Motor de consenso](#205-motor-de-consenso)
+    - 20.6: [Sistema de canales verde / amarillo / rojo](#206-sistema-de-canales-verde--amarillo--rojo)
+    - 20.7: [Documentos vs. remitos](#207-documentos-vs-remitos)
+    - 20.8: [Hardware y rendimiento](#208-hardware-y-rendimiento)
+    - 20.9: [Riesgos y mitigaciones](#209-riesgos-y-mitigaciones)
+    - 20.10: [Rollout gradual](#2010-rollout-gradual)
+    - 20.11: [Impacto operativo](#2011-impacto-operativo)
+21. [Glosario](#21-glosario)
 
 ---
 
@@ -1841,33 +1854,89 @@ Las marcas de agua son un control de **trazabilidad ante fugas** y un **disuasor
 - Constancias fiscales se verifican contra ARCA
 - El certificado muestra el resultado de la verificación externa
 
-### Fase 6: AI de Scoring + Trust Level (3-4 semanas)
+### Fase 6: Golden Set + Prompt por Plantilla + Preprocesos (3-4 semanas)
 
 **Entregables**:
-- Stack de AI on-premise:
-  - Contenedor Docker con Ollama + Mistral 7B (o Llama 3 8B)
-  - Contenedor Docker con PaddleOCR para extracción de texto
+- Modelo de datos `PlantillaRequisitoConfig`:
+  - Campos a extraer por plantilla (nombre, tipo, formato, validación cruzada)
+  - Golden set: 5-10 documentos de referencia con datos validados
+  - Prompt versionado generado automáticamente
+  - Embeddings de referencia visual
+  - Umbrales de confianza por plantilla
+  - Estadísticas de rendimiento
+- Flujo de configuración en el portal Admin:
+  - Al crear/editar plantilla: wizard de "Definir campos a extraer"
+  - Subida de 5-10 documentos de referencia
+  - Para cada documento: ejecución de preprocesos + corrección/validación por el admin
+  - Test en vivo con documento nuevo antes de activar
+  - Dashboard de rendimiento del golden set por plantilla
+- Stack de preproceso on-premise:
   - Contenedor Docker con Sharp para ELA (Error Level Analysis)
-- Servicio `DocumentScoringService`:
-  - `scoreDocument(document)` → `{ score: 0-1, alerts: [], details: {} }`
-  - Score basado en: metadata (30%), ELA (20%), OCR coherencia (30%), LLM (20%)
-  - Alertas automáticas para score < 0.60
+  - Extracción de metadatos (PDF producer, dates, EXIF)
+  - Reglas determinísticas de detección de patrones (hash duplicado, metadata borrada, etc.)
+- Servicio `PromptBuilderService`:
+  - `buildPrompt(plantillaId, documentImage, systemData)` → prompt unificado
+  - Inyecta: definición de campos + golden set + datos del sistema + resultado ELA + flags
+  - Versiona cada prompt generado
 - Servicio `TrustScoringEngine`:
   - Calcula `trustLevel` del snapshot basado en:
     - % de docs verificados externamente
-    - Score promedio de AI
+    - Score promedio de consenso de IA
     - Existencia de declaraciones juradas
     - Alertas activas
-    - Reputación del transportista (historial de fraude)
+    - Reputación del transportista (historial)
   - Almacena `trustLevel` y `trustBreakdown` en el snapshot
-- Dashboard de alertas de fraude para ADMIN
 - Inspección de metadata automática al subir documentos
 
 **Criterio de aceptación**:
-- Cada documento subido recibe un score de autenticidad
-- Los snapshots reflejan el `trustLevel` calculado
-- Alertas de fraude aparecen en el dashboard de admin
+- Al menos 3 plantillas configuradas con golden set completo (5+ documentos cada una)
+- El admin puede testear un documento y ver la extracción antes de activar la plantilla
+- Los prompts se generan y versionan automáticamente
+- ELA y metadata inspection corren al subir cada documento
 - Toda la AI corre on-premise sin salida de datos a internet
+
+### Fase 7: Aprobación Automatizada por Consenso de 3 Vision LLMs (4-6 semanas)
+
+> Ver **sección 20** para la especificación completa del sistema.
+
+**Entregables**:
+- Stack de 3 vision LLMs on-premise:
+  - Contenedor Docker con Ollama + Qwen2-VL-7B (especialista en OCR/documentos)
+  - Contenedor Docker con Ollama + InternVL2-8B (especialista en análisis visual)
+  - Contenedor Docker con Ollama + Llama 3.2 Vision 11B (especialista en razonamiento semántico)
+- Servicio `ConsensusEngine`:
+  - Envía imagen + prompt a los 3 modelos en paralelo
+  - Compara las 3 respuestas JSON campo a campo
+  - Calcula score compuesto ponderado
+  - Asigna canal (verde/amarillo/rojo)
+  - Registra decisión completa en audit trail
+- Sistema de canales:
+  - Canal Verde: auto-aprobación + muestreo aleatorio 3-5%
+  - Canal Amarillo: aprobación provisional + cola de revisión humana (SLA 24-48h)
+  - Canal Rojo: bloqueo hasta revisión humana completa
+  - Porcentajes dinámicos ajustables por tipo de plantilla y por transportista
+- Rollout gradual (4 etapas):
+  - Etapa 1 (2 semanas): Shadow mode — IA corre en paralelo, no decide
+  - Etapa 2 (2 semanas): Asistencia — IA sugiere, humano confirma con un click
+  - Etapa 3 (ongoing): Canal verde automático para tipos de bajo riesgo
+  - Etapa 4 (ongoing): Sistema completo de canales
+- Evolución continua del golden set:
+  - Documentos auditados en verde se agregan automáticamente al golden set
+  - Correcciones de rojo se registran como feedback negativo
+  - Nuevas variantes de formato amplían el golden set
+- Dashboard para ADMIN:
+  - Precisión por modelo, por plantilla, por transportista
+  - Tasa de canal verde/amarillo/rojo
+  - Discrepancias entre modelos
+  - Alertas de degradación de rendimiento (model drift)
+
+**Criterio de aceptación**:
+- Los 3 modelos procesan documentos en paralelo en < 30 segundos
+- Shadow mode demuestra >90% de acuerdo con aprobadores humanos durante 2 semanas
+- Canal verde auto-aprueba documentos con 3/3 consenso y confianza > 0.90
+- Toda decisión queda registrada con las 3 respuestas completas
+- Alertas de fraude aparecen en el dashboard de admin
+- El golden set crece automáticamente con documentos auditados
 
 ---
 
@@ -2598,50 +2667,51 @@ Ejemplo de discrepancias detectables:
 
 ### 19.7 Capa 4: Detección de anomalías con ML/AI
 
-#### 19.7.1 Enfoque a corto plazo: scoring con LLM existente
+> **Nota**: Esta capa se implementa a través del **Sistema de Aprobación Automatizada por Consenso de IA** descrito en detalle en la **sección 20**. Aquí se describen los principios y criterios; la sección 20 cubre la arquitectura, los modelos, el golden set, los canales de decisión y el rollout gradual.
 
-Aprovechando la integración actual con Flowise/LLM, se puede implementar un **score de confianza** al momento de la carga:
+#### 19.7.1 Scoring de confianza por documento
 
-El modelo analiza el documento y asigna un score de 0.0 a 1.0 basado en:
+Cada documento subido recibe un **score de confianza** (0.0 a 1.0) calculado por el consenso de 3 vision LLMs on-premise (ver sección 20.2). El score se basa en:
 
-- **Consistencia visual**: ¿El formato es consistente con documentos del mismo emisor ya aprobados?
-- **Coherencia de datos**: ¿Los datos extraídos por OCR son internamente coherentes?
-- **Patrón de emisor**: ¿Los metadatos del PDF coinciden con el patrón esperado para ese emisor? (ej: las pólizas de La Caja suelen venir generadas con software X, DPI Y)
-- **Historial del cargador**: ¿Este usuario ha tenido documentos rechazados antes? ¿Con qué frecuencia?
+- **Consistencia visual**: ¿El formato es consistente con los documentos de referencia del golden set para esta plantilla?
+- **Coherencia de datos**: ¿Los datos extraídos son internamente coherentes?
+- **Patrón de emisor**: ¿Los metadatos y el layout coinciden con el patrón esperado para ese emisor?
+- **Validación cruzada**: ¿Los datos del documento coinciden con los datos del sistema (CUIT, patente, DNI)?
+- **Historial del cargador**: ¿Este usuario ha tenido documentos rechazados o alertas previas?
 
-**Reglas de routing basadas en score:**
+**Reglas de routing basadas en score (sistema de canales):**
 
-| Score | Acción | Nivel de revisión |
+| Score consenso | Canal | Acción |
 |---|---|---|
-| 0.85 - 1.00 | Aprobación acelerada (revisión rápida) | El aprobador ve badge verde "Alta confianza" |
-| 0.60 - 0.84 | Revisión normal | Sin badge, flujo estándar |
-| 0.30 - 0.59 | Revisión detallada obligatoria | Badge amarillo "Verificación adicional recomendada" |
-| 0.00 - 0.29 | Bloqueo + escalamiento | Badge rojo "Sospechoso", requiere verificación manual con fuente externa |
+| 3/3 aprueban, confianza > 0.90 | **Verde** | Aprobación automática. Muestreo aleatorio del 3-5% a posteriori |
+| 3/3 aprueban, alguno entre 0.70-0.90 | **Amarillo** | Aprobación provisional. Revisión humana del 30-50% por muestreo |
+| 2/3 aprueban pero 1 rechaza | **Rojo** | Bloqueo. Revisión humana obligatoria (100%) |
+| 2/3 o 3/3 rechazan | **Rechazo automático** | Rechazo con motivo detallado. Flag de fraude potencial si 3/3 rechazan |
 
-**Punto clave**: El score nunca reemplaza la aprobación humana. Solo prioriza y guía la atención del aprobador.
+Ver sección 20.6 para el detalle completo del sistema de canales.
 
-#### 19.7.2 Enfoque a largo plazo: detección de anomalías no supervisada
+#### 19.7.2 Detección de anomalías a largo plazo
 
-Con volumen suficiente de documentos verificados (>1000 por tipo de plantilla):
+Con volumen suficiente de documentos verificados (>1000 por tipo de plantilla), el golden set crece continuamente y los modelos mejoran su capacidad de discriminación:
 
-1. **Modelo de normalidad**: Entrenar un modelo (autoencoder, isolation forest, o similar) sobre documentos aprobados y verificados para aprender "cómo se ve un documento normal" por tipo
-2. **Detección de outliers**: Los documentos que se desvían significativamente del patrón se flaggean
-3. **Feedback loop**: Los documentos rechazados por fraude confirmado alimentan el modelo como ejemplos negativos
-4. **Evolución**: Con el tiempo, el modelo mejora su capacidad de discriminación
-
-**Requisitos de datos mínimos**: ~500 documentos aprobados por tipo de plantilla para un modelo útil. Con 86 requisitos actuales y múltiples equipos, esto se alcanza en los primeros meses de operación.
+1. **Modelo de normalidad implícito**: Los documentos auditados y confirmados se agregan al golden set, ampliando la referencia de "qué es normal" por tipo de plantilla
+2. **Detección de outliers**: Documentos que se desvían significativamente del golden set reciben scores más bajos automáticamente
+3. **Feedback loop**: Los documentos rechazados por fraude confirmado en auditorías alimentan el contexto negativo ("este es un ejemplo de documento fraudulento")
+4. **Evolución continua**: Cada prompt se versiona y mejora con los nuevos datos
 
 #### 19.7.3 Indicadores de fraude basados en comportamiento
 
-Sin ML, hay patrones detectables con reglas simples:
+Complementario a los 3 vision LLMs, hay patrones detectables con reglas determinísticas (no requieren IA):
 
 | Patrón | Indicador | Acción |
 |---|---|---|
-| Mismo hash para documentos de diferentes entidades | Un mismo PDF se subió como "seguro" para 3 camiones diferentes | Alerta automática |
-| Todos los documentos vencen el mismo día | Un transportista sube 15 documentos que todos vencen el 31/12 | Verificación aleatoria |
-| Carga masiva a fin de mes | Se suben 40 documentos el último día antes de un plazo | Revisión detallada muestreada |
-| Tamaño/resolución anómalos | PDF de 30KB cuando los normales son ~200KB | Flag por documento inusualmente liviano |
+| Mismo hash para documentos de diferentes entidades | Un mismo PDF se subió como "seguro" para 3 camiones diferentes | Alerta automática + canal rojo |
+| Todos los documentos vencen el mismo día | Un transportista sube 15 documentos que todos vencen el 31/12 | Canal amarillo forzado |
+| Carga masiva a fin de mes | Se suben 40 documentos el último día antes de un plazo | Muestreo ampliado al 50% |
+| Tamaño/resolución anómalos | PDF de 30KB cuando los normales son ~200KB | Flag en el prompt de los 3 modelos |
 | Metadatos borrados | PDF sin metadatos (deliberadamente stripped) | Flag: posible intento de ocultar origen |
+
+Estas reglas alimentan el prompt como contexto adicional y pueden forzar la asignación de canal independientemente del score de los modelos.
 
 ---
 
@@ -2755,14 +2825,622 @@ Las capas de prevención de fraude se integran directamente en las fases CCS def
 | **Fase 1** (Snapshots + Hash Chain) | Declaración jurada electrónica, inspección básica de metadatos, registro de `trustLevel` en snapshots, cifrado en reposo |
 | **Fase 2** (Copias Congeladas + Watermark) | Marcas de agua visibles + invisibles, WORM en MinIO |
 | **Fase 4** (Portales Autenticados) | Dashboard de alertas, auditoría de accesos, verificación de cadena desde portal |
-| **Fase 5** (Verificación Fuentes Oficiales) | SSN, ARCA, OCR + cross-reference |
-| **Fase 6** (AI Scoring + Trust Level) | LLM scoring on-premise, detección de anomalías, ELA, reglas de patrones |
+| **Fase 5** (Verificación Fuentes Oficiales) | SSN, ARCA, cross-reference con datos del sistema |
+| **Fase 6** (Golden Set + Prompt por Plantilla) | Configuración de plantillas con documentos de referencia, prompts versionados |
+| **Fase 7** (Aprobación Automatizada por Consenso) | 3 vision LLMs, motor de consenso, sistema de canales verde/amarillo/rojo, rollout gradual |
 
 Las auditorías aleatorias (Capa 5) y la firma PKI/TSA (Capa 1 reforzada) quedan como consideraciones futuras (sección 18.1).
 
 ---
 
-## 20. Glosario
+## 20. Sistema de Aprobación Automatizada por Consenso de IA
+
+### 20.1 Fundamentos y justificación
+
+El proceso actual de aprobación de documentos y remitos depende de un **aprobador humano** que revisa cada documento individualmente. Este modelo presenta limitaciones operativas significativas:
+
+| Limitación | Impacto |
+|---|---|
+| **Velocidad**: 4-24 horas por documento | Los equipos no pueden operar hasta que toda la documentación esté aprobada |
+| **Consistencia**: depende del criterio individual del aprobador | Dos aprobadores pueden tomar decisiones diferentes ante el mismo documento |
+| **Escalabilidad**: lineal con headcount | Duplicar el volumen de documentos requiere duplicar los aprobadores |
+| **Fatiga**: degradación de calidad con el volumen | Al final del día, el aprobador revisa con menos atención |
+| **Disponibilidad**: solo horario laboral | Documentos subidos fuera de horario esperan hasta el día siguiente |
+
+**Propuesta**: Reemplazar la aprobación humana unitaria por un sistema de **3 vision LLMs on-premise que votan por consenso**, donde la auditoría humana pasa de ser unitaria (revisar cada documento) a ser **por muestreo basado en riesgo** (canales verde, amarillo y rojo), similar al modelo aduanero de inspección.
+
+**Supuesto fundamental**: Los 3 modelos de IA son **complementarios por diversidad arquitectural**. Cada uno fue entrenado por un equipo diferente, con datos diferentes y arquitectura diferente. Lo que un modelo no detecta, otro sí lo atrapa. La probabilidad de que los 3 se equivoquen simultáneamente en la misma dirección es exponencialmente menor que la de un solo modelo o un solo humano.
+
+**Ventaja estadística del ensemble "best of 3"**: Si cada modelo tiene una precisión independiente del 90%, la probabilidad de error del conjunto (2+ de 3 se equivocan) baja a ~2.8%. Con 95% individual, baja a ~0.7%. Esto supera consistentemente al aprobador humano individual.
+
+---
+
+### 20.2 Arquitectura: tres vision LLMs on-premise
+
+Se utilizan **3 modelos multimodales de visión** (vision LLMs) diferentes, cada uno capaz de recibir una imagen de documento y un prompt de texto, y producir un análisis estructurado. Un vision LLM moderno realiza **simultáneamente** las tareas que antes requerían 3 sistemas separados:
+
+| Capacidad | Antes (3 sistemas) | Ahora (cada vision LLM) |
+|---|---|---|
+| Leer texto del documento | OCR dedicado (Tesseract/PaddleOCR) | OCR nativo del modelo de visión |
+| Analizar layout, sellos, firmas, formato | Clasificador visual (CNN) | Análisis visual integrado |
+| Entender semántica, detectar incoherencias | LLM de texto (Mistral/Llama) | Razonamiento multimodal integrado |
+
+#### Trio de modelos recomendado
+
+| Modelo | Origen | Tamaño | Fortaleza específica |
+|---|---|---|---|
+| **Qwen2-VL** | Alibaba (China) | 7B | Mejor OCR nativo del mercado. Diseñado para leer documentos con alta precisión. Excelente con tablas, texto denso y documentos escaneados de baja calidad |
+| **InternVL2** | Shanghai AI Lab (China) | 8B | Fuerte en razonamiento visual: entiende layout, posición relativa de elementos, detecta anomalías visuales (sellos faltantes, tipografía inconsistente, zonas editadas) |
+| **Llama 3.2 Vision** | Meta (USA) | 11B | Mejor razonamiento semántico y coherencia contextual. Excelente siguiendo instrucciones complejas (prompts largos con few-shot) y cruzando datos extraídos con información de contexto |
+
+**Justificación de la diversidad**:
+- **3 orígenes geográficos/organizacionales distintos** (China-Alibaba, China-Shanghai AI Lab, USA-Meta): diferentes datos de entrenamiento, diferentes sesgos culturales en la curación de datos
+- **3 arquitecturas distintas**: diferentes encoders visuales, diferentes mecanismos de atención, diferentes objetivos de pre-entrenamiento
+- **3 fortalezas complementarias**: OCR preciso + visión analítica + razonamiento semántico
+
+**Principio de soberanía de datos**: Los 3 modelos corren **exclusivamente on-premise** (via Ollama en contenedores Docker). Ningún documento ni dato sale de la infraestructura propia. Los modelos se descargan una vez y se actualizan manualmente por el equipo de operaciones.
+
+#### Pipeline unificado
+
+```
+Documento subido
+       │
+       ▼
+┌──────────────────────────┐
+│  Preproceso               │
+│  - ELA (si es imagen)     │
+│  - Extracción metadata    │
+│  - Reglas determinísticas │
+│    (hash duplicado, etc.) │
+└──────────┬───────────────┘
+           │
+           ▼
+┌──────────────────────────────────────────────────────┐
+│  PromptBuilderService                                 │
+│  - Toma PlantillaRequisitoConfig (campos + golden set)│
+│  - Inyecta imágenes de referencia + datos validados   │
+│  - Inyecta datos del sistema para validación cruzada  │
+│  - Inyecta resultado ELA y flags de reglas            │
+│  - Genera prompt unificado                            │
+└──────────┬───────────────────────────────────────────┘
+           │
+     ┌─────┼─────┐
+     ▼     ▼     ▼
+ Qwen2  Intern  Llama       (misma imagen + mismo prompt)
+  -VL    VL2    Vision
+     │     │     │
+     ▼     ▼     ▼
+  JSON   JSON   JSON         (mismo formato de respuesta)
+     │     │     │
+     └─────┼─────┘
+           ▼
+┌──────────────────────────┐
+│  ConsensusEngine          │
+│  - Compara 3 JSONs        │
+│  - Voto por campo         │
+│  - Score compuesto        │
+│  - Asigna canal           │
+│  - Registra en audit      │
+└──────────┬───────────────┘
+           │
+     ┌─────┼─────┐
+     ▼     ▼     ▼
+   VERDE  AMAR  ROJO
+   auto   mues  humano
+```
+
+---
+
+### 20.3 Golden Set por plantilla
+
+#### Concepto
+
+El **golden set** es un conjunto curado de 5-10 documentos reales, verificados como auténticos, con sus datos extraídos y validados. Cada `PlantillaRequisito` tiene su propio golden set, que define "qué es y cómo se ve" un documento de ese tipo.
+
+El golden set convierte la creación de una plantilla de un acto administrativo (nombre + campos + entidad) a un **acto de entrenamiento del sistema**.
+
+#### Flujo de creación
+
+```
+Admin crea PlantillaRequisito
+  │
+  ▼
+Paso 1 — Definir campos a extraer
+  │  Nombre, tipo, formato esperado, validación cruzada
+  │
+  ▼
+Paso 2 — Subir 5-10 documentos de referencia
+  │  Documentos REALES, ya verificados como auténticos
+  │
+  ▼
+Paso 3 — Validación asistida
+  │  Para cada documento:
+  │    a. El sistema ejecuta los 3 modelos y muestra lo que extrajo
+  │    b. El admin corrige y confirma los datos extraídos
+  │    c. El resultado validado se almacena como ground truth
+  │
+  ▼
+Paso 4 — Generación automática
+  │  El sistema genera:
+  │    - Prompt unificado (con campos + ejemplos few-shot)
+  │    - Embeddings de referencia visual
+  │    - Umbrales de confianza iniciales
+  │
+  ▼
+Paso 5 — Test en vivo
+  │  El admin sube un documento de prueba (no del golden set)
+  │  y ve cómo responden los 3 modelos
+  │  Si los resultados son buenos → activa la plantilla
+  │  Si no → corrige ejemplos o agrega más
+  │
+  ▼
+Plantilla activa con IA habilitada
+```
+
+#### Requisitos del golden set
+
+| Requisito | Mínimo | Recomendado | Justificación |
+|---|---|---|---|
+| Cantidad de documentos | 5 | 8-10 | Suficiente para few-shot learning en LLMs |
+| Emisores distintos | 2 | 3+ | Pólizas de La Caja, Zurich y Federación Patronal cubren variaciones de formato |
+| Al menos 1 de baja calidad | Sí | Sí | Foto con flash, escaneo torcido, baja resolución — enseña al modelo a manejar input imperfecto |
+| Todos verificados | Sí | Sí | Deben ser documentos cuya autenticidad se confirmó (no fabricados) |
+
+#### Evolución continua del golden set
+
+El golden set crece automáticamente después de la configuración inicial:
+
+| Fuente | Mecanismo | Efecto |
+|---|---|---|
+| **Auditorías de canal verde** | Cuando el auditor confirma un documento de muestreo aleatorio como correcto, se agrega al golden set | Después de 6 meses: 50-100 ejemplos por plantilla |
+| **Correcciones de canal rojo** | Cuando un documento es legítimo pero la IA se equivocó, la corrección se registra como ejemplo valioso | Reduce falsos negativos del mismo tipo |
+| **Nuevas variantes de emisor** | Si una aseguradora cambia su formato, los primeros documentos nuevos caen en amarillo/rojo. El auditor los aprueba y se suman como nueva variante | El modelo "conoce" los emisores más comunes |
+| **Feedback negativo** | Documentos confirmados como fraudulentos se registran como ejemplos negativos | Los modelos aprenden a detectar patrones de fraude reales |
+
+#### Versionado
+
+Cada evolución del golden set genera una nueva versión del prompt/reglas:
+
+```
+v1.0: 10 ejemplos iniciales (configuración del admin)
+v1.1: +15 de auditorías verdes (25 total)
+v1.2: +5 de nuevo formato de aseguradora X (30 total)
+v2.0: +3 ejemplos negativos (documentos fraudulentos detectados)
+```
+
+Cada versión es auditable: si un documento se aprobó con el prompt v1.1, se puede reconstruir exactamente qué vio la IA.
+
+---
+
+### 20.4 Prompt unificado por plantilla
+
+El mismo prompt va a los 3 modelos. Esto simplifica enormemente el mantenimiento: **un solo artefacto por plantilla** genera las instrucciones para las 3 IAs.
+
+#### Estructura del prompt
+
+```
+PARTE 1 — Rol y contexto:
+"Sos un verificador de documentos de compliance de transporte argentino.
+Tu tarea es analizar el documento adjunto, extraer los campos definidos,
+evaluar la autenticidad y decidir si se aprueba."
+
+PARTE 2 — Definición de campos (de PlantillaRequisitoConfig):
+"Este documento es una [Póliza de Seguro Vehicular].
+Campos esperados:
+  - Número de póliza (formato: XX-XXXXXXX)
+  - CUIT del asegurado (formato: XX-XXXXXXXX-X)
+  - Patente asegurada (formato: AA-000-AA o AA000AA)
+  - Vigencia desde (fecha, formato dd/mm/aaaa)
+  - Vigencia hasta (fecha, formato dd/mm/aaaa)
+  - Compañía aseguradora (texto, razón social)
+  - Tipo de cobertura (texto)"
+
+PARTE 3 — Validación cruzada (del equipo en el sistema):
+"Datos del sistema para cruzar:
+  - CUIT esperado: 20-12345678-9 (TRANSPORTES DEL SUR S.A.)
+  - Patente esperada: AB123CD
+  - Entidad: CAMION (equipo 19)
+  - Último documento de este tipo venció el 15/01/2026
+  - El transportista tiene 47 equipos activos, 12 documentos rechazados históricamente"
+
+PARTE 4 — Golden set (imágenes reales + datos validados):
+[IMAGEN ejemplo 1 — La Caja]
+Datos extraídos verificados: { "numeroPóliza": "01-2345678", "cuit": "20-12345678-9", ... }
+
+[IMAGEN ejemplo 2 — Zurich]
+Datos extraídos verificados: { "numeroPóliza": "ZU-8765432", ... }
+
+... (hasta 10 ejemplos)
+
+PARTE 5 — Información de preproceso:
+"Análisis ELA: sin anomalías detectadas.
+Metadatos PDF: Producer=iTextSharp, CreationDate=2026-01-10, ModDate=2026-01-10.
+Tamaño: 287KB (rango normal para este tipo: 150-400KB)."
+
+PARTE 6 — Documento a analizar:
+[IMAGEN del documento nuevo]
+
+PARTE 7 — Formato de respuesta (JSON estricto):
+{
+  "extractedFields": {
+    "numeroPóliza": "valor extraído",
+    "cuit": "valor extraído",
+    ...
+  },
+  "confidencePerField": {
+    "numeroPóliza": 0.95,
+    "cuit": 0.98,
+    ...
+  },
+  "crossValidation": {
+    "cuit": { "matches": true, "detail": "Coincide con CUIT del sistema" },
+    "patente": { "matches": true, "detail": "Coincide con patente AB123CD" },
+    ...
+  },
+  "overallConfidence": 0.94,
+  "decision": "APPROVE",
+  "anomalies": [],
+  "reasoning": "Documento consistente con los ejemplos de referencia.
+                Todos los campos extraídos coinciden con los datos del sistema.
+                Formato y metadatos coherentes con emisor La Caja."
+}
+```
+
+#### Ventaja del prompt con imágenes reales (few-shot visual)
+
+Los 3 vision LLMs reciben las **imágenes originales** del golden set, no descripciones textuales. Esto les permite ver:
+- El layout real del documento (dónde están los datos)
+- Las tipografías y colores del emisor
+- La posición de logos, sellos y firmas
+- Las variaciones entre diferentes emisores del mismo tipo de documento
+
+Esto es significativamente más poderoso que el few-shot textual tradicional, porque el modelo aprende de la **apariencia visual real** del documento, no de una abstracción.
+
+#### Desacuerdo como información
+
+Con 3 modelos que devuelven el mismo formato JSON, un desacuerdo es directamente interpretable:
+
+```
+Qwen2-VL:     { "cuit": "20-12345678-9", confidence: 0.98 }
+InternVL2:    { "cuit": "20-12345678-9", confidence: 0.95 }
+Llama Vision: { "cuit": "20-12345679-9", confidence: 0.72 }
+                                    ^ discrepancia en dígito verificador
+```
+
+El `ConsensusEngine` detecta: "2/3 coinciden con alta confianza, 1 difiere con baja confianza en el campo CUIT". Esto produce una señal precisa: el dígito verificador es ambiguo en la imagen, posiblemente por baja calidad. Canal amarillo.
+
+---
+
+### 20.5 Motor de consenso
+
+El `ConsensusEngine` recibe las 3 respuestas JSON y produce una decisión unificada.
+
+#### Algoritmo de consenso
+
+```
+Para cada campo:
+  1. Si 3/3 coinciden en el valor → valor aceptado, confianza = promedio de las 3
+  2. Si 2/3 coinciden → valor de la mayoría, confianza = promedio de la mayoría × 0.85
+  3. Si 0/3 coinciden → campo marcado como "ambiguo", confianza = 0
+
+Para la decisión global:
+  1. Si 3/3 deciden APPROVE y confianza promedio > 0.90 → VERDE
+  2. Si 3/3 deciden APPROVE pero confianza entre 0.70-0.90 → AMARILLO
+  3. Si 2/3 deciden APPROVE pero 1 decide REJECT → ROJO
+  4. Si 2/3 deciden REJECT → RECHAZO AUTOMÁTICO con motivo
+  5. Si 3/3 deciden REJECT → RECHAZO AUTOMÁTICO + flag de fraude potencial
+
+Overrides determinísticos (ignoran el consenso):
+  - Hash duplicado detectado → ROJO siempre
+  - ELA con anomalías severas → ROJO siempre
+  - Metadatos deliberadamente borrados → AMARILLO mínimo
+  - Transportista con penalización activa → AMARILLO mínimo
+```
+
+#### Score compuesto
+
+El score final es un promedio ponderado:
+
+```
+scoreCompuesto = (
+  scoreQwen × 0.35 +      // peso mayor por su fortaleza en OCR
+  scoreInternVL × 0.30 +   // peso por análisis visual
+  scoreLlama × 0.35         // peso por razonamiento semántico
+)
+```
+
+Los pesos son configurables por plantilla. Para plantillas donde la lectura precisa de datos es crítica (pólizas con números de póliza), Qwen puede ponderarse más alto. Para plantillas donde el formato visual importa más (licencias de conducir), InternVL puede tener más peso.
+
+---
+
+### 20.6 Sistema de canales verde / amarillo / rojo
+
+Modelo inspirado en el sistema aduanero de inspección por riesgo. La auditoría humana deja de ser unitaria (revisar cada documento) y pasa a ser por **muestreo estratificado**.
+
+#### Canal Verde (~70-80% del volumen)
+
+| Aspecto | Detalle |
+|---|---|
+| **Criterio de entrada** | 3/3 modelos aprueban con confianza > 0.90. Sin flags de reglas determinísticas. Transportista sin penalizaciones activas |
+| **Acción** | Aprobación automática instantánea. El documento pasa a estado APROBADO sin intervención humana |
+| **Auditoría** | Muestreo aleatorio del 3-5% a posteriori (no bloquea el flujo). El auditor revisa documentos ya aprobados y confirma o revierte |
+| **Tiempo** | < 1 minuto desde la carga hasta la aprobación |
+| **Si la auditoría detecta problema** | Se revierte la aprobación. El transportista acumula un strike. Si acumula 2+ strikes, sus futuros documentos pasan a amarillo forzado durante 30 días |
+
+#### Canal Amarillo (~15-20% del volumen)
+
+| Aspecto | Detalle |
+|---|---|
+| **Criterio de entrada** | 3/3 aprueban pero algún modelo con confianza entre 0.70-0.90. O transportista nuevo (primeros 10 documentos). O tipo de plantilla históricamente problemático. O flags de reglas determinísticas menores |
+| **Acción** | Aprobación provisional. El equipo puede operar, pero el documento entra a una cola de revisión humana |
+| **Auditoría** | Revisión humana del 30-50% de los documentos amarillos, seleccionados aleatoriamente. SLA: 24-48 horas |
+| **Tiempo** | Aprobación provisional instantánea. Revisión definitiva en 24-48h |
+| **Si la revisión detecta problema** | Se revierte la aprobación provisional y se notifica al transportista. Strike acumulado |
+
+#### Canal Rojo (~5-10% del volumen)
+
+| Aspecto | Detalle |
+|---|---|
+| **Criterio de entrada** | Al menos 1 modelo rechaza. O desacuerdo significativo entre modelos. O confianza promedio < 0.70. O ELA con anomalías severas. O transportista con penalización activa |
+| **Acción** | Bloqueo. El documento NO se aprueba hasta que un auditor humano lo revise |
+| **Auditoría** | Revisión humana obligatoria del 100%. El auditor ve el análisis de los 3 modelos, los puntos de desacuerdo, y las anomalías detectadas |
+| **Tiempo** | Depende de la cola de revisión. SLA: 4-8 horas laborales |
+| **Herramientas del auditor** | Dashboard con: las 3 respuestas JSON lado a lado, mapa de discrepancias, resultado ELA, historial del transportista, datos del sistema para cruzar |
+
+#### Porcentajes dinámicos
+
+Los porcentajes de cada canal no son fijos. Se ajustan automáticamente:
+
+| Señal | Ajuste |
+|---|---|
+| Tasa de fraude en auditorías de verde sube > 2% | Aumentar muestreo verde al 10%. Bajar umbral de verde a 0.95 |
+| Un tipo de plantilla tiene > 20% de rojos | Bajar umbral: documentos de esa plantilla arrancan en amarillo mínimo |
+| Un transportista acumula 0 strikes en 6 meses | Relajar umbral: sus documentos son más fáciles de entrar a verde |
+| Antes de auditoría CNRT o vencimientos masivos | Endurecer temporalmente: ampliar muestreo de amarillo al 70% |
+| Nuevo modelo deployado (actualización) | 1 semana de shadow mode antes de confiar en el nuevo modelo |
+
+---
+
+### 20.7 Documentos vs. remitos
+
+El sistema aplica de forma diferente según el tipo de artefacto:
+
+#### Documentos de compliance (pólizas, licencias, VTV, ART, constancias)
+
+La IA **puede reemplazar** la aprobación humana unitaria porque:
+- El documento ES la evidencia completa (un PDF/imagen contiene toda la información necesaria)
+- Hay patrones claros de formato por tipo y emisor
+- Los datos son verificables contra el sistema (CUIT, patente, DNI, fechas)
+- Algunos son verificables contra fuentes externas (SSN, ARCA)
+- La decisión es binaria: el documento es válido o no
+
+**Veredicto**: El sistema de 3 vision LLMs + canales es plenamente aplicable.
+
+#### Remitos
+
+La IA **puede verificar parcialmente** porque un remito tiene un componente documental y un componente físico:
+
+**Lo que la IA sí puede hacer:**
+- Verificar que el remito como documento es auténtico (firma, formato, sello, datos)
+- Verificar que los datos coinciden con el viaje asignado (origen, destino, fecha, mercadería)
+- Detectar que las cantidades son coherentes con el tipo de carga y vehículo
+- Detectar remitos duplicados (mismo número usado antes)
+- Detectar firmas sospechosas ("la firma de recepción es idéntica en los últimos 50 remitos")
+
+**Lo que la IA no puede confirmar:**
+- Que la mercadería efectivamente llegó al destino físico
+- Que las cantidades declaradas son las correctas (el remito dice 10 pallets pero llegaron 8)
+- Que la firma es del receptor real y no de un tercero
+
+**Propuesta híbrida para remitos**: La IA valida el documento + cruza datos + detecta anomalías (asignando canal verde/amarillo/rojo). Pero la confirmación de recepción física sigue dependiendo de la contraparte (el receptor que firma o confirma en el sistema). La IA actúa como **primera línea de verificación documental**, no como reemplazo de la confirmación de entrega.
+
+---
+
+### 20.8 Hardware y rendimiento
+
+#### Requisitos de hardware
+
+| Configuración | Hardware | Modelos | Latencia por documento | Costo aprox. |
+|---|---|---|---|---|
+| **Mínima** (secuencial) | 1x GPU 24GB VRAM (RTX 4090 / A5000) | 3 modelos 7-8B, uno a la vez | ~30-45 seg | ~$2,000 USD |
+| **Óptima** (paralelo) | 3x GPU 24GB o 1x GPU 48GB (A6000) | 3 modelos 7-8B en paralelo | ~10-15 seg | ~$6,000-7,000 USD |
+| **Premium** (modelos grandes) | 2x GPU 80GB (A100) | Modelos 26-72B | ~15-20 seg | ~$20,000+ USD |
+
+**Recomendación**: Configuración **óptima** (3x RTX 4090) como punto de partida. Los modelos de 7-8B ofrecen excelente rendimiento para comprensión de documentos y corren en hardware accesible. La inversión se recupera en meses comparado con el costo de aprobadores humanos dedicados full-time.
+
+#### Infraestructura Docker
+
+```
+┌───────────────────────────────────────────────────┐
+│  Servidor de AI (dedicado o compartido)            │
+│                                                     │
+│  ┌─────────────┐  ┌─────────────┐  ┌────────────┐│
+│  │ ollama-qwen │  │ollama-intern│  │ollama-llama││
+│  │ GPU 0       │  │ GPU 1       │  │ GPU 2      ││
+│  │ Qwen2-VL-7B│  │InternVL2-8B │  │Llama-Vis   ││
+│  │ :11434      │  │ :11435      │  │ :11436     ││
+│  └──────┬──────┘  └──────┬──────┘  └─────┬──────┘│
+│         └────────────────┼────────────────┘       │
+│                          │                         │
+│  ┌───────────────────────┴──────────────────┐     │
+│  │  ConsensusEngine (Node.js)                │     │
+│  │  - Prompt Builder                         │     │
+│  │  - Parallel dispatcher                    │     │
+│  │  - Response comparator                    │     │
+│  │  - Channel assigner                       │     │
+│  │  - Audit logger                           │     │
+│  └───────────────────────────────────────────┘     │
+│                                                     │
+│  ┌───────────────────────────────────────────┐     │
+│  │  Preproceso (Node.js + Sharp)              │     │
+│  │  - ELA                                     │     │
+│  │  - Metadata extraction                     │     │
+│  │  - Deterministic rules                     │     │
+│  └───────────────────────────────────────────┘     │
+└───────────────────────────────────────────────────┘
+```
+
+#### Rendimiento estimado
+
+| Métrica | Valor |
+|---|---|
+| Documentos procesados por hora (config. óptima) | ~240-360 (10-15 seg cada uno) |
+| Documentos procesados por hora (config. mínima) | ~80-120 (30-45 seg cada uno) |
+| Volumen diario de 1000 equipos × 5 docs/eq | ~5,000 docs → procesable en ~14-21 horas (mínima) o ~14-21 min (óptima) |
+| Pico de carga (vencimientos masivos) | Escalable agregando GPUs |
+
+---
+
+### 20.9 Riesgos y mitigaciones
+
+#### Riesgo 1: Responsabilidad legal por aprobación automática
+
+**Problema**: Si la IA aprueba un documento fraudulento y hay un siniestro, ¿quién responde?
+
+**Mitigación**:
+- La declaración jurada del cargador (sección 19.5) transfiere responsabilidad legal al que sube el documento
+- El sistema BCA actúa como herramienta de gestión, no como certificador legal
+- El muestreo aleatorio demuestra due diligence ("revisamos X% de documentos aleatoriamente")
+- La trazabilidad completa (audit trail + blockchain) permite reconstruir cualquier caso
+- El dador puede complementar con verificación contra fuentes oficiales (SSN, ARCA) para documentos de alto riesgo
+
+#### Riesgo 2: Ataques adversariales
+
+**Problema**: Si alguien descubre qué modelos se usan, puede fabricar documentos que engañen a los 3.
+
+**Mitigación**:
+- Los modelos son on-premise; nadie externo sabe cuáles son ni cómo funcionan
+- La diversidad arquitectural (Alibaba + Shanghai AI Lab + Meta) hace que engañar a los 3 simultáneamente sea exponencialmente más difícil
+- El muestreo aleatorio de canal verde actúa como red de seguridad (aunque engañes a la IA, podés caer en una auditoría)
+- Las verificaciones contra fuentes externas (SSN, ARCA) no dependen de la IA
+- Los modelos se actualizan periódicamente (target trimestral)
+- Los prompts se enriquecen con ejemplos de fraude detectados (feedback loop)
+
+#### Riesgo 3: Degradación silenciosa (model drift)
+
+**Problema**: Los modelos pierden precisión con el tiempo porque cambian los formatos de documentos, los emisores, las regulaciones.
+
+**Mitigación**:
+- Monitoreo continuo: comparar decisiones de la IA con los resultados de las auditorías humanas
+- Dashboard de precisión por modelo, por plantilla, por transportista
+- Si la tasa de discrepancia (IA aprobó pero auditor rechazó) sube por encima del umbral configurable, se dispara alerta automática
+- Re-entrenamiento/actualización de modelos con frecuencia trimestral
+- El golden set creciente mejora continuamente la calidad de los prompts
+
+#### Riesgo 4: Los 3 modelos comparten el mismo error
+
+**Problema**: Un tipo de fraude novedoso que ninguno de los 3 modelos ha visto.
+
+**Mitigación**: Esto es exactamente para lo que sirve el canal verde con muestreo. Aunque los 3 digan "verde", el 3-5% que se muestrea al azar puede detectar fraudes nuevos. El fraude detectado se agrega al golden set como ejemplo negativo y los futuros documentos similares se detectan. Es el mismo principio por el que la aduana revisa equipaje aleatorio aunque el scanner no detecte nada.
+
+#### Riesgo 5: Documentos con formatos muy variables
+
+**Problema**: Algunos tipos de documentos (certificados municipales, libretas sanitarias) tienen formatos extremadamente variados. 5-10 ejemplos no cubren todas las variantes.
+
+**Mitigación**:
+- Para plantillas de alta variabilidad, el canal arranca en amarillo forzado hasta acumular 20-30 ejemplos auditados
+- El admin puede configurar umbrales más conservadores por plantilla
+- Los documentos amarillos que pasan auditoría se agregan al golden set, ampliando progresivamente la cobertura
+- A largo plazo, plantillas con >50 ejemplos en el golden set tienen cobertura suficiente
+
+---
+
+### 20.10 Rollout gradual
+
+El sistema no se enciende de golpe. Se despliega en 4 etapas progresivas:
+
+#### Etapa 1 — Shadow Mode (2-4 semanas)
+
+Los 3 modelos corren en paralelo con el proceso actual. Cada documento es analizado por la IA **Y** aprobado/rechazado por el humano. No se toma ninguna acción automática.
+
+**Objetivo**: Medir la tasa de acuerdo entre la IA y los aprobadores humanos.
+
+| Métrica | Umbral para pasar a Etapa 2 |
+|---|---|
+| Acuerdo IA-humano (documentos aprobados) | > 90% |
+| Acuerdo IA-humano (documentos rechazados) | > 85% |
+| Falsos negativos de la IA (IA rechazó, humano aprobó con razón) | < 5% |
+| Falsos positivos de la IA (IA aprobó, humano rechazó con razón) | < 3% |
+
+Durante esta etapa se ajustan:
+- Pesos de los modelos en el score compuesto
+- Umbrales de confianza para cada canal
+- Prompt y golden set basados en las discrepancias observadas
+
+#### Etapa 2 — Asistencia (2-4 semanas)
+
+La IA sugiere y el humano confirma. El aprobador ve un panel enriquecido:
+
+```
+┌────────────────────────────────────────────────────┐
+│  Documento: Póliza de Seguro - Equipo 19           │
+│                                                     │
+│  IA RECOMIENDA: ✅ APROBAR (confianza: 0.94)       │
+│  Consenso: 3/3 modelos aprueban                    │
+│  Canal sugerido: VERDE                              │
+│                                                     │
+│  Campos extraídos:                                  │
+│  ┌──────────────────┬────────────┬──────────────┐  │
+│  │ Campo            │ Valor      │ Validación   │  │
+│  ├──────────────────┼────────────┼──────────────┤  │
+│  │ Nro. póliza      │ 01-2345678 │ -            │  │
+│  │ CUIT             │ 20-1234..  │ ✅ coincide  │  │
+│  │ Patente          │ AB123CD    │ ✅ coincide  │  │
+│  │ Vigencia hasta   │ 15/03/26   │ ✅ futuro    │  │
+│  │ Aseguradora      │ La Caja    │ ✅ conocida  │  │
+│  └──────────────────┴────────────┴──────────────┘  │
+│                                                     │
+│  [✅ Aprobar (1 click)]  [❌ Rechazar]  [🔍 Detalle]│
+└────────────────────────────────────────────────────┘
+```
+
+**Objetivo**: El aprobador humano trabaja 3-5x más rápido porque solo confirma la sugerencia de la IA en la mayoría de los casos.
+
+| Métrica | Umbral para pasar a Etapa 3 |
+|---|---|
+| Tasa de override del humano (IA sugirió aprobar, humano rechazó) | < 2% |
+| Satisfacción del aprobador con las sugerencias | Positiva |
+| Tiempo de aprobación | Reducción > 60% |
+
+#### Etapa 3 — Canal verde automático (gradual)
+
+Se empieza a auto-aprobar documentos del canal verde. Solo para tipos de plantilla de bajo riesgo inicialmente.
+
+**Secuencia de activación sugerida:**
+
+| Orden | Tipo de plantilla | Justificación |
+|---|---|---|
+| 1° | Constancias ARCA | Formato estandarizado, verificable contra fuente oficial |
+| 2° | RTO / VTV | Formato relativamente estándar |
+| 3° | Habilitaciones CNRT | Verificable contra fuente oficial |
+| 4° | Pólizas de seguro | Más variantes de formato, pero verificable contra SSN |
+| 5° | Licencias de conducir | Alta variabilidad, deja para el final |
+
+Canal amarillo y rojo siguen con revisión humana.
+
+#### Etapa 4 — Sistema completo de canales (ongoing)
+
+Verde/Amarillo/Rojo funcionando con los porcentajes definidos para todas las plantillas. El humano pasa de **aprobador** a **auditor**: revisa muestras, investiga alertas, y gestiona excepciones.
+
+---
+
+### 20.11 Impacto operativo
+
+| Métrica | Hoy (100% humano) | Etapa 2 (asistencia) | Etapa 4 (canales completos) |
+|---|---|---|---|
+| Tiempo de aprobación promedio | 4-24 horas | 30-60 seg (1 click) | < 1 min (verde), < 48h (amarillo) |
+| Documentos por operador/día | 50-100 | 200-400 | 500-1000 (solo audita muestras) |
+| Tasa de fraude detectada | Variable (depende del operador) | Mayor (IA detecta + humano confirma) | Máxima (IA + muestreo + fuentes externas) |
+| Escalabilidad | Lineal con headcount | 3-5x más eficiente | Prácticamente ilimitada |
+| Consistencia | Variable entre aprobadores | Alta (IA sugiere, humano confirma) | Determinística (mismo input = mismo output) |
+| Disponibilidad | Solo horario laboral | Extendida (humano confirma rápido) | 24/7 (verde auto-aprueba, rojo espera horario) |
+| Rol del aprobador | Revisor unitario (cuello de botella) | Confirmador asistido (más rápido) | Auditor/investigador (mayor valor) |
+
+**El cambio de paradigma fundamental**: El aprobador deja de ser un cuello de botella que revisa uno por uno y se convierte en un **auditor** que investiga alertas, revisa muestras, y mejora los modelos. Es un rol de mayor valor agregado y menor tedio.
+
+---
+
+## 21. Glosario
 
 | Término | Definición |
 |---|---|
@@ -2772,10 +3450,15 @@ Las auditorías aleatorias (Capa 5) y la firma PKI/TSA (Capa 1 reforzada) quedan
 | **ARCA** | Agencia de Recaudación y Control Aduanero (ex-AFIP): administración tributaria argentina |
 | **Audit trail** | Registro inmutable en `CertificateAccessAudit` de toda consulta a certificados y documentos |
 | **Baseline** | Snapshot diario automático generado por el job nocturno, refleja el estado completo del equipo |
+| **Best of 3** | Método de consenso donde 3 modelos de IA votan independientemente; la mayoría determina la decisión |
+| **Canal rojo** | Documento con desacuerdo entre modelos o confianza baja; requiere revisión humana obligatoria (100%) |
+| **Canal verde** | Documento con 3/3 modelos de acuerdo y alta confianza; se auto-aprueba con muestreo aleatorio a posteriori |
+| **Canal amarillo** | Documento con confianza media o factores de riesgo; aprobación provisional con revisión humana por muestreo |
 | **CENALEC** | Centro Nacional de Licencias de Conducir |
 | **Certificate Ref** | UUID único del snapshot, usado como referencia interna en URLs del portal autenticado |
 | **Cifrado en reposo** | Protección de datos almacenados: LUKS para discos, SSE-S3 para MinIO, GPG para backups |
 | **CNRT** | Comisión Nacional de Regulación del Transporte |
+| **ConsensusEngine** | Servicio que recibe las 3 respuestas JSON de los vision LLMs, compara campo a campo, calcula score compuesto y asigna canal |
 | **Content Hash** | SHA-256 del contenido canónico (JSON serializado con keys ordenadas) del snapshot |
 | **Copia congelada** | Copia inmutable del documento almacenada en MinIO con Object Lock (WORM) al momento de la certificación |
 | **Declaración jurada electrónica** | Compromiso legal del cargador sobre la autenticidad del documento, registrado en `DocumentUploadDeclaration` con hash del archivo, IP y timestamp |
@@ -2783,19 +3466,30 @@ Las auditorías aleatorias (Capa 5) y la firma PKI/TSA (Capa 1 reforzada) quedan
 | **ELA** | Error Level Analysis: técnica forense que detecta regiones manipuladas en imágenes analizando diferencias de compresión JPEG |
 | **Esteganografía** | Técnica de ocultar información (marca de agua invisible) en los bits menos significativos de los píxeles de una imagen |
 | **Event snapshot** | Snapshot generado por un evento específico (aprobación, rechazo, vencimiento de documento) en tiempo real |
+| **Few-shot visual** | Técnica donde se muestran imágenes de ejemplo a un vision LLM para que aprenda el patrón de un tipo de documento |
+| **Golden set** | Conjunto curado de 5-10 documentos reales verificados con datos validados, usado como referencia de entrenamiento por plantilla |
 | **Hash Chain** | Cadena donde cada snapshot incluye el hash del anterior, formando una secuencia verificable de integridad |
+| **InternVL2** | Vision LLM de Shanghai AI Lab, especializado en razonamiento visual y detección de anomalías de layout |
+| **Llama 3.2 Vision** | Vision LLM de Meta, especializado en razonamiento semántico y seguimiento de instrucciones complejas |
 | **LUKS** | Linux Unified Key Setup: estándar de cifrado de disco completo para Linux |
 | **Marca de agua visible** | Texto superpuesto en diagonal sobre documentos servidos, identificando al usuario consultante |
 | **Marca de agua invisible** | Datos binarios embebidos en píxeles (LSB) que sobreviven recompresión e identifican la fuente de una fuga |
 | **Merkle Proof** | Conjunto mínimo de hashes hermanos necesarios para demostrar que un snapshot está incluido en un Merkle root |
 | **Merkle Root** | Hash raíz del Merkle tree, representa la totalidad de los snapshots de un día |
 | **Merkle Tree** | Estructura de árbol binario de hashes que permite verificar inclusión eficientemente en O(log n) |
+| **Model drift** | Degradación silenciosa de la precisión de un modelo de IA con el tiempo, por cambios en los datos de entrada |
 | **Object Lock (WORM)** | Write Once Read Many: política de MinIO que impide borrar o modificar objetos antes de su fecha de retención |
+| **Ollama** | Runtime para ejecutar LLMs on-premise en contenedores Docker, usado para servir los 3 vision LLMs |
 | **PDF autoverificable** | PDF de certificado que incluye firma, Merkle proof y datos suficientes para verificación offline sin acceso al sistema |
 | **PKI** | Public Key Infrastructure: infraestructura de certificados digitales para firma electrónica |
+| **PlantillaRequisitoConfig** | Configuración de IA por plantilla: campos a extraer, golden set, prompt versionado, umbrales de confianza |
 | **Polygon** | Blockchain pública compatible con Ethereum, usada por su bajo costo de transacción (~$0.01/tx) |
+| **Prompt unificado** | Prompt generado automáticamente por plantilla que incluye campos, golden set, datos del sistema y flags de preproceso; se envía idéntico a los 3 modelos |
+| **Qwen2-VL** | Vision LLM de Alibaba, especializado en OCR nativo y comprensión de documentos con texto denso |
 | **RS256** | Algoritmo de firma digital RSA con SHA-256, usado para firmar snapshots del CCS |
-| **Score de confianza** | Valor numérico (0.0-1.0) calculado por la AI on-premise que indica la probabilidad de autenticidad de un documento |
+| **Score compuesto** | Promedio ponderado de los scores de confianza de los 3 vision LLMs, con pesos configurables por plantilla |
+| **Score de confianza** | Valor numérico (0.0-1.0) que indica la probabilidad de autenticidad de un documento según un modelo individual |
+| **Shadow mode** | Etapa de rollout donde la IA analiza documentos en paralelo con el aprobador humano sin tomar decisiones |
 | **Soberanía de datos** | Principio de que ningún documento ni dato documental sale de la infraestructura propia; toda AI corre on-premise |
 | **SSE-S3** | Server-Side Encryption de MinIO: cifrado automático de objetos con clave maestra gestionada por el servidor |
 | **SSN** | Superintendencia de Seguros de la Nación: organismo regulador de seguros en Argentina |
@@ -2803,4 +3497,5 @@ Las auditorías aleatorias (Capa 5) y la firma PKI/TSA (Capa 1 reforzada) quedan
 | **Snapshot** | Captura inmutable del estado de compliance de un equipo en un momento dado (baseline o evento) |
 | **TSA** | Timestamping Authority: servicio de sellado de tiempo conforme RFC 3161, con validez legal directa |
 | **Trust Level** | Clasificación de confianza del snapshot (HIGH, MEDIUM, LOW, UNVERIFIED) basada en verificaciones externas, scoring y declaraciones |
+| **Vision LLM** | Modelo de lenguaje multimodal capaz de recibir imágenes y texto, realizando OCR, análisis visual y razonamiento semántico en un solo paso |
 | **Watermark code** | Código de tracking (`WM-XXXXXX`) que vincula una marca de agua con el registro de auditoría del acceso |
