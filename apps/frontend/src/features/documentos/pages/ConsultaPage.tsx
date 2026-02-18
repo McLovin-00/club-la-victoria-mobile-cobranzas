@@ -127,7 +127,12 @@ export const ConsultaPage: React.FC = () => {
     }
   };
   
-  const show = (msg: string) => { try { alert(msg); } catch { console.log(msg); } };
+  const show = (msg: string) => {
+    const isError = msg.toLowerCase().includes('error') || msg.toLowerCase().includes('no hay') || msg.toLowerCase().includes('no fue posible') || msg.toLowerCase().includes('debe realizar');
+    const isSuccess = msg.toLowerCase().includes('correctamente') || msg.toLowerCase().includes('exitosa');
+    const variant = isError ? 'error' : isSuccess ? 'success' : 'default';
+    showToast(msg, variant);
+  };
   const { confirm } = useContext(ConfirmContext);
   const { data: dadoresResp } = useGetDadoresQuery({}, { skip: isChofer } as any);
   const dadoresRaw = dadoresResp?.list ?? (Array.isArray(dadoresResp) ? dadoresResp : []);
@@ -244,8 +249,11 @@ export const ConsultaPage: React.FC = () => {
     if (params.dni) sp.dni = params.dni;
     if (params.truckPlate) sp.truckPlate = params.truckPlate;
     if (params.trailerPlate) sp.trailerPlate = params.trailerPlate;
+    if (filterType !== 'dador') sp.filterType = filterType;
+    if (activoFilter !== 'all') sp.activoFilter = activoFilter;
+    if (complianceFilter !== 'all') sp.complianceFilter = complianceFilter;
     setSearchParams(sp);
-  }, [params, hasSearched, page, setSearchParams]);
+  }, [params, hasSearched, page, filterType, activoFilter, complianceFilter, setSearchParams]);
 
   // Inicializar desde URL o sessionStorage SOLO en montaje inicial
   useEffect(() => {
@@ -257,20 +265,34 @@ export const ConsultaPage: React.FC = () => {
     const dniQ = searchParams.get('dni') ?? undefined;
     const truckQ = searchParams.get('truckPlate') ?? undefined;
     const trailerQ = searchParams.get('trailerPlate') ?? undefined;
+    const filterTypeQ = searchParams.get('filterType') as FilterType | null;
+    const activoFilterQ = searchParams.get('activoFilter') as 'all' | 'true' | 'false' | null;
+    const complianceFilterQ = searchParams.get('complianceFilter') as ComplianceFilter | null;
     
-    if (empresaIdQ || clienteIdQ || empresaTranspIdQ || dniQ || truckQ || trailerQ) {
+    if (empresaIdQ || clienteIdQ || empresaTranspIdQ || dniQ || truckQ || trailerQ || autoSearch) {
+      // Restaurar filtros de tipo, estado y compliance
+      if (filterTypeQ && ['todos', 'dador', 'cliente', 'empresa'].includes(filterTypeQ)) {
+        setFilterType(filterTypeQ);
+      }
+      if (activoFilterQ && ['all', 'true', 'false'].includes(activoFilterQ)) {
+        setActivoFilter(activoFilterQ);
+      }
+      if (complianceFilterQ && ['all', 'faltantes', 'vencidos', 'por_vencer'].includes(complianceFilterQ)) {
+        setComplianceFilter(complianceFilterQ);
+      }
+
       // Restaurar valores en los selectores y campos
       if (empresaIdQ) { 
         setSelectedDadorId(empresaIdQ);
-        setFilterType('dador');
+        if (!filterTypeQ) setFilterType('dador');
       }
       if (clienteIdQ) {
         setSelectedClienteId(clienteIdQ);
-        setFilterType('cliente');
+        if (!filterTypeQ) setFilterType('cliente');
       }
       if (empresaTranspIdQ) {
         setSelectedEmpresaTranspId(empresaTranspIdQ);
-        setFilterType('empresa');
+        if (!filterTypeQ) setFilterType('empresa');
       }
       setDni(dniQ ?? '');
       setTruckPlate(truckQ ?? '');
@@ -929,6 +951,9 @@ export const ConsultaPage: React.FC = () => {
                 setSelectedClienteId(undefined);
                 setSelectedEmpresaTranspId(undefined);
                 setFilterType('dador');
+                setActivoFilter('all');
+                setComplianceFilter('all');
+                setEmpresaSearchText('');
                 setParams({}); 
                 setCsvResults([]);
                 setCsvInfo({});

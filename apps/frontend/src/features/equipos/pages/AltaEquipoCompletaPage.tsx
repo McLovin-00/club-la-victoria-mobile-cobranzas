@@ -91,6 +91,17 @@ const AltaEquipoCompletaPage: React.FC = () => {
   const [semiPatente, setSemiPatente] = useState('');
   const [semiTipo, setSemiTipo] = useState('');
 
+  // Campos tocados por el usuario (para mostrar errores inline al salir del campo)
+  const [touchedFields, setTouchedFields] = useState<Set<string>>(new Set());
+  const markTouched = (field: string) => {
+    setTouchedFields(prev => {
+      if (prev.has(field)) return prev;
+      const next = new Set(prev);
+      next.add(field);
+      return next;
+    });
+  };
+
   // Estado de documentos SELECCIONADOS (no subidos aún)
   const [selectedFiles, setSelectedFiles] = useState<Map<number, { file: File; expiryDate?: string }>>(new Map());
 
@@ -991,14 +1002,20 @@ const AltaEquipoCompletaPage: React.FC = () => {
               type='text'
               value={empresaTransportista}
               onChange={(e) => !isTransportista && setEmpresaTransportista(e.target.value)}
+              onBlur={() => markTouched('empresaTransportista')}
               disabled={isTransportista}
               className={`w-full border rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${
                 isTransportista 
                   ? 'bg-gray-100 border-gray-300 text-gray-700 cursor-not-allowed' 
-                  : 'border-gray-300'
+                  : touchedFields.has('empresaTransportista') && empresaTransportista.trim().length <= 1
+                    ? 'border-red-400'
+                    : 'border-gray-300'
               }`}
               placeholder='Ej: Transportes del Norte S.A.'
             />
+            {touchedFields.has('empresaTransportista') && empresaTransportista.trim().length <= 1 && !isTransportista && (
+              <p className='text-xs text-red-600 mt-1'>La razón social es obligatoria</p>
+            )}
           </div>
 
           <div>
@@ -1046,11 +1063,16 @@ const AltaEquipoCompletaPage: React.FC = () => {
               type='text'
               value={choferDni}
               onChange={(e) => handleDniChange(e.target.value)}
-              onBlur={handleVerifyDni}
+              onBlur={() => { markTouched('choferDni'); handleVerifyDni(); }}
               onKeyDown={(e) => e.key === 'Enter' && handleVerifyDni()}
-              className='w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500'
+              className={`w-full border rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                touchedFields.has('choferDni') && choferDni.trim().length < 6 ? 'border-red-400' : 'border-gray-300'
+              }`}
               placeholder='12345678'
             />
+            {touchedFields.has('choferDni') && choferDni.trim().length < 6 && (
+              <p className='text-xs text-red-600 mt-1'>El DNI debe tener al menos 6 dígitos</p>
+            )}
             {choferDni.length >= 6 && (
               <EntityStatusBadge result={getResult('CHOFER')} entityType="CHOFER" />
             )}
@@ -1064,9 +1086,15 @@ const AltaEquipoCompletaPage: React.FC = () => {
               type='text'
               value={choferNombre}
               onChange={(e) => setChoferNombre(e.target.value)}
-              className='w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500'
+              onBlur={() => markTouched('choferNombre')}
+              className={`w-full border rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                touchedFields.has('choferNombre') && choferNombre.trim().length < 1 ? 'border-red-400' : 'border-gray-300'
+              }`}
               placeholder='Juan'
             />
+            {touchedFields.has('choferNombre') && choferNombre.trim().length < 1 && (
+              <p className='text-xs text-red-600 mt-1'>El nombre es obligatorio</p>
+            )}
           </div>
 
           <div>
@@ -1077,9 +1105,15 @@ const AltaEquipoCompletaPage: React.FC = () => {
               type='text'
               value={choferApellido}
               onChange={(e) => setChoferApellido(e.target.value)}
-              className='w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500'
+              onBlur={() => markTouched('choferApellido')}
+              className={`w-full border rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                touchedFields.has('choferApellido') && choferApellido.trim().length < 1 ? 'border-red-400' : 'border-gray-300'
+              }`}
               placeholder='Pérez'
             />
+            {touchedFields.has('choferApellido') && choferApellido.trim().length < 1 && (
+              <p className='text-xs text-red-600 mt-1'>El apellido es obligatorio</p>
+            )}
           </div>
         </div>
 
@@ -1114,11 +1148,16 @@ const AltaEquipoCompletaPage: React.FC = () => {
               type='text'
               value={tractorPatente}
               onChange={(e) => handlePatenteCamionChange(e.target.value)}
-              onBlur={handleVerifyPatenteCamion}
+              onBlur={() => { markTouched('tractorPatente'); handleVerifyPatenteCamion(); }}
               onKeyDown={(e) => e.key === 'Enter' && handleVerifyPatenteCamion()}
-              className='w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono'
+              className={`w-full border rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono ${
+                touchedFields.has('tractorPatente') && tractorPatente.trim().length < 5 ? 'border-red-400' : 'border-gray-300'
+              }`}
               placeholder='ABC123'
             />
+            {touchedFields.has('tractorPatente') && tractorPatente.trim().length < 5 && (
+              <p className='text-xs text-red-600 mt-1'>La patente debe tener al menos 5 caracteres</p>
+            )}
             {tractorPatente.length >= 5 && (
               <EntityStatusBadge result={getResult('CAMION')} entityType="CAMION" />
             )}

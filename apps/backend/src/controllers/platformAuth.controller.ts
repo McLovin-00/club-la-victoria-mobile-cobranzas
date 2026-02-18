@@ -126,16 +126,27 @@ export class PlatformAuthController {
    */
   static async deleteUser(req: AuthRequest, res: Response): Promise<void> {
     try {
-      const actor = req.user;
-      if (!actor) {
+      const tokenUser = req.user;
+      if (!tokenUser) {
         res.status(401).json({ success: false, message: 'Usuario no autenticado' });
         return;
       }
+      const actorProfile = await PlatformAuthService.getUserProfile(tokenUser.userId);
+      if (!actorProfile) {
+        res.status(401).json({ success: false, message: 'No se pudo obtener el perfil del usuario autenticado' });
+        return;
+      }
       const id = parseInt(req.params.id, 10);
-      await PlatformAuthService.deletePlatformUser(id, actor);
-      res.status(200).json({ success: true });
-    } catch (error) {
-      AppLogger.error('💥 Error eliminando usuario de plataforma:', error);
+      await PlatformAuthService.deletePlatformUser(id, actorProfile);
+      res.status(200).json({ success: true, message: 'Usuario eliminado exitosamente' });
+    } catch (error: any) {
+      const msg = error?.message ?? 'Error interno del servidor';
+      const isBusinessError = msg.includes('permisos') || msg.includes('encontrado') || msg.includes('eliminarse') || msg.includes('Solo superadmin');
+      if (isBusinessError) {
+        res.status(403).json({ success: false, message: msg });
+        return;
+      }
+      AppLogger.error('Error eliminando usuario de plataforma:', error);
       res.status(500).json({ success: false, message: 'Error interno del servidor' });
     }
   }
