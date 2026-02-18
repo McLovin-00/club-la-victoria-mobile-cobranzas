@@ -14,8 +14,9 @@ const PlatformUsersPage: React.FC = () => {
   const { data, isLoading, refetch } = useListPlatformUsersQuery({ page, limit, search }, { refetchOnMountOrArgChange: true });
   const [isRegisterOpen, setRegisterOpen] = useState(false);
   const [editing, setEditing] = useState<any | null>(null);
-  const [deleteUser] = useDeletePlatformUserMutation();
+  const [deleteUser, { isLoading: isDeleting }] = useDeletePlatformUserMutation();
   const [toggleActivo] = useToggleUserActivoMutation();
+  const [confirmingDelete, setConfirmingDelete] = useState<{ id: number; email: string } | null>(null);
 
   const handleToggleActivo = async (userId: number, currentActivo: boolean) => {
     try {
@@ -23,6 +24,19 @@ const PlatformUsersPage: React.FC = () => {
       showToast(`Usuario ${!currentActivo ? 'activado' : 'desactivado'} exitosamente`, 'success');
     } catch (e: any) {
       showToast(e?.data?.message || 'Error al cambiar estado', 'error');
+    }
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!confirmingDelete) return;
+    try {
+      await deleteUser({ id: confirmingDelete.id }).unwrap();
+      showToast('Usuario eliminado exitosamente', 'success');
+      refetch();
+    } catch (e: any) {
+      showToast(e?.data?.message || 'Error al eliminar usuario', 'error');
+    } finally {
+      setConfirmingDelete(null);
     }
   };
 
@@ -91,15 +105,12 @@ const PlatformUsersPage: React.FC = () => {
                     >
                       {u.activo !== false ? 'Desactivar' : 'Activar'}
                     </button>
-                    <button className="text-red-600 text-sm" onClick={async()=>{ 
-                      try {
-                        await deleteUser({ id: u.id }).unwrap(); 
-                        showToast('Usuario eliminado exitosamente', 'success');
-                        refetch(); 
-                      } catch (e: any) {
-                        showToast(e?.data?.message || 'Error al eliminar usuario', 'error');
-                      }
-                    }}>Eliminar</button>
+                    <button
+                      className="text-red-600 text-sm"
+                      onClick={() => setConfirmingDelete({ id: u.id, email: u.email })}
+                    >
+                      Eliminar
+                    </button>
                   </div>
                     </td>
                   </tr>
@@ -140,6 +151,55 @@ const PlatformUsersPage: React.FC = () => {
         </div>
       )}
 
+      {/* Modal de confirmación de eliminación */}
+      {confirmingDelete && (
+        <div
+          className="fixed inset-0 bg-black/50 flex items-center justify-center z-50"
+          onClick={() => setConfirmingDelete(null)}
+          onKeyDown={(e) => e.key === 'Escape' && setConfirmingDelete(null)}
+          role="button"
+          tabIndex={0}
+        >
+          <div
+            className="bg-white dark:bg-slate-900 rounded-lg p-6 w-full max-w-md shadow-xl"
+            onClick={(e) => e.stopPropagation()}
+            onKeyDown={(e) => e.stopPropagation()}
+            role="dialog"
+          >
+            <div className="flex items-center gap-3 mb-4">
+              <div className="flex-shrink-0 w-10 h-10 rounded-full bg-red-100 flex items-center justify-center">
+                <span className="text-red-600 text-lg">🗑️</span>
+              </div>
+              <div>
+                <h3 className="text-lg font-medium text-foreground">Eliminar Usuario</h3>
+                <p className="text-sm text-muted-foreground">Esta acción no se puede deshacer</p>
+              </div>
+            </div>
+            <p className="text-sm text-foreground mb-6">
+              ¿Estás seguro de que deseas eliminar al usuario{' '}
+              <span className="font-medium">{confirmingDelete.email}</span>?
+            </p>
+            <div className="flex gap-3">
+              <Button
+                variant="outline"
+                onClick={() => setConfirmingDelete(null)}
+                disabled={isDeleting}
+                className="flex-1"
+              >
+                Cancelar
+              </Button>
+              <Button
+                onClick={handleConfirmDelete}
+                disabled={isDeleting}
+                className="flex-1 bg-red-600 hover:bg-red-700 text-white"
+              >
+                {isDeleting ? 'Eliminando...' : 'Eliminar'}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <RegisterUserModal isOpen={isRegisterOpen} onClose={() => { setRegisterOpen(false); refetch(); }} />
       {editing && (
         <EditPlatformUserModal isOpen={!!editing} onClose={()=>{ setEditing(null); refetch(); }} user={editing} />
@@ -149,5 +209,3 @@ const PlatformUsersPage: React.FC = () => {
 };
 
 export default PlatformUsersPage;
-
-

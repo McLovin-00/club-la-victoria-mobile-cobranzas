@@ -121,8 +121,19 @@ export const ChangePasswordForm = () => {
     }
   };
 
+  const isMustChange = currentUser?.mustChangePassword === true;
+
   return (
     <form onSubmit={handleSubmit} className='space-y-4'>
+      {isMustChange && (
+        <div className='p-4 rounded-lg bg-amber-50 border border-amber-300 text-amber-800'>
+          <p className='font-semibold mb-1'>Cambio de contraseña obligatorio</p>
+          <p className='text-sm'>
+            Tu cuenta fue creada con una contraseña temporal proporcionada por el administrador.
+            Ingresá esa contraseña temporal en el campo <strong>&quot;Contraseña Actual&quot;</strong> y elegí una nueva contraseña personal.
+          </p>
+        </div>
+      )}
       {/* Campo de username oculto para accesibilidad */}
       <input
         type='text'
@@ -135,7 +146,7 @@ export const ChangePasswordForm = () => {
       />
       <div>
         <label htmlFor='currentPassword' className='block text-sm font-medium text-foreground mb-1'>
-          Contraseña Actual
+          {isMustChange ? 'Contraseña Temporal (proporcionada por el administrador)' : 'Contraseña Actual'}
         </label>
         <div className='relative'>
           <input
@@ -147,7 +158,7 @@ export const ChangePasswordForm = () => {
             required
             autoComplete='current-password'
             className='w-full px-3 py-2 pr-10 border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent bg-background text-foreground'
-            placeholder='Ingrese su contraseña actual'
+            placeholder={isMustChange ? 'Ingrese la contraseña temporal' : 'Ingrese su contraseña actual'}
           />
           <button
             type='button'
