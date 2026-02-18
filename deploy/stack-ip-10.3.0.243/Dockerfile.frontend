@@ -121,12 +121,23 @@ server {
         proxy_set_header X-Forwarded-Proto $scheme;
     }
 
+    # index.html: never cache (hashed assets change on each build)
+    location = /index.html {
+        add_header Cache-Control "no-store, no-cache, must-revalidate, proxy-revalidate";
+        add_header Pragma "no-cache";
+        expires 0;
+    }
+
     # SPA fallback
     location / {
         try_files $uri $uri/ /index.html;
+        add_header Cache-Control "no-store, no-cache, must-revalidate, proxy-revalidate";
+        add_header Pragma "no-cache";
+        expires 0;
     }
 
-    # Cache assets
+    # Cache hashed assets (js, css, images, fonts) - immutable 1 year
+    # Safe because Vite adds content hashes to filenames
     location ~* \.(js|css|png|jpg|jpeg|gif|ico|svg|woff|woff2|ttf|eot)$ {
         expires 1y;
         add_header Cache-Control "public, immutable";
