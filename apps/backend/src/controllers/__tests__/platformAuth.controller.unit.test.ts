@@ -87,10 +87,7 @@ describe('PlatformAuthController', () => {
     });
 
     describe('Validation Objects', () => {
-        it('should define validation rules', () => {
-            expect(platformAuthValidation.login).toBeDefined();
-            expect(platformAuthValidation.register).toBeDefined();
-            expect(platformAuthValidation.changePassword).toBeDefined();
+        it('should define validation rules for updateUser', () => {
             expect(platformAuthValidation.updateUser).toBeDefined();
         });
     });

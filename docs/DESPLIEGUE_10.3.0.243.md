@@ -1,7 +1,7 @@
 # Despliegue BCA - Servidor 10.3.0.243
 
 **Servidor**: 10.3.0.243  
-**Última actualización**: 2026-02-07 16:38 UTC  
+**Última actualización**: 2026-02-18 23:30 UTC  
 **Stack**: Staging / Desarrollo
 
 ---
@@ -12,10 +12,10 @@
 
 | Servicio | Imagen | Puerto | Estado | Build (UTC) | Último commit incluido |
 |----------|--------|--------|--------|-------------|------------------------|
-| **Backend** | bca/backend:latest | 4800 | Healthy | 2026-02-07 16:36:47 | `969c5ea` (07/02 perf: optimize) |
-| **Frontend** | bca/frontend:latest | 8550 | Healthy | 2026-02-07 15:39:10 | `969c5ea` (07/02 perf: optimize) |
-| **Documentos** | bca/documentos:latest | 4802 | Healthy | 2026-02-07 15:50:37 | `969c5ea` (07/02 perf: optimize) |
-| **Remitos** | bca/remitos:latest | 4803 | Healthy | 2026-02-07 15:41:36 | `969c5ea` (07/02 perf: optimize) |
+| **Backend** | bca/backend:latest | 4800 | Healthy | 2026-02-18 23:30 | `44388e43` (18/02 fix: 5 bugs semana 09/02) |
+| **Frontend** | bca/frontend:latest | 8550 | Healthy | 2026-02-18 23:30 | `44388e43` (18/02 fix: 5 bugs semana 09/02) |
+| **Documentos** | bca/documentos:latest | 4802 | Healthy | 2026-02-18 23:30 | `44388e43` (18/02 fix: 5 bugs semana 09/02) |
+| **Remitos** | bca/remitos:latest | 4803 | Healthy | 2026-02-18 23:30 | `44388e43` (18/02 fix: 5 bugs semana 09/02) |
 | **Postgres** | postgres:16 | 5432 | Healthy | — | — |
 | **Redis** | redis:7-alpine | 6379 | Healthy | — | — |
 | **MinIO** | minio/minio:latest | 9000-9001 | Healthy | — | — |
@@ -27,27 +27,34 @@
 
 Horarios en zona local (-0300). Build = hora de creación de la imagen en el servidor (UTC).
 
-### Estado de sincronización (2026-02-07 16:38 UTC)
+### Estado de sincronización (2026-02-18 23:30 UTC)
 
-**Todos los servicios sincronizados con `main`** (commit `969c5ea`)
+**Todos los servicios sincronizados con `main`** (commit `44388e43`)
 
 | Servicio | Commit desplegado | Estado |
 |----------|------------------|--------|
-| **Backend** | `969c5ea` | ✅ Sincronizado |
-| **Frontend** | `969c5ea` | ✅ Sincronizado |
-| **Documentos** | `969c5ea` | ✅ Sincronizado |
-| **Remitos** | `969c5ea` | ✅ Sincronizado |
+| **Backend** | `44388e43` | ✅ Sincronizado |
+| **Frontend** | `44388e43` | ✅ Sincronizado |
+| **Documentos** | `44388e43` | ✅ Sincronizado |
+| **Remitos** | `44388e43` | ✅ Sincronizado |
 
-### Timeline de builds (07 feb 2026)
+### Timeline de builds (18 feb 2026)
 
 ```
-07/02 12:XX  969c5ea  perf: optimize Dockerfiles and deploy scripts for faster builds
+18/02 20:XX  44388e43  fix: corregir 5 bugs reportados en revisión semana 09/02
            |
-07/02 15:39  ─────────── FRONTEND build ────────────────────────
-07/02 15:41  ─────────── REMITOS build ─────────────────────────
-07/02 15:50  ─────────── DOCUMENTOS build ──────────────────────
-07/02 16:36  ─────────── BACKEND build ─────────────────────────
+18/02 23:26  ─────────── BACKEND build ─────────────────────────
+18/02 23:28  ─────────── FRONTEND build ────────────────────────
+18/02 23:30  ─────────── DEPLOY (up -d) ────────────────────────
 ```
+
+### Cambios incluidos en este despliegue
+
+1. **Alta equipo**: alertas inline de campos incompletos (onBlur + touchedFields)
+2. **Consulta documentos**: persistencia de filtros en URL (filterType, activoFilter, complianceFilter)
+3. **Perfil / cambio de clave**: UX mejorada para contraseña temporal (banner + labels dinámicos)
+4. **Gestión usuarios**: fix eliminación por admin interno (type mismatch AuthPayload → PlatformUserProfile)
+5. **Gestión usuarios**: diálogo de confirmación antes de eliminar + mensajes de error/éxito
 
 ---
 
