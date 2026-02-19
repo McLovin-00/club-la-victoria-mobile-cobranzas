@@ -554,31 +554,6 @@ export const RegisterUserModal: React.FC<RegisterUserModalProps> = ({ isOpen, on
 
   if (!isOpen) return null;
 
-  // Contexto compartido para los handlers de submit
-  const submitContext: SubmitContext = {
-    currentUser,
-    clienteMode,
-    dadorMode,
-    transportistaMode,
-    choferMode,
-    isDadorDeCargeUser,
-    isTransportistaUser,
-    currentUserDadorId,
-    currentUserTransportistaId,
-    createClient,
-    createDador,
-    createEmpresaTransportista,
-    createChofer,
-    registerClientWizard,
-    registerDadorWizard,
-    registerTransportistaWizard,
-    registerChoferWizard,
-    registerUser,
-    setTempPasswordToShow,
-    reset,
-    onClose,
-  };
-
   const onSubmit = async (data: FormData) => {
     try {
       // Validar empresa asignada
@@ -819,17 +794,17 @@ export const RegisterUserModal: React.FC<RegisterUserModalProps> = ({ isOpen, on
         email: data.email,
         password: data.password,
         role: data.role,
-        empresaId: data.empresaId ? Number(data.empresaId) : undefined,
+        empresaId: canSelectEmpresa
+          ? (data.empresaId ? Number(data.empresaId) : undefined)
+          : currentUser?.empresaId,
         nombre: data.nombre || undefined,
         apellido: data.apellido || undefined,
       };
-      
-      const handler = roleHandlers[data.role];
-      if (handler) {
-        await handler(data, submitContext);
-      } else {
-        await handleGenericSubmit(data, submitContext);
-      }
+
+      await registerUser(payload).unwrap();
+      showToast('Usuario creado exitosamente', 'success');
+      reset();
+      onClose();
     } catch (e: any) {
       showToast(e?.data?.message ?? 'No se pudo crear el usuario', 'error');
     }
