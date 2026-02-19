@@ -163,7 +163,8 @@ export class PlatformAuthController {
       const msg = error?.message ?? 'Error interno del servidor';
       const isBusinessError = msg.includes('permisos') || msg.includes('encontrado') || msg.includes('desactivarse');
       if (isBusinessError) {
-        res.status(isBusinessError && msg.includes('encontrado') ? 404 : 403).json({ success: false, message: msg });
+        const status = msg.includes('encontrado') ? 404 : 403;
+        res.status(status).json({ success: false, message: msg });
         return;
       }
       AppLogger.error('Error al cambiar estado de usuario:', error);

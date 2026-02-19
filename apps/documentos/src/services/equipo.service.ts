@@ -224,6 +224,75 @@ function determinarEstadoDocumento(
   return 'VIGENTE';
 }
 
+type RequisitoConsolidado = {
+  templateId: number;
+  templateName: string;
+  entityType: string;
+  obligatorio: boolean;
+  diasAnticipacion: number;
+  requeridoPor: Array<{ clienteId: number; clienteName: string }>;
+};
+
+function consolidarRequisitos(requisitos: Array<{
+  templateId: number; entityType: string; obligatorio: boolean; diasAnticipacion: number;
+  template: { name: string };
+  plantillaRequisito: { cliente: { id: number; razonSocial: string } };
+}>): Map<string, RequisitoConsolidado> {
+  const mapa = new Map<string, RequisitoConsolidado>();
+
+  for (const req of requisitos) {
+    const key = `${req.templateId}-${req.entityType}`;
+    if (!mapa.has(key)) {
+      mapa.set(key, {
+        templateId: req.templateId,
+        templateName: req.template.name,
+        entityType: req.entityType,
+        obligatorio: req.obligatorio,
+        diasAnticipacion: req.diasAnticipacion,
+        requeridoPor: [],
+      });
+    }
+    const item = mapa.get(key)!;
+    item.requeridoPor.push({
+      clienteId: req.plantillaRequisito.cliente.id,
+      clienteName: req.plantillaRequisito.cliente.razonSocial,
+    });
+    if (req.obligatorio) item.obligatorio = true;
+    if (req.diasAnticipacion > item.diasAnticipacion) {
+      item.diasAnticipacion = req.diasAnticipacion;
+    }
+  }
+
+  return mapa;
+}
+
+async function enriquecerConDocumentos(
+  consolidado: Map<string, RequisitoConsolidado>,
+  equipo: EquipoEntityIds
+) {
+  const resultado = [];
+  for (const [, req] of consolidado) {
+    const entityId = getEntityIdForType(req.entityType, equipo);
+    const documentoActual = entityId
+      ? await buscarDocumentoActual(req.entityType, entityId, req.templateId, req.diasAnticipacion)
+      : null;
+    resultado.push({ ...req, entityId, documentoActual, estado: documentoActual?.estado ?? 'FALTANTE' });
+  }
+  return resultado;
+}
+
+async function buscarDocumentoActual(
+  entityType: string, entityId: number, templateId: number, diasAnticipacion: number
+): Promise<{ id: number; status: string; expiresAt: Date | null; estado: string } | null> {
+  const doc = await prisma.document.findFirst({
+    where: { entityType: entityType as any, entityId, templateId, archived: false },
+    orderBy: { uploadedAt: 'desc' },
+  });
+  if (!doc) return null;
+  const estado = determinarEstadoDocumento(doc, diasAnticipacion);
+  return { id: doc.id, status: doc.status, expiresAt: doc.expiresAt, estado };
+}
+
 // ============================================================================
 // HELPERS PARA FILTROS DE EQUIPO
 // ============================================================================
@@ -2040,62 +2109,7 @@ export class EquipoService {
       },
     });
 
-    // Consolidar requisitos (mismo template + entityType = un solo requisito)
-    const consolidado: Map<string, {
-      templateId: number;
-      templateName: string;
-      entityType: string;
-      obligatorio: boolean;
-      diasAnticipacion: number;
-      requeridoPor: Array<{ clienteId: number; clienteName: string }>;
-      documentoActual?: { id: number; status: string; expiresAt: Date | null; estado: string } | null;
-    }> = new Map();
-
-    for (const req of requisitos) {
-      const key = `${req.templateId}-${req.entityType}`;
-      if (!consolidado.has(key)) {
-        consolidado.set(key, {
-          templateId: req.templateId,
-          templateName: req.template.name,
-          entityType: req.entityType,
-          obligatorio: req.obligatorio,
-          diasAnticipacion: req.diasAnticipacion,
-          requeridoPor: [],
-        });
-      }
-      const item = consolidado.get(key)!;
-      item.requeridoPor.push({
-        clienteId: req.plantillaRequisito.cliente.id,
-        clienteName: req.plantillaRequisito.cliente.razonSocial,
-      });
-      if (req.obligatorio) item.obligatorio = true;
-      // Mayor anticipación gana
-      if (req.diasAnticipacion > item.diasAnticipacion) {
-        item.diasAnticipacion = req.diasAnticipacion;
-      }
-    }
-
-    // Buscar documentos actuales para cada requisito
-    const resultado = [];
-    for (const [, req] of consolidado) {
-      const entityId = getEntityIdForType(req.entityType, equipo);
-      let documentoActual = null;
-
-      if (entityId) {
-        const doc = await prisma.document.findFirst({
-          where: { entityType: req.entityType as any, entityId, templateId: req.templateId, archived: false },
-          orderBy: { uploadedAt: 'desc' },
-        });
-
-        if (doc) {
-          const estado = determinarEstadoDocumento(doc, req.diasAnticipacion);
-          documentoActual = { id: doc.id, status: doc.status, expiresAt: doc.expiresAt, estado };
-        }
-      }
-
-      resultado.push({ ...req, entityId, documentoActual, estado: documentoActual?.estado ?? 'FALTANTE' });
-    }
-
-    return resultado;
+    const consolidado = consolidarRequisitos(requisitos);
+    return enriquecerConDocumentos(consolidado, equipo);
   }
 }
