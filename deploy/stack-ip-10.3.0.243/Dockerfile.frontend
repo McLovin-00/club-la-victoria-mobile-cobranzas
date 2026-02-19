@@ -83,10 +83,10 @@ server {
     # Docker DNS resolver - re-resolve on container IP changes
     resolver 127.0.0.11 valid=10s ipv6=off;
 
-    # Proxy APIs (variables force dynamic DNS resolution)
+    # Proxy APIs (variables force dynamic DNS resolution, $request_uri preserves full path)
     location /api/remitos {
-        set $upstream_remitos http://bca_remitos:4803;
-        proxy_pass $upstream_remitos/api/remitos;
+        set $upstream_remitos bca_remitos:4803;
+        proxy_pass http://$upstream_remitos;
         proxy_http_version 1.1;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
@@ -96,8 +96,8 @@ server {
     }
 
     location /api/docs {
-        set $upstream_documentos http://bca_documentos:4802;
-        proxy_pass $upstream_documentos/api/docs;
+        set $upstream_documentos bca_documentos:4802;
+        proxy_pass http://$upstream_documentos;
         proxy_http_version 1.1;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
@@ -109,8 +109,8 @@ server {
     }
 
     location /socket.io {
-        set $upstream_ws http://bca_documentos:4802;
-        proxy_pass $upstream_ws/socket.io;
+        set $upstream_ws bca_documentos:4802;
+        proxy_pass http://$upstream_ws;
         proxy_http_version 1.1;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
@@ -119,8 +119,8 @@ server {
     }
 
     location /api {
-        set $upstream_backend http://bca_backend:4800;
-        proxy_pass $upstream_backend/api;
+        set $upstream_backend bca_backend:4800;
+        proxy_pass http://$upstream_backend;
         proxy_http_version 1.1;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;

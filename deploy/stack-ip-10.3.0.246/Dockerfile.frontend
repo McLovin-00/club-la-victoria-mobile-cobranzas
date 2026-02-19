@@ -84,8 +84,8 @@ server {
 
     # Proxy APIs (variables force dynamic DNS resolution, container names 246)
     location /api/remitos {
-        set $upstream_remitos http://bca_remitos_246:4813;
-        proxy_pass $upstream_remitos/api/remitos;
+        set $upstream_remitos bca_remitos_246:4813;
+        proxy_pass http://$upstream_remitos;
         proxy_http_version 1.1;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
@@ -95,8 +95,8 @@ server {
     }
 
     location /api/docs {
-        set $upstream_documentos http://bca_documentos_246:4812;
-        proxy_pass $upstream_documentos/api/docs;
+        set $upstream_documentos bca_documentos_246:4812;
+        proxy_pass http://$upstream_documentos;
         proxy_http_version 1.1;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
@@ -108,8 +108,8 @@ server {
     }
 
     location /socket.io {
-        set $upstream_ws http://bca_documentos_246:4812;
-        proxy_pass $upstream_ws/socket.io;
+        set $upstream_ws bca_documentos_246:4812;
+        proxy_pass http://$upstream_ws;
         proxy_http_version 1.1;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
@@ -118,8 +118,8 @@ server {
     }
 
     location /api {
-        set $upstream_backend http://bca_backend_246:4810;
-        proxy_pass $upstream_backend/api;
+        set $upstream_backend bca_backend_246:4810;
+        proxy_pass http://$upstream_backend;
         proxy_http_version 1.1;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
