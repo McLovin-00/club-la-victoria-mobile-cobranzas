@@ -350,6 +350,50 @@ export class PlatformAuthService {
     throw new Error('Solo superadmin y admin interno pueden eliminar usuarios');
   }
 
+  static async toggleUserActivo(
+    targetId: number,
+    activo: boolean,
+    actor: PlatformUserProfile
+  ): Promise<{ id: number; email: string; activo: boolean }> {
+    const prisma = prismaService.getClient();
+
+    const targetUser = await prisma.user.findUnique({ where: { id: targetId } });
+    if (!targetUser) {
+      throw new Error('Usuario no encontrado');
+    }
+
+    if (!this.canModifyUser(actor, targetUser)) {
+      throw new Error('No tiene permisos para modificar este usuario');
+    }
+
+    if (targetId === actor.id && !activo) {
+      throw new Error('No puede desactivarse a sí mismo');
+    }
+
+    const updated = await prisma.user.update({
+      where: { id: targetId },
+      data: { activo },
+      select: { id: true, email: true, activo: true },
+    });
+
+    AppLogger.info(`Usuario ${activo ? 'activado' : 'desactivado'}`, { targetId, by: actor.id });
+    return updated;
+  }
+
+  private static canModifyUser(actor: PlatformUserProfile, target: { role: string; empresaId: number | null; creadoPorId?: number | null; dadorCargaId?: number | null; empresaTransportistaId?: number | null }): boolean {
+    if (actor.role === 'SUPERADMIN') return true;
+    if (['ADMIN', 'ADMIN_INTERNO'].includes(actor.role) && target.empresaId === actor.empresaId) return true;
+    if (actor.role === 'DADOR_DE_CARGA') {
+      return ['TRANSPORTISTA', 'CHOFER'].includes(target.role) &&
+        (target.creadoPorId === actor.id || target.dadorCargaId === actor.dadorCargaId);
+    }
+    if (actor.role === 'TRANSPORTISTA') {
+      return target.role === 'CHOFER' &&
+        (target.creadoPorId === actor.id || target.empresaTransportistaId === actor.empresaTransportistaId);
+    }
+    return false;
+  }
+
   static async updatePassword(userId: number, currentPassword: string, newPassword: string): Promise<{ success: boolean; message: string }> {
     const prisma = prismaService.getClient();
     const user = await prisma.user.findUnique({ where: { id: userId } });
@@ -418,9 +462,6 @@ export class PlatformAuthService {
     return base.join('');
   }
 
-  /**
-   * Helper genérico para crear usuarios con contraseña temporal
-   */
   private static async createUserWithTempPassword(
     input: { email: string; nombre?: string; apellido?: string; empresaId?: number | null },
     createdBy: PlatformUserProfile,
@@ -472,64 +513,42 @@ export class PlatformAuthService {
     createdBy: PlatformUserProfile
   ): Promise<AuthResponse> {
     return this.createUserWithTempPassword(
-      input,
-      createdBy,
-      'CLIENTE' as UserRole,
+      input, createdBy, 'CLIENTE' as UserRole,
       ['SUPERADMIN', 'ADMIN', 'ADMIN_INTERNO'],
-      { clienteId: input.clienteId },
-      'CLIENTE'
+      { clienteId: input.clienteId }, 'CLIENTE'
     );
   }
 
-  /**
-   * Wizard: crear usuario DADOR_DE_CARGA con contraseña temporal
-   */
   static async registerDadorWithTempPassword(
     input: { email: string; nombre?: string; apellido?: string; empresaId?: number | null; dadorCargaId: number },
     createdBy: PlatformUserProfile
   ): Promise<AuthResponse> {
     return this.createUserWithTempPassword(
-      input,
-      createdBy,
-      'DADOR_DE_CARGA' as UserRole,
+      input, createdBy, 'DADOR_DE_CARGA' as UserRole,
       ['SUPERADMIN', 'ADMIN', 'ADMIN_INTERNO'],
-      { dadorCargaId: input.dadorCargaId },
-      'DADOR_DE_CARGA'
+      { dadorCargaId: input.dadorCargaId }, 'DADOR_DE_CARGA'
     );
   }
 
-  /**
-   * Wizard: crear usuario TRANSPORTISTA con contraseña temporal
-   */
   static async registerTransportistaWithTempPassword(
     input: { email: string; nombre?: string; apellido?: string; empresaId?: number | null; empresaTransportistaId: number },
     createdBy: PlatformUserProfile
   ): Promise<AuthResponse> {
     return this.createUserWithTempPassword(
-      input,
-      createdBy,
-      'TRANSPORTISTA' as UserRole,
+      input, createdBy, 'TRANSPORTISTA' as UserRole,
       ['SUPERADMIN', 'ADMIN', 'ADMIN_INTERNO', 'DADOR_DE_CARGA'],
-      { empresaTransportistaId: input.empresaTransportistaId },
-      'TRANSPORTISTA'
+      { empresaTransportistaId: input.empresaTransportistaId }, 'TRANSPORTISTA'
     );
   }
 
-  /**
-   * Wizard: crear usuario CHOFER con contraseña temporal
-   * Bug 7 fix: usar tenantEmpresaId del chofer para consistencia multi-tenant
-   */
   static async registerChoferWithTempPassword(
     input: { email: string; nombre?: string; apellido?: string; empresaId?: number | null; choferId: number },
     createdBy: PlatformUserProfile
   ): Promise<AuthResponse> {
     return this.createUserWithTempPassword(
-      input,
-      createdBy,
-      'CHOFER' as UserRole,
+      input, createdBy, 'CHOFER' as UserRole,
       ['SUPERADMIN', 'ADMIN', 'ADMIN_INTERNO', 'DADOR_DE_CARGA', 'TRANSPORTISTA'],
-      { choferId: input.choferId },
-      'CHOFER'
+      { choferId: input.choferId }, 'CHOFER'
     );
   }
 

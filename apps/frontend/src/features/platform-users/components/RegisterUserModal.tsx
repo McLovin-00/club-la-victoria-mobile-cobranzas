@@ -5,7 +5,7 @@ import { Spinner } from '../../../components/ui/spinner';
 import { showToast } from '../../../components/ui/Toast.utils';
 import { useRegisterClientWizardMutation, useRegisterDadorWizardMutation, useRegisterTransportistaWizardMutation, useRegisterChoferWizardMutation, useRegisterPlatformUserMutation } from '../api/platformUsersApiSlice';
 import { useGetEmpresasQuery } from '../../empresas/api/empresasApiSlice';
-import { useGetDadoresQuery, useGetEmpresasTransportistasQuery, useGetEmpresaTransportistaChoferesQuery, useGetClientsQuery } from '../../documentos/api/documentosApiSlice';
+import { useGetDadoresQuery, useGetEmpresasTransportistasQuery, useGetEmpresaTransportistaChoferesQuery, useGetClientsQuery, useCreateClientMutation, useCreateDadorMutation, useCreateEmpresaTransportistaMutation, useCreateChoferMutation } from '../../documentos/api/documentosApiSlice';
 import { useAppSelector } from '../../../store/hooks';
 import { selectCurrentUser } from '../../auth/authSlice';
 
@@ -67,334 +67,6 @@ type FormData = {
   choferId?: number | '';
   clienteId?: number | '';
 };
-
-// Helper types para handlers de submit
-type SubmitContext = {
-  currentUser: any;
-  clienteMode: 'existing' | 'new';
-  dadorMode: 'existing' | 'new';
-  transportistaMode: 'existing' | 'new';
-  choferMode: 'existing' | 'new';
-  isDadorDeCargeUser: boolean;
-  isTransportistaUser: boolean;
-  currentUserDadorId?: number;
-  currentUserTransportistaId?: number;
-  createClient: any;
-  createDador: any;
-  createEmpresaTransportista: any;
-  createChofer: any;
-  registerClientWizard: any;
-  registerDadorWizard: any;
-  registerTransportistaWizard: any;
-  registerChoferWizard: any;
-  registerUser: any;
-  setTempPasswordToShow: (pw: string | null) => void;
-  reset: () => void;
-  onClose: () => void;
-};
-
-// Helper para validar permisos de creación de rol
-function hasPermissionToCreate(actorRole: string | undefined, targetRole: string): boolean {
-  if (!actorRole) return false;
-  const allowedRoles = PERMISOS_CREACION[actorRole] ?? [];
-  return allowedRoles.includes(targetRole);
-}
-
-// Helper para resolver ID de cliente
-async function resolveClienteId(
-  mode: 'existing' | 'new',
-  data: FormData,
-  createClient: any
-): Promise<number | undefined> {
-  if (mode === 'new') {
-    if (!data.clienteRazonSocial || !data.clienteCuit) {
-      showToast('Razón social y CUIT del cliente son obligatorios', 'error');
-      return undefined;
-    }
-    const created = await createClient({
-      razonSocial: data.clienteRazonSocial,
-      cuit: data.clienteCuit,
-      notas: data.clienteNotas ?? undefined,
-      activo: true,
-    }).unwrap();
-    return created?.id;
-  }
-  
-  if (!data.clienteId) {
-    showToast('Debe seleccionar un cliente', 'error');
-    return undefined;
-  }
-  return Number(data.clienteId);
-}
-
-// Handler para crear usuario CLIENTE
-async function handleClienteSubmit(data: FormData, ctx: SubmitContext): Promise<boolean> {
-  const { currentUser, clienteMode, createClient, registerClientWizard, setTempPasswordToShow } = ctx;
-  
-  if (!hasPermissionToCreate(currentUser?.role, 'CLIENTE')) {
-    showToast('No tiene permisos para crear usuarios CLIENTE', 'error');
-    return false;
-  }
-
-  const clienteIdFinal = await resolveClienteId(clienteMode, data, createClient);
-  if (!clienteIdFinal) return false;
-
-  const resp = await registerClientWizard({
-    email: data.email,
-    nombre: data.nombre ?? undefined,
-    apellido: data.apellido ?? undefined,
-    empresaId: data.empresaId ? Number(data.empresaId) : undefined,
-    clienteId: clienteIdFinal,
-  }).unwrap();
-
-  setTempPasswordToShow(resp.tempPassword);
-  showToast('Usuario CLIENTE creado. Copie la contraseña temporal.', 'success');
-  return true;
-}
-
-// Helper para manejar error de CUIT duplicado
-function handleDuplicateCuitError(err: any, cuit: string): number | null {
-  if (err?.status !== 409 || err?.data?.code !== 'DUPLICATE_CUIT') return null;
-  const existing = err.data.existingDador;
-  const useExisting = window.confirm(
-    `El CUIT ${cuit} ya está registrado como "${existing.razonSocial}".\n\n` +
-    `¿Desea asociar el nuevo usuario a este dador existente?`
-  );
-  return useExisting ? existing.id : null;
-}
-
-// Helper para crear nuevo dador
-async function createNewDador(
-  data: FormData,
-  createDador: any
-): Promise<{ id: number } | { error: any } | null> {
-  if (!data.dadorRazonSocial || !data.dadorCuit) {
-    showToast('Razón social y CUIT del dador son obligatorios', 'error');
-    return null;
-  }
-  try {
-    const created = await createDador({
-      razonSocial: data.dadorRazonSocial,
-      cuit: data.dadorCuit,
-      notas: data.dadorNotas ?? undefined,
-      activo: true,
-    }).unwrap();
-    return { id: created?.id };
-  } catch (err: any) {
-    const existingId = handleDuplicateCuitError(err, data.dadorCuit ?? '');
-    if (existingId) return { id: existingId };
-    if (err?.status === 409) return null;
-    return { error: err };
-  }
-}
-
-// Handler para crear usuario DADOR_DE_CARGA
-async function handleDadorSubmit(data: FormData, ctx: SubmitContext): Promise<boolean> {
-  const { currentUser, dadorMode, createDador, registerDadorWizard, setTempPasswordToShow } = ctx;
-  
-  if (!hasPermissionToCreate(currentUser?.role, 'DADOR_DE_CARGA')) {
-    showToast('No tiene permisos para crear usuarios DADOR DE CARGA', 'error');
-    return false;
-  }
-
-  let dadorIdFinal: number | undefined;
-  
-  if (dadorMode === 'new') {
-    const result = await createNewDador(data, createDador);
-    if (!result) return false;
-    if ('error' in result) throw result.error;
-    dadorIdFinal = result.id;
-  } else {
-    if (!data.dadorCargaId) {
-      showToast('Debe seleccionar un dador de carga', 'error');
-      return false;
-    }
-    dadorIdFinal = Number(data.dadorCargaId);
-  }
-
-  if (!dadorIdFinal) {
-    showToast('No se pudo determinar el dador a asociar', 'error');
-    return false;
-  }
-
-  const resp = await registerDadorWizard({
-    email: data.email,
-    nombre: data.nombre ?? undefined,
-    apellido: data.apellido ?? undefined,
-    empresaId: data.empresaId ? Number(data.empresaId) : undefined,
-    dadorCargaId: dadorIdFinal,
-  }).unwrap();
-
-  setTempPasswordToShow(resp.tempPassword);
-  showToast('Usuario DADOR DE CARGA creado. Copie la contraseña temporal.', 'success');
-  return true;
-}
-
-// Helper para obtener el dador efectivo
-function getEffectiveDadorId(
-  isDadorDeCargeUser: boolean,
-  currentUserDadorId: number | undefined,
-  formDadorId: number | '' | undefined
-): number | undefined {
-  if (isDadorDeCargeUser && currentUserDadorId) return currentUserDadorId;
-  return formDadorId ? Number(formDadorId) : undefined;
-}
-
-// Handler para crear usuario TRANSPORTISTA
-async function handleTransportistaSubmit(data: FormData, ctx: SubmitContext): Promise<boolean> {
-  const { currentUser, transportistaMode, isDadorDeCargeUser, currentUserDadorId,
-          createEmpresaTransportista, registerTransportistaWizard, setTempPasswordToShow } = ctx;
-  
-  if (!hasPermissionToCreate(currentUser?.role, 'TRANSPORTISTA')) {
-    showToast('No tiene permisos para crear usuarios TRANSPORTISTA', 'error');
-    return false;
-  }
-
-  const effectiveDadorId = getEffectiveDadorId(isDadorDeCargeUser, currentUserDadorId, data.transportistaDadorId);
-
-  const transportistaIdFinal = await resolveTransportistaId(
-    transportistaMode, data, effectiveDadorId, createEmpresaTransportista
-  );
-  
-  if (!transportistaIdFinal) return false;
-
-  const resp = await registerTransportistaWizard({
-    email: data.email,
-    nombre: data.nombre ?? undefined,
-    apellido: data.apellido ?? undefined,
-    empresaId: data.empresaId ? Number(data.empresaId) : undefined,
-    empresaTransportistaId: transportistaIdFinal,
-  }).unwrap();
-
-  setTempPasswordToShow(resp.tempPassword);
-  showToast('Usuario TRANSPORTISTA creado. Copie la contraseña temporal.', 'success');
-  return true;
-}
-
-// Helper para resolver ID de transportista
-async function resolveTransportistaId(
-  mode: 'existing' | 'new',
-  data: FormData,
-  effectiveDadorId: number | undefined,
-  createEmpresaTransportista: any
-): Promise<number | undefined> {
-  if (mode === 'new') {
-    if (!data.transportistaRazonSocial || !data.transportistaCuit || !effectiveDadorId) {
-      showToast('Razón social, CUIT y Dador de Carga son obligatorios', 'error');
-      return undefined;
-    }
-    const created = await createEmpresaTransportista({
-      dadorCargaId: Number(effectiveDadorId),
-      razonSocial: data.transportistaRazonSocial,
-      cuit: data.transportistaCuit,
-      notas: data.transportistaNotas ?? undefined,
-      activo: true,
-    }).unwrap();
-    return created?.id;
-  }
-  
-  if (!data.empresaTransportistaId) {
-    showToast('Debe seleccionar una empresa transportista', 'error');
-    return undefined;
-  }
-  return Number(data.empresaTransportistaId);
-}
-
-// Helper para resolver ID de chofer
-async function resolveChoferId(
-  mode: 'existing' | 'new',
-  data: FormData,
-  effectiveDadorId: number | undefined,
-  createChofer: any
-): Promise<number | undefined> {
-  if (mode === 'new') {
-    if (!data.choferDni || !effectiveDadorId) {
-      showToast('DNI y Dador de Carga del chofer son obligatorios', 'error');
-      return undefined;
-    }
-    const created = await createChofer({
-      dadorCargaId: Number(effectiveDadorId),
-      dni: data.choferDni,
-      nombre: data.choferNombre ?? undefined,
-      apellido: data.choferApellido ?? undefined,
-      activo: true,
-      phones: [],
-    }).unwrap();
-    return created?.id;
-  }
-  
-  if (!data.choferId) {
-    showToast('Debe seleccionar un chofer', 'error');
-    return undefined;
-  }
-  return Number(data.choferId);
-}
-
-// Handler para crear usuario CHOFER
-async function handleChoferSubmit(data: FormData, ctx: SubmitContext): Promise<boolean> {
-  const { currentUser, choferMode, isDadorDeCargeUser, isTransportistaUser, currentUserDadorId,
-          createChofer, registerChoferWizard, setTempPasswordToShow } = ctx;
-  
-  if (!hasPermissionToCreate(currentUser?.role, 'CHOFER')) {
-    showToast('No tiene permisos para crear usuarios CHOFER', 'error');
-    return false;
-  }
-
-  const isAutoUser = isDadorDeCargeUser || isTransportistaUser;
-  const effectiveChoferDadorId = getEffectiveDadorId(isAutoUser, currentUserDadorId, data.choferDadorId);
-
-  const choferIdFinal = await resolveChoferId(choferMode, data, effectiveChoferDadorId, createChofer);
-  if (!choferIdFinal) return false;
-
-  const finalNombre = choferMode === 'new' ? (data.choferNombre ?? undefined) : (data.nombre ?? undefined);
-  const finalApellido = choferMode === 'new' ? (data.choferApellido ?? undefined) : (data.apellido ?? undefined);
-  
-  const resp = await registerChoferWizard({
-    email: data.email,
-    nombre: finalNombre,
-    apellido: finalApellido,
-    empresaId: data.empresaId ? Number(data.empresaId) : undefined,
-    choferId: choferIdFinal,
-  }).unwrap();
-
-  setTempPasswordToShow(resp.tempPassword);
-  showToast('Usuario CHOFER creado. Copie la contraseña temporal.', 'success');
-  return true;
-}
-
-// Handler para roles genéricos (ADMIN, OPERATOR, etc.)
-async function handleGenericSubmit(data: FormData, ctx: SubmitContext): Promise<boolean> {
-  const { registerUser, reset, onClose } = ctx;
-  
-  const payload: any = {
-    email: data.email,
-    password: data.password,
-    role: data.role,
-    empresaId: data.empresaId ? Number(data.empresaId) : undefined,
-    nombre: data.nombre ?? undefined,
-    apellido: data.apellido ?? undefined,
-  };
-  
-  // Agregar asociación según rol
-  if (data.role === 'DADOR_DE_CARGA' && data.dadorCargaId) {
-    payload.dadorCargaId = Number(data.dadorCargaId);
-  }
-  if (data.role === 'TRANSPORTISTA' && data.empresaTransportistaId) {
-    payload.empresaTransportistaId = Number(data.empresaTransportistaId);
-  }
-  if (data.role === 'CHOFER' && data.choferId) {
-    payload.choferId = Number(data.choferId);
-  }
-  if (data.role === 'CLIENTE' && data.clienteId) {
-    payload.clienteId = Number(data.clienteId);
-  }
-  
-  await registerUser(payload).unwrap();
-  showToast('Usuario creado exitosamente', 'success');
-  reset();
-  onClose();
-  return true;
-}
 
 export const RegisterUserModal: React.FC<RegisterUserModalProps> = ({ isOpen, onClose }) => {
   const currentUser = useAppSelector(selectCurrentUser);
@@ -461,9 +133,13 @@ export const RegisterUserModal: React.FC<RegisterUserModalProps> = ({ isOpen, on
   
   const [registerUser, { isLoading }] = useRegisterPlatformUserMutation();
   const [registerClientWizard, { isLoading: isLoadingWizardClient }] = useRegisterClientWizardMutation();
-  const [registerDadorWizard, { isLoading: _isLoadingWizardDador }] = useRegisterDadorWizardMutation();
-  const [registerTransportistaWizard, { isLoading: _isLoadingWizardTransportista }] = useRegisterTransportistaWizardMutation();
-  const [registerChoferWizard, { isLoading: _isLoadingWizardChofer }] = useRegisterChoferWizardMutation();
+  const [registerDadorWizard, { isLoading: isLoadingWizardDador }] = useRegisterDadorWizardMutation();
+  const [registerTransportistaWizard, { isLoading: isLoadingWizardTransportista }] = useRegisterTransportistaWizardMutation();
+  const [registerChoferWizard, { isLoading: isLoadingWizardChofer }] = useRegisterChoferWizardMutation();
+  const [createClient] = useCreateClientMutation();
+  const [createDador] = useCreateDadorMutation();
+  const [createEmpresaTransportista] = useCreateEmpresaTransportistaMutation();
+  const [createChofer] = useCreateChoferMutation();
   const { control, handleSubmit, reset, watch, setValue, formState: { errors } } = useForm<FormData>({
     defaultValues: {
       email: '',
@@ -566,7 +242,7 @@ export const RegisterUserModal: React.FC<RegisterUserModalProps> = ({ isOpen, on
         return;
       }
       
-      // CLIENTE (wizard): permite crear el cliente (entidad) y luego el usuario con contraseña temporal.
+      // CLIENTE (wizard)
       if (data.role === 'CLIENTE') {
         const actorRole = currentUser?.role;
         if (!actorRole || !['SUPERADMIN', 'ADMIN', 'ADMIN_INTERNO'].includes(actorRole)) {
@@ -580,19 +256,13 @@ export const RegisterUserModal: React.FC<RegisterUserModalProps> = ({ isOpen, on
             showToast('Razón social y CUIT del cliente son obligatorios', 'error');
             return;
           }
-          // Usar registerClientWizard directamente para crear cliente y usuario
-          const resp = await registerClientWizard({
-            email: data.email,
-            nombre: data.nombre || undefined,
-            apellido: data.apellido || undefined,
-            empresaId: data.empresaId ? Number(data.empresaId) : undefined,
-            clienteRazonSocial: data.clienteRazonSocial,
-            clienteCuit: data.clienteCuit,
-            clienteNotas: data.clienteNotas || undefined,
+          const created = await createClient({
+            razonSocial: data.clienteRazonSocial,
+            cuit: data.clienteCuit,
+            notas: data.clienteNotas || undefined,
+            activo: true,
           }).unwrap();
-          setTempPasswordToShow(resp.tempPassword);
-          showToast('Usuario CLIENTE creado. Copie la contraseña temporal.', 'success');
-          return;
+          clienteIdFinal = created?.id;
         } else {
           if (!data.clienteId) {
             showToast('Debe seleccionar un cliente', 'error');
@@ -619,7 +289,7 @@ export const RegisterUserModal: React.FC<RegisterUserModalProps> = ({ isOpen, on
         return;
       }
 
-      // DADOR_DE_CARGA (wizard): permite crear el dador (entidad) y luego el usuario con contraseña temporal.
+      // DADOR_DE_CARGA (wizard)
       if (data.role === 'DADOR_DE_CARGA') {
         const actorRole = currentUser?.role;
         if (!actorRole || !['SUPERADMIN', 'ADMIN', 'ADMIN_INTERNO'].includes(actorRole)) {
@@ -633,19 +303,14 @@ export const RegisterUserModal: React.FC<RegisterUserModalProps> = ({ isOpen, on
             showToast('Razón social y CUIT del dador son obligatorios', 'error');
             return;
           }
-          // Usar registerDadorWizard directamente para crear dador y usuario
-          const resp = await registerDadorWizard({
-            email: data.email,
-            nombre: data.nombre || undefined,
-            apellido: data.apellido || undefined,
-            empresaId: data.empresaId ? Number(data.empresaId) : undefined,
-            dadorRazonSocial: data.dadorRazonSocial,
-            dadorCuit: data.dadorCuit,
-            dadorNotas: data.dadorNotas || undefined,
+          const created = await createDador({
+            razonSocial: data.dadorRazonSocial,
+            cuit: data.dadorCuit,
+            notas: data.dadorNotas || undefined,
+            activo: true,
+            phones: [],
           }).unwrap();
-          setTempPasswordToShow(resp.tempPassword);
-          showToast('Usuario DADOR DE CARGA creado. Copie la contraseña temporal.', 'success');
-          return;
+          dadorIdFinal = created?.id;
         } else {
           if (!data.dadorCargaId) {
             showToast('Debe seleccionar un dador de carga', 'error');
@@ -672,7 +337,7 @@ export const RegisterUserModal: React.FC<RegisterUserModalProps> = ({ isOpen, on
         return;
       }
 
-      // TRANSPORTISTA (wizard): permite crear la empresa transportista (entidad) y luego el usuario con contraseña temporal.
+      // TRANSPORTISTA (wizard)
       if (data.role === 'TRANSPORTISTA') {
         const actorRole = currentUser?.role;
         if (!actorRole || !['SUPERADMIN', 'ADMIN', 'ADMIN_INTERNO', 'DADOR_DE_CARGA'].includes(actorRole)) {
@@ -680,7 +345,6 @@ export const RegisterUserModal: React.FC<RegisterUserModalProps> = ({ isOpen, on
           return;
         }
 
-        // Usar dadorCargaId automático si el usuario es DADOR_DE_CARGA
         const effectiveDadorId = isDadorDeCargeUser && currentUserDadorId
           ? currentUserDadorId
           : data.transportistaDadorId;
@@ -691,20 +355,14 @@ export const RegisterUserModal: React.FC<RegisterUserModalProps> = ({ isOpen, on
             showToast('Razón social, CUIT y Dador de Carga son obligatorios', 'error');
             return;
           }
-          // Usar registerTransportistaWizard directamente para crear transportista y usuario
-          const resp = await registerTransportistaWizard({
-            email: data.email,
-            nombre: data.nombre || undefined,
-            apellido: data.apellido || undefined,
-            empresaId: data.empresaId ? Number(data.empresaId) : undefined,
-            transportistaRazonSocial: data.transportistaRazonSocial,
-            transportistaCuit: data.transportistaCuit,
-            transportistaDadorId: Number(effectiveDadorId),
-            transportistaNotas: data.transportistaNotas || undefined,
+          const created = await createEmpresaTransportista({
+            dadorCargaId: Number(effectiveDadorId),
+            razonSocial: data.transportistaRazonSocial,
+            cuit: data.transportistaCuit,
+            notas: data.transportistaNotas || undefined,
+            activo: true,
           }).unwrap();
-          setTempPasswordToShow(resp.tempPassword);
-          showToast('Usuario TRANSPORTISTA creado. Copie la contraseña temporal.', 'success');
-          return;
+          transportistaIdFinal = created?.id;
         } else {
           if (!data.empresaTransportistaId) {
             showToast('Debe seleccionar una empresa transportista', 'error');
@@ -731,7 +389,7 @@ export const RegisterUserModal: React.FC<RegisterUserModalProps> = ({ isOpen, on
         return;
       }
 
-      // CHOFER (wizard): permite crear el chofer (entidad) y luego el usuario con contraseña temporal.
+      // CHOFER (wizard)
       if (data.role === 'CHOFER') {
         const actorRole = currentUser?.role;
         if (!actorRole || !['SUPERADMIN', 'ADMIN', 'ADMIN_INTERNO', 'DADOR_DE_CARGA', 'TRANSPORTISTA'].includes(actorRole)) {
@@ -739,7 +397,6 @@ export const RegisterUserModal: React.FC<RegisterUserModalProps> = ({ isOpen, on
           return;
         }
 
-        // Usar dadorCargaId automático si el usuario es DADOR_DE_CARGA o TRANSPORTISTA
         const effectiveChoferDadorId = (isDadorDeCargeUser || isTransportistaUser) && currentUserDadorId
           ? currentUserDadorId
           : data.choferDadorId;
@@ -750,20 +407,15 @@ export const RegisterUserModal: React.FC<RegisterUserModalProps> = ({ isOpen, on
             showToast('DNI y Dador de Carga del chofer son obligatorios', 'error');
             return;
           }
-          // Usar registerChoferWizard directamente para crear chofer y usuario
-          const resp = await registerChoferWizard({
-            email: data.email,
-            nombre: data.nombre || undefined,
-            apellido: data.apellido || undefined,
-            empresaId: data.empresaId ? Number(data.empresaId) : undefined,
-            choferDni: data.choferDni,
-            choferNombre: data.choferNombre || undefined,
-            choferApellido: data.choferApellido || undefined,
-            choferDadorId: Number(effectiveChoferDadorId),
+          const created = await createChofer({
+            dadorCargaId: Number(effectiveChoferDadorId),
+            dni: data.choferDni,
+            nombre: data.choferNombre || undefined,
+            apellido: data.choferApellido || undefined,
+            activo: true,
+            phones: [],
           }).unwrap();
-          setTempPasswordToShow(resp.tempPassword);
-          showToast('Usuario CHOFER creado. Copie la contraseña temporal.', 'success');
-          return;
+          choferIdFinal = created?.id;
         } else {
           if (!data.choferId) {
             showToast('Debe seleccionar un chofer', 'error');
@@ -779,8 +431,8 @@ export const RegisterUserModal: React.FC<RegisterUserModalProps> = ({ isOpen, on
 
         const resp = await registerChoferWizard({
           email: data.email,
-          nombre: data.nombre || undefined,
-          apellido: data.apellido || undefined,
+          nombre: choferMode === 'new' ? (data.choferNombre || undefined) : (data.nombre || undefined),
+          apellido: choferMode === 'new' ? (data.choferApellido || undefined) : (data.apellido || undefined),
           empresaId: data.empresaId ? Number(data.empresaId) : undefined,
           choferId: choferIdFinal,
         }).unwrap();
@@ -1335,8 +987,8 @@ export const RegisterUserModal: React.FC<RegisterUserModalProps> = ({ isOpen, on
 
             <div className="flex justify-end gap-3 pt-4 border-t">
               <Button variant="outline" onClick={onClose} disabled={isLoading}>Cancelar</Button>
-              <Button type="submit" disabled={isLoading || isLoadingWizardClient || isLoadingWizardClient}>
-                {(isLoading || isLoadingWizardClient || isLoadingWizardClient) ? <Spinner className="w-4 h-4 mr-2" /> : null}
+              <Button type="submit" disabled={isLoading || isLoadingWizardClient || isLoadingWizardDador || isLoadingWizardTransportista || isLoadingWizardChofer}>
+                {(isLoading || isLoadingWizardClient || isLoadingWizardDador || isLoadingWizardTransportista || isLoadingWizardChofer) ? <Spinner className="w-4 h-4 mr-2" /> : null}
                 Crear Usuario
               </Button>
             </div>

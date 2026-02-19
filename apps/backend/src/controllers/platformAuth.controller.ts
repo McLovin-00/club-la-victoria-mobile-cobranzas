@@ -1,5 +1,5 @@
 import { Request, Response } from 'express';
-import { PlatformAuthService, LoginCredentials, RegisterData } from '../services/platformAuth.service';
+import { PlatformAuthService, LoginCredentials, RegisterData, PlatformUserProfile } from '../services/platformAuth.service';
 import { AppLogger } from '../config/logger';
 import { body, validationResult } from 'express-validator';
 
@@ -27,11 +27,25 @@ function handleWizardRegisterResult(
 }
 
 function handleWizardError(res: Response, error: unknown, context: string): void {
-  AppLogger.error(`💥 Error en wizard ${context}:`, error);
+  AppLogger.error(`Error en wizard ${context}:`, error);
   res.status(500).json({
     success: false,
     message: error instanceof Error ? error.message : 'Error interno del servidor',
   });
+}
+
+async function resolveActorProfile(req: AuthRequest, res: Response): Promise<PlatformUserProfile | null> {
+  const tokenUser = req.user;
+  if (!tokenUser) {
+    res.status(401).json({ success: false, message: 'Usuario no autenticado' });
+    return null;
+  }
+  const profile = await PlatformAuthService.getUserProfile(tokenUser.userId);
+  if (!profile) {
+    res.status(401).json({ success: false, message: 'No se pudo obtener el perfil del usuario autenticado' });
+    return null;
+  }
+  return profile;
 }
 
 export class PlatformAuthController {
@@ -41,17 +55,6 @@ export class PlatformAuthController {
    */
   static async login(req: Request, res: Response): Promise<void> {
     try {
-      // Validar errores de entrada
-      const errors = validationResult(req);
-      if (!errors.isEmpty()) {
-        res.status(400).json({
-          success: false,
-          message: 'Datos de entrada inválidos',
-          errors: errors.array(),
-        });
-        return;
-      }
-
       const credentials: LoginCredentials = req.body;
 
       AppLogger.info('🔐 Intento de login de plataforma', {
@@ -103,16 +106,13 @@ export class PlatformAuthController {
         return;
       }
 
-      const actor = req.user;
-      if (!actor) {
-        res.status(401).json({ success: false, message: 'Usuario no autenticado' });
-        return;
-      }
+      const actorProfile = await resolveActorProfile(req, res);
+      if (!actorProfile) return;
 
       const id = parseInt(req.params.id, 10);
       const data = req.body;
 
-      const result = await PlatformAuthService.updatePlatformUser(id, data, actor);
+      const result = await PlatformAuthService.updatePlatformUser(id, data, actorProfile);
       res.status(200).json({ success: true, user: result });
     } catch (error) {
       AppLogger.error('💥 Error actualizando usuario de plataforma:', error);
@@ -126,16 +126,9 @@ export class PlatformAuthController {
    */
   static async deleteUser(req: AuthRequest, res: Response): Promise<void> {
     try {
-      const tokenUser = req.user;
-      if (!tokenUser) {
-        res.status(401).json({ success: false, message: 'Usuario no autenticado' });
-        return;
-      }
-      const actorProfile = await PlatformAuthService.getUserProfile(tokenUser.userId);
-      if (!actorProfile) {
-        res.status(401).json({ success: false, message: 'No se pudo obtener el perfil del usuario autenticado' });
-        return;
-      }
+      const actorProfile = await resolveActorProfile(req, res);
+      if (!actorProfile) return;
+
       const id = parseInt(req.params.id, 10);
       await PlatformAuthService.deletePlatformUser(id, actorProfile);
       res.status(200).json({ success: true, message: 'Usuario eliminado exitosamente' });
@@ -150,42 +143,52 @@ export class PlatformAuthController {
       res.status(500).json({ success: false, message: 'Error interno del servidor' });
     }
   }
+
+  static async toggleActivo(req: AuthRequest, res: Response): Promise<void> {
+    try {
+      const actorProfile = await resolveActorProfile(req, res);
+      if (!actorProfile) return;
+
+      const targetId = parseInt(req.params.id, 10);
+      const { activo } = req.body;
+
+      if (typeof activo !== 'boolean') {
+        res.status(400).json({ success: false, message: 'El campo activo debe ser booleano' });
+        return;
+      }
+
+      const updatedUser = await PlatformAuthService.toggleUserActivo(targetId, activo, actorProfile);
+      res.status(200).json({ success: true, data: updatedUser, message: `Usuario ${activo ? 'activado' : 'desactivado'} exitosamente` });
+    } catch (error: any) {
+      const msg = error?.message ?? 'Error interno del servidor';
+      const isBusinessError = msg.includes('permisos') || msg.includes('encontrado') || msg.includes('desactivarse');
+      if (isBusinessError) {
+        res.status(isBusinessError && msg.includes('encontrado') ? 404 : 403).json({ success: false, message: msg });
+        return;
+      }
+      AppLogger.error('Error al cambiar estado de usuario:', error);
+      res.status(500).json({ success: false, message: 'Error interno del servidor' });
+    }
+  }
+
   /**
    * Registro de nuevos usuarios de plataforma
    * POST /api/platform/auth/register
    */
   static async register(req: AuthRequest, res: Response): Promise<void> {
     try {
-      // Validar errores de entrada
-      const errors = validationResult(req);
-      if (!errors.isEmpty()) {
-        res.status(400).json({
-          success: false,
-          message: 'Datos de entrada inválidos',
-          errors: errors.array(),
-        });
-        return;
-      }
-
       const registerData: RegisterData = req.body;
-      const createdBy = req.user;
+      const actorProfile = await resolveActorProfile(req, res);
+      if (!actorProfile) return;
 
-      if (!createdBy) {
-        res.status(401).json({
-          success: false,
-          message: 'Usuario no autenticado',
-        });
-        return;
-      }
-
-      AppLogger.info('📝 Intento de registro en plataforma', {
+      AppLogger.info('Intento de registro en plataforma', {
         email: registerData.email,
         role: registerData.role,
-        createdBy: createdBy.userId,
+        createdBy: actorProfile.id,
         ip: req.ip,
       });
 
-      const result = await PlatformAuthService.register(registerData, createdBy);
+      const result = await PlatformAuthService.register(registerData, actorProfile);
 
       if (result.success) {
         res.status(201).json({
@@ -223,27 +226,13 @@ export class PlatformAuthController {
    */
   static async registerClientWizard(req: AuthRequest, res: Response): Promise<void> {
     try {
-      const errors = validationResult(req);
-      if (!errors.isEmpty()) {
-        res.status(400).json({
-          success: false,
-          message: 'Datos de entrada inválidos',
-          errors: errors.array(),
-        });
-        return;
-      }
-
-      const createdBy = req.user;
-      if (!createdBy) {
-        res.status(401).json({ success: false, message: 'Usuario no autenticado' });
-        return;
-      }
+      const actorProfile = await resolveActorProfile(req, res);
+      if (!actorProfile) return;
 
       const { email, nombre, apellido, empresaId, clienteId } = req.body;
-
       const result = await PlatformAuthService.registerClientWithTempPassword(
         { email, nombre, apellido, empresaId: empresaId ?? null, clienteId: Number(clienteId) },
-        createdBy
+        actorProfile
       );
       handleWizardRegisterResult(res, result, 'register-client');
     } catch (error) {
@@ -257,23 +246,13 @@ export class PlatformAuthController {
    */
   static async registerDadorWizard(req: AuthRequest, res: Response): Promise<void> {
     try {
-      const errors = validationResult(req);
-      if (!errors.isEmpty()) {
-        res.status(400).json({ success: false, message: 'Datos de entrada inválidos', errors: errors.array() });
-        return;
-      }
-
-      const createdBy = req.user;
-      if (!createdBy) {
-        res.status(401).json({ success: false, message: 'Usuario no autenticado' });
-        return;
-      }
+      const actorProfile = await resolveActorProfile(req, res);
+      if (!actorProfile) return;
 
       const { email, nombre, apellido, empresaId, dadorCargaId } = req.body;
-
       const result = await PlatformAuthService.registerDadorWithTempPassword(
         { email, nombre, apellido, empresaId: empresaId ?? null, dadorCargaId: Number(dadorCargaId) },
-        createdBy
+        actorProfile
       );
       handleWizardRegisterResult(res, result, 'register-dador');
     } catch (error) {
@@ -287,23 +266,13 @@ export class PlatformAuthController {
    */
   static async registerTransportistaWizard(req: AuthRequest, res: Response): Promise<void> {
     try {
-      const errors = validationResult(req);
-      if (!errors.isEmpty()) {
-        res.status(400).json({ success: false, message: 'Datos de entrada inválidos', errors: errors.array() });
-        return;
-      }
-
-      const createdBy = req.user;
-      if (!createdBy) {
-        res.status(401).json({ success: false, message: 'Usuario no autenticado' });
-        return;
-      }
+      const actorProfile = await resolveActorProfile(req, res);
+      if (!actorProfile) return;
 
       const { email, nombre, apellido, empresaId, empresaTransportistaId } = req.body;
-
       const result = await PlatformAuthService.registerTransportistaWithTempPassword(
         { email, nombre, apellido, empresaId: empresaId ?? null, empresaTransportistaId: Number(empresaTransportistaId) },
-        createdBy
+        actorProfile
       );
       handleWizardRegisterResult(res, result, 'register-transportista');
     } catch (error) {
@@ -317,23 +286,13 @@ export class PlatformAuthController {
    */
   static async registerChoferWizard(req: AuthRequest, res: Response): Promise<void> {
     try {
-      const errors = validationResult(req);
-      if (!errors.isEmpty()) {
-        res.status(400).json({ success: false, message: 'Datos de entrada inválidos', errors: errors.array() });
-        return;
-      }
-
-      const createdBy = req.user;
-      if (!createdBy) {
-        res.status(401).json({ success: false, message: 'Usuario no autenticado' });
-        return;
-      }
+      const actorProfile = await resolveActorProfile(req, res);
+      if (!actorProfile) return;
 
       const { email, nombre, apellido, empresaId, choferId } = req.body;
-
       const result = await PlatformAuthService.registerChoferWithTempPassword(
         { email, nombre, apellido, empresaId: empresaId ?? null, choferId: Number(choferId) },
-        createdBy
+        actorProfile
       );
       handleWizardRegisterResult(res, result, 'register-chofer');
     } catch (error) {
@@ -413,17 +372,6 @@ export class PlatformAuthController {
    */
   static async changePassword(req: AuthRequest, res: Response): Promise<void> {
     try {
-      // Validar errores de entrada
-      const errors = validationResult(req);
-      if (!errors.isEmpty()) {
-        res.status(400).json({
-          success: false,
-          message: 'Datos de entrada inválidos',
-          errors: errors.array(),
-        });
-        return;
-      }
-
       const user = req.user;
       const { currentPassword, newPassword } = req.body;
 
@@ -506,54 +454,6 @@ export class PlatformAuthController {
 // ================================
 
 export const platformAuthValidation = {
-  login: [
-    body('email')
-      .isEmail()
-      .normalizeEmail()
-      .withMessage('Email válido requerido'),
-    body('password')
-      .isLength({ min: 6 })
-      .withMessage('Contraseña debe tener al menos 6 caracteres'),
-  ],
-
-  register: [
-    body('email')
-      .isEmail()
-      .normalizeEmail()
-      .withMessage('Email válido requerido'),
-    body('password')
-      .isLength({ min: 8 })
-      .matches(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/)
-      .withMessage('Contraseña debe tener al menos 8 caracteres, una mayúscula, una minúscula y un número'),
-    body('role')
-      .optional()
-      .customSanitizer((v) => (typeof v === 'string' ? v.toUpperCase() : v))
-      .isIn(['ADMIN', 'OPERATOR', 'SUPERADMIN'])
-      .withMessage('Rol inválido'),
-    body('empresaId')
-      .optional()
-      .isInt({ min: 1 })
-      .withMessage('ID de empresa debe ser un número positivo'),
-    body('nombre')
-      .optional()
-      .isLength({ max: 100 })
-      .withMessage('Nombre no puede exceder 100 caracteres'),
-    body('apellido')
-      .optional()
-      .isLength({ max: 100 })
-      .withMessage('Apellido no puede exceder 100 caracteres'),
-  ],
-
-  changePassword: [
-    body('currentPassword')
-      .notEmpty()
-      .withMessage('Contraseña actual requerida'),
-    body('newPassword')
-      .isLength({ min: 8 })
-      .matches(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/)
-      .withMessage('Nueva contraseña debe tener al menos 8 caracteres, una mayúscula, una minúscula y un número'),
-  ],
-
   updateUser: [
     body('email').optional().isEmail().withMessage('Email inválido'),
     body('password').optional().isLength({ min: 8 }).withMessage('Contraseña debe tener al menos 8 caracteres'),
