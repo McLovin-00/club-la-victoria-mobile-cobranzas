@@ -79,9 +79,13 @@ server {
     gzip_proxied expired no-cache no-store private auth;
     gzip_types text/plain text/css text/xml text/javascript application/javascript application/xml+rss application/json;
 
-    # Proxy APIs (nombres de contenedores 246)
+    # Docker DNS resolver - re-resolve on container IP changes
+    resolver 127.0.0.11 valid=10s ipv6=off;
+
+    # Proxy APIs (variables force dynamic DNS resolution, container names 246)
     location /api/remitos {
-        proxy_pass http://bca_remitos_246:4813/api/remitos;
+        set $upstream_remitos http://bca_remitos_246:4813;
+        proxy_pass $upstream_remitos/api/remitos;
         proxy_http_version 1.1;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
@@ -91,7 +95,8 @@ server {
     }
 
     location /api/docs {
-        proxy_pass http://bca_documentos_246:4812/api/docs;
+        set $upstream_documentos http://bca_documentos_246:4812;
+        proxy_pass $upstream_documentos/api/docs;
         proxy_http_version 1.1;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
@@ -103,7 +108,8 @@ server {
     }
 
     location /socket.io {
-        proxy_pass http://bca_documentos_246:4812/socket.io;
+        set $upstream_ws http://bca_documentos_246:4812;
+        proxy_pass $upstream_ws/socket.io;
         proxy_http_version 1.1;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
@@ -112,7 +118,8 @@ server {
     }
 
     location /api {
-        proxy_pass http://bca_backend_246:4810/api;
+        set $upstream_backend http://bca_backend_246:4810;
+        proxy_pass $upstream_backend/api;
         proxy_http_version 1.1;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
