@@ -1,7 +1,7 @@
 
 import { Routes, Route, Navigate } from 'react-router-dom';
 import { ThemeProvider } from './components/providers/theme-provider';
-import { ToastProvider } from './components/ui/toast';
+import { ToastProvider } from './components/ui/Toast';
 import { ConfirmProvider } from './components/ui/confirm-dialog';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { LoginPage } from './pages/LoginPage';
