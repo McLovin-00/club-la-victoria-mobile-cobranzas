@@ -2,7 +2,7 @@
  * Utilidades para normalización de fechas de vencimiento.
  *
  * Regla de negocio: un documento que "vence el 15/01/2026" es válido
- * durante TODO el día 15 de enero en horario argentino (UTC-3).
+ * durante el día completo (15 de enero) en horario argentino (UTC-3).
  *
  * Almacenamiento: se guarda como fin de día Argentina en UTC.
  *   "15/01/2026" → 2026-01-15 23:59:59.999 Argentina → 2026-01-16 02:59:59.999 UTC
