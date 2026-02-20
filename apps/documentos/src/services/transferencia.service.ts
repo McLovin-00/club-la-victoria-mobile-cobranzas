@@ -26,7 +26,7 @@ export interface CrearSolicitudInput {
   solicitanteDadorId: number;
   dadorActualId: number;
   entidades: EntidadTransferencia[];
-  motivo?: string;
+  motivo: string;
 }
 
 /** Resultado de crear solicitud */
@@ -118,14 +118,26 @@ async function buscarEquiposAfectados(
 }
 
 /**
- * Obtiene usuarios admin del tenant para notificar
+ * Obtiene usuarios admin del tenant para notificar.
+ * Busca userIds distintos que hayan recibido notificaciones previas del tenant,
+ * ya que el microservicio documentos no tiene acceso a la tabla de usuarios del backend.
  */
 async function obtenerAdminsParaNotificar(tenantEmpresaId: number): Promise<number[]> {
-  // Buscamos en internal_notifications usuarios que hayan recibido notificaciones del tenant
-  // En un sistema real, esto vendría de una tabla de usuarios o de un servicio externo
-  // Por ahora retornamos un array vacío y las notificaciones se crearán cuando tengamos el sistema de usuarios
-  AppLogger.warn('⚠️ Sistema de usuarios no disponible - notificaciones pendientes', { tenantEmpresaId });
-  return [];
+  try {
+    const rows = await prisma.internalNotification.findMany({
+      where: { tenantEmpresaId, deleted: false },
+      select: { userId: true },
+      distinct: ['userId'],
+    });
+    const ids = rows.map(r => r.userId).filter(id => id > 0);
+    if (ids.length === 0) {
+      AppLogger.warn('No se encontraron destinatarios para notificar transferencia', { tenantEmpresaId });
+    }
+    return ids;
+  } catch (err) {
+    AppLogger.error('Error buscando admins para notificar', err);
+    return [];
+  }
 }
 
 export class TransferenciaService {

@@ -122,7 +122,7 @@ export const PreCheckModal: React.FC<PreCheckModalProps> = ({
   };
 
   const handleSolicitarTransferencia = async () => {
-    if (!result || !motivoTransferencia.trim()) return;
+    if (!result || motivoTransferencia.trim().length < 3) return;
 
     const entidadesParaTransferir = result.entidades
       .filter(e => e.requiereTransferencia && e.entityId && e.dadorCargaActualId)
@@ -307,7 +307,7 @@ export const PreCheckModal: React.FC<PreCheckModalProps> = ({
                   <textarea
                     value={motivoTransferencia}
                     onChange={(e) => setMotivoTransferencia(e.target.value)}
-                    placeholder="Motivo de la solicitud (opcional pero recomendado)..."
+                    placeholder="Motivo de la solicitud (obligatorio, mínimo 3 caracteres)..."
                     className="w-full border rounded-lg p-3 h-24 resize-none mb-4"
                   />
 
@@ -320,7 +320,7 @@ export const PreCheckModal: React.FC<PreCheckModalProps> = ({
                     </Button>
                     <Button
                       onClick={handleSolicitarTransferencia}
-                      disabled={creatingTransferencia}
+                      disabled={creatingTransferencia || motivoTransferencia.trim().length < 3}
                       className="bg-blue-600 hover:bg-blue-700"
                     >
                       {creatingTransferencia ? 'Enviando...' : 'Enviar Solicitud'}
