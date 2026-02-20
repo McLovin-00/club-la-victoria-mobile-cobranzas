@@ -1613,7 +1613,7 @@ export const documentosApiSlice = createApi({
     // =================================
     crearSolicitudTransferencia: builder.mutation<
       { id: number; estado: string; entidades: any[]; equiposAfectados: number[] },
-      { dadorActualId: number; entidades: Array<{ tipo: string; id: number; identificador: string; nombre?: string }>; motivo?: string }
+      { dadorActualId: number; entidades: Array<{ tipo: string; id: number; identificador: string; nombre?: string }>; motivo: string }
     >({
       query: (body) => ({
         url: '/transferencias',

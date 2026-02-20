@@ -24,7 +24,7 @@ const crearSolicitudSchema = z.object({
       identificador: z.string().min(1).max(32),
       nombre: z.string().max(200).optional(),
     })).min(1).max(50),
-    motivo: z.string().max(500).optional(),
+    motivo: z.string().min(3).max(500),
   }),
 });
 
@@ -64,7 +64,7 @@ router.post('/', validate(crearSolicitudSchema), async (req: any, res) => {
   try {
     const { dadorActualId, entidades, motivo } = req.body;
     const tenantEmpresaId = req.tenantId!;
-    const solicitanteDadorId = req.dadorCargaId;
+    const solicitanteDadorId = req.user?.dadorCargaId;
     const solicitanteUserId = req.user?.userId;
     const solicitanteUserEmail = req.user?.email;
 
@@ -128,7 +128,7 @@ router.get('/', validate(listarSolicitudesSchema), async (req: any, res) => {
     const tenantEmpresaId = req.tenantId!;
     const { estado, limit, offset } = req.query;
     const userRole = req.user?.role;
-    const dadorCargaId = req.dadorCargaId;
+    const dadorCargaId = req.user?.dadorCargaId;
 
     // Admins ven todas las solicitudes, otros usuarios solo las propias
     const filtrarPorDador = !ADMIN_ROLES.includes(userRole) ? dadorCargaId : undefined;
@@ -186,7 +186,7 @@ router.get('/:id', validate(aprobarRechazarSchema), async (req: any, res) => {
 
     // Verificar acceso: admins o involucrados
     const userRole = req.user?.role;
-    const dadorCargaId = req.dadorCargaId;
+    const dadorCargaId = req.user?.dadorCargaId;
     const esAdmin = ADMIN_ROLES.includes(userRole);
     const esInvolucrado = 
       solicitud.solicitanteDadorId === dadorCargaId ||

@@ -568,7 +568,7 @@ router.post('/pre-check', validate(preCheckSchema), async (req: any, res) => {
     const { entidades, clienteId, dadorCargaId: bodyDadorCargaId } = req.body;
     const tenantEmpresaId = req.tenantId!;
     // Usar dadorCargaId del body si existe (ADMIN_INTERNO), sino del token
-    const dadorCargaId = bodyDadorCargaId || req.dadorCargaId;
+    const dadorCargaId = bodyDadorCargaId || req.user?.dadorCargaId;
 
     const result = await DocumentPreCheckService.preCheck({
       tenantEmpresaId,
