@@ -37,6 +37,7 @@ export class SchedulerService {
       this.scheduleNotifications();
       this.scheduleAuditRetention();
       this.scheduleNotificationCleanup();
+      this.scheduleDailyComplianceEvaluation();
       
       AppLogger.info('✅ Todas las tareas programadas iniciadas');
     } catch (error) {
@@ -264,6 +265,40 @@ export class SchedulerService {
   }
 
   /**
+   * Re-evaluación diaria de compliance de todos los equipos activos (06:00 AR / 09:00 UTC)
+   */
+  private scheduleDailyComplianceEvaluation(): void {
+    const task = cron.schedule('0 9 * * *', async () => {
+      try {
+        AppLogger.info('Ejecutando re-evaluación diaria de compliance');
+        const { db } = await import('../config/database');
+        const { EquipoEvaluationService } = await import('./equipo-evaluation.service');
+        const { invalidateComplianceCache } = await import('./compliance.service');
+
+        invalidateComplianceCache();
+
+        const equipos = await db.getClient().equipo.findMany({
+          where: { activo: true },
+          select: { id: true },
+          orderBy: { id: 'asc' },
+        });
+
+        const ids = equipos.map(e => e.id);
+        const results = await EquipoEvaluationService.evaluarEquipos(ids);
+        const cambios = results.filter(r => r.cambio).length;
+
+        AppLogger.info(`Re-evaluación diaria completada: ${results.length} equipos evaluados, ${cambios} cambios de estado`);
+      } catch (error) {
+        AppLogger.error('Error en re-evaluación diaria de compliance:', error);
+      }
+    });
+
+    this.tasks.set('daily-compliance-evaluation', task);
+    task.start();
+    AppLogger.info('Tarea programada: Re-evaluación diaria de compliance (06:00 AR)');
+  }
+
+  /**
    * Detener todas las tareas programadas
    */
   public stop(): void {
@@ -331,6 +366,19 @@ export class SchedulerService {
             AppLogger.info('🧹 Audit retention ejecutada manualmente', { deleted: (res?.count ?? 0), days });
           } catch (err) {
             AppLogger.error('💥 Error ejecutando audit retention manual:', err);
+            throw err;
+          }
+          break;
+        case 'daily-compliance-evaluation':
+          try {
+            const { db: dbClient } = await import('../config/database');
+            const { EquipoEvaluationService } = await import('./equipo-evaluation.service');
+            const { invalidateComplianceCache } = await import('./compliance.service');
+            invalidateComplianceCache();
+            const allEquipos = await dbClient.getClient().equipo.findMany({ where: { activo: true }, select: { id: true } });
+            await EquipoEvaluationService.evaluarEquipos(allEquipos.map(e => e.id));
+          } catch (err) {
+            AppLogger.error('Error ejecutando compliance evaluation manual:', err);
             throw err;
           }
           break;

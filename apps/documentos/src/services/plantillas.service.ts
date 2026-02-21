@@ -468,18 +468,37 @@ export class PlantillasService {
    * Obtiene los templates consolidados de un equipo basándose en sus plantillas asignadas
    */
   static async getEquipoConsolidatedTemplates(tenantEmpresaId: number, equipoId: number) {
-    // Obtener plantillas activas del equipo
-    const asociaciones = await prisma.equipoPlantillaRequisito.findMany({
+    const requirements = await prisma.plantillaRequisitoTemplate.findMany({
       where: {
-        equipoId,
-        asignadoHasta: null,
-        plantillaRequisito: { tenantEmpresaId, activo: true },
+        tenantEmpresaId,
+        plantillaRequisito: {
+          activo: true,
+          equipos: { some: { equipoId, asignadoHasta: null } },
+        },
       },
-      select: { plantillaRequisitoId: true },
+      include: {
+        template: true,
+        plantillaRequisito: {
+          include: { cliente: { select: { id: true, razonSocial: true } } },
+        },
+      },
+      orderBy: [{ entityType: 'asc' }, { templateId: 'asc' }],
     });
 
-    const plantillaIds = asociaciones.map((a) => a.plantillaRequisitoId);
-    return this.getConsolidatedTemplates(tenantEmpresaId, plantillaIds);
+    const consolidated = new Map<string, ConsolidatedTemplateFromPlantilla>();
+    for (const req of requirements) {
+      mergeTemplateFromPlantilla(consolidated, req);
+    }
+
+    const templates = Array.from(consolidated.values());
+    const byEntityType: Record<string, ConsolidatedTemplateFromPlantilla[]> = {
+      DADOR: [], EMPRESA_TRANSPORTISTA: [], CHOFER: [], CAMION: [], ACOPLADO: [],
+    };
+    for (const t of templates) {
+      if (byEntityType[t.entityType]) byEntityType[t.entityType].push(t);
+    }
+
+    return { templates, byEntityType };
   }
 
   /**

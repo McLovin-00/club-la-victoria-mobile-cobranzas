@@ -430,15 +430,21 @@ export class EquipoEvaluationService {
    * Evalúa múltiples equipos (batch)
    */
   static async evaluarEquipos(equipoIds: number[]): Promise<EquipoEvaluationResult[]> {
+    const CONCURRENCY = 5;
     const resultados: EquipoEvaluationResult[] = [];
-    
-    for (const equipoId of equipoIds) {
-      const resultado = await this.evaluarEquipo(equipoId);
-      if (resultado) {
-        resultados.push(resultado);
+
+    for (let i = 0; i < equipoIds.length; i += CONCURRENCY) {
+      const batch = equipoIds.slice(i, i + CONCURRENCY);
+      const batchResults = await Promise.allSettled(
+        batch.map(id => this.evaluarEquipo(id))
+      );
+      for (const r of batchResults) {
+        if (r.status === 'fulfilled' && r.value) {
+          resultados.push(r.value);
+        }
       }
     }
-    
+
     return resultados;
   }
 

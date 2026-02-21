@@ -456,6 +456,7 @@ export class DocumentPreCheckService {
     const resultados: PreCheckEntidadResult[] = [];
     const dadorActualIdsSet = new Set<number>();
     let hayEntidadesDeOtroDador = false;
+    const dadorNombreCache = new Map<number, string | undefined>();
 
     for (const entidadInput of entidades) {
       const identificadorNorm = normalizeIdentificador(entidadInput.identificador);
@@ -506,7 +507,11 @@ export class DocumentPreCheckService {
         dadorActualIdsSet.add(entidadExistente.dadorCargaId);
       }
       
-      const dadorNombre = await obtenerNombreDador(entidadExistente.dadorCargaId);
+      let dadorNombre = dadorNombreCache.get(entidadExistente.dadorCargaId);
+      if (dadorNombre === undefined && !dadorNombreCache.has(entidadExistente.dadorCargaId)) {
+        dadorNombre = await obtenerNombreDador(entidadExistente.dadorCargaId);
+        dadorNombreCache.set(entidadExistente.dadorCargaId, dadorNombre);
+      }
       
       // Buscar si está asignada a algún equipo activo
       // Solo para CHOFER, CAMION, ACOPLADO (entidades exclusivas)
