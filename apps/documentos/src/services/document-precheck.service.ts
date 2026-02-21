@@ -103,7 +103,7 @@ const ESTADOS_PENDIENTES: DocumentStatus[] = [
 /**
  * Normaliza identificadores (DNI, CUIT, Patente)
  */
-function normalizeIdentificador(valor: string): string {
+export function normalizeIdentificador(valor: string): string {
   return valor
     .slice(0, 32)
     .toUpperCase()
@@ -113,7 +113,7 @@ function normalizeIdentificador(valor: string): string {
 /**
  * Calcula el estado de un documento
  */
-function calcularEstadoDocumento(
+export function calcularEstadoDocumento(
   doc: { status: DocumentStatus; expiresAt: Date | null }
 ): { estado: DocumentoEstado; diasParaVencer: number | null } {
   const now = new Date();
@@ -405,7 +405,7 @@ async function obtenerDocumentosEntidad(
 /**
  * Calcula el resumen del estado documental
  */
-function calcularResumen(
+export function calcularResumen(
   documentosExistentes: DocumentoExistente[],
   templatesRequeridos: { templateId: number; obligatorio: boolean }[]
 ): PreCheckResumen {

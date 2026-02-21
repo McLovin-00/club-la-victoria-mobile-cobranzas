@@ -17,7 +17,7 @@ type ConsolidatedTemplateFromPlantilla = {
 };
 
 // Helper: merge un requisito de plantilla en el mapa consolidado
-function mergeTemplateFromPlantilla(
+export function mergeTemplateFromPlantilla(
   map: Map<string, ConsolidatedTemplateFromPlantilla>,
   req: {
     templateId: number;

@@ -434,13 +434,14 @@ export class PlatformAuthService {
 
   private static async softDeleteUser(prisma: ReturnType<typeof prismaService.getClient>, id: number): Promise<void> {
     const anonymizedEmail = `deleted_${id}_${Date.now()}@removed.local`;
+    const invalidatedHash = await bcrypt.hash(crypto.randomBytes(32).toString('hex'), this.SALT_ROUNDS);
     await prisma.user.update({
       where: { id },
       data: {
         activo: false,
         deletedAt: new Date(),
         email: anonymizedEmail,
-        password: 'SOFT_DELETED',
+        password: invalidatedHash,
         nombre: null,
         apellido: null,
       },

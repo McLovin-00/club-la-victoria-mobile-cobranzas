@@ -252,7 +252,7 @@ async function contarDocumentos(
 /**
  * Clasifica un documento y actualiza los contadores
  */
-function clasificarDocumento(
+export function clasificarDocumento(
   doc: { status: string; expiresAt: Date | null },
   now: Date,
   limitePorVencer: Date,
@@ -285,7 +285,7 @@ function clasificarDocumento(
 /**
  * Determina el estado documental basado en conteos
  */
-function determinarEstadoDocumental(
+export function determinarEstadoDocumental(
   stats: {
     vigentes: number;
     porVencer: number;
