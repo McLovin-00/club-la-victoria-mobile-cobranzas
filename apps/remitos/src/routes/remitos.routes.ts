@@ -1,9 +1,17 @@
-import { Router, IRouter } from 'express';
+import { Router, IRouter, RequestHandler } from 'express';
 import multer from 'multer';
+import rateLimit from 'express-rate-limit';
 import { RemitosController } from '../controllers/remitos.controller';
 import { authenticate, authorize, ROLES_UPLOAD, ROLES_APPROVE } from '../middlewares/auth.middleware';
 
 const router: IRouter = Router();
+
+const uploadRateLimit = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 60,
+  keyGenerator: (req: any) => req.user?.userId?.toString() || req.ip,
+  message: { error: 'Demasiadas cargas. Reintente en unos minutos.' },
+}) as unknown as RequestHandler;
 
 // Configurar multer para archivos en memoria
 // Acepta imágenes (múltiples) y PDFs (único)
@@ -46,6 +54,7 @@ router.post(
   '/',
   authenticate,
   authorize(ROLES_UPLOAD),
+  uploadRateLimit,
   upload.array('imagenes', 10),
   RemitosController.create
 );

@@ -225,6 +225,29 @@ export class PlantillasService {
       visibleChofer?: boolean;
     }
   ): Promise<unknown> {
+    // Validar existencia de plantilla
+    const plantilla = await prisma.plantillaRequisito.findFirst({
+      where: { id: plantillaRequisitoId, tenantEmpresaId },
+    });
+    if (!plantilla) throw new Error('Plantilla no encontrada');
+
+    // Validar coherencia templateId vs entityType
+    const template = await prisma.documentTemplate.findFirst({
+      where: { id: input.templateId, active: true },
+    });
+    if (!template) throw new Error('Template no encontrado o inactivo');
+    if (template.entityType !== input.entityType) {
+      throw new Error(
+        `Template "${template.name}" es de tipo ${template.entityType}, no ${input.entityType}`
+      );
+    }
+
+    // Validar duplicado
+    const existe = await prisma.plantillaRequisitoTemplate.findFirst({
+      where: { tenantEmpresaId, plantillaRequisitoId, templateId: input.templateId, entityType: input.entityType },
+    });
+    if (existe) throw new Error('Este template ya está agregado a la plantilla');
+
     return prisma.plantillaRequisitoTemplate.create({
       data: {
         tenantEmpresaId,
@@ -341,7 +364,23 @@ export class PlantillasService {
   /**
    * Asocia una plantilla a un equipo
    */
-  static async assignToEquipo(equipoId: number, plantillaRequisitoId: number) {
+  static async assignToEquipo(equipoId: number, plantillaRequisitoId: number, tenantEmpresaId?: number) {
+    // Validar existencia del equipo
+    const equipo = await prisma.equipo.findUnique({ where: { id: equipoId }, select: { id: true, tenantEmpresaId: true } });
+    if (!equipo) throw new Error('Equipo no encontrado');
+
+    // Validar existencia de la plantilla en el mismo tenant
+    const plantilla = await prisma.plantillaRequisito.findFirst({
+      where: { id: plantillaRequisitoId, tenantEmpresaId: equipo.tenantEmpresaId, activo: true },
+    });
+    if (!plantilla) throw new Error('Plantilla no encontrada o inactiva para este tenant');
+
+    // Validar que no esté ya asignada activamente
+    const yaAsignada = await prisma.equipoPlantillaRequisito.findFirst({
+      where: { equipoId, plantillaRequisitoId, asignadoHasta: null },
+    });
+    if (yaAsignada) throw new Error('Esta plantilla ya está asignada al equipo');
+
     return prisma.equipoPlantillaRequisito.create({
       data: {
         equipoId,

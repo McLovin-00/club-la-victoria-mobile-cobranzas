@@ -140,6 +140,60 @@ async function obtenerAdminsParaNotificar(tenantEmpresaId: number): Promise<numb
   }
 }
 
+/** Transfiere una entidad individual dentro de una transacción */
+async function transferirEntidad(
+  tx: Parameters<Parameters<typeof prisma.$transaction>[0]>[0],
+  entidad: EntidadTransferencia,
+  nuevoDadorId: number
+): Promise<void> {
+  switch (entidad.tipo) {
+    case 'CHOFER':
+      await tx.chofer.update({ where: { id: entidad.id }, data: { dadorCargaId: nuevoDadorId } });
+      break;
+    case 'CAMION':
+      await tx.camion.update({ where: { id: entidad.id }, data: { dadorCargaId: nuevoDadorId } });
+      break;
+    case 'ACOPLADO':
+      await tx.acoplado.update({ where: { id: entidad.id }, data: { dadorCargaId: nuevoDadorId } });
+      break;
+    case 'EMPRESA_TRANSPORTISTA':
+      await tx.empresaTransportista.update({ where: { id: entidad.id }, data: { dadorCargaId: nuevoDadorId } });
+      break;
+    default:
+      throw new Error(`Tipo de entidad no soportado: ${entidad.tipo}`);
+  }
+}
+
+/** Verifica que cada entidad exista y pertenezca al dador indicado */
+async function validarEntidadesExisten(
+  entidades: EntidadTransferencia[],
+  dadorActualId: number
+): Promise<void> {
+  for (const ent of entidades) {
+    let existe: { dadorCargaId: number } | null = null;
+    switch (ent.tipo) {
+      case 'CHOFER':
+        existe = await prisma.chofer.findUnique({ where: { id: ent.id }, select: { dadorCargaId: true } });
+        break;
+      case 'CAMION':
+        existe = await prisma.camion.findUnique({ where: { id: ent.id }, select: { dadorCargaId: true } });
+        break;
+      case 'ACOPLADO':
+        existe = await prisma.acoplado.findUnique({ where: { id: ent.id }, select: { dadorCargaId: true } });
+        break;
+      case 'EMPRESA_TRANSPORTISTA':
+        existe = await prisma.empresaTransportista.findUnique({ where: { id: ent.id }, select: { dadorCargaId: true } });
+        break;
+    }
+    if (!existe) {
+      throw new Error(`${ent.tipo} con id ${ent.id} (${ent.identificador}) no existe`);
+    }
+    if (existe.dadorCargaId !== dadorActualId) {
+      throw new Error(`${ent.tipo} ${ent.identificador} no pertenece al dador indicado`);
+    }
+  }
+}
+
 export class TransferenciaService {
   /**
    * Crea una nueva solicitud de transferencia
@@ -162,6 +216,9 @@ export class TransferenciaService {
       dadorActualId,
       entidadesCount: entidades.length,
     });
+
+    // Verificar que las entidades existan y pertenezcan al dador actual
+    await validarEntidadesExisten(entidades, dadorActualId);
 
     // Verificar que no exista una solicitud pendiente para las mismas entidades
     const solicitudesPendientes = await prisma.solicitudTransferencia.findMany({
@@ -331,41 +388,15 @@ export class TransferenciaService {
 
     const entidades = solicitud.entidades as unknown as EntidadTransferencia[];
     const solicitanteDadorId = solicitud.solicitanteDadorId;
-    let entidadesTransferidas = 0;
 
-    // Ejecutar transferencia en transacción
-    await prisma.$transaction(async (tx) => {
+    // Ejecutar transferencia en transacción atómica
+    const entidadesTransferidas = await prisma.$transaction(async (tx) => {
+      let count = 0;
       for (const entidad of entidades) {
-        switch (entidad.tipo) {
-          case 'CHOFER':
-            await tx.chofer.update({
-              where: { id: entidad.id },
-              data: { dadorCargaId: solicitanteDadorId },
-            });
-            break;
-          case 'CAMION':
-            await tx.camion.update({
-              where: { id: entidad.id },
-              data: { dadorCargaId: solicitanteDadorId },
-            });
-            break;
-          case 'ACOPLADO':
-            await tx.acoplado.update({
-              where: { id: entidad.id },
-              data: { dadorCargaId: solicitanteDadorId },
-            });
-            break;
-          case 'EMPRESA_TRANSPORTISTA':
-            await tx.empresaTransportista.update({
-              where: { id: entidad.id },
-              data: { dadorCargaId: solicitanteDadorId },
-            });
-            break;
-        }
-        entidadesTransferidas++;
+        await transferirEntidad(tx, entidad, solicitanteDadorId);
+        count++;
       }
 
-      // Actualizar estado de la solicitud
       await tx.solicitudTransferencia.update({
         where: { id: solicitudId },
         data: {
@@ -375,6 +406,8 @@ export class TransferenciaService {
           resueltoAt: new Date(),
         },
       });
+
+      return count;
     });
 
     AppLogger.info('✅ Transferencia completada', {

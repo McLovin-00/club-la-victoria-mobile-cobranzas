@@ -31,7 +31,7 @@ async function calculateClienteCompliance(equipoId: number, clienteId: number): 
   
   let faltantes = 0, proximos = 0, vigentes = 0;
   for (const r of reqs) {
-    if (r.state === 'FALTANTE') faltantes++;
+    if (r.state === 'FALTANTE' || r.state === 'RECHAZADO') faltantes++;
     else if (r.state === 'PROXIMO') proximos++;
     else if (r.state === 'VIGENTE') vigentes++;
   }
@@ -52,7 +52,7 @@ async function countDocumentStatuses(
   }
 
   const docs = await prisma.document.findMany({
-    where: { tenantEmpresaId: equipo.tenantEmpresaId, dadorCargaId: equipo.dadorCargaId, OR: clauses },
+    where: { tenantEmpresaId: equipo.tenantEmpresaId, dadorCargaId: equipo.dadorCargaId, archived: false, OR: clauses },
     select: { status: true, expiresAt: true },
   });
 

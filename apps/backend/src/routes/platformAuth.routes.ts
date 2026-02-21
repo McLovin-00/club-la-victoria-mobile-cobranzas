@@ -149,7 +149,7 @@ router.post(
   authorizeRoles(['SUPERADMIN', 'ADMIN', 'ADMIN_INTERNO', 'DADOR_DE_CARGA', 'TRANSPORTISTA']),
   ValidationMiddleware.validateBody(z.object({
     email: z.string().email(),
-    password: z.string().min(8).regex(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/),
+    password: z.string().min(8).max(128).regex(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/),
     role: z.enum([
       'SUPERADMIN', 'ADMIN', 'ADMIN_INTERNO', 'OPERATOR', 'OPERADOR_INTERNO',
       'DADOR_DE_CARGA', 'TRANSPORTISTA', 'CHOFER', 'CLIENTE'
@@ -271,8 +271,8 @@ router.post(
   passwordChangeRateLimiter as unknown as RequestHandler,
   authenticateUser,
   ValidationMiddleware.validateBody(z.object({
-    currentPassword: z.string().min(8),
-    newPassword: z.string().min(8).regex(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/),
+    currentPassword: z.string().min(8).max(128),
+    newPassword: z.string().min(8).max(128).regex(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/),
   })),
   logAction('PLATFORM_CHANGE_PASSWORD'),
   PlatformAuthController.changePassword

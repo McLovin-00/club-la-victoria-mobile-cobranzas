@@ -412,6 +412,19 @@ export class RemitoService {
   static async approve(id: number, userId: number): Promise<Remito> {
     const prisma = db.getClient();
 
+    const existing = await prisma.remito.findUnique({ where: { id } });
+    if (!existing) throw new Error('Remito no encontrado');
+    if (existing.estado !== 'PENDIENTE_APROBACION') {
+      throw new Error(`No se puede aprobar un remito en estado ${existing.estado}`);
+    }
+
+    const MIN_CONFIANZA = 30;
+    if (existing.confianzaIA !== null && Number(existing.confianzaIA) < MIN_CONFIANZA) {
+      AppLogger.warn('Aprobación de remito con confianza baja', {
+        id, confianza: existing.confianzaIA, threshold: MIN_CONFIANZA, userId,
+      });
+    }
+
     const remito = await prisma.remito.update({
       where: { id },
       data: { estado: 'APROBADO', aprobadoPorUserId: userId, aprobadoAt: new Date() },
