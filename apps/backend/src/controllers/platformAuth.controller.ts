@@ -307,10 +307,20 @@ export class PlatformAuthController {
    */
   static async logout(req: Request, res: Response): Promise<void> {
     try {
-      // Limpiar cookie del token
+      const authHeader = req.headers.authorization;
+      const token = authHeader?.startsWith('Bearer ') ? authHeader.substring(7) : req.cookies?.platformToken;
+      if (token) {
+        PlatformAuthService.revokeToken(token);
+      }
+
+      const authReq = req as AuthRequest;
+      if (authReq.user?.userId) {
+        await PlatformAuthService.revokeAllUserTokens(authReq.user.userId);
+      }
+
       res.clearCookie('platformToken');
 
-      AppLogger.info('👋 Logout de plataforma exitoso', {
+      AppLogger.info('Logout de plataforma exitoso', {
         ip: req.ip,
         userAgent: req.get('User-Agent'),
       });
@@ -320,11 +330,36 @@ export class PlatformAuthController {
         message: 'Logout exitoso',
       });
     } catch (error) {
-      AppLogger.error('💥 Error en logout de plataforma:', error);
+      AppLogger.error('Error en logout de plataforma:', error);
       res.status(500).json({
         success: false,
         message: 'Error interno del servidor',
       });
+    }
+  }
+
+  /**
+   * Renovar access token usando refresh token
+   * POST /api/platform/auth/refresh
+   */
+  static async refreshToken(req: Request, res: Response): Promise<void> {
+    try {
+      const { refreshToken } = req.body;
+      if (!refreshToken) {
+        res.status(400).json({ success: false, message: 'Refresh token requerido' });
+        return;
+      }
+
+      const result = await PlatformAuthService.refreshAccessToken(refreshToken);
+      if (!result.success) {
+        res.status(401).json(result);
+        return;
+      }
+
+      res.status(200).json(result);
+    } catch (error) {
+      AppLogger.error('Error en refresh token:', error);
+      res.status(500).json({ success: false, message: 'Error interno del servidor' });
     }
   }
 

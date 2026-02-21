@@ -1908,13 +1908,34 @@ Cambios más grandes que requieren diseño y planificación.
 
 ---
 
-**FIN DE LAS AUDITORÍAS**
+#### Fase 6: Mejoras de Arquitectura - COMPLETADA (2026-02-18)
 
-**Fecha de completitud**: 2026-02-20  
-**Fecha de optimización del plan**: 2026-02-20  
+| # | Hallazgo | Implementación |
+|---|----------|---------------|
+| 6.1 | Refresh Tokens | Tabla `platform.refresh_tokens` auto-creada, rotación en cada refresh, revocación en logout. Endpoint `POST /api/platform/auth/refresh`. Tokens de 30 días. |
+| 6.2 | Invalidación de tokens en logout | Blacklist in-memory con auto-limpieza cada 10 min. Tokens se agregan al blacklist en logout y se verifican en `verifyToken`. |
+| 6.3 | Soft deletes en usuarios | `deletePlatformUser` ahora desactiva (`activo: false`), anonimiza email y limpia datos personales en vez de borrar el registro. |
+| 6.4 | Timing attack en login | Dummy `bcrypt.compare` cuando usuario no existe para igualar tiempos de respuesta. |
+| 6.5 | Locking optimista en equipos | `updateEquipo` acepta `expectedUpdatedAt` y lanza 409 CONFLICT si el equipo fue modificado por otro usuario. |
+| 6.6 | Notificaciones post-transferencia | Admins del dador que pierde entidades reciben notificación `TRANSFERENCIA_APROBADA` con prioridad alta al aprobarse una transferencia. |
+| 6.7 | Limpieza de huérfanos MinIO | Cron semanal (domingos 05:00 AR) compara objetos en MinIO contra registros en BD y elimina hasta 100 huérfanos por tenant. |
+
+**Archivos modificados (Fase 6)**:
+- `apps/backend/src/services/platformAuth.service.ts` (6.1, 6.2, 6.3, 6.4)
+- `apps/backend/src/controllers/platformAuth.controller.ts` (6.1, 6.2)
+- `apps/backend/src/routes/platformAuth.routes.ts` (6.1)
+- `apps/documentos/src/services/equipo.service.ts` (6.5)
+- `apps/documentos/src/services/transferencia.service.ts` (6.6)
+- `apps/documentos/src/services/scheduler.service.ts` (6.7)
+
+---
+
+**FIN DE LAS AUDITORÍAS Y CORRECCIONES**
+
+**Fecha de completitud auditorías**: 2026-02-20  
+**Fecha de completitud plan completo (Fases 1-6)**: 2026-02-18  
 **Dominios auditados**: 8 de 20 (dominios críticos)  
 **Total de hallazgos**: 106  
-**Correcciones priorizadas en fases 1-5**: 33 (100% de los críticos)  
-**Esfuerzo estimado fases 1-5**: ~39 horas (~3 semanas)
+**Correcciones implementadas fases 1-6**: 40 (100% de los críticos y altos + mejoras de arquitectura)
 
 ---

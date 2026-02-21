@@ -139,6 +139,20 @@ router.post(
 );
 
 /**
+ * @route POST /api/platform/auth/refresh
+ * @desc Renovar access token usando refresh token
+ * @access Public
+ */
+router.post(
+  '/refresh',
+  loginRateLimiter as unknown as RequestHandler,
+  ValidationMiddleware.validateBody(z.object({
+    refreshToken: z.string().min(1),
+  })),
+  PlatformAuthController.refreshToken
+);
+
+/**
  * @route POST /api/platform/auth/register
  * @desc Registro de nuevo usuario de plataforma
  * @access Private - Roles según matriz de permisos

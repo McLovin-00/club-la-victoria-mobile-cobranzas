@@ -428,6 +428,26 @@ export class TransferenciaService {
       metadata: { solicitudId },
     });
 
+    // Notificar a los admins del dador que perdió las entidades
+    try {
+      const adminsDadorActual = await obtenerAdminsParaNotificar(tenantEmpresaId);
+      for (const adminId of adminsDadorActual) {
+        if (adminId === solicitud.solicitanteUserId) continue;
+        await InternalNotificationService.create({
+          tenantEmpresaId,
+          userId: adminId,
+          type: 'TRANSFERENCIA_APROBADA',
+          title: 'Entidades transferidas a otro dador',
+          message: `Se transfirieron ${entidadesTransferidas} entidad(es) al dador ${solicitud.solicitanteDadorNombre ?? 'desconocido'}`,
+          link: `/transferencias/${solicitudId}`,
+          priority: 'high',
+          metadata: { solicitudId, dadorDestinoId: solicitanteDadorId },
+        });
+      }
+    } catch (notifErr) {
+      AppLogger.warn('Error notificando admins del dador actual', { error: (notifErr as Error).message });
+    }
+
     return {
       success: true,
       message: `Transferencia completada: ${entidadesTransferidas} entidad(es) transferida(s)`,

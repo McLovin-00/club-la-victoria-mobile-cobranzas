@@ -38,6 +38,7 @@ export class SchedulerService {
       this.scheduleAuditRetention();
       this.scheduleNotificationCleanup();
       this.scheduleDailyComplianceEvaluation();
+      this.scheduleMinioOrphanCleanup();
       
       AppLogger.info('✅ Todas las tareas programadas iniciadas');
     } catch (error) {
@@ -296,6 +297,74 @@ export class SchedulerService {
     this.tasks.set('daily-compliance-evaluation', task);
     task.start();
     AppLogger.info('Tarea programada: Re-evaluación diaria de compliance (06:00 AR)');
+  }
+
+  /**
+   * Limpieza semanal de archivos huérfanos en MinIO (domingos 05:00 AR / 08:00 UTC)
+   */
+  private scheduleMinioOrphanCleanup(): void {
+    const task = cron.schedule('0 8 * * 0', async () => {
+      try {
+        AppLogger.info('Iniciando limpieza de archivos huérfanos en MinIO');
+        const { db } = await import('../config/database');
+        const { minioService } = await import('./minio.service');
+        const prisma = db.getClient();
+
+        const tenants = await prisma.dadorCarga.findMany({
+          distinct: ['tenantEmpresaId'],
+          select: { tenantEmpresaId: true },
+        });
+
+        let totalOrphans = 0;
+
+        for (const t of tenants) {
+          try {
+            const docs = await prisma.document.findMany({
+              where: { tenantEmpresaId: t.tenantEmpresaId },
+              select: { filePath: true },
+            });
+            const validPaths = new Set(docs.map(d => d.filePath));
+            const bucketName = `documentos-empresa-${t.tenantEmpresaId}`;
+
+            const orphans: string[] = [];
+            const stream = (minioService as any).client?.listObjects(bucketName, '', true);
+            if (!stream) continue;
+
+            await new Promise<void>((resolve, reject) => {
+              stream.on('data', (obj: any) => {
+                const fullPath = `${bucketName}/${obj.name}`;
+                if (!validPaths.has(fullPath)) {
+                  orphans.push(obj.name);
+                }
+              });
+              stream.on('end', resolve);
+              stream.on('error', reject);
+            });
+
+            for (const orphanKey of orphans.slice(0, 100)) {
+              try {
+                await minioService.deleteDocument(bucketName, orphanKey);
+                totalOrphans++;
+              } catch { /* individual deletion failure non-critical */ }
+            }
+
+            if (orphans.length > 0) {
+              AppLogger.info(`MinIO cleanup tenant ${t.tenantEmpresaId}: ${Math.min(orphans.length, 100)} huérfanos eliminados de ${orphans.length} encontrados`);
+            }
+          } catch (tenantErr) {
+            AppLogger.warn(`Error en cleanup MinIO para tenant ${t.tenantEmpresaId}`, { error: (tenantErr as Error).message });
+          }
+        }
+
+        AppLogger.info(`Limpieza de archivos huérfanos completada: ${totalOrphans} eliminados`);
+      } catch (error) {
+        AppLogger.error('Error en limpieza de archivos huérfanos:', error);
+      }
+    });
+
+    this.tasks.set('minio-orphan-cleanup', task);
+    task.start();
+    AppLogger.info('Tarea programada: Limpieza de archivos huérfanos MinIO (domingos 05:00 AR)');
   }
 
   /**
