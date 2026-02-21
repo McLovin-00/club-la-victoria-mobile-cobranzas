@@ -77,6 +77,7 @@ export class PlatformAuthController {
         res.status(200).json({
           success: true,
           token: result.token,
+          refreshToken: result.refreshToken,
           data: result.platformUser,
         });
       } else {

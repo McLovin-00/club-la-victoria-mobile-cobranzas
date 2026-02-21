@@ -442,6 +442,28 @@ export class SchedulerService {
             throw err;
           }
           break;
+        case 'minio-orphan-cleanup':
+          try {
+            const { db: dbMinio } = await import('../config/database');
+            const { minioService: minio } = await import('./minio.service');
+            const prismaMinio = dbMinio.getClient();
+            const tenants = await prismaMinio.dadorCarga.findMany({ distinct: ['tenantEmpresaId'], select: { tenantEmpresaId: true } });
+            let cleaned = 0;
+            for (const t of tenants) {
+              const bucket = minio.getResolvedBucketName(t.tenantEmpresaId);
+              const docs = await prismaMinio.document.findMany({ where: { tenantEmpresaId: t.tenantEmpresaId }, select: { filePath: true } });
+              const valid = new Set(docs.map(d => d.filePath));
+              const keys = await minio.listObjectKeys(t.tenantEmpresaId);
+              for (const key of keys.filter(k => !valid.has(`${bucket}/${k}`)).slice(0, 100)) {
+                try { await minio.deleteDocument(bucket, key); cleaned++; } catch { /* no-op */ }
+              }
+            }
+            AppLogger.info(`MinIO orphan cleanup manual: ${cleaned} archivos eliminados`);
+          } catch (err) {
+            AppLogger.error('Error ejecutando MinIO orphan cleanup manual:', err);
+            throw err;
+          }
+          break;
         default:
           throw new Error(`Tarea desconocida: ${taskName}`);
       }

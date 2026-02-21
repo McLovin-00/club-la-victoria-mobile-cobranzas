@@ -473,6 +473,7 @@ export const updateEquipoSchema = z.object({
     validTo: z.string().datetime().nullable().optional(),
     estado: z.enum(['activa', 'finalizada']).optional(),
     empresaTransportistaId: z.union([z.string(), z.number()]).transform((v) => Number(v)).optional(),
+    expectedVersion: z.union([z.string(), z.number()]).transform((v) => Number(v)).optional(),
   }),
 });
 
