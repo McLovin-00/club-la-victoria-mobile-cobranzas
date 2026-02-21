@@ -363,6 +363,9 @@ model Equipo {
   estadoDocumental      EstadoDocumental @default(PENDIENTE_VALIDACION) @map("estado_documental")
   documentosEvaluadosAt DateTime?        @map("documentos_evaluados_at")
 
+  // Locking optimista
+  version   Int @default(0)
+
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 

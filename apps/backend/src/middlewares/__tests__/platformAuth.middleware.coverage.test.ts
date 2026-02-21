@@ -14,8 +14,9 @@ const mockAppLogger = {
   error: jest.fn(),
 };
 
-const mockVerifyToken = jest.fn();
-const mockAuditLogCreate = jest.fn().mockResolvedValue({ id: 1 });
+const mockVerifyToken = jest.fn() as jest.Mock;
+// @ts-expect-error - jest.Mock infers never for mockResolvedValue in strict mode
+const mockAuditLogCreate = (jest.fn() as jest.Mock).mockResolvedValue({ id: 1 });
 const mockPrisma = {
   auditLog: {
     create: mockAuditLogCreate,
@@ -45,12 +46,13 @@ describe('platformAuth.middleware - Coverage Tests', () => {
 
   describe('authenticateUser', () => {
     it('debe obtener token de header Authorization Bearer', async () => {
-      mockVerifyToken.mockResolvedValue({
+      // @ts-expect-error - jest.Mock infers never for mockResolvedValue in strict mode
+      (mockVerifyToken as jest.Mock).mockResolvedValue({
         userId: 1,
         email: 'test@example.com',
         role: 'SUPERADMIN',
         empresaId: null,
-      });
+      } as any);
 
       const { authenticateUser } = await import('../platformAuth.middleware');
       const req: any = {
@@ -68,12 +70,13 @@ describe('platformAuth.middleware - Coverage Tests', () => {
     });
 
     it('debe obtener token de cookie platformToken', async () => {
-      mockVerifyToken.mockResolvedValue({
+      // @ts-expect-error - jest.Mock infers never for mockResolvedValue in strict mode
+      (mockVerifyToken as jest.Mock).mockResolvedValue({
         userId: 2,
         email: 'user@example.com',
         role: 'ADMIN',
         empresaId: 1,
-      });
+      } as any);
 
       const { authenticateUser } = await import('../platformAuth.middleware');
       const req: any = {
@@ -90,12 +93,13 @@ describe('platformAuth.middleware - Coverage Tests', () => {
     });
 
     it('debe priorizar header sobre cookie', async () => {
-      mockVerifyToken.mockResolvedValue({
+      // @ts-expect-error - jest.Mock infers never for mockResolvedValue in strict mode
+      (mockVerifyToken as jest.Mock).mockResolvedValue({
         userId: 3,
         email: 'user3@example.com',
         role: 'OPERATOR',
         empresaId: 2,
-      });
+      } as any);
 
       const { authenticateUser } = await import('../platformAuth.middleware');
       const req: any = {
@@ -134,7 +138,8 @@ describe('platformAuth.middleware - Coverage Tests', () => {
     });
 
     it('debe retornar 401 si token es inválido', async () => {
-      mockVerifyToken.mockResolvedValue(null);
+      // @ts-expect-error - jest.Mock infers never for mockResolvedValue in strict mode
+      (mockVerifyToken as jest.Mock).mockResolvedValue(null);
 
       const { authenticateUser } = await import('../platformAuth.middleware');
       const req: any = {
@@ -164,7 +169,8 @@ describe('platformAuth.middleware - Coverage Tests', () => {
         role: 'ADMIN',
         empresaId: 5,
       };
-      mockVerifyToken.mockResolvedValue(payload);
+      // @ts-expect-error - jest.Mock infers never for mockResolvedValue in strict mode
+      (mockVerifyToken as jest.Mock).mockResolvedValue(payload);
 
       const { authenticateUser } = await import('../platformAuth.middleware');
       const req: any = {
@@ -186,7 +192,8 @@ describe('platformAuth.middleware - Coverage Tests', () => {
         role: 'SUPERADMIN',
         empresaId: null,
       };
-      mockVerifyToken.mockResolvedValue(payload);
+      // @ts-expect-error - jest.Mock infers never for mockResolvedValue in strict mode
+      (mockVerifyToken as jest.Mock).mockResolvedValue(payload);
 
       const { authenticateUser } = await import('../platformAuth.middleware');
       const req: any = {
@@ -202,7 +209,8 @@ describe('platformAuth.middleware - Coverage Tests', () => {
     });
 
     it('debe manejar errores y retornar 500', async () => {
-      mockVerifyToken.mockRejectedValue(new Error('Database error'));
+      // @ts-expect-error - jest.Mock infers never for mockRejectedValue in strict mode
+      (mockVerifyToken as jest.Mock).mockRejectedValue(new Error('Database error'));
 
       const { authenticateUser } = await import('../platformAuth.middleware');
       const req: any = {
@@ -714,7 +722,8 @@ describe('platformAuth.middleware - Coverage Tests', () => {
     });
 
     it('debe intentar obtener token de header', async () => {
-      mockVerifyToken.mockResolvedValue({
+      // @ts-expect-error - jest.Mock infers never for mockResolvedValue in strict mode
+      (mockVerifyToken as jest.Mock).mockResolvedValue({
         userId: 1,
         email: 'test@example.com',
         role: 'SUPERADMIN',
@@ -736,7 +745,8 @@ describe('platformAuth.middleware - Coverage Tests', () => {
     });
 
     it('debe intentar obtener token de cookie', async () => {
-      mockVerifyToken.mockResolvedValue({
+      // @ts-expect-error - jest.Mock infers never for mockResolvedValue in strict mode
+      (mockVerifyToken as jest.Mock).mockResolvedValue({
         userId: 2,
         email: 'cookie@example.com',
         role: 'ADMIN',
@@ -764,7 +774,8 @@ describe('platformAuth.middleware - Coverage Tests', () => {
         role: 'OPERATOR',
         empresaId: 5,
       };
-      mockVerifyToken.mockResolvedValue(payload);
+      // @ts-expect-error - jest.Mock infers never for mockResolvedValue in strict mode
+      (mockVerifyToken as jest.Mock).mockResolvedValue(payload);
 
       const { optionalAuth } = await import('../platformAuth.middleware');
       const req: any = {
@@ -781,7 +792,8 @@ describe('platformAuth.middleware - Coverage Tests', () => {
     });
 
     it('debe continuar sin user si token es inválido', async () => {
-      mockVerifyToken.mockResolvedValue(null);
+      // @ts-expect-error - jest.Mock infers never for mockResolvedValue in strict mode
+      (mockVerifyToken as jest.Mock).mockResolvedValue(null);
 
       const { optionalAuth } = await import('../platformAuth.middleware');
       const req: any = {
@@ -798,7 +810,8 @@ describe('platformAuth.middleware - Coverage Tests', () => {
     });
 
     it('debe manejar errores y continuar', async () => {
-      mockVerifyToken.mockRejectedValue(new Error('Validation error'));
+      // @ts-expect-error - jest.Mock infers never for mockRejectedValue in strict mode
+      (mockVerifyToken as jest.Mock).mockRejectedValue(new Error('Validation error'));
 
       const { optionalAuth } = await import('../platformAuth.middleware');
       const req: any = {
@@ -867,7 +880,8 @@ describe('platformAuth.middleware - Coverage Tests', () => {
     });
 
     it('debe manejar errores de DB sin bloquear el flujo', async () => {
-      mockAuditLogCreate.mockRejectedValue(new Error('DB connection failed'));
+      // @ts-expect-error - jest.Mock infers never for mockRejectedValue in strict mode
+      (mockAuditLogCreate as jest.Mock).mockRejectedValue(new Error('DB connection failed'));
 
       const { logAction } = await import('../platformAuth.middleware');
       const req: any = {

@@ -2,6 +2,7 @@
  * Tests para cubrir el bloque require.main === module
  * @jest-environment node
  */
+export {};
 
 // Mock process.exit before any imports
 const originalExit = process.exit;
@@ -96,7 +97,7 @@ describe('scripts error handling coverage', () => {
   });
 
   it('covers fix-password.ts error path', async () => {
-    prismaInstance.user.update = jest.fn().mockRejectedValue(new Error('User not found'));
+    (prismaInstance as any).user.update = jest.fn().mockRejectedValue(new Error('User not found'));
 
     const { fixPassword } = await import('../fix-password');
 
@@ -123,7 +124,7 @@ describe('scripts error handling coverage', () => {
   });
 
   it('covers debug-migration.ts with error', async () => {
-    prismaInstance.user.findMany = jest.fn().mockRejectedValue(new Error('Query failed'));
+    (prismaInstance as any).user.findMany = jest.fn().mockRejectedValue(new Error('Query failed'));
 
     const { debugMigration } = await import('../debug-migration');
 
@@ -132,7 +133,7 @@ describe('scripts error handling coverage', () => {
   });
 
   it('covers setup-database.ts with empresa findFirst error', async () => {
-    prismaInstance.empresa.findFirst = jest.fn().mockRejectedValue(new Error('DB error'));
+    (prismaInstance as any).empresa.findFirst = jest.fn().mockRejectedValue(new Error('DB error'));
 
     const { main } = await import('../setup-database');
 

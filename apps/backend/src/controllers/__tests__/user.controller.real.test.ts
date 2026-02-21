@@ -10,11 +10,11 @@ jest.mock('../../config/logger', () => ({
 }));
 
 // JWT + express-validator mocks
-const jwtSign = jest.fn(() => 'token');
+const jwtSign = jest.fn((..._args: unknown[]) => 'token');
 jest.mock('jsonwebtoken', () => ({
   __esModule: true,
-  default: { sign: (...args: any[]) => jwtSign(...args) },
-  sign: (...args: any[]) => jwtSign(...args),
+  default: { sign: (...args: unknown[]) => jwtSign(...args) },
+  sign: (...args: unknown[]) => jwtSign(...args),
 }));
 
 let validationErrors: any[] = [];

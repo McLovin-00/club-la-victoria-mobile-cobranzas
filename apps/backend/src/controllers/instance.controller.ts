@@ -37,7 +37,7 @@ interface InstancePermissionResult {
 }
 
 async function validateInstanceModifyPermission(
-  user: { role: string; userId: number; empresaId?: number },
+  user: { role: string; userId: number; empresaId?: number | null },
   instanceId: number,
   action: 'actualizar' | 'eliminar' | 'cambiar el estado de'
 ): Promise<InstancePermissionResult> {

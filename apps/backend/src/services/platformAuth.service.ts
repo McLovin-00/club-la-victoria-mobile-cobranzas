@@ -94,69 +94,42 @@ setInterval(cleanupBlacklist, 10 * 60 * 1000);
 // REFRESH TOKENS
 // ============================================================================
 const REFRESH_TOKEN_DAYS = 30;
-let refreshTableInitialized = false;
-
-async function ensureRefreshTokenTable(): Promise<void> {
-  if (refreshTableInitialized) return;
-  const prisma = prismaService.getClient();
-  await prisma.$executeRawUnsafe(`
-    CREATE TABLE IF NOT EXISTS platform.refresh_tokens (
-      id SERIAL PRIMARY KEY,
-      user_id INT NOT NULL,
-      token VARCHAR(128) UNIQUE NOT NULL,
-      expires_at TIMESTAMPTZ NOT NULL,
-      revoked_at TIMESTAMPTZ,
-      created_at TIMESTAMPTZ DEFAULT NOW()
-    )
-  `);
-  await prisma.$executeRawUnsafe(`
-    CREATE INDEX IF NOT EXISTS idx_refresh_tokens_token ON platform.refresh_tokens (token)
-  `);
-  await prisma.$executeRawUnsafe(`
-    CREATE INDEX IF NOT EXISTS idx_refresh_tokens_user ON platform.refresh_tokens (user_id)
-  `);
-  refreshTableInitialized = true;
-}
 
 async function createRefreshToken(userId: number): Promise<string> {
-  await ensureRefreshTokenTable();
   const token = crypto.randomBytes(48).toString('hex');
   const expiresAt = new Date(Date.now() + REFRESH_TOKEN_DAYS * 24 * 60 * 60 * 1000);
   const prisma = prismaService.getClient();
-  await prisma.$executeRawUnsafe(
-    `INSERT INTO platform.refresh_tokens (user_id, token, expires_at) VALUES ($1, $2, $3)`,
-    userId, token, expiresAt
-  );
+  await prisma.refreshToken.create({
+    data: { userId, token, expiresAt },
+  });
   return token;
 }
 
 async function validateRefreshToken(token: string): Promise<number | null> {
-  await ensureRefreshTokenTable();
   const prisma = prismaService.getClient();
-  const rows = await prisma.$queryRawUnsafe<{ user_id: number }[]>(
-    `SELECT user_id FROM platform.refresh_tokens WHERE token = $1 AND revoked_at IS NULL AND expires_at > NOW() LIMIT 1`,
-    token
-  );
-  return rows.length > 0 ? rows[0].user_id : null;
+  const record = await prisma.refreshToken.findUnique({
+    where: { token },
+    select: { userId: true, expiresAt: true, revokedAt: true },
+  });
+  if (!record || record.revokedAt || record.expiresAt < new Date()) return null;
+  return record.userId;
 }
 
 async function rotateRefreshToken(oldToken: string, userId: number): Promise<string> {
-  await ensureRefreshTokenTable();
   const prisma = prismaService.getClient();
-  await prisma.$executeRawUnsafe(
-    `UPDATE platform.refresh_tokens SET revoked_at = NOW() WHERE token = $1`,
-    oldToken
-  );
+  await prisma.refreshToken.updateMany({
+    where: { token: oldToken },
+    data: { revokedAt: new Date() },
+  });
   return createRefreshToken(userId);
 }
 
 async function revokeAllRefreshTokens(userId: number): Promise<void> {
-  await ensureRefreshTokenTable();
   const prisma = prismaService.getClient();
-  await prisma.$executeRawUnsafe(
-    `UPDATE platform.refresh_tokens SET revoked_at = NOW() WHERE user_id = $1 AND revoked_at IS NULL`,
-    userId
-  );
+  await prisma.refreshToken.updateMany({
+    where: { userId, revokedAt: null },
+    data: { revokedAt: new Date() },
+  });
 }
 
 export class PlatformAuthService {
@@ -465,11 +438,12 @@ export class PlatformAuthService {
       where: { id },
       data: {
         activo: false,
+        deletedAt: new Date(),
         email: anonymizedEmail,
         password: 'SOFT_DELETED',
         nombre: null,
         apellido: null,
-      } as any,
+      },
     });
   }
 

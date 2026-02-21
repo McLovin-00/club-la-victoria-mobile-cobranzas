@@ -49,14 +49,14 @@ describe('server.ts - Signal Handlers and Error Handlers', () => {
 
         // Spy on process.exit
         originalExit = process.exit;
-        exitSpy = jest.spyOn(process, 'exit').mockImplementation((code?: number) => {
+        exitSpy = jest.spyOn(process, 'exit').mockImplementation((code?: string | number | null | undefined) => {
             throw new Error(`process.exit(${code})`);
         });
 
         // Capture signal handlers
         originalOn = process.on;
-        jest.spyOn(process, 'on').mockImplementation((event: string, handler: any) => {
-            signalHandlers.set(event, handler);
+        jest.spyOn(process, 'on').mockImplementation((event: string | symbol, listener: (...args: unknown[]) => void) => {
+            signalHandlers.set(String(event), listener);
             return process;
         });
 

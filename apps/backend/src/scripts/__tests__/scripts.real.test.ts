@@ -2,6 +2,7 @@
  * Tests reales para scripts: ejecutan las funciones exportadas (sin DB real).
  * @jest-environment node
  */
+export {};
 
 // Mocks must be at the top level, before any imports
 jest.mock('child_process', () => ({
@@ -22,30 +23,30 @@ function makePrisma(overrides: Record<string, unknown> = {}) {
       findUnique: jest.fn().mockResolvedValue(null),
       update: jest.fn().mockResolvedValue({ email: 'x', id: 1 }),
       create: jest.fn().mockResolvedValue({}),
-      ...overrides.user,
+      ...((overrides as Record<string, Record<string, unknown>>).user ?? {}),
     },
     empresa: {
       count: jest.fn().mockResolvedValue(0),
       findMany: jest.fn().mockResolvedValue([]),
       findFirst: jest.fn().mockResolvedValue(null),
       create: jest.fn().mockResolvedValue({ id: 1 }),
-      ...overrides.empresa,
+      ...((overrides as Record<string, Record<string, unknown>>).empresa ?? {}),
     },
     service: {
       count: jest.fn().mockResolvedValue(0),
       findMany: jest.fn().mockResolvedValue([]),
-      ...overrides.service,
+      ...((overrides as Record<string, Record<string, unknown>>).service ?? {}),
     },
     endUser: {
       findMany: jest.fn().mockResolvedValue([]),
-      ...overrides.endUser,
+      ...((overrides as Record<string, Record<string, unknown>>).endUser ?? {}),
     },
     ...overrides,
   };
 }
 
 // Set up prisma mock before importing PrismaClient
-let prismaInstance: ReturnType<typeof makePrisma>;
+let prismaInstance: any;
 jest.mock('@prisma/client', () => ({
   PrismaClient: jest.fn(function () {
     return prismaInstance;

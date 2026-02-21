@@ -1813,7 +1813,7 @@ export class EquipoService {
     camionId?: number;
     acopladoId?: number | null;
     empresaTransportistaId?: number;
-    expectedUpdatedAt?: string;
+    expectedVersion?: number;
   }) {
     const equipo = await prisma.equipo.findUnique({
       where: { id: input.equipoId },
@@ -1824,21 +1824,18 @@ export class EquipoService {
       throw createError('Equipo no encontrado', 404, 'EQUIPO_NOT_FOUND');
     }
 
-    if (input.expectedUpdatedAt) {
-      const expected = new Date(input.expectedUpdatedAt).getTime();
-      const actual = equipo.updatedAt.getTime();
-      if (Math.abs(expected - actual) > 1000) {
-        throw createError(
-          'El equipo fue modificado por otro usuario. Recargue y vuelva a intentar.',
-          409,
-          'CONFLICT_STALE_DATA'
-        );
-      }
+    if (input.expectedVersion !== undefined && input.expectedVersion !== equipo.version) {
+      throw createError(
+        'El equipo fue modificado por otro usuario. Recargue y vuelva a intentar.',
+        409,
+        'CONFLICT_STALE_DATA'
+      );
     }
 
     const { updates, cambios } = await collectEntityChanges(input, equipo);
     if (Object.keys(updates).length === 0) return equipo;
 
+    updates.version = { increment: 1 };
     const updated = await prisma.equipo.update({ where: { id: input.equipoId }, data: updates });
     await logEquipoChanges(input.equipoId, input.usuarioId, cambios);
     
