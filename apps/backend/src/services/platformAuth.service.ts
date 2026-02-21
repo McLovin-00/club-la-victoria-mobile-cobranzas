@@ -462,6 +462,55 @@ export class PlatformAuthService {
     return base.join('');
   }
 
+  private static readonly ENTITY_TABLE_MAP: Record<string, string> = {
+    clienteId: 'documentos.clientes',
+    dadorCargaId: 'documentos.dadores_carga',
+    empresaTransportistaId: 'documentos.empresas_transportistas',
+    choferId: 'documentos.choferes',
+  };
+
+  private static async validateEntityExists(
+    roleSpecificData: Record<string, any>,
+    createdBy: PlatformUserProfile
+  ): Promise<void> {
+    const prisma = prismaService.getClient();
+    for (const [key, table] of Object.entries(this.ENTITY_TABLE_MAP)) {
+      const entityId = roleSpecificData[key];
+      if (entityId === undefined || entityId === null) continue;
+      const rows = await prisma.$queryRawUnsafe<{ id: number; dador_carga_id?: number }[]>(
+        `SELECT id, dador_carga_id FROM ${table} WHERE id = $1 LIMIT 1`,
+        Number(entityId)
+      );
+      if (rows.length === 0) {
+        throw new Error(`La entidad ${key}=${entityId} no existe`);
+      }
+      this.validateEntityAccess(key, rows[0], createdBy);
+    }
+  }
+
+  private static validateEntityAccess(
+    key: string,
+    entity: { id: number; dador_carga_id?: number },
+    createdBy: PlatformUserProfile
+  ): void {
+    if (['SUPERADMIN', 'ADMIN', 'ADMIN_INTERNO'].includes(createdBy.role)) return;
+
+    const entityDadorId = entity.dador_carga_id;
+    if (!entityDadorId) return;
+
+    if (createdBy.role === 'DADOR_DE_CARGA' && createdBy.dadorCargaId) {
+      if (entityDadorId !== createdBy.dadorCargaId) {
+        throw new Error(`No tiene permisos sobre la entidad ${key}=${entity.id}`);
+      }
+      return;
+    }
+    if (createdBy.role === 'TRANSPORTISTA' && createdBy.dadorCargaId) {
+      if (entityDadorId !== createdBy.dadorCargaId) {
+        throw new Error(`No tiene permisos sobre la entidad ${key}=${entity.id}`);
+      }
+    }
+  }
+
   private static async createUserWithTempPassword(
     input: { email: string; nombre?: string; apellido?: string; empresaId?: number | null },
     createdBy: PlatformUserProfile,
@@ -473,6 +522,8 @@ export class PlatformAuthService {
     if (!allowedRoles.includes(createdBy.role)) {
       throw new Error(`No tiene permisos para crear usuarios ${roleLabel}`);
     }
+
+    await this.validateEntityExists(roleSpecificData, createdBy);
 
     const prisma = prismaService.getClient();
     const email = input.email.toLowerCase().trim();

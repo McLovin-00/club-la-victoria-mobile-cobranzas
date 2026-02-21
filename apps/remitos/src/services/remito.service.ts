@@ -441,13 +441,21 @@ export class RemitoService {
   static async reject(id: number, userId: number, motivo: string): Promise<Remito> {
     const prisma = db.getClient();
 
+    const existing = await prisma.remito.findUnique({ where: { id } });
+    if (!existing) throw new Error('Remito no encontrado');
+
+    const REJECTABLE_STATES: string[] = ['PENDIENTE_APROBACION', 'EN_ANALISIS', 'ERROR_ANALISIS'];
+    if (!REJECTABLE_STATES.includes(existing.estado)) {
+      throw new Error(`No se puede rechazar un remito en estado ${existing.estado}`);
+    }
+
     const remito = await prisma.remito.update({
       where: { id },
       data: { estado: 'RECHAZADO', rechazadoPorUserId: userId, rechazadoAt: new Date(), motivoRechazo: motivo },
     });
 
     await logRemitoHistory(id, 'RECHAZADO', userId, 'ADMIN_INTERNO', { motivo });
-    AppLogger.info('❌ Remito rechazado', { id, userId, motivo });
+    AppLogger.info('Remito rechazado', { id, userId, motivo });
     return remito;
   }
 

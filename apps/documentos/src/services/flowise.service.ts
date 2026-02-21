@@ -311,6 +311,33 @@ export class FlowiseService {
   private apiKey!: string;
   private enabled!: boolean;
 
+  private circuitFailures = 0;
+  private circuitOpenUntil = 0;
+  private static readonly CIRCUIT_THRESHOLD = 5;
+  private static readonly CIRCUIT_RESET_MS = 60_000;
+
+  private isCircuitOpen(): boolean {
+    if (this.circuitOpenUntil > Date.now()) return true;
+    if (this.circuitOpenUntil > 0 && Date.now() >= this.circuitOpenUntil) {
+      this.circuitFailures = 0;
+      this.circuitOpenUntil = 0;
+    }
+    return false;
+  }
+
+  private recordSuccess(): void {
+    this.circuitFailures = 0;
+    this.circuitOpenUntil = 0;
+  }
+
+  private recordFailure(): void {
+    this.circuitFailures++;
+    if (this.circuitFailures >= FlowiseService.CIRCUIT_THRESHOLD) {
+      this.circuitOpenUntil = Date.now() + FlowiseService.CIRCUIT_RESET_MS;
+      AppLogger.warn(`Circuit breaker ABIERTO para Flowise (${this.circuitFailures} fallos consecutivos). Se reintentará en ${FlowiseService.CIRCUIT_RESET_MS / 1000}s`);
+    }
+  }
+
   private constructor() {
     this.updateConfig();
   }
@@ -394,6 +421,10 @@ export class FlowiseService {
       return { success: false, error: 'Servicio Flowise no configurado' };
     }
 
+    if (this.isCircuitOpen()) {
+      return { success: false, error: 'Circuit breaker abierto: Flowise temporalmente no disponible' };
+    }
+
     const tmpDirs: string[] = [];
     const cleanup = async () => {
       for (const d of tmpDirs) {
@@ -403,9 +434,12 @@ export class FlowiseService {
 
     try {
       const result = await this.processDocument(fileUrl, templateName, meta, tmpDirs);
+      if (result.success) this.recordSuccess();
+      else this.recordFailure();
       return result;
     } catch (error) {
-      AppLogger.error('💥 Error consultando Flowise:', error);
+      this.recordFailure();
+      AppLogger.error('Error consultando Flowise:', error);
       return {
         success: false,
         error: error instanceof Error ? error.message : 'Error desconocido',

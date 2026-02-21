@@ -1,5 +1,6 @@
 import { prisma } from '../config/database';
 import { EntityType } from '../../node_modules/.prisma/documentos';
+import { AppLogger } from '../config/logger';
 
 // Tipos para consolidación de templates desde plantillas
 type ConsolidatedTemplateFromPlantilla = {
@@ -69,6 +70,24 @@ function mergeTemplateFromPlantilla(
   }
   // visibleChofer: si alguno lo tiene visible, queda visible
   if (req.visibleChofer) existing.visibleChofer = true;
+}
+
+async function reevaluarEquiposPorPlantilla(plantillaRequisitoId: number): Promise<void> {
+  try {
+    const asociaciones = await prisma.equipoPlantillaRequisito.findMany({
+      where: { plantillaRequisitoId, asignadoHasta: null },
+      select: { equipoId: true, plantillaRequisito: { select: { tenantEmpresaId: true } } },
+    });
+    if (asociaciones.length === 0) return;
+
+    const { queueService } = await import('./queue.service');
+    for (const a of asociaciones) {
+      await queueService.addMissingCheckForEquipo(a.plantillaRequisito.tenantEmpresaId, a.equipoId, 5000);
+    }
+    AppLogger.info(`Re-evaluación encolada para ${asociaciones.length} equipos tras cambio en plantilla ${plantillaRequisitoId}`);
+  } catch (err) {
+    AppLogger.warn('No se pudo encolar re-evaluación de equipos', { error: (err as Error).message });
+  }
 }
 
 export class PlantillasService {
@@ -248,7 +267,7 @@ export class PlantillasService {
     });
     if (existe) throw new Error('Este template ya está agregado a la plantilla');
 
-    return prisma.plantillaRequisitoTemplate.create({
+    const result = await prisma.plantillaRequisitoTemplate.create({
       data: {
         tenantEmpresaId,
         plantillaRequisitoId,
@@ -260,6 +279,8 @@ export class PlantillasService {
       },
       include: { template: true },
     });
+    reevaluarEquiposPorPlantilla(plantillaRequisitoId).catch(() => {/* fire-and-forget */});
+    return result;
   }
 
   /**
@@ -280,9 +301,17 @@ export class PlantillasService {
    * Elimina un template de una plantilla
    */
   static async removeTemplate(tenantEmpresaId: number, templateConfigId: number): Promise<unknown> {
-    return prisma.plantillaRequisitoTemplate.delete({
+    const existing = await prisma.plantillaRequisitoTemplate.findUnique({
+      where: { id: templateConfigId },
+      select: { plantillaRequisitoId: true },
+    });
+    const result = await prisma.plantillaRequisitoTemplate.delete({
       where: { id: templateConfigId },
     });
+    if (existing) {
+      reevaluarEquiposPorPlantilla(existing.plantillaRequisitoId).catch(() => {/* fire-and-forget */});
+    }
+    return result;
   }
 
   // =============================================
@@ -381,7 +410,7 @@ export class PlantillasService {
     });
     if (yaAsignada) throw new Error('Esta plantilla ya está asignada al equipo');
 
-    return prisma.equipoPlantillaRequisito.create({
+    const result = await prisma.equipoPlantillaRequisito.create({
       data: {
         equipoId,
         plantillaRequisitoId,
@@ -393,6 +422,11 @@ export class PlantillasService {
         },
       },
     });
+    try {
+      const { queueService } = await import('./queue.service');
+      await queueService.addMissingCheckForEquipo(equipo.tenantEmpresaId, equipoId, 5000);
+    } catch { /* non-critical */ }
+    return result;
   }
 
   /**
@@ -413,14 +447,21 @@ export class PlantillasService {
       throw new Error('Asociación no encontrada');
     }
 
-    // Actualizar para marcar la fecha de fin
-    return prisma.$executeRaw`
+    const result = await prisma.$executeRaw`
       UPDATE documentos.equipo_plantilla_requisito 
       SET asignado_hasta = NOW() 
       WHERE equipo_id = ${equipoId} 
         AND plantilla_requisito_id = ${plantillaRequisitoId} 
         AND asignado_desde = ${asociacion.asignadoDesde}
     `;
+    try {
+      const equipo = await prisma.equipo.findUnique({ where: { id: equipoId }, select: { tenantEmpresaId: true } });
+      if (equipo) {
+        const { queueService } = await import('./queue.service');
+        await queueService.addMissingCheckForEquipo(equipo.tenantEmpresaId, equipoId, 5000);
+      }
+    } catch { /* non-critical */ }
+    return result;
   }
 
   /**

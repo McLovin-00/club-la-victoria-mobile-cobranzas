@@ -79,14 +79,19 @@ class MinIOService {
     return this.client.presignedGetObject(bucketName, objectKey, expiry);
   }
   
-  async getObject(bucketName: string, objectKey: string): Promise<Buffer> {
+  async getObject(bucketName: string, objectKey: string, timeoutMs = 30_000): Promise<Buffer> {
     const stream = await this.client.getObject(bucketName, objectKey);
     const chunks: Buffer[] = [];
     
     return new Promise((resolve, reject) => {
+      const timer = setTimeout(() => {
+        stream.destroy();
+        reject(new Error(`MinIO getObject timeout (${timeoutMs}ms) para ${bucketName}/${objectKey}`));
+      }, timeoutMs);
+
       stream.on('data', (chunk) => chunks.push(chunk));
-      stream.on('end', () => resolve(Buffer.concat(chunks)));
-      stream.on('error', reject);
+      stream.on('end', () => { clearTimeout(timer); resolve(Buffer.concat(chunks)); });
+      stream.on('error', (err) => { clearTimeout(timer); reject(err); });
     });
   }
   
