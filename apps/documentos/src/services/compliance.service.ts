@@ -25,13 +25,19 @@ function setCache(key: string, data: any): void {
     for (const [k, v] of complianceCache) {
       if (now > v.expiresAt) complianceCache.delete(k);
     }
+    if (complianceCache.size > 5000) {
+      const oldest = Array.from(complianceCache.entries())
+        .sort((a, b) => a[1].expiresAt - b[1].expiresAt);
+      const toRemove = oldest.slice(0, complianceCache.size - 5000);
+      for (const [k] of toRemove) complianceCache.delete(k);
+    }
   }
 }
 
 export function invalidateComplianceCache(equipoId?: number): void {
   if (equipoId) {
     for (const k of complianceCache.keys()) {
-      if (k.includes(`equipo:${equipoId}`)) complianceCache.delete(k);
+      if (k.startsWith(`equipo:${equipoId}:`)) complianceCache.delete(k);
     }
     return;
   }

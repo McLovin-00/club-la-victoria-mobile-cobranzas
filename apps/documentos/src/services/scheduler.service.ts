@@ -319,33 +319,24 @@ export class SchedulerService {
 
         for (const t of tenants) {
           try {
+            const bucketName = minioService.getResolvedBucketName(t.tenantEmpresaId);
             const docs = await prisma.document.findMany({
               where: { tenantEmpresaId: t.tenantEmpresaId },
               select: { filePath: true },
             });
             const validPaths = new Set(docs.map(d => d.filePath));
-            const bucketName = `documentos-empresa-${t.tenantEmpresaId}`;
 
-            const orphans: string[] = [];
-            const stream = (minioService as any).client?.listObjects(bucketName, '', true);
-            if (!stream) continue;
-
-            await new Promise<void>((resolve, reject) => {
-              stream.on('data', (obj: any) => {
-                const fullPath = `${bucketName}/${obj.name}`;
-                if (!validPaths.has(fullPath)) {
-                  orphans.push(obj.name);
-                }
-              });
-              stream.on('end', resolve);
-              stream.on('error', reject);
+            const allKeys = await minioService.listObjectKeys(t.tenantEmpresaId);
+            const orphans = allKeys.filter(key => {
+              const fullPath = `${bucketName}/${key}`;
+              return !validPaths.has(fullPath);
             });
 
             for (const orphanKey of orphans.slice(0, 100)) {
               try {
                 await minioService.deleteDocument(bucketName, orphanKey);
                 totalOrphans++;
-              } catch { /* individual deletion failure non-critical */ }
+              } catch { /* fallo individual no crítico */ }
             }
 
             if (orphans.length > 0) {

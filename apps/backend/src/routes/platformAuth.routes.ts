@@ -4,6 +4,7 @@ import { z } from 'zod';
 import { ValidationMiddleware } from '../middlewares/validation.middleware';
 import {
   authenticateUser,
+  optionalAuth,
   authorizeRoles,
   logAction,
   AuthRequest
@@ -134,6 +135,7 @@ router.post(
  */
 router.post(
   '/logout',
+  optionalAuth,
   logAction('PLATFORM_LOGOUT'),
   PlatformAuthController.logout
 );
@@ -147,7 +149,7 @@ router.post(
   '/refresh',
   loginRateLimiter as unknown as RequestHandler,
   ValidationMiddleware.validateBody(z.object({
-    refreshToken: z.string().min(1),
+    refreshToken: z.string().min(1).max(256),
   })),
   PlatformAuthController.refreshToken
 );

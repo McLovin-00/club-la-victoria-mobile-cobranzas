@@ -14,6 +14,3 @@ CREATE TABLE IF NOT EXISTS "refresh_tokens" (
 
 CREATE INDEX IF NOT EXISTS "idx_refresh_tokens_token" ON "refresh_tokens" ("token");
 CREATE INDEX IF NOT EXISTS "idx_refresh_tokens_user" ON "refresh_tokens" ("user_id");
-
--- Limpiar tabla raw que pudo haber sido creada por código anterior (si existe en schema platform)
-DROP TABLE IF EXISTS "platform"."refresh_tokens";

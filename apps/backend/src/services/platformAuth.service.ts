@@ -196,7 +196,7 @@ export class PlatformAuthService {
     });
 
     if (!platformUser) {
-      await bcrypt.compare(password, '$2b$12$DUMMY.HASH.TO.PREVENT.TIMING.ATTACKS.ON.LOGIN');
+      await bcrypt.compare(password, '$2b$12$Olf0Njlx54W8pdbeiNwgHui0yCmOqIkDO5dU3.x3UsY3JU5vRzwOm');
       return { success: false, message: 'Credenciales inválidas' };
     }
 
@@ -445,6 +445,7 @@ export class PlatformAuthService {
         apellido: null,
       },
     });
+    await revokeAllRefreshTokens(id);
   }
 
   static async deletePlatformUser(id: number, actor: PlatformUserProfile): Promise<void> {
@@ -573,7 +574,6 @@ export class PlatformAuthService {
   }
 
   private static generateTempPassword(): string {
-    const crypto = require('crypto') as typeof import('crypto');
     const pick = (chars: string) => chars[Math.floor(crypto.randomInt(0, chars.length))];
     const upper = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
     const lower = 'abcdefghijklmnopqrstuvwxyz';

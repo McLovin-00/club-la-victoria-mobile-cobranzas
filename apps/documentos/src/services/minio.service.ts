@@ -293,6 +293,21 @@ export class MinIOService {
     }
   }
 
+  public getResolvedBucketName(tenantEmpresaId: number): string {
+    return this.getBucketName(tenantEmpresaId);
+  }
+
+  public async listObjectKeys(tenantEmpresaId: number): Promise<string[]> {
+    const bucketName = this.getBucketName(tenantEmpresaId);
+    const stream = this.client.listObjects(bucketName, '', true);
+    const keys: string[] = [];
+    return new Promise((resolve, reject) => {
+      stream.on('data', (obj) => { if (obj.name) keys.push(obj.name); });
+      stream.on('end', () => resolve(keys));
+      stream.on('error', reject);
+    });
+  }
+
   public async getStorageStats(tenantEmpresaId: number): Promise<{ bucketName: string; objectCount: number; totalSize: number }> {
     try {
       const bucketName = this.getBucketName(tenantEmpresaId);
