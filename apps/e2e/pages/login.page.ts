@@ -31,8 +31,8 @@ export class LoginPage {
         .or(page.locator('input[type="email"]'))
         .or(page.locator('input[name="email"]')),
       passwordInput: page
-        .getByLabel(/contrase(?:ñ|n)a|password/i)
-        .or(page.getByPlaceholder(/contrase(?:ñ|n)a|password/i))
+        .getByLabel(/contrase[ñn]a|password/i)
+        .or(page.getByPlaceholder(/contrase[ñn]a|password/i))
         .or(page.locator('input[type="password"]'))
         .or(page.locator('input[name="password"]')),
       submitButton: page

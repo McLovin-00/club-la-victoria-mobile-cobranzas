@@ -13,6 +13,10 @@ import { loginRateLimiter, passwordChangeRateLimiter } from '../middlewares/rate
 import { prismaService } from '../config/prisma';
 import { AppLogger } from '../config/logger';
 
+// NOSONAR: express-rate-limit devuelve RateLimitRequestHandler incompatible con @types/express-serve-static-core
+const loginLimiter = loginRateLimiter as unknown as RequestHandler; // NOSONAR
+const passwordLimiter = passwordChangeRateLimiter as unknown as RequestHandler; // NOSONAR
+
 // ============================================================================
 // HELPERS
 // ============================================================================
@@ -118,8 +122,7 @@ const router = Router();
  */
 router.post(
   '/login',
-  // NOSONAR: Cast requerido por incompatibilidad entre express-rate-limit y @types/express-serve-static-core
-  loginRateLimiter as unknown as RequestHandler,
+  loginLimiter,
   ValidationMiddleware.validateBody(z.object({
     email: z.string().email(),
     password: z.string().min(6),
@@ -147,7 +150,7 @@ router.post(
  */
 router.post(
   '/refresh',
-  loginRateLimiter as unknown as RequestHandler,
+  loginLimiter,
   ValidationMiddleware.validateBody(z.object({
     refreshToken: z.string().min(1).max(256),
   })),
@@ -283,8 +286,7 @@ router.get(
  */
 router.post(
   '/change-password',
-  // NOSONAR: Cast requerido por incompatibilidad entre express-rate-limit y @types/express-serve-static-core
-  passwordChangeRateLimiter as unknown as RequestHandler,
+  passwordLimiter,
   authenticateUser,
   ValidationMiddleware.validateBody(z.object({
     currentPassword: z.string().min(8).max(128),
