@@ -60,7 +60,7 @@ describe('PlatformAuthService.login (smoke)', () => {
   });
 
   it('retorna credenciales inválidas si el usuario no existe', async () => {
-    prismaMock.user.findUnique.mockResolvedValueOnce(null);
+    (prismaMock.user.findUnique as any).mockResolvedValueOnce(null);
 
     const result = await PlatformAuthService.login({ email: 'no@existe.com', password: 'x' });
 
@@ -68,7 +68,7 @@ describe('PlatformAuthService.login (smoke)', () => {
   });
 
   it('retorna usuario desactivado si activo=false', async () => {
-    prismaMock.user.findUnique.mockResolvedValueOnce({
+    (prismaMock.user.findUnique as any).mockResolvedValueOnce({
       id: 1,
       email: 'a@b.com',
       password: '$2b$12$' + 'a'.repeat(53),
@@ -88,7 +88,7 @@ describe('PlatformAuthService.login (smoke)', () => {
   });
 
   it('retorna error si el hash es inválido y no es cuenta semilla', async () => {
-    prismaMock.user.findUnique.mockResolvedValueOnce({
+    (prismaMock.user.findUnique as any).mockResolvedValueOnce({
       id: 2,
       email: 'usuario@empresa.com',
       password: 'hash-malo',
@@ -105,7 +105,7 @@ describe('PlatformAuthService.login (smoke)', () => {
 
     expect(result.success).toBe(false);
     expect(result.message).toMatch(/Contacte al administrador/i);
-    expect(prismaMock.user.update).not.toHaveBeenCalled();
+    expect((prismaMock.user.update as any)).not.toHaveBeenCalled();
   });
 
   it('repara hash para cuenta semilla con password default y luego autentica', async () => {
@@ -126,16 +126,16 @@ describe('PlatformAuthService.login (smoke)', () => {
       createdAt: new Date(),
       updatedAt: new Date(),
     };
-    prismaMock.user.findUnique.mockResolvedValueOnce(seedUser);
+    (prismaMock.user.findUnique as any).mockResolvedValueOnce(seedUser);
 
     const repairedHash = '$2b$12$' + 'b'.repeat(53); // 60 chars, formato bcrypt
-    (bcrypt.hash as unknown as jest.Mock).mockResolvedValueOnce(repairedHash);
-    (bcrypt.compare as unknown as jest.Mock).mockResolvedValueOnce(true);
-    prismaMock.user.update.mockResolvedValueOnce({ ...seedUser, password: repairedHash });
+    (bcrypt.hash as any).mockResolvedValueOnce(repairedHash);
+    (bcrypt.compare as any).mockResolvedValueOnce(true);
+    (prismaMock.user.update as any).mockResolvedValueOnce({ ...seedUser, password: repairedHash });
 
     const result = await PlatformAuthService.login({ email: 'admin@bca.com', password: 'password123' });
 
-    expect(prismaMock.user.update).toHaveBeenCalledWith({
+    expect((prismaMock.user.update as any)).toHaveBeenCalledWith({
       where: { id: 3 },
       data: { password: repairedHash },
     });
@@ -144,7 +144,7 @@ describe('PlatformAuthService.login (smoke)', () => {
   });
 
   it('retorna credenciales inválidas si bcrypt.compare=false', async () => {
-    prismaMock.user.findUnique.mockResolvedValueOnce({
+    (prismaMock.user.findUnique as any).mockResolvedValueOnce({
       id: 4,
       email: 'a@b.com',
       password: '$2b$12$' + 'c'.repeat(53),
@@ -156,7 +156,7 @@ describe('PlatformAuthService.login (smoke)', () => {
       choferId: null,
       clienteId: null,
     });
-    (bcrypt.compare as unknown as jest.Mock).mockResolvedValueOnce(false);
+    (bcrypt.compare as any).mockResolvedValueOnce(false);
 
     const result = await PlatformAuthService.login({ email: 'a@b.com', password: 'bad' });
 

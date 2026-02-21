@@ -468,11 +468,36 @@ class DocumentValidationWorker {
     }
   }
 
+  private async moveToDeadLetterQueue(job: Job<DocumentValidationJobData>, error: Error): Promise<void> {
+    try {
+      const { Queue } = await import('bullmq');
+      const dlq = new Queue('document-validation-dlq', { connection: this.redis as never });
+      await dlq.add('dead-letter', {
+        originalJobId: job.id,
+        data: job.data,
+        error: error.message,
+        failedAt: new Date().toISOString(),
+        attempts: job.attemptsMade,
+      });
+      await dlq.close();
+      AppLogger.warn(`Job ${job.id} movido a DLQ tras ${job.attemptsMade} intentos`, {
+        documentId: job.data.documentId,
+      });
+    } catch (dlqErr) {
+      AppLogger.error('Error moviendo job a DLQ:', cleanError(dlqErr));
+    }
+  }
+
   private setupEventHandlers(): void {
-    this.worker.on('completed', (job) => AppLogger.info(`🎉 Job ${job.id} completado`));
-    this.worker.on('failed', (job, err) => AppLogger.error(`💥 Job ${job?.id} falló:`, cleanError(err)));
-    this.worker.on('error', (err) => AppLogger.error('💥 Error en worker:', cleanError(err)));
-    this.worker.on('ready', () => AppLogger.info('🚀 Document Validation Worker listo'));
+    this.worker.on('completed', (job) => AppLogger.info(`Job ${job.id} completado`));
+    this.worker.on('failed', (job, err) => {
+      AppLogger.error(`Job ${job?.id} falló:`, cleanError(err));
+      if (job && job.attemptsMade >= (job.opts?.attempts ?? 3)) {
+        this.moveToDeadLetterQueue(job, err).catch(() => {/* best effort */});
+      }
+    });
+    this.worker.on('error', (err) => AppLogger.error('Error en worker:', cleanError(err)));
+    this.worker.on('ready', () => AppLogger.info('Document Validation Worker listo'));
   }
 
   public async close(): Promise<void> {

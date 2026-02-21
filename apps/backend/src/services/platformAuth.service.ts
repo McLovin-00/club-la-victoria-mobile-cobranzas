@@ -1,5 +1,6 @@
 import { Prisma, UserRole } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
+import * as crypto from 'crypto';
 import * as jwt from 'jsonwebtoken';
 import { SignOptions } from 'jsonwebtoken';
 import { AppLogger } from '../config/logger';
@@ -68,6 +69,7 @@ export interface PlatformUserProfile {
 interface AuthResponse {
   success: boolean;
   token?: string;
+  refreshToken?: string;
   platformUser?: PlatformUserProfile;
   message?: string;
   tempPassword?: string;
@@ -77,6 +79,59 @@ interface AuthResponse {
  * Servicio de autenticación y gestión de perfiles para PlatformUser.
  * Lógica de negocio centralizada, profesional y robusta.
  */
+const tokenBlacklist = new Map<string, number>();
+
+function cleanupBlacklist(): void {
+  const now = Date.now();
+  for (const [token, expiresAt] of tokenBlacklist) {
+    if (now > expiresAt) tokenBlacklist.delete(token);
+  }
+}
+
+setInterval(cleanupBlacklist, 10 * 60 * 1000);
+
+// ============================================================================
+// REFRESH TOKENS
+// ============================================================================
+const REFRESH_TOKEN_DAYS = 30;
+
+async function createRefreshToken(userId: number): Promise<string> {
+  const token = crypto.randomBytes(48).toString('hex');
+  const expiresAt = new Date(Date.now() + REFRESH_TOKEN_DAYS * 24 * 60 * 60 * 1000);
+  const prisma = prismaService.getClient();
+  await prisma.refreshToken.create({
+    data: { userId, token, expiresAt },
+  });
+  return token;
+}
+
+async function validateRefreshToken(token: string): Promise<number | null> {
+  const prisma = prismaService.getClient();
+  const record = await prisma.refreshToken.findUnique({
+    where: { token },
+    select: { userId: true, expiresAt: true, revokedAt: true },
+  });
+  if (!record || record.revokedAt || record.expiresAt < new Date()) return null;
+  return record.userId;
+}
+
+async function rotateRefreshToken(oldToken: string, userId: number): Promise<string> {
+  const prisma = prismaService.getClient();
+  await prisma.refreshToken.updateMany({
+    where: { token: oldToken },
+    data: { revokedAt: new Date() },
+  });
+  return createRefreshToken(userId);
+}
+
+async function revokeAllRefreshTokens(userId: number): Promise<void> {
+  const prisma = prismaService.getClient();
+  await prisma.refreshToken.updateMany({
+    where: { userId, revokedAt: null },
+    data: { revokedAt: new Date() },
+  });
+}
+
 export class PlatformAuthService {
   private static readonly SALT_ROUNDS = 12;
   private static privateKey: string;
@@ -141,6 +196,7 @@ export class PlatformAuthService {
     });
 
     if (!platformUser) {
+      await bcrypt.compare(password, '$2b$12$Olf0Njlx54W8pdbeiNwgHui0yCmOqIkDO5dU3.x3UsY3JU5vRzwOm');
       return { success: false, message: 'Credenciales inválidas' };
     }
 
@@ -211,7 +267,6 @@ export class PlatformAuthService {
       email: platformUser.email,
       role: platformUser.role,
       empresaId: platformUser.empresaId,
-      // Asociaciones por rol
       dadorCargaId: platformUser.dadorCargaId,
       empresaTransportistaId: platformUser.empresaTransportistaId,
       choferId: platformUser.choferId,
@@ -219,9 +274,17 @@ export class PlatformAuthService {
     };
     const token = this.generateToken(payload);
 
+    let refreshToken: string | undefined;
+    try {
+      refreshToken = await createRefreshToken(platformUser.id);
+    } catch (err) {
+      AppLogger.warn('No se pudo crear refresh token', { error: (err as Error).message });
+    }
+
     return {
       success: true,
       token,
+      refreshToken,
       platformUser: this.formatUserProfile(platformUser),
     };
   }
@@ -266,10 +329,11 @@ export class PlatformAuthService {
   }
 
   static async verifyToken(token: string): Promise<AuthPayload | null> {
+    if (tokenBlacklist.has(token)) return null;
+
     try {
       return jwt.verify(token, this.getPublicKey(), { algorithms: ['RS256'] }) as AuthPayload;
     } catch (error) {
-      // Fallback temporal HS256
       const secret = this.getLegacySecret();
       if (secret) {
         try {
@@ -281,6 +345,58 @@ export class PlatformAuthService {
       }
       AppLogger.warn('Error al verificar token JWT', { error });
       return null;
+    }
+  }
+
+  static async refreshAccessToken(refreshTokenValue: string): Promise<AuthResponse> {
+    const userId = await validateRefreshToken(refreshTokenValue);
+    if (!userId) {
+      return { success: false, message: 'Refresh token inválido o expirado' };
+    }
+
+    const profile = await this.getUserProfile(userId);
+    if (!profile) {
+      return { success: false, message: 'Usuario no encontrado' };
+    }
+
+    const prisma = prismaService.getClient();
+    const user = await prisma.user.findUnique({ where: { id: userId } });
+    if (!user || user.activo === false) {
+      return { success: false, message: 'Usuario desactivado' };
+    }
+
+    const payload: AuthPayload = {
+      userId: user.id,
+      email: user.email,
+      role: user.role,
+      empresaId: user.empresaId,
+      dadorCargaId: user.dadorCargaId,
+      empresaTransportistaId: user.empresaTransportistaId,
+      choferId: user.choferId,
+      clienteId: user.clienteId,
+    };
+    const newToken = this.generateToken(payload);
+    const newRefreshToken = await rotateRefreshToken(refreshTokenValue, userId);
+
+    return {
+      success: true,
+      token: newToken,
+      refreshToken: newRefreshToken,
+      platformUser: this.formatUserProfile(user),
+    };
+  }
+
+  static async revokeAllUserTokens(userId: number): Promise<void> {
+    await revokeAllRefreshTokens(userId);
+  }
+
+  static revokeToken(token: string): void {
+    try {
+      const decoded = jwt.decode(token) as { exp?: number } | null;
+      const expiresAt = decoded?.exp ? decoded.exp * 1000 : Date.now() + 7 * 24 * 60 * 60 * 1000;
+      tokenBlacklist.set(token, expiresAt);
+    } catch {
+      tokenBlacklist.set(token, Date.now() + 7 * 24 * 60 * 60 * 1000);
     }
   }
 
@@ -316,22 +432,36 @@ export class PlatformAuthService {
     return this.formatUserProfile(user);
   }
 
+  private static async softDeleteUser(prisma: ReturnType<typeof prismaService.getClient>, id: number): Promise<void> {
+    const anonymizedEmail = `deleted_${id}_${Date.now()}@removed.local`;
+    const invalidatedHash = await bcrypt.hash(crypto.randomBytes(32).toString('hex'), this.SALT_ROUNDS);
+    await prisma.user.update({
+      where: { id },
+      data: {
+        activo: false,
+        deletedAt: new Date(),
+        email: anonymizedEmail,
+        password: invalidatedHash,
+        nombre: null,
+        apellido: null,
+      },
+    });
+    await revokeAllRefreshTokens(id);
+  }
+
   static async deletePlatformUser(id: number, actor: PlatformUserProfile): Promise<void> {
     const prisma = prismaService.getClient();
     
-    // SUPERADMIN puede eliminar cualquier usuario
     if (actor.role === 'SUPERADMIN') {
-      await prisma.user.delete({ where: { id } });
+      await this.softDeleteUser(prisma, id);
       return;
     }
     
-    // ADMIN_INTERNO puede eliminar usuarios de su misma empresa (excepto SUPERADMIN/ADMIN)
     if (actor.role === 'ADMIN_INTERNO') {
       const targetUser = await prisma.user.findUnique({ where: { id } });
       if (!targetUser) {
         throw new Error('Usuario no encontrado');
       }
-      // Verificar que el usuario objetivo pertenezca a la misma empresa
       if (targetUser.empresaId !== actor.empresaId) {
         throw new Error('No tiene permisos para eliminar usuarios de otra empresa');
       }
@@ -343,7 +473,7 @@ export class PlatformAuthService {
       if (targetUser.id === actor.id) {
         throw new Error('No puede eliminarse a sí mismo');
       }
-      await prisma.user.delete({ where: { id } });
+      await this.softDeleteUser(prisma, id);
       return;
     }
     
@@ -445,7 +575,6 @@ export class PlatformAuthService {
   }
 
   private static generateTempPassword(): string {
-    const crypto = require('crypto') as typeof import('crypto');
     const pick = (chars: string) => chars[Math.floor(crypto.randomInt(0, chars.length))];
     const upper = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
     const lower = 'abcdefghijklmnopqrstuvwxyz';
@@ -462,6 +591,55 @@ export class PlatformAuthService {
     return base.join('');
   }
 
+  private static readonly ENTITY_TABLE_MAP: Record<string, string> = {
+    clienteId: 'documentos.clientes',
+    dadorCargaId: 'documentos.dadores_carga',
+    empresaTransportistaId: 'documentos.empresas_transportistas',
+    choferId: 'documentos.choferes',
+  };
+
+  private static async validateEntityExists(
+    roleSpecificData: Record<string, any>,
+    createdBy: PlatformUserProfile
+  ): Promise<void> {
+    const prisma = prismaService.getClient();
+    for (const [key, table] of Object.entries(this.ENTITY_TABLE_MAP)) {
+      const entityId = roleSpecificData[key];
+      if (entityId === undefined || entityId === null) continue;
+      const rows = await prisma.$queryRawUnsafe<{ id: number; dador_carga_id?: number }[]>(
+        `SELECT id, dador_carga_id FROM ${table} WHERE id = $1 LIMIT 1`,
+        Number(entityId)
+      );
+      if (rows.length === 0) {
+        throw new Error(`La entidad ${key}=${entityId} no existe`);
+      }
+      this.validateEntityAccess(key, rows[0], createdBy);
+    }
+  }
+
+  private static validateEntityAccess(
+    key: string,
+    entity: { id: number; dador_carga_id?: number },
+    createdBy: PlatformUserProfile
+  ): void {
+    if (['SUPERADMIN', 'ADMIN', 'ADMIN_INTERNO'].includes(createdBy.role)) return;
+
+    const entityDadorId = entity.dador_carga_id;
+    if (!entityDadorId) return;
+
+    if (createdBy.role === 'DADOR_DE_CARGA' && createdBy.dadorCargaId) {
+      if (entityDadorId !== createdBy.dadorCargaId) {
+        throw new Error(`No tiene permisos sobre la entidad ${key}=${entity.id}`);
+      }
+      return;
+    }
+    if (createdBy.role === 'TRANSPORTISTA' && createdBy.dadorCargaId) {
+      if (entityDadorId !== createdBy.dadorCargaId) {
+        throw new Error(`No tiene permisos sobre la entidad ${key}=${entity.id}`);
+      }
+    }
+  }
+
   private static async createUserWithTempPassword(
     input: { email: string; nombre?: string; apellido?: string; empresaId?: number | null },
     createdBy: PlatformUserProfile,
@@ -473,6 +651,8 @@ export class PlatformAuthService {
     if (!allowedRoles.includes(createdBy.role)) {
       throw new Error(`No tiene permisos para crear usuarios ${roleLabel}`);
     }
+
+    await this.validateEntityExists(roleSpecificData, createdBy);
 
     const prisma = prismaService.getClient();
     const email = input.email.toLowerCase().trim();

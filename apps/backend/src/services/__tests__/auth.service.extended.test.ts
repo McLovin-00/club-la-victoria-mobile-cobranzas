@@ -265,8 +265,9 @@ describe('AuthService Extended Tests', () => {
 
             const result = await authService.refreshToken('valid-old-token');
 
-            expect(result.token).toBeDefined();
-            expect(result.user.email).toBe('test@example.com');
+            expect(result).not.toBeNull();
+            expect(result!.token).toBeDefined();
+            expect(result!.user.email).toBe('test@example.com');
         });
 
         it('should return null for invalid token', async () => {

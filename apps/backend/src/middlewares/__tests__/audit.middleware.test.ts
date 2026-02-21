@@ -18,7 +18,8 @@ jest.mock('../../config/prisma', () => ({
   prismaService: {
     getClient: () => ({
       auditLog: {
-        create: jest.fn().mockResolvedValue({ id: 1 }),
+        // @ts-expect-error - jest.Mock infers never for mockResolvedValue in strict mode
+        create: (jest.fn() as jest.Mock).mockResolvedValue({ id: 1 }),
       },
     }),
   },
@@ -45,8 +46,8 @@ describe('audit.middleware', () => {
   describe('auditMiddleware behavior', () => {
     it('es una función factory que retorna middleware', async () => {
       const { auditMiddleware } = await import('../audit.middleware');
-      
-      const middleware = auditMiddleware('TEST_ACTION');
+
+      const middleware = auditMiddleware();
       expect(typeof middleware).toBe('function');
     });
   });

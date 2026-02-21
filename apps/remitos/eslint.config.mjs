@@ -1,12 +1,11 @@
 import js from '@eslint/js';
 import globals from 'globals';
-import tseslint from 'typescript-eslint';
+import { configs as tsConfigs } from 'typescript-eslint';
 
-// Flat config array (sin tseslint.config deprecated)
 export default [
   { ignores: ['dist/**', 'node_modules/**', 'coverage/**', '.prisma/**'] },
   js.configs.recommended,
-  ...tseslint.configs.recommended,
+  ...tsConfigs.recommended,
   {
     files: ['**/*.{ts,tsx}'],
     languageOptions: {

@@ -39,8 +39,8 @@ const ESTADOS_PENDIENTES: DocumentStatus[] = [
   'CLASIFICANDO',
 ];
 
-// Días para considerar "por vencer"
-const DIAS_POR_VENCER = 30;
+// Días de anticipación por defecto cuando no hay requisitos de plantilla asignados
+const DIAS_POR_VENCER_DEFAULT = 30;
 
 /**
  * Obtiene los IDs de entidades de un equipo
@@ -119,27 +119,53 @@ async function obtenerEntidadesEquipo(equipoId: number): Promise<{
 }
 
 /**
- * Obtiene templates requeridos para todas las entidades del equipo
- * (considera requisitos globales, sin cliente específico)
+ * Obtiene templates requeridos para todas las entidades del equipo.
+ * Consulta plantillas asignadas al equipo para obtener diasAnticipacion real.
+ * Si no hay plantillas asignadas, usa templates globales con el default.
  */
 async function obtenerTemplatesRequeridos(
+  equipoId: number,
   entidades: { entityType: EntityType; entityId: number }[]
-): Promise<Map<string, number>> {
-  // Mapa: "ENTITY_TYPE:TEMPLATE_ID" -> cantidad requerida
+): Promise<{ requeridos: Map<string, number>; maxDiasAnticipacion: number }> {
   const requeridos = new Map<string, number>();
+  let maxDiasAnticipacion = DIAS_POR_VENCER_DEFAULT;
 
-  for (const { entityType } of entidades) {
-    const templates = await prisma.documentTemplate.findMany({
-      where: { entityType, active: true },
-      select: { id: true },
+  const plantillasAsignadas = await prisma.equipoPlantillaRequisito.findMany({
+    where: { equipoId, asignadoHasta: null },
+    select: { plantillaRequisitoId: true },
+  });
+
+  if (plantillasAsignadas.length > 0) {
+    const plantillaIds = plantillasAsignadas.map(p => p.plantillaRequisitoId);
+    const configs = await prisma.plantillaRequisitoTemplate.findMany({
+      where: {
+        plantillaRequisitoId: { in: plantillaIds },
+        plantillaRequisito: { activo: true },
+      },
+      select: { templateId: true, entityType: true, diasAnticipacion: true },
     });
-    for (const t of templates) {
-      const key = `${entityType}:${t.id}`;
+
+    for (const c of configs) {
+      const key = `${c.entityType}:${c.templateId}`;
       requeridos.set(key, (requeridos.get(key) || 0) + 1);
+      if (c.diasAnticipacion > maxDiasAnticipacion) {
+        maxDiasAnticipacion = c.diasAnticipacion;
+      }
+    }
+  } else {
+    for (const { entityType } of entidades) {
+      const templates = await prisma.documentTemplate.findMany({
+        where: { entityType, active: true },
+        select: { id: true },
+      });
+      for (const t of templates) {
+        const key = `${entityType}:${t.id}`;
+        requeridos.set(key, (requeridos.get(key) || 0) + 1);
+      }
     }
   }
 
-  return requeridos;
+  return { requeridos, maxDiasAnticipacion };
 }
 
 /**
@@ -148,7 +174,8 @@ async function obtenerTemplatesRequeridos(
 async function contarDocumentos(
   tenantEmpresaId: number,
   dadorCargaId: number,
-  entidades: { entityType: EntityType; entityId: number }[]
+  entidades: { entityType: EntityType; entityId: number }[],
+  diasPorVencer: number = DIAS_POR_VENCER_DEFAULT
 ): Promise<{
   vigentes: number;
   porVencer: number;
@@ -211,7 +238,7 @@ async function contarDocumentos(
   }
 
   const now = new Date();
-  const limitePorVencer = new Date(now.getTime() + DIAS_POR_VENCER * 24 * 60 * 60 * 1000);
+  const limitePorVencer = new Date(now.getTime() + diasPorVencer * 24 * 60 * 60 * 1000);
 
   const stats = { vigentes: 0, porVencer: 0, vencidos: 0, pendientes: 0, rechazados: 0 };
 
@@ -225,7 +252,7 @@ async function contarDocumentos(
 /**
  * Clasifica un documento y actualiza los contadores
  */
-function clasificarDocumento(
+export function clasificarDocumento(
   doc: { status: string; expiresAt: Date | null },
   now: Date,
   limitePorVencer: Date,
@@ -258,7 +285,7 @@ function clasificarDocumento(
 /**
  * Determina el estado documental basado en conteos
  */
-function determinarEstadoDocumental(
+export function determinarEstadoDocumental(
   stats: {
     vigentes: number;
     porVencer: number;
@@ -322,11 +349,12 @@ export class EquipoEvaluationService {
 
     const { dadorCargaId, tenantEmpresaId, entidades } = datosEquipo;
 
-    // Obtener templates requeridos
-    const templatesRequeridos = await obtenerTemplatesRequeridos(entidades);
+    // Obtener templates requeridos con diasAnticipacion real
+    const { requeridos: templatesRequeridos, maxDiasAnticipacion } =
+      await obtenerTemplatesRequeridos(equipoId, entidades);
 
-    // Contar documentos
-    const conteos = await contarDocumentos(tenantEmpresaId, dadorCargaId, entidades);
+    // Contar documentos usando diasAnticipacion real
+    const conteos = await contarDocumentos(tenantEmpresaId, dadorCargaId, entidades, maxDiasAnticipacion);
 
     // Calcular faltantes
     let faltantes = 0;
@@ -402,15 +430,21 @@ export class EquipoEvaluationService {
    * Evalúa múltiples equipos (batch)
    */
   static async evaluarEquipos(equipoIds: number[]): Promise<EquipoEvaluationResult[]> {
+    const CONCURRENCY = 5;
     const resultados: EquipoEvaluationResult[] = [];
-    
-    for (const equipoId of equipoIds) {
-      const resultado = await this.evaluarEquipo(equipoId);
-      if (resultado) {
-        resultados.push(resultado);
+
+    for (let i = 0; i < equipoIds.length; i += CONCURRENCY) {
+      const batch = equipoIds.slice(i, i + CONCURRENCY);
+      const batchResults = await Promise.allSettled(
+        batch.map(id => this.evaluarEquipo(id))
+      );
+      for (const r of batchResults) {
+        if (r.status === 'fulfilled' && r.value) {
+          resultados.push(r.value);
+        }
       }
     }
-    
+
     return resultados;
   }
 

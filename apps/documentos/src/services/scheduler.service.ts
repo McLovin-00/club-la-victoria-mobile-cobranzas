@@ -37,6 +37,8 @@ export class SchedulerService {
       this.scheduleNotifications();
       this.scheduleAuditRetention();
       this.scheduleNotificationCleanup();
+      this.scheduleDailyComplianceEvaluation();
+      this.scheduleMinioOrphanCleanup();
       
       AppLogger.info('✅ Todas las tareas programadas iniciadas');
     } catch (error) {
@@ -264,6 +266,99 @@ export class SchedulerService {
   }
 
   /**
+   * Re-evaluación diaria de compliance de todos los equipos activos (06:00 AR / 09:00 UTC)
+   */
+  private scheduleDailyComplianceEvaluation(): void {
+    const task = cron.schedule('0 9 * * *', async () => {
+      try {
+        AppLogger.info('Ejecutando re-evaluación diaria de compliance');
+        const { db } = await import('../config/database');
+        const { EquipoEvaluationService } = await import('./equipo-evaluation.service');
+        const { invalidateComplianceCache } = await import('./compliance.service');
+
+        invalidateComplianceCache();
+
+        const equipos = await db.getClient().equipo.findMany({
+          where: { activo: true },
+          select: { id: true },
+          orderBy: { id: 'asc' },
+        });
+
+        const ids = equipos.map(e => e.id);
+        const results = await EquipoEvaluationService.evaluarEquipos(ids);
+        const cambios = results.filter(r => r.cambio).length;
+
+        AppLogger.info(`Re-evaluación diaria completada: ${results.length} equipos evaluados, ${cambios} cambios de estado`);
+      } catch (error) {
+        AppLogger.error('Error en re-evaluación diaria de compliance:', error);
+      }
+    });
+
+    this.tasks.set('daily-compliance-evaluation', task);
+    task.start();
+    AppLogger.info('Tarea programada: Re-evaluación diaria de compliance (06:00 AR)');
+  }
+
+  /**
+   * Limpieza semanal de archivos huérfanos en MinIO (domingos 05:00 AR / 08:00 UTC)
+   */
+  private scheduleMinioOrphanCleanup(): void {
+    const task = cron.schedule('0 8 * * 0', async () => {
+      try {
+        AppLogger.info('Iniciando limpieza de archivos huérfanos en MinIO');
+        const { db } = await import('../config/database');
+        const { minioService } = await import('./minio.service');
+        const prisma = db.getClient();
+
+        const tenants = await prisma.dadorCarga.findMany({
+          distinct: ['tenantEmpresaId'],
+          select: { tenantEmpresaId: true },
+        });
+
+        let totalOrphans = 0;
+
+        for (const t of tenants) {
+          try {
+            const bucketName = minioService.getResolvedBucketName(t.tenantEmpresaId);
+            const docs = await prisma.document.findMany({
+              where: { tenantEmpresaId: t.tenantEmpresaId },
+              select: { filePath: true },
+            });
+            const validPaths = new Set(docs.map(d => d.filePath));
+
+            const allKeys = await minioService.listObjectKeys(t.tenantEmpresaId);
+            const orphans = allKeys.filter(key => {
+              const fullPath = `${bucketName}/${key}`;
+              return !validPaths.has(fullPath);
+            });
+
+            for (const orphanKey of orphans.slice(0, 100)) {
+              try {
+                await minioService.deleteDocument(bucketName, orphanKey);
+                totalOrphans++;
+              } catch { /* fallo individual no crítico */ }
+            }
+
+            if (orphans.length > 0) {
+              AppLogger.info(`MinIO cleanup tenant ${t.tenantEmpresaId}: ${Math.min(orphans.length, 100)} huérfanos eliminados de ${orphans.length} encontrados`);
+            }
+          } catch (tenantErr) {
+            AppLogger.warn(`Error en cleanup MinIO para tenant ${t.tenantEmpresaId}`, { error: (tenantErr as Error).message });
+          }
+        }
+
+        AppLogger.info(`Limpieza de archivos huérfanos completada: ${totalOrphans} eliminados`);
+      } catch (error) {
+        AppLogger.error('Error en limpieza de archivos huérfanos:', error);
+      }
+    });
+
+    this.tasks.set('minio-orphan-cleanup', task);
+    task.start();
+    AppLogger.info('Tarea programada: Limpieza de archivos huérfanos MinIO (domingos 05:00 AR)');
+  }
+
+  /**
    * Detener todas las tareas programadas
    */
   public stop(): void {
@@ -299,6 +394,45 @@ export class SchedulerService {
     return status;
   }
 
+  private async runAuditRetention(): Promise<void> {
+    const { SystemConfigService } = await import('./system-config.service');
+    const daysStr = await SystemConfigService.getConfig('audit.retention.days');
+    const days = daysStr ? parseInt(daysStr, 10) : 180;
+    const cutoff = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
+    const { prisma } = await import('../config/database');
+    const res = await (prisma as any).auditLog?.deleteMany
+      ? (prisma as any).auditLog.deleteMany({ where: { createdAt: { lt: cutoff } } })
+      : null;
+    AppLogger.info('🧹 Audit retention ejecutada manualmente', { deleted: (res?.count ?? 0), days });
+  }
+
+  private async runComplianceEvaluation(): Promise<void> {
+    const { db: dbClient } = await import('../config/database');
+    const { EquipoEvaluationService } = await import('./equipo-evaluation.service');
+    const { invalidateComplianceCache } = await import('./compliance.service');
+    invalidateComplianceCache();
+    const allEquipos = await dbClient.getClient().equipo.findMany({ where: { activo: true }, select: { id: true } });
+    await EquipoEvaluationService.evaluarEquipos(allEquipos.map(e => e.id));
+  }
+
+  private async runMinioOrphanCleanup(): Promise<void> {
+    const { db: dbMinio } = await import('../config/database');
+    const { minioService: minio } = await import('./minio.service');
+    const prismaMinio = dbMinio.getClient();
+    const tenants = await prismaMinio.dadorCarga.findMany({ distinct: ['tenantEmpresaId'], select: { tenantEmpresaId: true } });
+    let cleaned = 0;
+    for (const t of tenants) {
+      const bucket = minio.getResolvedBucketName(t.tenantEmpresaId);
+      const docs = await prismaMinio.document.findMany({ where: { tenantEmpresaId: t.tenantEmpresaId }, select: { filePath: true } });
+      const valid = new Set(docs.map(d => d.filePath));
+      const keys = await minio.listObjectKeys(t.tenantEmpresaId);
+      for (const key of keys.filter(k => !valid.has(`${bucket}/${k}`)).slice(0, 100)) {
+        try { await minio.deleteDocument(bucket, key); cleaned++; } catch { /* no-op */ }
+      }
+    }
+    AppLogger.info(`MinIO orphan cleanup manual: ${cleaned} archivos eliminados`);
+  }
+
   /**
    * Ejecutar tarea específica manualmente
    */
@@ -318,21 +452,13 @@ export class SchedulerService {
           await performanceService.refreshMaterializedView();
           break;
         case 'audit-retention':
-          // Ejecutar la lógica una vez
-          try {
-            const { SystemConfigService } = await import('./system-config.service');
-            const daysStr = await SystemConfigService.getConfig('audit.retention.days');
-            const days = daysStr ? parseInt(daysStr, 10) : 180;
-            const cutoff = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
-            const { prisma } = await import('../config/database');
-            const res = await (prisma as any).auditLog?.deleteMany
-              ? (prisma as any).auditLog.deleteMany({ where: { createdAt: { lt: cutoff } } })
-              : null;
-            AppLogger.info('🧹 Audit retention ejecutada manualmente', { deleted: (res?.count ?? 0), days });
-          } catch (err) {
-            AppLogger.error('💥 Error ejecutando audit retention manual:', err);
-            throw err;
-          }
+          await this.runAuditRetention();
+          break;
+        case 'daily-compliance-evaluation':
+          await this.runComplianceEvaluation();
+          break;
+        case 'minio-orphan-cleanup':
+          await this.runMinioOrphanCleanup();
           break;
         default:
           throw new Error(`Tarea desconocida: ${taskName}`);

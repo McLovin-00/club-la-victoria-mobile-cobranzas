@@ -3,6 +3,48 @@ import type { DocumentStatus, EntityType } from '.prisma/documentos';
 import { AppLogger } from '../config/logger';
 
 // ============================================================================
+// CACHE TTL SIMPLE
+// ============================================================================
+const CACHE_TTL_MS = 5 * 60 * 1000;
+const complianceCache = new Map<string, { data: any; expiresAt: number }>();
+
+function getCached<T>(key: string): T | undefined {
+  const entry = complianceCache.get(key);
+  if (!entry) return undefined;
+  if (Date.now() > entry.expiresAt) {
+    complianceCache.delete(key);
+    return undefined;
+  }
+  return entry.data as T;
+}
+
+function setCache(key: string, data: any): void {
+  complianceCache.set(key, { data, expiresAt: Date.now() + CACHE_TTL_MS });
+  if (complianceCache.size > 5000) {
+    const now = Date.now();
+    for (const [k, v] of complianceCache) {
+      if (now > v.expiresAt) complianceCache.delete(k);
+    }
+    if (complianceCache.size > 5000) {
+      const oldest = Array.from(complianceCache.entries())
+        .sort((a, b) => a[1].expiresAt - b[1].expiresAt);
+      const toRemove = oldest.slice(0, complianceCache.size - 5000);
+      for (const [k] of toRemove) complianceCache.delete(k);
+    }
+  }
+}
+
+export function invalidateComplianceCache(equipoId?: number): void {
+  if (equipoId) {
+    for (const k of complianceCache.keys()) {
+      if (k.startsWith(`equipo:${equipoId}:`)) complianceCache.delete(k);
+    }
+    return;
+  }
+  complianceCache.clear();
+}
+
+// ============================================================================
 // TIPOS
 // ============================================================================
 export type ComplianceState = 'OK' | 'PROXIMO' | 'FALTANTE';
@@ -347,6 +389,53 @@ function evaluateSingleEquipo(
 }
 
 // ============================================================================
+// BATCH HELPERS PARA EVALUACIÓN DETALLADA
+// ============================================================================
+interface EntityPair { entityType: string; entityId: number }
+
+function collectEntityPairs(equipo: any, requisitos: { entityType: string }[]): EntityPair[] {
+  const seen = new Set<string>();
+  const pairs: EntityPair[] = [];
+  for (const r of requisitos) {
+    const entityId = getEntityIdFromEquipo(equipo, r.entityType);
+    if (!entityId) continue;
+    const key = `${r.entityType}:${entityId}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    pairs.push({ entityType: r.entityType, entityId });
+  }
+  return pairs;
+}
+
+async function batchLoadDocuments(
+  tenantEmpresaId: number,
+  dadorCargaId: number,
+  pairs: EntityPair[]
+): Promise<Map<string, DocumentInfo>> {
+  if (pairs.length === 0) return new Map();
+
+  const docs = await prisma.document.findMany({
+    where: {
+      tenantEmpresaId,
+      dadorCargaId,
+      archived: false,
+      OR: pairs.map(p => ({ entityType: p.entityType as EntityType, entityId: p.entityId })),
+    },
+    select: { id: true, templateId: true, entityType: true, entityId: true, tenantEmpresaId: true, dadorCargaId: true, status: true, expiresAt: true, uploadedAt: true },
+    orderBy: { uploadedAt: 'desc' },
+  });
+
+  const index = new Map<string, DocumentInfo>();
+  for (const doc of docs) {
+    const key = `${doc.entityType}:${doc.entityId}:${doc.templateId}`;
+    if (!index.has(key)) {
+      index.set(key, doc as DocumentInfo);
+    }
+  }
+  return index;
+}
+
+// ============================================================================
 // SERVICIO PRINCIPAL
 // ============================================================================
 export class ComplianceService {
@@ -362,16 +451,24 @@ export class ComplianceService {
    * Evaluación detallada de un equipo para un cliente
    */
   static async evaluateEquipoClienteDetailed(equipoId: number, clienteId: number): Promise<RequirementResultDetailed[]> {
+    const cacheKey = `equipo:${equipoId}:cliente:${clienteId}`;
+    const cached = getCached<RequirementResultDetailed[]>(cacheKey);
+    if (cached) return cached;
+
     const equipo = await prisma.equipo.findUnique({ where: { id: equipoId } });
     if (!equipo) return [];
 
-    // Lee desde PlantillaRequisitoTemplate (fuente de verdad actual)
     const requisitos = await prisma.plantillaRequisitoTemplate.findMany({
       where: {
         plantillaRequisito: { clienteId, activo: true },
       },
       select: { templateId: true, entityType: true, obligatorio: true, diasAnticipacion: true },
     });
+
+    if (requisitos.length === 0) return [];
+
+    const entityPairs = collectEntityPairs(equipo, requisitos);
+    const docIndex = await batchLoadDocuments(equipo.tenantEmpresaId, equipo.dadorCargaId, entityPairs);
 
     const results: RequirementResultDetailed[] = [];
     const now = Date.now();
@@ -390,16 +487,8 @@ export class ComplianceService {
         continue;
       }
 
-      const doc = await prisma.document.findFirst({
-        where: {
-          templateId: r.templateId,
-          entityType: r.entityType as EntityType, // NOSONAR - already correct type from Prisma
-          entityId,
-          tenantEmpresaId: equipo.tenantEmpresaId,
-          dadorCargaId: equipo.dadorCargaId,
-        },
-        orderBy: { uploadedAt: 'desc' },
-      });
+      const docKey = `${r.entityType}:${entityId}:${r.templateId}`;
+      const doc = docIndex.get(docKey) || null;
 
       const reqAsRequisito: Requisito = {
         clienteId,
@@ -408,7 +497,7 @@ export class ComplianceService {
         obligatorio: r.obligatorio,
         diasAnticipacion: r.diasAnticipacion,
       };
-      const { state } = computeDocumentState(doc as DocumentInfo | null, reqAsRequisito, now);
+      const { state } = computeDocumentState(doc, reqAsRequisito, now);
 
       results.push({
         templateId: r.templateId,
@@ -417,11 +506,12 @@ export class ComplianceService {
         diasAnticipacion: r.diasAnticipacion,
         state,
         documentId: doc?.id,
-        documentStatus: doc?.status,
+        documentStatus: doc?.status as DocumentStatus,
         expiresAt: doc?.expiresAt ?? null,
       });
     }
 
+    setCache(cacheKey, results);
     return results;
   }
 

@@ -75,9 +75,21 @@ function buildInputs(filesFromMulter: Express.Multer.File[], base64Inputs: strin
   return inputs;
 }
 
+// 50MB total para todos los archivos combinados
+const MAX_TOTAL_UPLOAD_SIZE = 50 * 1024 * 1024;
+
 function validateInputs(inputs: FileInput[]): void {
   if (inputs.length === 0) {
     throw createError('Se requiere al menos una imagen o PDF', 400, 'FILE_REQUIRED');
+  }
+
+  const totalSize = inputs.reduce((sum, i) => sum + i.buffer.length, 0);
+  if (totalSize > MAX_TOTAL_UPLOAD_SIZE) {
+    throw createError(
+      `Tamaño total (${Math.round(totalSize / 1024 / 1024)}MB) excede el máximo de ${MAX_TOTAL_UPLOAD_SIZE / 1024 / 1024}MB`,
+      400,
+      'TOTAL_SIZE_EXCEEDED'
+    );
   }
 
   const hasPdf = inputs.some((i) => MediaService.isPdf(i.mimeType));

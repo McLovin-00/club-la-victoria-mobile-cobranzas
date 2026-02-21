@@ -16,6 +16,7 @@ const backendDir = path.resolve(__dirname, '../../');
 const ALLOWED_COMMANDS = [
   'npx dotenv-cli -e ../../.env -- npx prisma db push --schema=./prisma/schema.prisma',
   'npx dotenv-cli -e ../../.env -- npx ts-node prisma/seed.ts',
+  'npx dotenv-cli -e ../../.env -- npx prisma db seed --schema=./prisma/schema.prisma',
 ] as const;
 
 /**

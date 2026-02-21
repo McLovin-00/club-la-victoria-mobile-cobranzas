@@ -103,7 +103,7 @@ const ESTADOS_PENDIENTES: DocumentStatus[] = [
 /**
  * Normaliza identificadores (DNI, CUIT, Patente)
  */
-function normalizeIdentificador(valor: string): string {
+export function normalizeIdentificador(valor: string): string {
   return valor
     .slice(0, 32)
     .toUpperCase()
@@ -113,7 +113,7 @@ function normalizeIdentificador(valor: string): string {
 /**
  * Calcula el estado de un documento
  */
-function calcularEstadoDocumento(
+export function calcularEstadoDocumento(
   doc: { status: DocumentStatus; expiresAt: Date | null }
 ): { estado: DocumentoEstado; diasParaVencer: number | null } {
   const now = new Date();
@@ -405,7 +405,7 @@ async function obtenerDocumentosEntidad(
 /**
  * Calcula el resumen del estado documental
  */
-function calcularResumen(
+export function calcularResumen(
   documentosExistentes: DocumentoExistente[],
   templatesRequeridos: { templateId: number; obligatorio: boolean }[]
 ): PreCheckResumen {
@@ -456,6 +456,7 @@ export class DocumentPreCheckService {
     const resultados: PreCheckEntidadResult[] = [];
     const dadorActualIdsSet = new Set<number>();
     let hayEntidadesDeOtroDador = false;
+    const dadorNombreCache = new Map<number, string | undefined>();
 
     for (const entidadInput of entidades) {
       const identificadorNorm = normalizeIdentificador(entidadInput.identificador);
@@ -506,7 +507,11 @@ export class DocumentPreCheckService {
         dadorActualIdsSet.add(entidadExistente.dadorCargaId);
       }
       
-      const dadorNombre = await obtenerNombreDador(entidadExistente.dadorCargaId);
+      let dadorNombre = dadorNombreCache.get(entidadExistente.dadorCargaId);
+      if (dadorNombre === undefined && !dadorNombreCache.has(entidadExistente.dadorCargaId)) {
+        dadorNombre = await obtenerNombreDador(entidadExistente.dadorCargaId);
+        dadorNombreCache.set(entidadExistente.dadorCargaId, dadorNombre);
+      }
       
       // Buscar si está asignada a algún equipo activo
       // Solo para CHOFER, CAMION, ACOPLADO (entidades exclusivas)

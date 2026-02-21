@@ -4,6 +4,7 @@ import { z } from 'zod';
 import { ValidationMiddleware } from '../middlewares/validation.middleware';
 import {
   authenticateUser,
+  optionalAuth,
   authorizeRoles,
   logAction,
   AuthRequest
@@ -11,6 +12,10 @@ import {
 import { loginRateLimiter, passwordChangeRateLimiter } from '../middlewares/rateLimit.middleware';
 import { prismaService } from '../config/prisma';
 import { AppLogger } from '../config/logger';
+
+// NOSONAR: express-rate-limit devuelve RateLimitRequestHandler incompatible con @types/express-serve-static-core
+const loginLimiter = loginRateLimiter as unknown as RequestHandler; // NOSONAR
+const passwordLimiter = passwordChangeRateLimiter as unknown as RequestHandler; // NOSONAR
 
 // ============================================================================
 // HELPERS
@@ -117,8 +122,7 @@ const router = Router();
  */
 router.post(
   '/login',
-  // NOSONAR: Cast requerido por incompatibilidad entre express-rate-limit y @types/express-serve-static-core
-  loginRateLimiter as unknown as RequestHandler,
+  loginLimiter,
   ValidationMiddleware.validateBody(z.object({
     email: z.string().email(),
     password: z.string().min(6),
@@ -134,8 +138,23 @@ router.post(
  */
 router.post(
   '/logout',
+  optionalAuth,
   logAction('PLATFORM_LOGOUT'),
   PlatformAuthController.logout
+);
+
+/**
+ * @route POST /api/platform/auth/refresh
+ * @desc Renovar access token usando refresh token
+ * @access Public
+ */
+router.post(
+  '/refresh',
+  loginLimiter,
+  ValidationMiddleware.validateBody(z.object({
+    refreshToken: z.string().min(1).max(256),
+  })),
+  PlatformAuthController.refreshToken
 );
 
 /**
@@ -149,7 +168,7 @@ router.post(
   authorizeRoles(['SUPERADMIN', 'ADMIN', 'ADMIN_INTERNO', 'DADOR_DE_CARGA', 'TRANSPORTISTA']),
   ValidationMiddleware.validateBody(z.object({
     email: z.string().email(),
-    password: z.string().min(8).regex(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/),
+    password: z.string().min(8).max(128).regex(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/),
     role: z.enum([
       'SUPERADMIN', 'ADMIN', 'ADMIN_INTERNO', 'OPERATOR', 'OPERADOR_INTERNO',
       'DADOR_DE_CARGA', 'TRANSPORTISTA', 'CHOFER', 'CLIENTE'
@@ -267,12 +286,11 @@ router.get(
  */
 router.post(
   '/change-password',
-  // NOSONAR: Cast requerido por incompatibilidad entre express-rate-limit y @types/express-serve-static-core
-  passwordChangeRateLimiter as unknown as RequestHandler,
+  passwordLimiter,
   authenticateUser,
   ValidationMiddleware.validateBody(z.object({
-    currentPassword: z.string().min(8),
-    newPassword: z.string().min(8).regex(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/),
+    currentPassword: z.string().min(8).max(128),
+    newPassword: z.string().min(8).max(128).regex(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/),
   })),
   logAction('PLATFORM_CHANGE_PASSWORD'),
   PlatformAuthController.changePassword

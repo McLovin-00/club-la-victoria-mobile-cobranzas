@@ -16,7 +16,8 @@ chainFn.withMessage = jest.fn().mockReturnValue(chainFn);
 jest.mock('../../config/prisma', () => ({
   prisma: {
     permiso: {
-      findMany: jest.fn().mockResolvedValue([]),
+      // @ts-expect-error - jest.Mock infers never for mockResolvedValue in strict mode
+      findMany: (jest.fn() as jest.Mock).mockResolvedValue([]),
       findUnique: jest.fn(),
       create: jest.fn(),
       update: jest.fn(),
@@ -27,7 +28,8 @@ jest.mock('../../config/prisma', () => ({
   prismaService: {
     getClient: () => ({
       permiso: {
-        findMany: jest.fn().mockResolvedValue([]),
+        // @ts-expect-error - jest.Mock infers never for mockResolvedValue in strict mode
+        findMany: (jest.fn() as jest.Mock).mockResolvedValue([]),
         findUnique: jest.fn(),
         create: jest.fn(),
         update: jest.fn(),

@@ -184,6 +184,13 @@ export const refreshToken = async (req: Request, res: Response) => {
 
     const result = await authService.refreshToken(token);
 
+    if (!result) {
+      return res.status(401).json({
+        success: false,
+        message: 'Token inválido o expirado',
+      });
+    }
+
     res.status(200).json({
       success: true,
       data: result.user,

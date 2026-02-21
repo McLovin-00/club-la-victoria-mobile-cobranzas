@@ -2,6 +2,7 @@
  * Tests aislados para cubrir el bloque require.main === module
  * @jest-environment node
  */
+export {};
 
 // Mock process.exit before any imports
 const originalExit = process.exit;

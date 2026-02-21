@@ -249,7 +249,7 @@ describe('config/logging additional coverage', () => {
 
         // Simular que la respuesta termina
         if (finishCallback) {
-            finishCallback();
+            (finishCallback as () => void)();
         }
 
         consoleLogSpy.mockRestore();

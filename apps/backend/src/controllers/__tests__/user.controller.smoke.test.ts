@@ -6,7 +6,8 @@
 import { describe, it, expect, jest, beforeEach } from '@jest/globals';
 import type { Response } from 'express';
 
-const prismaMock = {
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const prismaMock: any = {
   user: {
     findMany: jest.fn(),
     count: jest.fn(),

@@ -252,6 +252,7 @@ export class EquiposController {
       camionId: parseOptionalId(req.body.camionId),
       acopladoId: parseNullableId(req.body.acopladoId),
       empresaTransportistaId: parseOptionalId(req.body.empresaTransportistaId),
+      expectedVersion: req.body.expectedVersion !== undefined ? Number(req.body.expectedVersion) : undefined,
     };
 
     const data = await EquipoService.updateEquipo(input);

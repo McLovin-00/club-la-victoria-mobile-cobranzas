@@ -6,7 +6,7 @@ import { describe, it, expect, jest, beforeEach, afterEach } from '@jest/globals
 import { createMockRes } from '../../__tests__/helpers/testUtils';
 import { getRouteHandlers } from '../../__tests__/helpers/routerTestUtils';
 
-const checkConnection = jest.fn();
+const checkConnection = jest.fn() as jest.Mock;
 
 jest.mock('../../config/prisma', () => ({
   prismaService: {
@@ -47,6 +47,7 @@ describe('metrics.routes', () => {
     process.env.NODE_ENV = 'production';
     process.env.npm_package_version = '2.5.0';
 
+    // @ts-expect-error - jest.Mock infers never for mockResolvedValueOnce in strict mode
     checkConnection.mockResolvedValueOnce(true);
     jest.spyOn(Date, 'now').mockReturnValueOnce(1000).mockReturnValueOnce(1500);
     jest.spyOn(process, 'uptime').mockReturnValue(123.45);
@@ -77,6 +78,7 @@ describe('metrics.routes', () => {
     process.env.NODE_ENV = 'test';
     process.env.npm_package_version = '1.0.0';
 
+    // @ts-expect-error - jest.Mock infers never for mockResolvedValueOnce in strict mode
     checkConnection.mockResolvedValueOnce(false);
     jest.spyOn(Date, 'now').mockReturnValueOnce(2000).mockReturnValueOnce(2000);
     jest.spyOn(process, 'uptime').mockReturnValue(10);
@@ -100,6 +102,7 @@ describe('metrics.routes', () => {
   });
 
   it('retorna 500 si falla la generacion de metrics', async () => {
+    // @ts-expect-error - jest.Mock infers never for mockRejectedValueOnce in strict mode
     checkConnection.mockRejectedValueOnce(new Error('db down'));
 
     const router = (await import('../metrics.routes')).default;

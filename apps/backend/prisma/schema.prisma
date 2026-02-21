@@ -196,6 +196,7 @@ model User {
   activo          Boolean    @default(true)
   mustChangePassword Boolean  @default(false) @map("must_change_password")
   passwordChangedAt  DateTime? @map("password_changed_at") @db.Timestamptz(6)
+  deletedAt       DateTime?  @map("deleted_at") @db.Timestamptz(6)
   createdAt       DateTime   @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt       DateTime   @updatedAt @map("updated_at") @db.Timestamptz(6)
   
@@ -211,6 +212,7 @@ model User {
   // Relations
   adminActions    AuditLog[] @relation("PlatformAdminActions")
   permisos        Permiso[]
+  refreshTokens   RefreshToken[]
   empresa         Empresa?   @relation(fields: [empresaId], references: [id])
 
   @@index([createdAt], map: "idx_users_created_at")
@@ -220,6 +222,21 @@ model User {
   @@index([dadorCargaId], map: "idx_users_dador_carga_id")
   @@index([empresaTransportistaId], map: "idx_users_empresa_transportista_id")
   @@map("platform_users")
+}
+
+model RefreshToken {
+  id        Int       @id @default(autoincrement())
+  userId    Int       @map("user_id")
+  token     String    @unique @db.VarChar(128)
+  expiresAt DateTime  @map("expires_at") @db.Timestamptz(6)
+  revokedAt DateTime? @map("revoked_at") @db.Timestamptz(6)
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([token], map: "idx_refresh_tokens_token")
+  @@index([userId], map: "idx_refresh_tokens_user")
+  @@map("refresh_tokens")
 }
 
 enum PeriodoReseteo {

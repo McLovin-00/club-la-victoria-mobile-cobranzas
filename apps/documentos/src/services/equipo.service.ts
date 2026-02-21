@@ -101,40 +101,35 @@ async function resolveComponentConflicts(
   truckNorm: string,
   trailerNorm: string | null
 ): Promise<void> {
-  // Cerrar equipo del chofer
-  const driverInUse = await prisma.equipo.findFirst({
-    where: { tenantEmpresaId, driverDniNorm: dniNorm, validTo: null }
-  });
-  if (driverInUse) {
-    await prisma.$transaction([
-      prisma.equipo.update({ where: { id: driverInUse.id }, data: { validTo: new Date(), estado: 'finalizada' as any } }),
-      prisma.equipoHistory.create({ data: { equipoId: driverInUse.id, action: 'close', component: 'driver', originEquipoId: undefined as any, payload: { reason: 'forceMove' } as any } })
-    ]);
-  }
+  await prisma.$transaction(async (tx) => {
+    const now = new Date();
 
-  // Cerrar equipo del camión
-  const truckInUse = await prisma.equipo.findFirst({
-    where: { tenantEmpresaId, truckPlateNorm: truckNorm, validTo: null }
-  });
-  if (truckInUse) {
-    await prisma.$transaction([
-      prisma.equipo.update({ where: { id: truckInUse.id }, data: { validTo: new Date(), estado: 'finalizada' as any } }),
-      prisma.equipoHistory.create({ data: { equipoId: truckInUse.id, action: 'close', component: 'truck', originEquipoId: undefined as any, payload: { reason: 'forceMove' } as any } })
-    ]);
-  }
-
-  // Desasociar acoplado
-  if (trailerNorm) {
-    const trailerInUse = await prisma.equipo.findFirst({
-      where: { tenantEmpresaId, trailerPlateNorm: trailerNorm, validTo: null }
+    const driverInUse = await tx.equipo.findFirst({
+      where: { tenantEmpresaId, driverDniNorm: dniNorm, validTo: null },
     });
-    if (trailerInUse) {
-      await prisma.$transaction([
-        prisma.equipo.update({ where: { id: trailerInUse.id }, data: { trailerId: null, trailerPlateNorm: null } }),
-        prisma.equipoHistory.create({ data: { equipoId: trailerInUse.id, action: 'detach', component: 'trailer', originEquipoId: undefined as any, payload: { reason: 'forceMove' } as any } })
-      ]);
+    if (driverInUse) {
+      await tx.equipo.update({ where: { id: driverInUse.id }, data: { validTo: now, estado: 'finalizada' as any } });
+      await tx.equipoHistory.create({ data: { equipoId: driverInUse.id, action: 'close', component: 'driver', originEquipoId: null, payload: { reason: 'forceMove' } as any } });
     }
-  }
+
+    const truckInUse = await tx.equipo.findFirst({
+      where: { tenantEmpresaId, truckPlateNorm: truckNorm, validTo: null },
+    });
+    if (truckInUse) {
+      await tx.equipo.update({ where: { id: truckInUse.id }, data: { validTo: now, estado: 'finalizada' as any } });
+      await tx.equipoHistory.create({ data: { equipoId: truckInUse.id, action: 'close', component: 'truck', originEquipoId: null, payload: { reason: 'forceMove' } as any } });
+    }
+
+    if (trailerNorm) {
+      const trailerInUse = await tx.equipo.findFirst({
+        where: { tenantEmpresaId, trailerPlateNorm: trailerNorm, validTo: null },
+      });
+      if (trailerInUse) {
+        await tx.equipo.update({ where: { id: trailerInUse.id }, data: { trailerId: null, trailerPlateNorm: null } });
+        await tx.equipoHistory.create({ data: { equipoId: trailerInUse.id, action: 'detach', component: 'trailer', originEquipoId: null, payload: { reason: 'forceMove' } as any } });
+      }
+    }
+  });
 }
 
 /**
@@ -1818,6 +1813,7 @@ export class EquipoService {
     camionId?: number;
     acopladoId?: number | null;
     empresaTransportistaId?: number;
+    expectedVersion?: number;
   }) {
     const equipo = await prisma.equipo.findUnique({
       where: { id: input.equipoId },
@@ -1828,11 +1824,18 @@ export class EquipoService {
       throw createError('Equipo no encontrado', 404, 'EQUIPO_NOT_FOUND');
     }
 
-    // Validar y acumular cambios
+    if (input.expectedVersion !== undefined && input.expectedVersion !== equipo.version) {
+      throw createError(
+        'El equipo fue modificado por otro usuario. Recargue y vuelva a intentar.',
+        409,
+        'CONFLICT_STALE_DATA'
+      );
+    }
+
     const { updates, cambios } = await collectEntityChanges(input, equipo);
     if (Object.keys(updates).length === 0) return equipo;
 
-    // Actualizar y registrar
+    updates.version = { increment: 1 };
     const updated = await prisma.equipo.update({ where: { id: input.equipoId }, data: updates });
     await logEquipoChanges(input.equipoId, input.usuarioId, cambios);
     

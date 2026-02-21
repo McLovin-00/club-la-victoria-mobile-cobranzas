@@ -319,7 +319,7 @@ class AuthService extends BaseService<User, UserCreateInput, UserUpdateInput> {
   /**
    * Refresca un token JWT
    */
-  async refreshToken(token: string): Promise<{ token: string; user: AuthPayload }> {
+  async refreshToken(token: string): Promise<{ token: string; user: AuthPayload } | null> {
     try {
       // Verificar y decodificar token actual
       const decoded = jwt.verify(token, this.JWT_PUBLIC_KEY, { algorithms: ['RS256'] }) as TokenPayload;

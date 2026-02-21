@@ -1,5 +1,6 @@
 import { prisma } from '../config/database';
 import { EntityType } from '../../node_modules/.prisma/documentos';
+import { AppLogger } from '../config/logger';
 
 // Tipos para consolidación de templates desde plantillas
 type ConsolidatedTemplateFromPlantilla = {
@@ -16,7 +17,7 @@ type ConsolidatedTemplateFromPlantilla = {
 };
 
 // Helper: merge un requisito de plantilla en el mapa consolidado
-function mergeTemplateFromPlantilla(
+export function mergeTemplateFromPlantilla(
   map: Map<string, ConsolidatedTemplateFromPlantilla>,
   req: {
     templateId: number;
@@ -69,6 +70,24 @@ function mergeTemplateFromPlantilla(
   }
   // visibleChofer: si alguno lo tiene visible, queda visible
   if (req.visibleChofer) existing.visibleChofer = true;
+}
+
+async function reevaluarEquiposPorPlantilla(plantillaRequisitoId: number): Promise<void> {
+  try {
+    const asociaciones = await prisma.equipoPlantillaRequisito.findMany({
+      where: { plantillaRequisitoId, asignadoHasta: null },
+      select: { equipoId: true, plantillaRequisito: { select: { tenantEmpresaId: true } } },
+    });
+    if (asociaciones.length === 0) return;
+
+    const { queueService } = await import('./queue.service');
+    for (const a of asociaciones) {
+      await queueService.addMissingCheckForEquipo(a.plantillaRequisito.tenantEmpresaId, a.equipoId, 5000);
+    }
+    AppLogger.info(`Re-evaluación encolada para ${asociaciones.length} equipos tras cambio en plantilla ${plantillaRequisitoId}`);
+  } catch (err) {
+    AppLogger.warn('No se pudo encolar re-evaluación de equipos', { error: (err as Error).message });
+  }
 }
 
 export class PlantillasService {
@@ -225,7 +244,30 @@ export class PlantillasService {
       visibleChofer?: boolean;
     }
   ): Promise<unknown> {
-    return prisma.plantillaRequisitoTemplate.create({
+    // Validar existencia de plantilla
+    const plantilla = await prisma.plantillaRequisito.findFirst({
+      where: { id: plantillaRequisitoId, tenantEmpresaId },
+    });
+    if (!plantilla) throw new Error('Plantilla no encontrada');
+
+    // Validar coherencia templateId vs entityType
+    const template = await prisma.documentTemplate.findFirst({
+      where: { id: input.templateId, active: true },
+    });
+    if (!template) throw new Error('Template no encontrado o inactivo');
+    if (template.entityType !== input.entityType) {
+      throw new Error(
+        `Template "${template.name}" es de tipo ${template.entityType}, no ${input.entityType}`
+      );
+    }
+
+    // Validar duplicado
+    const existe = await prisma.plantillaRequisitoTemplate.findFirst({
+      where: { tenantEmpresaId, plantillaRequisitoId, templateId: input.templateId, entityType: input.entityType },
+    });
+    if (existe) throw new Error('Este template ya está agregado a la plantilla');
+
+    const result = await prisma.plantillaRequisitoTemplate.create({
       data: {
         tenantEmpresaId,
         plantillaRequisitoId,
@@ -237,6 +279,8 @@ export class PlantillasService {
       },
       include: { template: true },
     });
+    reevaluarEquiposPorPlantilla(plantillaRequisitoId).catch(() => {/* fire-and-forget */});
+    return result;
   }
 
   /**
@@ -257,9 +301,17 @@ export class PlantillasService {
    * Elimina un template de una plantilla
    */
   static async removeTemplate(tenantEmpresaId: number, templateConfigId: number): Promise<unknown> {
-    return prisma.plantillaRequisitoTemplate.delete({
+    const existing = await prisma.plantillaRequisitoTemplate.findUnique({
+      where: { id: templateConfigId },
+      select: { plantillaRequisitoId: true },
+    });
+    const result = await prisma.plantillaRequisitoTemplate.delete({
       where: { id: templateConfigId },
     });
+    if (existing) {
+      reevaluarEquiposPorPlantilla(existing.plantillaRequisitoId).catch(() => {/* fire-and-forget */});
+    }
+    return result;
   }
 
   // =============================================
@@ -341,8 +393,24 @@ export class PlantillasService {
   /**
    * Asocia una plantilla a un equipo
    */
-  static async assignToEquipo(equipoId: number, plantillaRequisitoId: number) {
-    return prisma.equipoPlantillaRequisito.create({
+  static async assignToEquipo(equipoId: number, plantillaRequisitoId: number, tenantEmpresaId?: number) {
+    // Validar existencia del equipo
+    const equipo = await prisma.equipo.findUnique({ where: { id: equipoId }, select: { id: true, tenantEmpresaId: true } });
+    if (!equipo) throw new Error('Equipo no encontrado');
+
+    // Validar existencia de la plantilla en el mismo tenant
+    const plantilla = await prisma.plantillaRequisito.findFirst({
+      where: { id: plantillaRequisitoId, tenantEmpresaId: equipo.tenantEmpresaId, activo: true },
+    });
+    if (!plantilla) throw new Error('Plantilla no encontrada o inactiva para este tenant');
+
+    // Validar que no esté ya asignada activamente
+    const yaAsignada = await prisma.equipoPlantillaRequisito.findFirst({
+      where: { equipoId, plantillaRequisitoId, asignadoHasta: null },
+    });
+    if (yaAsignada) throw new Error('Esta plantilla ya está asignada al equipo');
+
+    const result = await prisma.equipoPlantillaRequisito.create({
       data: {
         equipoId,
         plantillaRequisitoId,
@@ -354,6 +422,11 @@ export class PlantillasService {
         },
       },
     });
+    try {
+      const { queueService } = await import('./queue.service');
+      await queueService.addMissingCheckForEquipo(equipo.tenantEmpresaId, equipoId, 5000);
+    } catch { /* non-critical */ }
+    return result;
   }
 
   /**
@@ -374,32 +447,58 @@ export class PlantillasService {
       throw new Error('Asociación no encontrada');
     }
 
-    // Actualizar para marcar la fecha de fin
-    return prisma.$executeRaw`
+    const result = await prisma.$executeRaw`
       UPDATE documentos.equipo_plantilla_requisito 
       SET asignado_hasta = NOW() 
       WHERE equipo_id = ${equipoId} 
         AND plantilla_requisito_id = ${plantillaRequisitoId} 
         AND asignado_desde = ${asociacion.asignadoDesde}
     `;
+    try {
+      const equipo = await prisma.equipo.findUnique({ where: { id: equipoId }, select: { tenantEmpresaId: true } });
+      if (equipo) {
+        const { queueService } = await import('./queue.service');
+        await queueService.addMissingCheckForEquipo(equipo.tenantEmpresaId, equipoId, 5000);
+      }
+    } catch { /* non-critical */ }
+    return result;
   }
 
   /**
    * Obtiene los templates consolidados de un equipo basándose en sus plantillas asignadas
    */
   static async getEquipoConsolidatedTemplates(tenantEmpresaId: number, equipoId: number) {
-    // Obtener plantillas activas del equipo
-    const asociaciones = await prisma.equipoPlantillaRequisito.findMany({
+    const requirements = await prisma.plantillaRequisitoTemplate.findMany({
       where: {
-        equipoId,
-        asignadoHasta: null,
-        plantillaRequisito: { tenantEmpresaId, activo: true },
+        tenantEmpresaId,
+        plantillaRequisito: {
+          activo: true,
+          equipos: { some: { equipoId, asignadoHasta: null } },
+        },
       },
-      select: { plantillaRequisitoId: true },
+      include: {
+        template: true,
+        plantillaRequisito: {
+          include: { cliente: { select: { id: true, razonSocial: true } } },
+        },
+      },
+      orderBy: [{ entityType: 'asc' }, { templateId: 'asc' }],
     });
 
-    const plantillaIds = asociaciones.map((a) => a.plantillaRequisitoId);
-    return this.getConsolidatedTemplates(tenantEmpresaId, plantillaIds);
+    const consolidated = new Map<string, ConsolidatedTemplateFromPlantilla>();
+    for (const req of requirements) {
+      mergeTemplateFromPlantilla(consolidated, req);
+    }
+
+    const templates = Array.from(consolidated.values());
+    const byEntityType: Record<string, ConsolidatedTemplateFromPlantilla[]> = {
+      DADOR: [], EMPRESA_TRANSPORTISTA: [], CHOFER: [], CAMION: [], ACOPLADO: [],
+    };
+    for (const t of templates) {
+      if (byEntityType[t.entityType]) byEntityType[t.entityType].push(t);
+    }
+
+    return { templates, byEntityType };
   }
 
   /**

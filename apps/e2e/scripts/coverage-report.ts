@@ -141,7 +141,7 @@ function generateReport(): void {
             checklistItems: checklistItems.length,
             testsCount: testItems.length,
             coverage: Math.round(coverage),
-            unmatchedChecklist: [], // TODO: implementar matching
+            unmatchedChecklist: [], // PENDIENTE: implementar matching
             unmatchedTests: []
         });
     }

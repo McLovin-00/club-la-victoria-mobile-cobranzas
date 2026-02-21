@@ -48,8 +48,7 @@
     "src/services/strategies/**",
     "src/services/chat-processor-*.ts",
     "src/services/gateway.service.ts",
-    "src/routes/gateway.routes.ts",
-    "src/seed/**"
+    "src/routes/gateway.routes.ts"
   ],
   "references": [
     { "path": "../../packages/types" },
