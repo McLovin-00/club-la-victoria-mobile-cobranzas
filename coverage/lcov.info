@@ -1,5 +1,5 @@
 TN:
-SF:src/index.ts
+SF:apps/documentos/src/index.ts
 FN:28,findExistingPath
 FN:37,getOpenApiCandidates
 FN:45,setupOpenApiEndpoints
@@ -181,7 +181,7 @@ BRF:21
 BRH:17
 end_of_record
 TN:
-SF:src/config/auth.ts
+SF:apps/documentos/src/config/auth.ts
 FN:20,extractAuthPayload
 FN:39,(anonymous_10)
 FN:57,(anonymous_11)
@@ -294,7 +294,7 @@ BRF:41
 BRH:40
 end_of_record
 TN:
-SF:src/config/database.ts
+SF:apps/documentos/src/config/database.ts
 FN:9,(anonymous_0)
 FN:21,(anonymous_1)
 FN:29,(anonymous_2)
@@ -369,7 +369,7 @@ BRF:4
 BRH:2
 end_of_record
 TN:
-SF:src/config/environment.ts
+SF:apps/documentos/src/config/environment.ts
 FN:5,(anonymous_0)
 FN:8,(anonymous_1)
 FN:21,(anonymous_2)
@@ -440,7 +440,7 @@ BRF:6
 BRH:4
 end_of_record
 TN:
-SF:src/config/logger.ts
+SF:apps/documentos/src/config/logger.ts
 FN:33,(anonymous_1)
 FN:40,(anonymous_2)
 FN:42,(anonymous_3)
@@ -524,7 +524,7 @@ BRF:24
 BRH:16
 end_of_record
 TN:
-SF:src/controllers/approval.controller.ts
+SF:apps/documentos/src/controllers/approval.controller.ts
 FN:20,extractUserFromRequest
 FN:33,validateCanApprove
 FN:50,(anonymous_11)
@@ -776,7 +776,7 @@ BRF:82
 BRH:60
 end_of_record
 TN:
-SF:src/controllers/clients.controller.ts
+SF:apps/documentos/src/controllers/clients.controller.ts
 FN:6,(anonymous_9)
 FN:9,(anonymous_10)
 FN:14,(anonymous_11)
@@ -830,7 +830,7 @@ BRF:4
 BRH:3
 end_of_record
 TN:
-SF:src/controllers/compliance.controller.ts
+SF:apps/documentos/src/controllers/compliance.controller.ts
 FN:13,(anonymous_0)
 FN:55,(anonymous_1)
 FNF:2
@@ -879,7 +879,7 @@ BRF:14
 BRH:12
 end_of_record
 TN:
-SF:src/controllers/config.controller.ts
+SF:apps/documentos/src/controllers/config.controller.ts
 FN:16,(anonymous_0)
 FN:71,(anonymous_1)
 FN:86,(anonymous_2)
@@ -968,7 +968,7 @@ BRF:24
 BRH:17
 end_of_record
 TN:
-SF:src/controllers/dadores.controller.ts
+SF:apps/documentos/src/controllers/dadores.controller.ts
 FN:7,(anonymous_9)
 FN:10,(anonymous_10)
 FN:15,(anonymous_11)
@@ -1020,7 +1020,7 @@ BRF:8
 BRH:6
 end_of_record
 TN:
-SF:src/controllers/dashboard.controller.ts
+SF:apps/documentos/src/controllers/dashboard.controller.ts
 FN:14,getAdminStats
 FN:25,getDadorStats
 FN:35,getTransportistaStats
@@ -1505,7 +1505,7 @@ BRF:126
 BRH:49
 end_of_record
 TN:
-SF:src/controllers/defaults.controller.ts
+SF:apps/documentos/src/controllers/defaults.controller.ts
 FN:6,(anonymous_0)
 FN:18,(anonymous_1)
 FN:31,(anonymous_2)
@@ -1555,7 +1555,7 @@ BRF:18
 BRH:13
 end_of_record
 TN:
-SF:src/controllers/documents.controller.ts
+SF:apps/documentos/src/controllers/documents.controller.ts
 FN:24,(anonymous_10)
 FN:42,toValidDate
 FN:50,parseIsoDate
@@ -2225,7 +2225,7 @@ BRF:230
 BRH:187
 end_of_record
 TN:
-SF:src/controllers/empresas-transportistas.controller.ts
+SF:apps/documentos/src/controllers/empresas-transportistas.controller.ts
 FN:6,handleError
 FN:23,(anonymous_1)
 FN:49,(anonymous_2)
@@ -2334,7 +2334,7 @@ BRF:24
 BRH:18
 end_of_record
 TN:
-SF:src/controllers/entity-data.controller.ts
+SF:apps/documentos/src/controllers/entity-data.controller.ts
 FN:11,validateParams
 FN:15,sendError
 FN:27,extractDisparidades
@@ -2523,7 +2523,7 @@ BRF:56
 BRH:43
 end_of_record
 TN:
-SF:src/controllers/equipos.controller.ts
+SF:apps/documentos/src/controllers/equipos.controller.ts
 FN:9,parseActivo
 FN:15,getDefaultDadorId
 FN:19,(anonymous_11)
@@ -2777,7 +2777,7 @@ BRF:102
 BRH:66
 end_of_record
 TN:
-SF:src/controllers/evolution-config.controller.ts
+SF:apps/documentos/src/controllers/evolution-config.controller.ts
 FN:10,normalizeServerUrl
 FN:19,tryEndpoint
 FN:24,(anonymous_2)
@@ -2888,7 +2888,7 @@ BRF:39
 BRH:36
 end_of_record
 TN:
-SF:src/controllers/flowise-config.controller.ts
+SF:apps/documentos/src/controllers/flowise-config.controller.ts
 FN:24,requireSuperadmin
 FN:31,validateFlowiseInput
 FN:48,fetchWithTimeout
@@ -3075,7 +3075,7 @@ BRF:76
 BRH:50
 end_of_record
 TN:
-SF:src/controllers/maestros.controller.ts
+SF:apps/documentos/src/controllers/maestros.controller.ts
 FN:8,(anonymous_0)
 FN:15,(anonymous_1)
 FN:19,(anonymous_2)
@@ -3224,7 +3224,7 @@ BRF:38
 BRH:23
 end_of_record
 TN:
-SF:src/controllers/notifications.controller.ts
+SF:apps/documentos/src/controllers/notifications.controller.ts
 FN:15,(anonymous_0)
 FN:48,(anonymous_1)
 FN:71,(anonymous_2)
@@ -3324,7 +3324,7 @@ BRF:16
 BRH:0
 end_of_record
 TN:
-SF:src/controllers/plantillas.controller.ts
+SF:apps/documentos/src/controllers/plantillas.controller.ts
 FN:14,(anonymous_0)
 FN:24,(anonymous_1)
 FN:35,(anonymous_2)
@@ -3452,7 +3452,7 @@ BRF:14
 BRH:0
 end_of_record
 TN:
-SF:src/controllers/portal-cliente.controller.ts
+SF:apps/documentos/src/controllers/portal-cliente.controller.ts
 FN:29,parseQueryParams
 FN:41,determineComplianceState
 FN:55,(anonymous_11)
@@ -4110,7 +4110,7 @@ BRF:226
 BRH:169
 end_of_record
 TN:
-SF:src/controllers/portal-transportista.controller.ts
+SF:apps/documentos/src/controllers/portal-transportista.controller.ts
 FN:22,buildEquipoFilter
 FN:36,transformEquipoResponse
 FN:44,(anonymous_2)
@@ -4359,7 +4359,7 @@ BRF:95
 BRH:72
 end_of_record
 TN:
-SF:src/controllers/search.controller.ts
+SF:apps/documentos/src/controllers/search.controller.ts
 FN:7,normalizeDni
 FN:11,normalizePlate
 FN:16,parseQueryNum
@@ -4450,7 +4450,7 @@ BRF:34
 BRH:26
 end_of_record
 TN:
-SF:src/controllers/storage.controller.ts
+SF:apps/documentos/src/controllers/storage.controller.ts
 FN:11,(anonymous_0)
 FNF:1
 FNH:1
@@ -4482,7 +4482,7 @@ BRF:6
 BRH:6
 end_of_record
 TN:
-SF:src/controllers/templates.controller.ts
+SF:apps/documentos/src/controllers/templates.controller.ts
 FN:17,(anonymous_0)
 FN:63,(anonymous_1)
 FN:87,(anonymous_2)
@@ -4626,7 +4626,7 @@ BRF:50
 BRH:46
 end_of_record
 TN:
-SF:src/middlewares/audit.middleware.ts
+SF:apps/documentos/src/middlewares/audit.middleware.ts
 FN:12,(anonymous_0)
 FN:17,(anonymous_1)
 FNF:2
@@ -4654,7 +4654,7 @@ BRF:6
 BRH:5
 end_of_record
 TN:
-SF:src/middlewares/auth.middleware.ts
+SF:apps/documentos/src/middlewares/auth.middleware.ts
 FN:20,extractToken
 FN:32,(anonymous_1)
 FN:44,(anonymous_2)
@@ -4842,7 +4842,7 @@ BRF:57
 BRH:49
 end_of_record
 TN:
-SF:src/middlewares/authorizeTransportista.middleware.ts
+SF:apps/documentos/src/middlewares/authorizeTransportista.middleware.ts
 FN:17,getNumberFromUserOrMeta
 FN:24,getStringFromUserOrMeta
 FN:31,extractTransportScope
@@ -4964,7 +4964,7 @@ BRF:51
 BRH:43
 end_of_record
 TN:
-SF:src/middlewares/autoFilterByDador.middleware.ts
+SF:apps/documentos/src/middlewares/autoFilterByDador.middleware.ts
 FN:12,autoFilterByDador
 FN:46,(anonymous_1)
 FNF:2
@@ -5027,7 +5027,7 @@ BRF:19
 BRH:17
 end_of_record
 TN:
-SF:src/middlewares/error.middleware.ts
+SF:apps/documentos/src/middlewares/error.middleware.ts
 FN:14,(anonymous_0)
 FN:75,(anonymous_1)
 FN:92,(anonymous_2)
@@ -5088,7 +5088,7 @@ BRF:15
 BRH:13
 end_of_record
 TN:
-SF:src/middlewares/ownership.middleware.ts
+SF:apps/documentos/src/middlewares/ownership.middleware.ts
 FN:17,checkClienteAccess
 FN:18,(anonymous_1)
 FN:32,checkTenantAccess
@@ -5224,7 +5224,7 @@ BRF:36
 BRH:31
 end_of_record
 TN:
-SF:src/middlewares/rateLimiter.middleware.ts
+SF:apps/documentos/src/middlewares/rateLimiter.middleware.ts
 FN:20,(anonymous_1)
 FNF:1
 FNH:1
@@ -5257,7 +5257,7 @@ BRF:11
 BRH:6
 end_of_record
 TN:
-SF:src/middlewares/requestContext.middleware.ts
+SF:apps/documentos/src/middlewares/requestContext.middleware.ts
 FN:16,(anonymous_0)
 FNF:1
 FNH:1
@@ -5281,7 +5281,7 @@ BRF:6
 BRH:4
 end_of_record
 TN:
-SF:src/routes/approval.routes.ts
+SF:apps/documentos/src/routes/approval.routes.ts
 FN:16,(anonymous_0)
 FNF:1
 FNH:1
@@ -5330,7 +5330,7 @@ BRF:10
 BRH:9
 end_of_record
 TN:
-SF:src/routes/audit.routes.ts
+SF:apps/documentos/src/routes/audit.routes.ts
 FN:14,buildWhereFromQuery
 FN:50,(anonymous_10)
 FN:100,(anonymous_11)
@@ -5502,7 +5502,7 @@ BRF:64
 BRH:41
 end_of_record
 TN:
-SF:src/routes/batch.routes.ts
+SF:apps/documentos/src/routes/batch.routes.ts
 FN:16,processEquipoCsvRow
 FN:42,generateErrorsCsv
 FN:44,(anonymous_12)
@@ -5770,7 +5770,7 @@ BRF:97
 BRH:87
 end_of_record
 TN:
-SF:src/routes/clients.routes.ts
+SF:apps/documentos/src/routes/clients.routes.ts
 FN:11,getArchiver
 FN:13,(anonymous_10)
 FN:20,getExcelJS
@@ -6172,7 +6172,7 @@ BRF:117
 BRH:75
 end_of_record
 TN:
-SF:src/routes/compliance.routes.ts
+SF:apps/documentos/src/routes/compliance.routes.ts
 FNF:0
 FNH:0
 DA:1,3
@@ -6186,7 +6186,7 @@ BRF:0
 BRH:0
 end_of_record
 TN:
-SF:src/routes/config.routes.ts
+SF:apps/documentos/src/routes/config.routes.ts
 FNF:0
 FNH:0
 DA:1,4
@@ -6206,7 +6206,7 @@ BRF:0
 BRH:0
 end_of_record
 TN:
-SF:src/routes/dadores.routes.ts
+SF:apps/documentos/src/routes/dadores.routes.ts
 FNF:0
 FNH:0
 DA:1,3
@@ -6228,7 +6228,7 @@ BRF:0
 BRH:0
 end_of_record
 TN:
-SF:src/routes/dashboard.routes.ts
+SF:apps/documentos/src/routes/dashboard.routes.ts
 FNF:0
 FNH:0
 DA:1,4
@@ -6256,7 +6256,7 @@ BRF:0
 BRH:0
 end_of_record
 TN:
-SF:src/routes/defaults.routes.ts
+SF:apps/documentos/src/routes/defaults.routes.ts
 FNF:0
 FNH:0
 DA:1,3
@@ -6274,7 +6274,7 @@ BRF:0
 BRH:0
 end_of_record
 TN:
-SF:src/routes/documents.routes.ts
+SF:apps/documentos/src/routes/documents.routes.ts
 FN:18,(anonymous_0)
 FNF:1
 FNH:1
@@ -6311,7 +6311,7 @@ BRF:2
 BRH:2
 end_of_record
 TN:
-SF:src/routes/empresas-transportistas.routes.ts
+SF:apps/documentos/src/routes/empresas-transportistas.routes.ts
 FNF:0
 FNH:0
 DA:1,3
@@ -6335,7 +6335,7 @@ BRF:0
 BRH:0
 end_of_record
 TN:
-SF:src/routes/entity-data.routes.ts
+SF:apps/documentos/src/routes/entity-data.routes.ts
 FNF:0
 FNH:0
 DA:1,3
@@ -6357,7 +6357,7 @@ BRF:0
 BRH:0
 end_of_record
 TN:
-SF:src/routes/equipos-download.routes.ts
+SF:apps/documentos/src/routes/equipos-download.routes.ts
 FN:28,buildExcelRowsOnly
 FN:57,generateExcelBuffer
 FN:81,(anonymous_3)
@@ -6513,7 +6513,7 @@ BRF:54
 BRH:0
 end_of_record
 TN:
-SF:src/routes/equipos.routes.ts
+SF:apps/documentos/src/routes/equipos.routes.ts
 FN:18,getArchiver
 FN:20,(anonymous_10)
 FN:29,parseFilePath
@@ -7133,7 +7133,7 @@ BRF:207
 BRH:100
 end_of_record
 TN:
-SF:src/routes/evolution-config.routes.ts
+SF:apps/documentos/src/routes/evolution-config.routes.ts
 FNF:0
 FNH:0
 DA:1,3
@@ -7150,7 +7150,7 @@ BRF:0
 BRH:0
 end_of_record
 TN:
-SF:src/routes/flowise-config.routes.ts
+SF:apps/documentos/src/routes/flowise-config.routes.ts
 FNF:0
 FNH:0
 DA:1,3
@@ -7168,7 +7168,7 @@ BRF:0
 BRH:0
 end_of_record
 TN:
-SF:src/routes/health.routes.ts
+SF:apps/documentos/src/routes/health.routes.ts
 FN:20,(anonymous_0)
 FN:50,(anonymous_1)
 FN:120,(anonymous_2)
@@ -7241,7 +7241,7 @@ BRF:16
 BRH:13
 end_of_record
 TN:
-SF:src/routes/index.ts
+SF:apps/documentos/src/routes/index.ts
 FN:53,(anonymous_10)
 FN:128,(anonymous_11)
 FN:149,(anonymous_12)
@@ -7343,7 +7343,7 @@ BRF:2
 BRH:0
 end_of_record
 TN:
-SF:src/routes/maestros.routes.ts
+SF:apps/documentos/src/routes/maestros.routes.ts
 FNF:0
 FNH:0
 DA:1,3
@@ -7377,7 +7377,7 @@ BRF:0
 BRH:0
 end_of_record
 TN:
-SF:src/routes/metrics.routes.ts
+SF:apps/documentos/src/routes/metrics.routes.ts
 FN:12,(anonymous_9)
 FN:30,(anonymous_10)
 FN:41,(anonymous_11)
@@ -7478,7 +7478,7 @@ BRF:16
 BRH:15
 end_of_record
 TN:
-SF:src/routes/notifications.routes.ts
+SF:apps/documentos/src/routes/notifications.routes.ts
 FNF:0
 FNH:0
 DA:1,3
@@ -7499,7 +7499,7 @@ BRF:0
 BRH:0
 end_of_record
 TN:
-SF:src/routes/plantillas.routes.ts
+SF:apps/documentos/src/routes/plantillas.routes.ts
 FN:17,(anonymous_0)
 FN:26,(anonymous_1)
 FN:32,(anonymous_2)
@@ -7603,7 +7603,7 @@ BRF:2
 BRH:0
 end_of_record
 TN:
-SF:src/routes/portal-cliente.routes.ts
+SF:apps/documentos/src/routes/portal-cliente.routes.ts
 FNF:0
 FNH:0
 DA:1,3
@@ -7626,7 +7626,7 @@ BRF:0
 BRH:0
 end_of_record
 TN:
-SF:src/routes/portal-transportista.routes.ts
+SF:apps/documentos/src/routes/portal-transportista.routes.ts
 FNF:0
 FNH:0
 DA:1,3
@@ -7646,7 +7646,7 @@ BRF:0
 BRH:0
 end_of_record
 TN:
-SF:src/routes/search.routes.ts
+SF:apps/documentos/src/routes/search.routes.ts
 FNF:0
 FNH:0
 DA:1,3
@@ -7665,7 +7665,7 @@ BRF:0
 BRH:0
 end_of_record
 TN:
-SF:src/routes/storage.routes.ts
+SF:apps/documentos/src/routes/storage.routes.ts
 FNF:0
 FNH:0
 DA:1,3
@@ -7681,7 +7681,7 @@ BRF:0
 BRH:0
 end_of_record
 TN:
-SF:src/routes/templates.routes.ts
+SF:apps/documentos/src/routes/templates.routes.ts
 FNF:0
 FNH:0
 DA:1,5
@@ -7702,7 +7702,7 @@ BRF:0
 BRH:0
 end_of_record
 TN:
-SF:src/routes/transferencias.routes.ts
+SF:apps/documentos/src/routes/transferencias.routes.ts
 FN:63,(anonymous_0)
 FN:91,(anonymous_1)
 FN:126,(anonymous_2)
@@ -7852,7 +7852,7 @@ BRF:22
 BRH:0
 end_of_record
 TN:
-SF:src/routes/transportistas.routes.ts
+SF:apps/documentos/src/routes/transportistas.routes.ts
 FN:10,buildSearchFilter
 FN:45,findChoferByUser
 FN:57,(anonymous_2)
@@ -7947,7 +7947,7 @@ BRF:39
 BRH:34
 end_of_record
 TN:
-SF:src/schemas/audit.schemas.ts
+SF:apps/documentos/src/schemas/audit.schemas.ts
 FN:6,(anonymous_0)
 FN:9,(anonymous_1)
 FN:13,(anonymous_2)
@@ -7983,7 +7983,7 @@ BRF:10
 BRH:5
 end_of_record
 TN:
-SF:src/schemas/validation.schemas.ts
+SF:apps/documentos/src/schemas/validation.schemas.ts
 FN:29,(anonymous_0)
 FN:44,(anonymous_1)
 FN:50,(anonymous_2)
@@ -8362,7 +8362,7 @@ BRF:45
 BRH:36
 end_of_record
 TN:
-SF:src/scripts/resetTemplates.ts
+SF:apps/documentos/src/scripts/resetTemplates.ts
 FN:42,resetTemplates
 FN:43,(anonymous_1)
 FN:47,(anonymous_2)
@@ -8419,7 +8419,7 @@ BRF:8
 BRH:7
 end_of_record
 TN:
-SF:src/services/alert.service.ts
+SF:apps/documentos/src/services/alert.service.ts
 FN:30,(anonymous_0)
 FN:34,(anonymous_1)
 FN:44,(anonymous_2)
@@ -8510,7 +8510,7 @@ BRF:10
 BRH:8
 end_of_record
 TN:
-SF:src/services/approval.service.ts
+SF:apps/documentos/src/services/approval.service.ts
 FN:10,(anonymous_9)
 FN:11,(anonymous_10)
 FN:12,(anonymous_11)
@@ -8943,7 +8943,7 @@ BRF:168
 BRH:129
 end_of_record
 TN:
-SF:src/services/audit.service.ts
+SF:apps/documentos/src/services/audit.service.ts
 FN:35,(anonymous_9)
 FN:42,(anonymous_10)
 FN:73,(anonymous_11)
@@ -9018,7 +9018,7 @@ BRF:30
 BRH:28
 end_of_record
 TN:
-SF:src/services/clients.service.ts
+SF:apps/documentos/src/services/clients.service.ts
 FN:14,mergeRequirement
 FN:59,getOrCreateDefaultPlantilla
 FN:85,(anonymous_2)
@@ -9176,7 +9176,7 @@ BRF:42
 BRH:4
 end_of_record
 TN:
-SF:src/services/compliance.service.ts
+SF:apps/documentos/src/services/compliance.service.ts
 FN:11,getCached
 FN:21,setCache
 FN:30,(anonymous_2)
@@ -9540,7 +9540,7 @@ BRF:117
 BRH:13
 end_of_record
 TN:
-SF:src/services/dador.service.ts
+SF:apps/documentos/src/services/dador.service.ts
 FN:14,(anonymous_0)
 FN:21,(anonymous_1)
 FN:28,(anonymous_2)
@@ -9584,7 +9584,7 @@ BRF:6
 BRH:3
 end_of_record
 TN:
-SF:src/services/document-archive.service.ts
+SF:apps/documentos/src/services/document-archive.service.ts
 FN:25,(anonymous_9)
 FN:31,(anonymous_10)
 FN:57,(anonymous_11)
@@ -9711,7 +9711,7 @@ BRF:26
 BRH:11
 end_of_record
 TN:
-SF:src/services/document-event-handlers.service.ts
+SF:apps/documentos/src/services/document-event-handlers.service.ts
 FN:27,obtenerEntityIdentifier
 FN:59,obtenerInfoDocumento
 FN:88,getTituloContextualizado
@@ -9952,7 +9952,7 @@ BRF:70
 BRH:0
 end_of_record
 TN:
-SF:src/services/document-precheck.service.ts
+SF:apps/documentos/src/services/document-precheck.service.ts
 FN:106,normalizeIdentificador
 FN:116,calcularEstadoDocumento
 FN:161,buscarEntidad
@@ -10205,7 +10205,7 @@ BRF:80
 BRH:65
 end_of_record
 TN:
-SF:src/services/document-stakeholders.service.ts
+SF:apps/documentos/src/services/document-stakeholders.service.ts
 FN:27,(anonymous_0)
 FN:84,(anonymous_1)
 FN:95,(anonymous_2)
@@ -10308,7 +10308,7 @@ BRF:20
 BRH:18
 end_of_record
 TN:
-SF:src/services/document-validation.service.ts
+SF:apps/documentos/src/services/document-validation.service.ts
 FN:71,(anonymous_1)
 FN:73,(anonymous_2)
 FN:83,(anonymous_3)
@@ -10604,7 +10604,7 @@ BRF:138
 BRH:109
 end_of_record
 TN:
-SF:src/services/document-zip.service.ts
+SF:apps/documentos/src/services/document-zip.service.ts
 FN:58,loadEquipoWithRelations
 FN:79,buildExcelRow
 FN:92,loadEquipoDocuments
@@ -10943,7 +10943,7 @@ BRF:99
 BRH:72
 end_of_record
 TN:
-SF:src/services/document.service.ts
+SF:apps/documentos/src/services/document.service.ts
 FN:17,(anonymous_0)
 FN:54,(anonymous_1)
 FN:73,(anonymous_2)
@@ -11084,7 +11084,7 @@ BRF:26
 BRH:20
 end_of_record
 TN:
-SF:src/services/empresa-transportista.service.ts
+SF:apps/documentos/src/services/empresa-transportista.service.ts
 FN:5,(anonymous_0)
 FN:39,(anonymous_1)
 FN:49,(anonymous_2)
@@ -11153,7 +11153,7 @@ BRF:19
 BRH:12
 end_of_record
 TN:
-SF:src/services/equipo-estado.service.ts
+SF:apps/documentos/src/services/equipo-estado.service.ts
 FN:26,calculateClienteCompliance
 FN:42,countDocumentStatuses
 FN:70,determineSemaforo
@@ -11256,7 +11256,7 @@ BRF:43
 BRH:41
 end_of_record
 TN:
-SF:src/services/equipo-evaluation.service.ts
+SF:apps/documentos/src/services/equipo-evaluation.service.ts
 FN:48,obtenerEntidadesEquipo
 FN:126,obtenerTemplatesRequeridos
 FN:139,(anonymous_2)
@@ -11525,7 +11525,7 @@ BRF:83
 BRH:67
 end_of_record
 TN:
-SF:src/services/equipo.service.ts
+SF:apps/documentos/src/services/equipo.service.ts
 FN:8,normalizeDni
 FN:12,normalizePlate
 FN:23,validateEmpresaTransportista
@@ -12819,7 +12819,7 @@ BRF:510
 BRH:324
 end_of_record
 TN:
-SF:src/services/evolution-client.service.ts
+SF:apps/documentos/src/services/evolution-client.service.ts
 FN:5,(anonymous_0)
 FN:13,(anonymous_1)
 FNF:2
@@ -12869,7 +12869,7 @@ BRF:13
 BRH:13
 end_of_record
 TN:
-SF:src/services/file-naming.service.ts
+SF:apps/documentos/src/services/file-naming.service.ts
 FN:13,(anonymous_0)
 FN:29,(anonymous_1)
 FN:106,(anonymous_2)
@@ -12956,7 +12956,7 @@ BRF:24
 BRH:23
 end_of_record
 TN:
-SF:src/services/flowise.service.ts
+SF:apps/documentos/src/services/flowise.service.ts
 FN:44,getRasterConfig
 FN:60,buildRasterArgs
 FN:85,tryRasterize
@@ -13464,7 +13464,7 @@ BRF:184
 BRH:143
 end_of_record
 TN:
-SF:src/services/internal-notification.service.ts
+SF:apps/documentos/src/services/internal-notification.service.ts
 FN:51,(anonymous_0)
 FN:84,(anonymous_1)
 FN:89,(anonymous_2)
@@ -13631,7 +13631,7 @@ BRF:33
 BRH:26
 end_of_record
 TN:
-SF:src/services/jobs.service.ts
+SF:apps/documentos/src/services/jobs.service.ts
 FN:44,loadBatchContext
 FN:45,(anonymous_10)
 FN:46,(anonymous_11)
@@ -13837,7 +13837,7 @@ BRF:58
 BRH:32
 end_of_record
 TN:
-SF:src/services/maestros.service.ts
+SF:apps/documentos/src/services/maestros.service.ts
 FN:6,(anonymous_9)
 FN:7,(anonymous_10)
 FN:16,enqueueMissingCheck
@@ -14051,7 +14051,7 @@ BRF:80
 BRH:51
 end_of_record
 TN:
-SF:src/services/maintenance.service.ts
+SF:apps/documentos/src/services/maintenance.service.ts
 FN:6,(anonymous_0)
 FNF:1
 FNH:1
@@ -14086,7 +14086,7 @@ BRF:8
 BRH:5
 end_of_record
 TN:
-SF:src/services/media.service.ts
+SF:apps/documentos/src/services/media.service.ts
 FN:10,(anonymous_0)
 FN:14,(anonymous_1)
 FN:18,(anonymous_2)
@@ -14147,7 +14147,7 @@ BRF:12
 BRH:11
 end_of_record
 TN:
-SF:src/services/minio.service.ts
+SF:apps/documentos/src/services/minio.service.ts
 FN:9,sanitizeMetaValue
 FN:19,isRetryableError
 FN:25,parseEndpoint
@@ -14440,7 +14440,7 @@ BRF:66
 BRH:51
 end_of_record
 TN:
-SF:src/services/notification.service.ts
+SF:apps/documentos/src/services/notification.service.ts
 FN:34,toDays
 FN:40,loadChoferData
 FN:57,sendToPhones
@@ -14703,7 +14703,7 @@ BRF:96
 BRH:69
 end_of_record
 TN:
-SF:src/services/pdf-rasterize.service.ts
+SF:apps/documentos/src/services/pdf-rasterize.service.ts
 FN:19,(anonymous_9)
 FN:70,(anonymous_10)
 FN:71,(anonymous_11)
@@ -14778,7 +14778,7 @@ BRF:11
 BRH:8
 end_of_record
 TN:
-SF:src/services/performance.service.ts
+SF:apps/documentos/src/services/performance.service.ts
 FN:13,(anonymous_0)
 FN:17,(anonymous_1)
 FN:18,(anonymous_2)
@@ -14933,7 +14933,7 @@ BRF:33
 BRH:27
 end_of_record
 TN:
-SF:src/services/permissions.service.ts
+SF:apps/documentos/src/services/permissions.service.ts
 FN:15,getMetaNumber
 FN:21,getMetaString
 FN:27,(anonymous_2)
@@ -15042,7 +15042,7 @@ BRF:50
 BRH:47
 end_of_record
 TN:
-SF:src/services/plantillas.service.ts
+SF:apps/documentos/src/services/plantillas.service.ts
 FN:20,mergeTemplateFromPlantilla
 FN:75,reevaluarEquiposPorPlantilla
 FN:83,(anonymous_11)
@@ -15336,7 +15336,7 @@ BRF:89
 BRH:75
 end_of_record
 TN:
-SF:src/services/queue.service.ts
+SF:apps/documentos/src/services/queue.service.ts
 FN:32,(anonymous_9)
 FN:56,(anonymous_10)
 FN:59,(anonymous_11)
@@ -15504,7 +15504,7 @@ BRF:32
 BRH:24
 end_of_record
 TN:
-SF:src/services/rejection-notification.service.ts
+SF:apps/documentos/src/services/rejection-notification.service.ts
 FN:14,(anonymous_0)
 FN:54,(anonymous_1)
 FN:69,(anonymous_2)
@@ -15596,7 +15596,7 @@ BRF:24
 BRH:23
 end_of_record
 TN:
-SF:src/services/requirement-notification.service.ts
+SF:apps/documentos/src/services/requirement-notification.service.ts
 FN:26,(anonymous_0)
 FN:49,(anonymous_1)
 FN:84,(anonymous_2)
@@ -15714,7 +15714,7 @@ BRF:29
 BRH:0
 end_of_record
 TN:
-SF:src/services/scheduler.service.ts
+SF:apps/documentos/src/services/scheduler.service.ts
 FN:17,(anonymous_9)
 FN:21,(anonymous_10)
 FN:31,(anonymous_11)
@@ -16104,7 +16104,7 @@ BRF:40
 BRH:25
 end_of_record
 TN:
-SF:src/services/status.service.ts
+SF:apps/documentos/src/services/status.service.ts
 FN:42,(anonymous_0)
 FN:71,(anonymous_1)
 FN:97,(anonymous_2)
@@ -16287,7 +16287,7 @@ BRF:45
 BRH:36
 end_of_record
 TN:
-SF:src/services/system-config.service.ts
+SF:apps/documentos/src/services/system-config.service.ts
 FN:24,(anonymous_0)
 FN:35,(anonymous_1)
 FN:63,(anonymous_2)
@@ -16409,7 +16409,7 @@ BRF:29
 BRH:27
 end_of_record
 TN:
-SF:src/services/thumbnail.service.ts
+SF:apps/documentos/src/services/thumbnail.service.ts
 FN:9,(anonymous_1)
 FN:13,(anonymous_2)
 FN:39,(anonymous_3)
@@ -16486,7 +16486,7 @@ BRF:14
 BRH:9
 end_of_record
 TN:
-SF:src/services/transferencia.service.ts
+SF:apps/documentos/src/services/transferencia.service.ts
 FN:65,obtenerNombreDador
 FN:76,buscarEquiposAfectados
 FN:125,obtenerAdminsParaNotificar
@@ -16700,7 +16700,7 @@ BRF:48
 BRH:35
 end_of_record
 TN:
-SF:src/services/user-notification-resolver.service.ts
+SF:apps/documentos/src/services/user-notification-resolver.service.ts
 FN:37,(anonymous_0)
 FN:61,(anonymous_1)
 FN:67,(anonymous_2)
@@ -16886,7 +16886,7 @@ BRF:44
 BRH:0
 end_of_record
 TN:
-SF:src/services/websocket.service.ts
+SF:apps/documentos/src/services/websocket.service.ts
 FN:16,(anonymous_1)
 FN:18,(anonymous_2)
 FN:25,(anonymous_3)
@@ -17090,7 +17090,7 @@ BRF:58
 BRH:44
 end_of_record
 TN:
-SF:src/types/roles.ts
+SF:apps/documentos/src/types/roles.ts
 FN:1,(anonymous_0)
 FNF:1
 FNH:1
@@ -17114,7 +17114,7 @@ BRF:2
 BRH:2
 end_of_record
 TN:
-SF:src/utils/expiration.utils.ts
+SF:apps/documentos/src/utils/expiration.utils.ts
 FN:31,normalizeExpirationToEndOfDayAR
 FN:71,isDocumentExpired
 FNF:2
@@ -17157,7 +17157,7 @@ BRF:13
 BRH:13
 end_of_record
 TN:
-SF:src/utils/jwt.utils.ts
+SF:apps/documentos/src/utils/jwt.utils.ts
 FN:11,getJwtPublicKey
 FN:22,verifyJwtFromForm
 FNF:2
@@ -17185,7 +17185,7 @@ BRF:4
 BRH:4
 end_of_record
 TN:
-SF:src/utils/params.ts
+SF:apps/documentos/src/utils/params.ts
 FN:17,parseParamId
 FN:43,parseParamString
 FN:60,parseParamIdOptional
@@ -17244,7 +17244,7 @@ BRF:23
 BRH:16
 end_of_record
 TN:
-SF:src/utils/swaggerUi.ts
+SF:apps/documentos/src/utils/swaggerUi.ts
 FN:10,tryGetSwaggerUi
 FNF:1
 FNH:1
@@ -17262,7 +17262,7 @@ BRF:2
 BRH:2
 end_of_record
 TN:
-SF:src/workers/document-ai-validation.worker.ts
+SF:apps/documentos/src/workers/document-ai-validation.worker.ts
 FN:33,getFileFromMinio
 FN:51,getImageBase64
 FN:81,(anonymous_2)
@@ -17411,7 +17411,7 @@ BRF:36
 BRH:14
 end_of_record
 TN:
-SF:src/workers/document-validation.worker.ts
+SF:apps/documentos/src/workers/document-validation.worker.ts
 FN:42,(anonymous_9)
 FN:43,(anonymous_10)
 FN:44,(anonymous_11)
@@ -17837,7 +17837,7 @@ BRF:139
 BRH:103
 end_of_record
 TN:
-SF:src/workers/document-zip.worker.ts
+SF:apps/documentos/src/workers/document-zip.worker.ts
 FN:4,main
 FN:6,(anonymous_10)
 FNF:2
@@ -17864,7 +17864,7 @@ BRF:6
 BRH:3
 end_of_record
 TN:
-SF:src/workers/notifications.worker.ts
+SF:apps/documentos/src/workers/notifications.worker.ts
 FN:11,getNotificationsWorker
 FN:16,(anonymous_1)
 FNF:2
@@ -17902,7 +17902,7 @@ BRF:6
 BRH:5
 end_of_record
 TN:
-SF:src\features\auth\authSlice.ts
+SF:apps/frontend/src/features/auth/authSlice.ts
 FN:17,(anonymous_0)
 FN:56,(anonymous_1)
 FN:72,(anonymous_2)
@@ -18025,7 +18025,7 @@ BRF:21
 BRH:19
 end_of_record
 TN:
-SF:src\features\auth\navigationUtils.ts
+SF:apps/frontend/src/features/auth/navigationUtils.ts
 FN:19,getDestinationByRole
 FN:42,isValidRole
 FN:60,getLoginErrorMessage
@@ -18075,7 +18075,7 @@ BRF:16
 BRH:16
 end_of_record
 TN:
-SF:src\features\auth\api\authApiSlice.ts
+SF:apps/frontend/src/features/auth/api/authApiSlice.ts
 FN:5,(anonymous_0)
 FN:7,(anonymous_1)
 FN:12,(anonymous_2)
@@ -18108,7 +18108,7 @@ BRF:0
 BRH:0
 end_of_record
 TN:
-SF:src\features\auth\components\LoginForm.tsx
+SF:apps/frontend/src/features/auth/components/LoginForm.tsx
 FN:14,(anonymous_0)
 FN:26,(anonymous_1)
 FNF:2
@@ -18159,7 +18159,7 @@ BRF:16
 BRH:15
 end_of_record
 TN:
-SF:src\features\auth\components\RequireAuth.tsx
+SF:apps/frontend/src/features/auth/components/RequireAuth.tsx
 FN:11,(anonymous_0)
 FNF:1
 FNH:1
@@ -18189,7 +18189,7 @@ BRF:10
 BRH:9
 end_of_record
 TN:
-SF:src\features\auth\components\RequirePasswordChange.tsx
+SF:apps/frontend/src/features/auth/components/RequirePasswordChange.tsx
 FN:12,(anonymous_0)
 FN:14,(anonymous_1)
 FNF:2
@@ -18211,7 +18211,7 @@ BRF:4
 BRH:4
 end_of_record
 TN:
-SF:src\features\dashboard\api\dashboardApiSlice.ts
+SF:apps/frontend/src/features/dashboard/api/dashboardApiSlice.ts
 FN:80,(anonymous_0)
 FN:82,(anonymous_1)
 FN:86,(anonymous_2)
@@ -18237,7 +18237,7 @@ BRF:0
 BRH:0
 end_of_record
 TN:
-SF:src\features\dashboard\components\AdminDashboard.tsx
+SF:apps/frontend/src/features/dashboard/components/AdminDashboard.tsx
 FN:15,(anonymous_0)
 FN:19,(anonymous_1)
 FN:110,(anonymous_2)
@@ -18300,7 +18300,7 @@ BRF:25
 BRH:25
 end_of_record
 TN:
-SF:src\features\dashboard\components\ServiceWidgets.tsx
+SF:apps/frontend/src/features/dashboard/components/ServiceWidgets.tsx
 FN:18,(anonymous_0)
 FNF:1
 FNH:1
@@ -18312,7 +18312,7 @@ BRF:0
 BRH:0
 end_of_record
 TN:
-SF:src\features\dashboard\components\SuperAdminDashboard.tsx
+SF:apps/frontend/src/features/dashboard/components/SuperAdminDashboard.tsx
 FN:23,(anonymous_0)
 FN:24,(anonymous_1)
 FN:25,(anonymous_2)
@@ -18428,7 +18428,7 @@ BRF:18
 BRH:17
 end_of_record
 TN:
-SF:src\features\dashboard\components\UserDashboard.tsx
+SF:apps/frontend/src/features/dashboard/components/UserDashboard.tsx
 FN:10,(anonymous_0)
 FN:14,(anonymous_1)
 FN:69,(anonymous_2)
@@ -18465,7 +18465,7 @@ BRF:8
 BRH:8
 end_of_record
 TN:
-SF:src\features\documentos\api\documentosApiSlice.ts
+SF:apps/frontend/src/features/documentos/api/documentosApiSlice.ts
 FN:77,(anonymous_0)
 FN:87,(anonymous_1)
 FN:92,(anonymous_2)
@@ -19495,7 +19495,7 @@ BRF:305
 BRH:149
 end_of_record
 TN:
-SF:src\features\documentos\components\CameraCapture.tsx
+SF:apps/frontend/src/features/documentos/components/CameraCapture.tsx
 FN:13,(anonymous_0)
 FN:20,(anonymous_1)
 FN:21,(anonymous_2)
@@ -19655,7 +19655,7 @@ BRF:46
 BRH:32
 end_of_record
 TN:
-SF:src\features\documentos\components\DocumentPreview.tsx
+SF:apps/frontend/src/features/documentos/components/DocumentPreview.tsx
 FN:22,(anonymous_0)
 FN:31,(anonymous_1)
 FN:42,(anonymous_2)
@@ -19945,7 +19945,7 @@ BRF:136
 BRH:59
 end_of_record
 TN:
-SF:src\features\documentos\components\DocumentUploadModal.tsx
+SF:apps/frontend/src/features/documentos/components/DocumentUploadModal.tsx
 FN:29,(anonymous_0)
 FN:48,(anonymous_1)
 FN:65,(anonymous_2)
@@ -20179,7 +20179,7 @@ BRF:70
 BRH:40
 end_of_record
 TN:
-SF:src\features\documentos\components\DocumentsList.tsx
+SF:apps/frontend/src/features/documentos/components/DocumentsList.tsx
 FN:20,(anonymous_0)
 FN:27,(anonymous_1)
 FN:42,(anonymous_2)
@@ -20256,7 +20256,7 @@ BRF:18
 BRH:18
 end_of_record
 TN:
-SF:src\features\documentos\components\DocumentsSemaforo.tsx
+SF:apps/frontend/src/features/documentos/components/DocumentsSemaforo.tsx
 FN:9,(anonymous_0)
 FN:17,(anonymous_1)
 FN:41,(anonymous_2)
@@ -20333,7 +20333,7 @@ BRF:36
 BRH:33
 end_of_record
 TN:
-SF:src\features\documentos\components\RejectModal.tsx
+SF:apps/frontend/src/features/documentos/components/RejectModal.tsx
 FN:25,(anonymous_0)
 FN:37,(anonymous_1)
 FN:74,(anonymous_2)
@@ -20380,7 +20380,7 @@ BRF:15
 BRH:14
 end_of_record
 TN:
-SF:src\features\documentos\components\ResubmitDocument.tsx
+SF:apps/frontend/src/features/documentos/components/ResubmitDocument.tsx
 FN:28,(anonymous_0)
 FN:38,(anonymous_1)
 FN:57,(anonymous_2)
@@ -20445,7 +20445,7 @@ BRF:21
 BRH:16
 end_of_record
 TN:
-SF:src\features\documentos\components\TemplateFormModal.tsx
+SF:apps/frontend/src/features/documentos/components/TemplateFormModal.tsx
 FN:20,(anonymous_0)
 FN:34,(anonymous_1)
 FN:49,(anonymous_2)
@@ -20523,7 +20523,7 @@ BRF:26
 BRH:24
 end_of_record
 TN:
-SF:src\features\documentos\components\TemplatesList.tsx
+SF:apps/frontend/src/features/documentos/components/TemplatesList.tsx
 FN:23,(anonymous_0)
 FN:33,(anonymous_1)
 FN:48,(anonymous_2)
@@ -20626,7 +20626,7 @@ BRF:41
 BRH:41
 end_of_record
 TN:
-SF:src\features\empresas\api\empresaApiSlice.ts
+SF:apps/frontend/src/features/empresas/api/empresaApiSlice.ts
 FN:5,(anonymous_0)
 FN:7,(anonymous_1)
 FN:8,(anonymous_2)
@@ -20694,7 +20694,7 @@ BRF:8
 BRH:0
 end_of_record
 TN:
-SF:src\features\empresas\api\empresasApiSlice.ts
+SF:apps/frontend/src/features/empresas/api/empresasApiSlice.ts
 FN:5,(anonymous_0)
 FN:7,(anonymous_1)
 FN:8,(anonymous_2)
@@ -20747,7 +20747,7 @@ BRF:4
 BRH:3
 end_of_record
 TN:
-SF:src\features\empresas\components\EmpresaForm.tsx
+SF:apps/frontend/src/features/empresas/components/EmpresaForm.tsx
 FN:15,(anonymous_0)
 FN:29,(anonymous_1)
 FN:38,(anonymous_2)
@@ -20813,7 +20813,7 @@ BRF:20
 BRH:14
 end_of_record
 TN:
-SF:src\features\empresas\components\EmpresaModal.tsx
+SF:apps/frontend/src/features/empresas/components/EmpresaModal.tsx
 FN:20,(anonymous_0)
 FNF:1
 FNH:1
@@ -20830,7 +20830,7 @@ BRF:5
 BRH:5
 end_of_record
 TN:
-SF:src\features\empresas\components\EmpresaTable.tsx
+SF:apps/frontend/src/features/empresas/components/EmpresaTable.tsx
 FN:16,(anonymous_0)
 FN:25,(anonymous_1)
 FN:36,(anonymous_2)
@@ -20878,7 +20878,7 @@ BRF:10
 BRH:10
 end_of_record
 TN:
-SF:src\features\end-users\api\endUsersApiSlice.ts
+SF:apps/frontend/src/features/end-users/api/endUsersApiSlice.ts
 FN:18,(anonymous_0)
 FN:20,(anonymous_1)
 FN:35,(anonymous_2)
@@ -20926,7 +20926,7 @@ BRF:14
 BRH:14
 end_of_record
 TN:
-SF:src\features\end-users\components\EndUserModal.tsx
+SF:apps/frontend/src/features/end-users/components/EndUserModal.tsx
 FN:13,(anonymous_0)
 FN:30,(anonymous_1)
 FN:53,(anonymous_2)
@@ -21010,7 +21010,7 @@ BRF:40
 BRH:35
 end_of_record
 TN:
-SF:src\features\equipos\components\DocumentoField.tsx
+SF:apps/frontend/src/features/equipos/components/DocumentoField.tsx
 FN:22,(anonymous_0)
 FN:42,(anonymous_1)
 FN:70,(anonymous_2)
@@ -21148,7 +21148,7 @@ BRF:63
 BRH:59
 end_of_record
 TN:
-SF:src\features\equipos\components\SeccionDocumentos.tsx
+SF:apps/frontend/src/features/equipos/components/SeccionDocumentos.tsx
 FN:33,(anonymous_0)
 FN:47,(anonymous_1)
 FN:64,(anonymous_2)
@@ -21177,7 +21177,7 @@ BRF:5
 BRH:5
 end_of_record
 TN:
-SF:src\features\platform-users\api\platformUsersApiSlice.ts
+SF:apps/frontend/src/features/platform-users/api/platformUsersApiSlice.ts
 FN:41,(anonymous_0)
 FN:43,(anonymous_1)
 FN:58,(anonymous_2)
@@ -21241,7 +21241,7 @@ BRF:12
 BRH:12
 end_of_record
 TN:
-SF:src\features\platform-users\components\EditPlatformUserModal.tsx
+SF:apps/frontend/src/features/platform-users/components/EditPlatformUserModal.tsx
 FN:57,(anonymous_0)
 FN:140,(anonymous_1)
 FN:141,(anonymous_2)
@@ -21869,7 +21869,7 @@ BRF:302
 BRH:214
 end_of_record
 TN:
-SF:src\features\platform-users\components\RegisterUserModal.tsx
+SF:apps/frontend/src/features/platform-users/components/RegisterUserModal.tsx
 FN:71,(anonymous_0)
 FN:128,(anonymous_1)
 FN:129,(anonymous_2)
@@ -22517,7 +22517,7 @@ BRF:326
 BRH:259
 end_of_record
 TN:
-SF:src\features\remitos\api\remitosApiSlice.ts
+SF:apps/frontend/src/features/remitos/api/remitosApiSlice.ts
 FN:18,(anonymous_0)
 FN:28,(anonymous_1)
 FN:32,(anonymous_2)
@@ -22610,7 +22610,7 @@ BRF:19
 BRH:13
 end_of_record
 TN:
-SF:src\features\remitos\components\RemitoCard.tsx
+SF:apps/frontend/src/features/remitos/components/RemitoCard.tsx
 FN:15,RemitoCard
 FN:19,(anonymous_1)
 FN:28,(anonymous_2)
@@ -22651,7 +22651,7 @@ BRF:18
 BRH:17
 end_of_record
 TN:
-SF:src\features\remitos\components\RemitoDetail.tsx
+SF:apps/frontend/src/features/remitos/components/RemitoDetail.tsx
 FN:52,RemitoDetail
 FN:86,(anonymous_1)
 FN:113,(anonymous_2)
@@ -23115,7 +23115,7 @@ BRF:260
 BRH:207
 end_of_record
 TN:
-SF:src\features\remitos\components\RemitoUploader.tsx
+SF:apps/frontend/src/features/remitos/components/RemitoUploader.tsx
 FN:36,RemitoUploader
 FN:49,(anonymous_1)
 FN:66,(anonymous_2)
@@ -23402,7 +23402,7 @@ BRF:91
 BRH:77
 end_of_record
 TN:
-SF:src\features\services\api\servicesApiSlice.ts
+SF:apps/frontend/src/features/services/api/servicesApiSlice.ts
 FN:14,(anonymous_0)
 FN:17,(anonymous_1)
 FN:23,(anonymous_2)
@@ -23543,7 +23543,7 @@ BRF:12
 BRH:2
 end_of_record
 TN:
-SF:src\features\services\hooks\useServiceValidation.ts
+SF:apps/frontend/src/features/services/hooks/useServiceValidation.ts
 FN:6,(anonymous_0)
 FN:12,(anonymous_1)
 FN:43,(anonymous_2)
@@ -23800,7 +23800,7 @@ BRF:59
 BRH:23
 end_of_record
 TN:
-SF:src\features\users\api\usersApiSlice.ts
+SF:apps/frontend/src/features/users/api/usersApiSlice.ts
 FN:14,(anonymous_0)
 FN:20,(anonymous_1)
 FN:38,(anonymous_2)
@@ -24008,7 +24008,7 @@ BRF:55
 BRH:2
 end_of_record
 TN:
-SF:src\features\users\components\UserForm.tsx
+SF:apps/frontend/src/features/users/components/UserForm.tsx
 FN:22,(anonymous_0)
 FN:64,(anonymous_1)
 FN:72,(anonymous_2)
@@ -24203,7 +24203,7 @@ BRF:101
 BRH:45
 end_of_record
 TN:
-SF:src\features\users\components\UserModal.tsx
+SF:apps/frontend/src/features/users/components/UserModal.tsx
 FN:25,isRTKQueryError
 FN:29,(anonymous_1)
 FN:37,(anonymous_2)
@@ -24315,7 +24315,7 @@ BRF:39
 BRH:39
 end_of_record
 TN:
-SF:src\features\users\components\UserTable.lazy.tsx
+SF:apps/frontend/src/features/users/components/UserTable.lazy.tsx
 FN:7,(anonymous_0)
 FN:12,(anonymous_1)
 FN:24,(anonymous_2)
@@ -24420,7 +24420,7 @@ BRF:10
 BRH:6
 end_of_record
 TN:
-SF:src\features\users\components\UserTable.tsx
+SF:apps/frontend/src/features/users/components/UserTable.tsx
 FN:33,(anonymous_0)
 FN:100,(anonymous_1)
 FN:153,(anonymous_2)
@@ -24699,7 +24699,7 @@ BRF:94
 BRH:18
 end_of_record
 TN:
-SF:src/app.ts
+SF:apps/backend/src/app.ts
 FN:22,safeImportRoute
 FN:24,(anonymous_11)
 FN:31,registerRouteIfExists
@@ -24849,7 +24849,7 @@ BRF:15
 BRH:8
 end_of_record
 TN:
-SF:src/server.ts
+SF:apps/backend/src/server.ts
 FN:19,(anonymous_1)
 FN:24,(anonymous_2)
 FN:31,(anonymous_3)
@@ -24921,7 +24921,7 @@ BRF:12
 BRH:5
 end_of_record
 TN:
-SF:src/config/database.ts
+SF:apps/backend/src/config/database.ts
 FN:46,(anonymous_9)
 FN:56,(anonymous_10)
 FN:105,(anonymous_11)
@@ -25074,7 +25074,7 @@ BRF:43
 BRH:30
 end_of_record
 TN:
-SF:src/config/db.ts
+SF:apps/backend/src/config/db.ts
 FN:21,(anonymous_1)
 FN:25,(anonymous_2)
 FN:30,(anonymous_3)
@@ -25116,7 +25116,7 @@ BRF:10
 BRH:10
 end_of_record
 TN:
-SF:src/config/environment.ts
+SF:apps/backend/src/config/environment.ts
 FN:36,readFileIfExists
 FN:47,getEnvironment
 FN:67,(anonymous_3)
@@ -25180,7 +25180,7 @@ BRF:22
 BRH:21
 end_of_record
 TN:
-SF:src/config/logger.ts
+SF:apps/backend/src/config/logger.ts
 FN:37,(anonymous_10)
 FN:41,(anonymous_11)
 FN:45,(anonymous_12)
@@ -25302,7 +25302,7 @@ BRF:30
 BRH:21
 end_of_record
 TN:
-SF:src/config/logging.ts
+SF:apps/backend/src/config/logging.ts
 FN:27,(anonymous_1)
 FN:41,(anonymous_2)
 FN:63,(anonymous_3)
@@ -25444,7 +25444,7 @@ BRF:35
 BRH:33
 end_of_record
 TN:
-SF:src/config/prisma.ts
+SF:apps/backend/src/config/prisma.ts
 FN:15,(anonymous_0)
 FN:29,(anonymous_1)
 FN:48,(anonymous_2)
@@ -25602,7 +25602,7 @@ BRF:27
 BRH:17
 end_of_record
 TN:
-SF:src/config/serviceConfig.ts
+SF:apps/backend/src/config/serviceConfig.ts
 FN:16,(anonymous_0)
 FN:23,(anonymous_1)
 FN:33,(anonymous_2)
@@ -25650,7 +25650,7 @@ BRF:8
 BRH:6
 end_of_record
 TN:
-SF:src/controllers/auth.controller.ts
+SF:apps/backend/src/controllers/auth.controller.ts
 FN:36,(anonymous_0)
 FN:61,(anonymous_1)
 FN:93,(anonymous_2)
@@ -25776,7 +25776,7 @@ BRF:26
 BRH:21
 end_of_record
 TN:
-SF:src/controllers/dashboard.controller.ts
+SF:apps/backend/src/controllers/dashboard.controller.ts
 FN:7,(anonymous_0)
 FN:45,(anonymous_1)
 FN:78,(anonymous_2)
@@ -25900,7 +25900,7 @@ BRF:22
 BRH:21
 end_of_record
 TN:
-SF:src/controllers/empresa.controller.ts
+SF:apps/backend/src/controllers/empresa.controller.ts
 FN:11,(anonymous_0)
 FN:35,(anonymous_1)
 FN:51,(anonymous_2)
@@ -26033,7 +26033,7 @@ BRF:26
 BRH:25
 end_of_record
 TN:
-SF:src/controllers/instance.controller.ts
+SF:apps/backend/src/controllers/instance.controller.ts
 FN:9,resolveTargetEmpresa
 FN:22,mapInstanceCreationError
 FN:28,(anonymous_2)
@@ -26274,7 +26274,7 @@ BRF:75
 BRH:74
 end_of_record
 TN:
-SF:src/controllers/platformAuth.controller.ts
+SF:apps/backend/src/controllers/platformAuth.controller.ts
 FN:11,handleWizardRegisterResult
 FN:29,handleWizardError
 FN:37,resolveActorProfile
@@ -26572,7 +26572,7 @@ BRF:81
 BRH:21
 end_of_record
 TN:
-SF:src/controllers/service.controller.ts
+SF:apps/backend/src/controllers/service.controller.ts
 FN:11,(anonymous_0)
 FN:50,(anonymous_1)
 FN:91,(anonymous_2)
@@ -26729,7 +26729,7 @@ BRF:27
 BRH:25
 end_of_record
 TN:
-SF:src/controllers/user.controller.ts
+SF:apps/backend/src/controllers/user.controller.ts
 FN:10,(anonymous_1)
 FN:26,addSearchFilter
 FN:38,addRoleFilter
@@ -26973,7 +26973,7 @@ BRF:91
 BRH:67
 end_of_record
 TN:
-SF:src/middlewares/audit.middleware.ts
+SF:apps/backend/src/middlewares/audit.middleware.ts
 FN:5,(anonymous_0)
 FN:19,(anonymous_1)
 FN:25,(anonymous_2)
@@ -27094,7 +27094,7 @@ BRF:30
 BRH:30
 end_of_record
 TN:
-SF:src/middlewares/auth.middleware.ts
+SF:apps/backend/src/middlewares/auth.middleware.ts
 FN:9,(anonymous_1)
 FN:23,(anonymous_2)
 FN:29,(anonymous_3)
@@ -27238,7 +27238,7 @@ BRF:45
 BRH:34
 end_of_record
 TN:
-SF:src/middlewares/error.middleware.ts
+SF:apps/backend/src/middlewares/error.middleware.ts
 FN:35,(anonymous_1)
 FN:75,(anonymous_2)
 FN:76,(anonymous_3)
@@ -27419,7 +27419,7 @@ BRF:45
 BRH:43
 end_of_record
 TN:
-SF:src/middlewares/logging.middleware.ts
+SF:apps/backend/src/middlewares/logging.middleware.ts
 FN:10,(anonymous_0)
 FN:22,(anonymous_1)
 FN:46,(anonymous_2)
@@ -27461,7 +27461,7 @@ BRF:10
 BRH:5
 end_of_record
 TN:
-SF:src/middlewares/payload.middleware.ts
+SF:apps/backend/src/middlewares/payload.middleware.ts
 FN:7,(anonymous_0)
 FN:8,(anonymous_1)
 FN:56,(anonymous_2)
@@ -27513,7 +27513,7 @@ BRF:10
 BRH:7
 end_of_record
 TN:
-SF:src/middlewares/platformAuth.middleware.ts
+SF:apps/backend/src/middlewares/platformAuth.middleware.ts
 FN:15,(anonymous_0)
 FN:82,(anonymous_1)
 FN:83,(anonymous_2)
@@ -27708,7 +27708,7 @@ BRF:60
 BRH:58
 end_of_record
 TN:
-SF:src/middlewares/rateLimit.middleware.ts
+SF:apps/backend/src/middlewares/rateLimit.middleware.ts
 FN:27,(anonymous_1)
 FN:40,(anonymous_2)
 FN:54,(anonymous_3)
@@ -27780,7 +27780,7 @@ BRF:25
 BRH:17
 end_of_record
 TN:
-SF:src/middlewares/validation.middleware.ts
+SF:apps/backend/src/middlewares/validation.middleware.ts
 FN:17,validatePart
 FN:24,(anonymous_1)
 FN:43,(anonymous_2)
@@ -28025,7 +28025,7 @@ BRF:75
 BRH:68
 end_of_record
 TN:
-SF:src/routes/config.routes.ts
+SF:apps/backend/src/routes/config.routes.ts
 FN:13,(anonymous_0)
 FN:60,(anonymous_1)
 FNF:2
@@ -28061,7 +28061,7 @@ BRF:6
 BRH:4
 end_of_record
 TN:
-SF:src/routes/dashboard.routes.ts
+SF:apps/backend/src/routes/dashboard.routes.ts
 FNF:0
 FNH:0
 DA:1,3
@@ -28079,7 +28079,7 @@ BRF:0
 BRH:0
 end_of_record
 TN:
-SF:src/routes/docs.routes.ts
+SF:apps/backend/src/routes/docs.routes.ts
 FN:57,(anonymous_0)
 FN:67,(anonymous_1)
 FN:79,(anonymous_2)
@@ -28273,7 +28273,7 @@ BRF:38
 BRH:22
 end_of_record
 TN:
-SF:src/routes/empresa.routes.ts
+SF:apps/backend/src/routes/empresa.routes.ts
 FNF:0
 FNH:0
 DA:1,3
@@ -28300,7 +28300,7 @@ BRF:0
 BRH:0
 end_of_record
 TN:
-SF:src/routes/endUser.routes.ts
+SF:apps/backend/src/routes/endUser.routes.ts
 FN:33,(anonymous_0)
 FN:109,(anonymous_1)
 FN:181,(anonymous_2)
@@ -28446,7 +28446,7 @@ BRF:38
 BRH:33
 end_of_record
 TN:
-SF:src/routes/evolution.routes.ts
+SF:apps/backend/src/routes/evolution.routes.ts
 FN:13,(anonymous_0)
 FN:27,(anonymous_1)
 FNF:2
@@ -28467,7 +28467,7 @@ BRF:0
 BRH:0
 end_of_record
 TN:
-SF:src/routes/health.routes.ts
+SF:apps/backend/src/routes/health.routes.ts
 FN:10,(anonymous_0)
 FN:37,(anonymous_1)
 FN:47,(anonymous_2)
@@ -28505,7 +28505,7 @@ BRF:6
 BRH:3
 end_of_record
 TN:
-SF:src/routes/instance.routes.ts
+SF:apps/backend/src/routes/instance.routes.ts
 FN:30,validateInstanceAccess
 FN:190,(anonymous_1)
 FN:263,(anonymous_2)
@@ -28676,7 +28676,7 @@ BRF:36
 BRH:28
 end_of_record
 TN:
-SF:src/routes/metrics.routes.ts
+SF:apps/backend/src/routes/metrics.routes.ts
 FN:6,(anonymous_0)
 FNF:1
 FNH:1
@@ -28706,7 +28706,7 @@ BRF:6
 BRH:4
 end_of_record
 TN:
-SF:src/routes/notifications.routes.ts
+SF:apps/backend/src/routes/notifications.routes.ts
 FN:13,(anonymous_0)
 FN:37,(anonymous_1)
 FN:52,(anonymous_2)
@@ -28761,7 +28761,7 @@ BRF:10
 BRH:7
 end_of_record
 TN:
-SF:src/routes/openapi.routes.ts
+SF:apps/backend/src/routes/openapi.routes.ts
 FN:12,(anonymous_1)
 FN:21,(anonymous_2)
 FN:29,(anonymous_3)
@@ -28798,7 +28798,7 @@ BRF:4
 BRH:2
 end_of_record
 TN:
-SF:src/routes/permiso.routes.ts
+SF:apps/backend/src/routes/permiso.routes.ts
 FN:25,(anonymous_0)
 FNF:1
 FNH:1
@@ -28852,7 +28852,7 @@ BRF:11
 BRH:9
 end_of_record
 TN:
-SF:src/routes/platformAuth.routes.ts
+SF:apps/backend/src/routes/platformAuth.routes.ts
 FN:25,buildRoleConditions
 FN:61,buildSearchConditions
 FN:65,(anonymous_2)
@@ -28976,7 +28976,7 @@ BRF:27
 BRH:0
 end_of_record
 TN:
-SF:src/routes/service.routes.ts
+SF:apps/backend/src/routes/service.routes.ts
 FNF:0
 FNH:0
 DA:1,3
@@ -29006,7 +29006,7 @@ BRF:0
 BRH:0
 end_of_record
 TN:
-SF:src/routes/transportistas.ts
+SF:apps/backend/src/routes/transportistas.ts
 FN:12,(anonymous_0)
 FN:38,(anonymous_1)
 FN:87,(anonymous_2)
@@ -29075,7 +29075,7 @@ BRF:0
 BRH:0
 end_of_record
 TN:
-SF:src/routes/user.routes.ts
+SF:apps/backend/src/routes/user.routes.ts
 FNF:0
 FNH:0
 DA:1,3
@@ -29094,7 +29094,7 @@ BRF:0
 BRH:0
 end_of_record
 TN:
-SF:src/schemas/user.schema.ts
+SF:apps/backend/src/schemas/user.schema.ts
 FN:5,(anonymous_0)
 FN:102,(anonymous_1)
 FN:136,(anonymous_2)
@@ -29129,7 +29129,7 @@ BRF:0
 BRH:0
 end_of_record
 TN:
-SF:src/scripts/baseline-after-split.ts
+SF:apps/backend/src/scripts/baseline-after-split.ts
 FN:3,backfill
 FN:41,(anonymous_1)
 FNF:2
@@ -29158,7 +29158,7 @@ BRF:2
 BRH:1
 end_of_record
 TN:
-SF:src/scripts/check-db-status.ts
+SF:apps/backend/src/scripts/check-db-status.ts
 FN:7,checkStatus
 FN:26,(anonymous_2)
 FN:31,(anonymous_3)
@@ -29222,7 +29222,7 @@ BRF:13
 BRH:12
 end_of_record
 TN:
-SF:src/scripts/debug-migration.ts
+SF:apps/backend/src/scripts/debug-migration.ts
 FN:4,debugMigration
 FN:12,(anonymous_2)
 FNF:2
@@ -29270,7 +29270,7 @@ BRF:6
 BRH:5
 end_of_record
 TN:
-SF:src/scripts/fix-password.ts
+SF:apps/backend/src/scripts/fix-password.ts
 FN:4,fixPassword
 FN:24,(anonymous_2)
 FNF:2
@@ -29300,7 +29300,7 @@ BRF:2
 BRH:1
 end_of_record
 TN:
-SF:src/scripts/migrate-user-split.ts
+SF:apps/backend/src/scripts/migrate-user-split.ts
 FN:3,migrate
 FN:37,(anonymous_1)
 FNF:2
@@ -29329,7 +29329,7 @@ BRF:2
 BRH:1
 end_of_record
 TN:
-SF:src/scripts/setup-database.ts
+SF:apps/backend/src/scripts/setup-database.ts
 FN:27,(anonymous_1)
 FN:42,(anonymous_2)
 FN:75,(anonymous_3)
@@ -29386,7 +29386,7 @@ BRF:6
 BRH:4
 end_of_record
 TN:
-SF:src/seed/index.ts
+SF:apps/backend/src/seed/index.ts
 FN:6,(anonymous_1)
 FN:32,(anonymous_2)
 FN:67,(anonymous_3)
@@ -29517,7 +29517,7 @@ BRF:22
 BRH:22
 end_of_record
 TN:
-SF:src/services/auth.service.ts
+SF:apps/backend/src/services/auth.service.ts
 FN:64,(anonymous_1)
 FN:75,(anonymous_2)
 FN:79,(anonymous_3)
@@ -29809,7 +29809,7 @@ BRF:99
 BRH:83
 end_of_record
 TN:
-SF:src/services/base.service.ts
+SF:apps/backend/src/services/base.service.ts
 FN:12,(anonymous_0)
 FN:20,(anonymous_1)
 FN:34,(anonymous_2)
@@ -29874,7 +29874,7 @@ BRF:0
 BRH:0
 end_of_record
 TN:
-SF:src/services/database-initialization.service.ts
+SF:apps/backend/src/services/database-initialization.service.ts
 FN:27,buildResultMessage
 FN:46,(anonymous_1)
 FN:55,(anonymous_2)
@@ -30212,7 +30212,7 @@ BRF:80
 BRH:56
 end_of_record
 TN:
-SF:src/services/empresa.service.ts
+SF:apps/backend/src/services/empresa.service.ts
 FN:40,(anonymous_0)
 FN:44,(anonymous_1)
 FN:51,(anonymous_2)
@@ -30310,7 +30310,7 @@ BRF:18
 BRH:11
 end_of_record
 TN:
-SF:src/services/endUser.service.ts
+SF:apps/backend/src/services/endUser.service.ts
 FN:61,(anonymous_0)
 FN:116,(anonymous_1)
 FN:173,(anonymous_2)
@@ -30482,7 +30482,7 @@ BRF:49
 BRH:41
 end_of_record
 TN:
-SF:src/services/instance.service.ts
+SF:apps/backend/src/services/instance.service.ts
 FN:67,(anonymous_0)
 FN:71,(anonymous_1)
 FN:79,(anonymous_2)
@@ -30714,7 +30714,7 @@ BRF:62
 BRH:52
 end_of_record
 TN:
-SF:src/services/platformAuth.service.ts
+SF:apps/backend/src/services/platformAuth.service.ts
 FN:84,cleanupBlacklist
 FN:98,createRefreshToken
 FN:108,validateRefreshToken
@@ -31247,7 +31247,7 @@ BRF:194
 BRH:90
 end_of_record
 TN:
-SF:src/services/service.service.ts
+SF:apps/backend/src/services/service.service.ts
 FN:49,(anonymous_0)
 FN:53,(anonymous_1)
 FN:61,(anonymous_2)
@@ -31412,7 +31412,7 @@ BRF:40
 BRH:30
 end_of_record
 TN:
-SF:src/services/user.service.ts
+SF:apps/backend/src/services/user.service.ts
 FN:57,(anonymous_1)
 FN:62,(anonymous_2)
 FN:70,(anonymous_3)
