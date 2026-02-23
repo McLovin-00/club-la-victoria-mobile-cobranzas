@@ -84,4 +84,20 @@ describe('DocumentService.checkExpiredDocuments (coverage)', () => {
 
     expect(count).toBe(0);
   });
+
+  it('procesa en batches de 20 con pausa entre ellos', async () => {
+    const expired = Array.from({ length: 25 }, (_, i) => ({ id: i + 1 }));
+    mockPrisma.document.findMany.mockResolvedValue(expired);
+    mockPrisma.document.updateMany.mockResolvedValue({ count: 25 });
+
+    jest.useFakeTimers();
+    const promise = DocumentService.checkExpiredDocuments();
+    jest.advanceTimersByTime(2000);
+    jest.useRealTimers();
+
+    const count = await promise;
+
+    expect(count).toBe(25);
+    expect(DocumentEventHandlers.onDocumentExpired).toHaveBeenCalledTimes(25);
+  });
 });
