@@ -10,6 +10,7 @@ jest.mock('../src/config/database', () => {
     plantillaRequisitoTemplate: { findMany: jest.fn() },
     document: { findMany: jest.fn() },
     equipoPlantillaRequisito: { findMany: jest.fn() },
+    equipoCliente: { findMany: jest.fn() },
   };
   return { prisma: prismaMock };
 });
@@ -271,6 +272,76 @@ describe('ComplianceService (coverage)', () => {
 
       expect(result).toHaveLength(3);
       expect(result.every((r: any) => r.state === 'FALTANTE')).toBe(true);
+    });
+  });
+
+  describe('evaluateBatchEquiposCliente', () => {
+    it('retorna mapa vacío si no hay equipos', async () => {
+      const result = await ComplianceService.evaluateBatchEquiposCliente([]);
+      expect(result.size).toBe(0);
+    });
+
+    it('evalúa batch con requisitos y documentos', async () => {
+      db.equipoCliente.findMany.mockResolvedValue([
+        { equipoId: 1, clienteId: 50 },
+      ]);
+      db.plantillaRequisitoTemplate.findMany.mockResolvedValue([{
+        templateId: 10, entityType: 'CHOFER', obligatorio: true, diasAnticipacion: 5,
+        plantillaRequisito: { clienteId: 50 },
+      }]);
+      db.document.findMany.mockResolvedValue([{
+        id: 70, templateId: 10, entityType: 'CHOFER', entityId: 100,
+        tenantEmpresaId: 1, dadorCargaId: 5,
+        status: 'APROBADO', expiresAt: new Date(Date.now() + 90 * 24 * 60 * 60 * 1000),
+        uploadedAt: new Date(),
+      }]);
+
+      const equipos = [
+        { id: 1, tenantEmpresaId: 1, dadorCargaId: 5, driverId: 100, truckId: 200, trailerId: 300 },
+      ];
+
+      const result = await ComplianceService.evaluateBatchEquiposCliente(equipos as any);
+
+      expect(result.size).toBe(1);
+      expect(result.get(1)).toBeDefined();
+    });
+
+    it('evalúa batch sin requisitos (todos vigentes)', async () => {
+      db.equipoCliente.findMany.mockResolvedValue([
+        { equipoId: 1, clienteId: 50 },
+      ]);
+      db.plantillaRequisitoTemplate.findMany.mockResolvedValue([]);
+
+      const equipos = [
+        { id: 1, tenantEmpresaId: 1, dadorCargaId: 5, driverId: 100, truckId: 200, trailerId: null },
+      ];
+
+      const result = await ComplianceService.evaluateBatchEquiposCliente(equipos as any);
+
+      expect(result.size).toBe(1);
+      const eq = result.get(1)!;
+      expect(eq.tieneVencidos).toBe(false);
+      expect(eq.tieneFaltantes).toBe(false);
+    });
+
+    it('evalúa batch filtrado por clienteId', async () => {
+      db.equipoCliente.findMany.mockResolvedValue([
+        { equipoId: 2, clienteId: 60 },
+      ]);
+      db.plantillaRequisitoTemplate.findMany.mockResolvedValue([{
+        templateId: 11, entityType: 'CAMION', obligatorio: true, diasAnticipacion: 5,
+        plantillaRequisito: { clienteId: 60 },
+      }]);
+      db.document.findMany.mockResolvedValue([]);
+
+      const equipos = [
+        { id: 2, tenantEmpresaId: 1, dadorCargaId: 5, driverId: 100, truckId: 200, trailerId: null },
+      ];
+
+      const result = await ComplianceService.evaluateBatchEquiposCliente(equipos as any, 60);
+
+      expect(result.size).toBe(1);
+      expect(result.get(2)!.tieneFaltantes).toBe(true);
     });
   });
 });
