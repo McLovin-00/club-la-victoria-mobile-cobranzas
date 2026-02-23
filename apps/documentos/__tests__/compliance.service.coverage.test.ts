@@ -84,6 +84,46 @@ describe('ComplianceService (coverage)', () => {
       expect(r1).toEqual(r2);
       expect(db.equipo.findUnique).toHaveBeenCalledTimes(1);
     });
+
+    it('cache expira después del TTL y recarga', async () => {
+      const now = Date.now();
+      jest.spyOn(Date, 'now').mockReturnValue(now);
+
+      db.equipo.findUnique.mockResolvedValue({
+        id: 20, driverId: 10, truckId: 20, trailerId: 30,
+        tenantEmpresaId: 1, dadorCargaId: 5,
+      });
+      db.plantillaRequisitoTemplate.findMany.mockResolvedValue([{
+        templateId: 1, entityType: 'CHOFER', obligatorio: true, diasAnticipacion: 5,
+      }]);
+      db.document.findMany.mockResolvedValue([]);
+
+      await ComplianceService.evaluateEquipoClienteDetailed(20, 200);
+      expect(db.equipo.findUnique).toHaveBeenCalledTimes(1);
+
+      (Date.now as any).mockReturnValue(now + 6 * 60 * 1000);
+
+      await ComplianceService.evaluateEquipoClienteDetailed(20, 200);
+      expect(db.equipo.findUnique).toHaveBeenCalledTimes(2);
+
+      (Date.now as any).mockRestore();
+    });
+
+    it('invalidateComplianceCache con equipoId borra solo ese equipo', async () => {
+      db.equipo.findUnique.mockResolvedValue({
+        id: 30, driverId: 10, truckId: 20, trailerId: 30,
+        tenantEmpresaId: 1, dadorCargaId: 5,
+      });
+      db.plantillaRequisitoTemplate.findMany.mockResolvedValue([]);
+
+      await ComplianceService.evaluateEquipoClienteDetailed(30, 300);
+      await ComplianceService.evaluateEquipoClienteDetailed(30, 301);
+
+      invalidateComplianceCache(30);
+
+      await ComplianceService.evaluateEquipoClienteDetailed(30, 300);
+      expect(db.equipo.findUnique).toHaveBeenCalledTimes(3);
+    });
   });
 
   describe('evaluateEquipoClienteDetailed', () => {
