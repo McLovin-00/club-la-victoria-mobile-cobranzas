@@ -1,4 +1,4 @@
-import { Queue } from 'bullmq';
+import { Queue, Worker, Job } from 'bullmq';
 import { Redis } from 'ioredis';
 import { AppLogger } from '../config/logger';
 import { getEnvironment } from '../config/environment';
@@ -20,14 +20,23 @@ interface DocumentAIValidationJobData {
   esRechequeo?: boolean;
 }
 
+interface DLQJobData {
+  originalQueue: string;
+  originalJobId: string | undefined;
+  originalData: unknown;
+  failedReason: string;
+  failedAt: string;
+  attemptsMade: number;
+}
+
 class QueueService {
   private static instance: QueueService;
   private redis: Redis;
   private documentValidationQueue: Queue<DocumentValidationJobData>;
-  // Cola para validación IA (control de documentos)
   private documentAIValidationQueue: Queue<DocumentAIValidationJobData>;
-  // Cola para verificación de cumplimiento (no envía notificaciones por sí misma)
   private complianceQueue: Queue<{ type: 'verify-missing-equipo'; tenantId: number; equipoId: number }>;
+  private dlqQueue: Queue<DLQJobData>;
+  private dlqWorkers: Worker[] = [];
 
   private constructor() {
     // Configurar Redis (URL, TLS y password desde env)
@@ -91,7 +100,14 @@ class QueueService {
       }
     );
 
-    AppLogger.info('📬 Queue Service inicializado');
+    // Dead Letter Queue para jobs que agotan reintentos
+    this.dlqQueue = new Queue<DLQJobData>('dead-letter-queue', {
+      connection: this.redis as never,
+      defaultJobOptions: { removeOnComplete: 500, removeOnFail: false },
+    });
+
+    this.setupDLQListeners();
+    AppLogger.info('📬 Queue Service inicializado (con DLQ)');
   }
 
   public static getInstance(): QueueService {
@@ -314,6 +330,74 @@ class QueueService {
   }
 
   /**
+   * Configura listeners para mover jobs fallidos a la DLQ
+   */
+  private setupDLQListeners(): void {
+    const moveToDLQ = async (job: Job | undefined, err: Error, queueName: string) => {
+      if (!job) return;
+      const maxAttempts = job.opts?.attempts ?? 3;
+      if (job.attemptsMade < maxAttempts) return;
+
+      try {
+        await this.dlqQueue.add('dead-letter', {
+          originalQueue: queueName,
+          originalJobId: job.id,
+          originalData: job.data,
+          failedReason: err.message.slice(0, 500),
+          failedAt: new Date().toISOString(),
+          attemptsMade: job.attemptsMade,
+        });
+        AppLogger.warn(`Job ${job.id} movido a DLQ desde ${queueName}`, {
+          reason: err.message.slice(0, 200),
+        });
+      } catch { /* DLQ insertion is best-effort */ }
+    };
+
+    const createDLQWorker = (queueName: string): Worker => {
+      const w = new Worker(queueName, undefined as any, {
+        connection: this.redis as never,
+        autorun: false,
+      });
+      w.on('failed', (job, err) => moveToDLQ(job, err, queueName));
+      return w;
+    };
+
+    (this.documentValidationQueue as any).on('failed', (job: Job, err: Error) =>
+      moveToDLQ(job, err, 'document-validation')
+    );
+    (this.documentAIValidationQueue as any).on('failed', (job: Job, err: Error) =>
+      moveToDLQ(job, err, 'document-ai-validation')
+    );
+    (this.complianceQueue as any).on('failed', (job: Job, err: Error) =>
+      moveToDLQ(job, err, 'compliance-checks')
+    );
+  }
+
+  /**
+   * Estadísticas de la Dead Letter Queue
+   */
+  public async getDLQStats(): Promise<{ waiting: number; total: number }> {
+    try {
+      const waiting = await this.dlqQueue.getWaiting();
+      return { waiting: waiting.length, total: waiting.length };
+    } catch {
+      return { waiting: 0, total: 0 };
+    }
+  }
+
+  /**
+   * Obtener jobs de la DLQ para inspección
+   */
+  public async getDLQJobs(limit = 20): Promise<DLQJobData[]> {
+    try {
+      const jobs = await this.dlqQueue.getWaiting(0, limit - 1);
+      return jobs.map(j => j.data);
+    } catch {
+      return [];
+    }
+  }
+
+  /**
    * Cerrar conexiones
    */
   public async close(): Promise<void> {
@@ -321,6 +405,8 @@ class QueueService {
       await this.documentValidationQueue.close();
       await this.documentAIValidationQueue.close();
       await this.complianceQueue.close();
+      await this.dlqQueue.close();
+      for (const w of this.dlqWorkers) await w.close();
       await this.redis.quit();
       AppLogger.info('📬 Queue Service cerrado');
     } catch (error) {

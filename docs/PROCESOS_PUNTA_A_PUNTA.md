@@ -580,6 +580,21 @@ PENDIENTE_ANALISIS → EN_ANALISIS → PENDIENTE_APROBACION → APROBADO
                                  → ERROR_ANALISIS → (reprocess) → PENDIENTE_ANALISIS
 ```
 
+### Control de confianza IA
+
+Se aplica un umbral mínimo de confianza (`MIN_CONFIANZA = 30%`) para aprobar remitos:
+
+- Si `confianzaIA < 30%` → la aprobación se **bloquea** con error descriptivo
+- El admin tiene dos opciones para desbloquear:
+  1. **Editar manualmente** (`PATCH /:id`): al corregir datos, `confianzaIA` se eleva a 100% automáticamente
+  2. **Reprocesar** (`POST /:id/reprocess`): re-envía a Flowise para nuevo análisis con nueva confianza
+
+```
+confianzaIA < 30% → BLOQUEO de aprobación
+                   → Opción A: Editar datos → confianzaIA = 100% → Aprobar
+                   → Opción B: Reprocesar IA → nueva confianzaIA → Si ≥ 30% → Aprobar
+```
+
 ### Datos extraídos por IA
 
 | Campo | Descripción |
@@ -594,7 +609,7 @@ PENDIENTE_ANALISIS → EN_ANALISIS → PENDIENTE_APROBACION → APROBADO
 | `patenteChasis` / `patenteAcoplado` | Patentes del vehículo |
 | `pesoOrigenBruto/Tara/Neto` | Pesos en origen |
 | `pesoDestinoBruto/Tara/Neto` | Pesos en destino (si hay ticket) |
-| `confianzaIA` | Nivel de confianza del análisis (0-100%) |
+| `confianzaIA` | Nivel de confianza del análisis (0-100%), umbral mínimo 30% |
 
 ---
 
@@ -1930,12 +1945,34 @@ Cambios más grandes que requieren diseño y planificación.
 
 ---
 
+#### Pendientes resueltos (2026-02-23)
+
+| # | Hallazgo | Fase | Archivo modificado |
+|---|----------|------|--------------------|
+| 1 | Threshold confianza IA bloquea aprobación + edición manual eleva confianza a 100% | F1 | `apps/remitos/src/services/remito.service.ts` |
+| 2 | SELECT FOR UPDATE en resolución de conflictos de equipos | F2 | `apps/documentos/src/services/equipo.service.ts` |
+| 3 | Creación de equipo + historial en transacción atómica | F2 | `apps/documentos/src/services/equipo.service.ts` |
+| 4 | Contador `entidadesTransferidas` correcto (incrementa solo si no falla) | F2 | `apps/documentos/src/services/transferencia.service.ts` |
+| 5 | Revalidación de ownership al aprobar transferencia | F2 | `apps/documentos/src/services/transferencia.service.ts` |
+| 6 | `addTemplate` y `assignToEquipo` envueltos en transacciones | F2 | `apps/documentos/src/services/plantillas.service.ts` |
+| 7 | Creación de usuarios envuelta en transacción (check + create atómico) | F3 | `apps/backend/src/services/platformAuth.service.ts` |
+| 8 | ClamAV obligatorio en todos los ambientes cuando está configurado | F3 | `apps/documentos/src/controllers/documents.controller.ts` |
+| 9 | `updateTemplate` dispara re-evaluación de equipos | F3 | `apps/documentos/src/services/plantillas.service.ts` |
+| 10 | Dead Letter Queue implementada para jobs que agotan reintentos | F4 | `apps/documentos/src/services/queue.service.ts` |
+| 11 | Timeout de 60s para operaciones MinIO en worker de remitos | F4 | `apps/remitos/src/workers/analysis.worker.ts` |
+
+**Estado final**: Todas las fases 1-6 completadas al 100%. 0 pendientes.
+
+---
+
 **FIN DE LAS AUDITORÍAS Y CORRECCIONES**
 
 **Fecha de completitud auditorías**: 2026-02-20  
 **Fecha de completitud plan completo (Fases 1-6)**: 2026-02-18  
+**Fecha de resolución pendientes restantes**: 2026-02-23  
 **Dominios auditados**: 8 de 20 (dominios críticos)  
 **Total de hallazgos**: 106  
-**Correcciones implementadas fases 1-6**: 40 (100% de los críticos y altos + mejoras de arquitectura)
+**Correcciones implementadas fases 1-6**: 40 (100% de los críticos y altos + mejoras de arquitectura)  
+**Pendientes resueltos (2026-02-23)**: 11 items adicionales — todas las fases 1-5 completadas al 100%
 
 ---

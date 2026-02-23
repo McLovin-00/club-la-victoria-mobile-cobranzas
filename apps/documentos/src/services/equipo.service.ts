@@ -104,72 +104,60 @@ async function resolveComponentConflicts(
   await prisma.$transaction(async (tx) => {
     const now = new Date();
 
-    const driverInUse = await tx.equipo.findFirst({
-      where: { tenantEmpresaId, driverDniNorm: dniNorm, validTo: null },
-    });
-    if (driverInUse) {
-      await tx.equipo.update({ where: { id: driverInUse.id }, data: { validTo: now, estado: 'finalizada' as any } });
-      await tx.equipoHistory.create({ data: { equipoId: driverInUse.id, action: 'close', component: 'driver', originEquipoId: null, payload: { reason: 'forceMove' } as any } });
+    const driverRows = await tx.$queryRawUnsafe<{ id: number }[]>(
+      `SELECT id FROM "documentos"."equipo" WHERE "tenant_empresa_id" = $1 AND "driver_dni_norm" = $2 AND "valid_to" IS NULL FOR UPDATE`,
+      tenantEmpresaId, dniNorm
+    );
+    for (const row of driverRows) {
+      await tx.equipo.update({ where: { id: row.id }, data: { validTo: now, estado: 'finalizada' as any } });
+      await tx.equipoHistory.create({ data: { equipoId: row.id, action: 'close', component: 'driver', originEquipoId: null, payload: { reason: 'forceMove' } as any } });
     }
 
-    const truckInUse = await tx.equipo.findFirst({
-      where: { tenantEmpresaId, truckPlateNorm: truckNorm, validTo: null },
-    });
-    if (truckInUse) {
-      await tx.equipo.update({ where: { id: truckInUse.id }, data: { validTo: now, estado: 'finalizada' as any } });
-      await tx.equipoHistory.create({ data: { equipoId: truckInUse.id, action: 'close', component: 'truck', originEquipoId: null, payload: { reason: 'forceMove' } as any } });
+    const truckRows = await tx.$queryRawUnsafe<{ id: number }[]>(
+      `SELECT id FROM "documentos"."equipo" WHERE "tenant_empresa_id" = $1 AND "truck_plate_norm" = $2 AND "valid_to" IS NULL FOR UPDATE`,
+      tenantEmpresaId, truckNorm
+    );
+    for (const row of truckRows) {
+      await tx.equipo.update({ where: { id: row.id }, data: { validTo: now, estado: 'finalizada' as any } });
+      await tx.equipoHistory.create({ data: { equipoId: row.id, action: 'close', component: 'truck', originEquipoId: null, payload: { reason: 'forceMove' } as any } });
     }
 
     if (trailerNorm) {
-      const trailerInUse = await tx.equipo.findFirst({
-        where: { tenantEmpresaId, trailerPlateNorm: trailerNorm, validTo: null },
-      });
-      if (trailerInUse) {
-        await tx.equipo.update({ where: { id: trailerInUse.id }, data: { trailerId: null, trailerPlateNorm: null } });
-        await tx.equipoHistory.create({ data: { equipoId: trailerInUse.id, action: 'detach', component: 'trailer', originEquipoId: null, payload: { reason: 'forceMove' } as any } });
+      const trailerRows = await tx.$queryRawUnsafe<{ id: number }[]>(
+        `SELECT id FROM "documentos"."equipo" WHERE "tenant_empresa_id" = $1 AND "trailer_plate_norm" = $2 AND "valid_to" IS NULL FOR UPDATE`,
+        tenantEmpresaId, trailerNorm
+      );
+      for (const row of trailerRows) {
+        await tx.equipo.update({ where: { id: row.id }, data: { trailerId: null, trailerPlateNorm: null } });
+        await tx.equipoHistory.create({ data: { equipoId: row.id, action: 'detach', component: 'trailer', originEquipoId: null, payload: { reason: 'forceMove' } as any } });
       }
     }
   });
 }
 
 /**
- * Ejecuta acciones post-creación de equipo
+ * Acciones async no-críticas post-creación (fire-and-forget)
+ * El historial se registra dentro de la transacción de creación.
  */
-async function onEquipoCreated(
+function onEquipoCreatedAsync(
   equipo: { id: number },
   tenantEmpresaId: number,
-  dniNorm: string,
-  truckNorm: string,
-  trailerNorm: string | null
-): Promise<void> {
-  // Registrar en historial
-  try {
-    await prisma.equipoHistory.create({
-      data: {
-        equipoId: equipo.id,
-        action: 'create',
-        component: 'system',
-        originEquipoId: null,
-        payload: { driverDni: dniNorm, truckPlate: truckNorm, trailerPlate: trailerNorm } as any
+): void {
+  (async () => {
+    try {
+      const { queueService } = await import('./queue.service');
+      await queueService.addMissingCheckForEquipo(tenantEmpresaId, equipo.id, 15 * 60 * 1000);
+    } catch { /* non-critical */ }
+
+    try {
+      const { SystemConfigService } = await import('./system-config.service');
+      const defIdStr = await SystemConfigService.getConfig(`tenant:${tenantEmpresaId}:defaults.defaultClienteId`);
+      const defId = defIdStr ? Number(defIdStr) : NaN;
+      if (!Number.isNaN(defId)) {
+        await EquipoService.associateCliente(tenantEmpresaId, equipo.id, defId, new Date());
       }
-    });
-  } catch { /* noop */ }
-
-  // Encolar chequeo de faltantes
-  try {
-    const { queueService } = await import('./queue.service');
-    await queueService.addMissingCheckForEquipo(tenantEmpresaId, equipo.id, 15 * 60 * 1000);
-  } catch { /* noop */ }
-
-  // Asociar cliente por defecto
-  try {
-    const { SystemConfigService } = await import('./system-config.service');
-    const defIdStr = await SystemConfigService.getConfig(`tenant:${tenantEmpresaId}:defaults.defaultClienteId`);
-    const defId = defIdStr ? Number(defIdStr) : NaN;
-    if (!Number.isNaN(defId)) {
-      await EquipoService.associateCliente(tenantEmpresaId, equipo.id, defId, new Date());
-    }
-  } catch { /* noop */ }
+    } catch { /* non-critical */ }
+  })();
 }
 
 // ============================================================================
@@ -1442,25 +1430,40 @@ export class EquipoService {
       await resolveComponentConflicts(input.tenantEmpresaId, dniNorm, truckNorm, trailerNorm);
     }
 
-    // Crear equipo con activo=true explícito para evitar problemas de filtrado
-    const equipo = await prisma.equipo.create({
-      data: {
-        tenantEmpresaId: input.tenantEmpresaId,
-        dadorCargaId: input.dadorCargaId,
-        driverId: input.driverId,
-        truckId: input.truckId,
-        trailerId: input.trailerId ?? null,
-        empresaTransportistaId: input.empresaTransportistaId ?? null,
-        driverDniNorm: dniNorm,
-        truckPlateNorm: truckNorm,
-        trailerPlateNorm: trailerNorm,
-        validFrom: input.validFrom,
-        validTo: input.validTo ?? null,
-        activo: true,
-      },
+    // Crear equipo y registrar historial en una transacción atómica
+    const equipo = await prisma.$transaction(async (tx) => {
+      const created = await tx.equipo.create({
+        data: {
+          tenantEmpresaId: input.tenantEmpresaId,
+          dadorCargaId: input.dadorCargaId,
+          driverId: input.driverId,
+          truckId: input.truckId,
+          trailerId: input.trailerId ?? null,
+          empresaTransportistaId: input.empresaTransportistaId ?? null,
+          driverDniNorm: dniNorm,
+          truckPlateNorm: truckNorm,
+          trailerPlateNorm: trailerNorm,
+          validFrom: input.validFrom,
+          validTo: input.validTo ?? null,
+          activo: true,
+        },
+      });
+
+      await tx.equipoHistory.create({
+        data: {
+          equipoId: created.id,
+          action: 'create',
+          component: 'system',
+          originEquipoId: null,
+          payload: { driverDni: dniNorm, truckPlate: truckNorm, trailerPlate: trailerNorm } as any
+        }
+      });
+
+      return created;
     });
-    // Ejecutar acciones post-creación
-    await onEquipoCreated(equipo, input.tenantEmpresaId, dniNorm, truckNorm, trailerNorm);
+
+    // Acciones no-críticas fuera de la transacción (fire-and-forget)
+    onEquipoCreatedAsync(equipo, input.tenantEmpresaId);
     
     return equipo;
   }

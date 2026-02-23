@@ -656,29 +656,32 @@ export class PlatformAuthService {
 
     const prisma = prismaService.getClient();
     const email = input.email.toLowerCase().trim();
-
-    const existingUser = await prisma.user.findUnique({ where: { email } });
-    if (existingUser) {
-      return { success: false, message: 'El email ya está en uso' };
-    }
-
     const tempPassword = this.generateTempPassword();
     const hashedPassword = await this.hashPassword(tempPassword);
     const finalEmpresaId = this.determineFinalEmpresaId(role, input.empresaId ?? null, createdBy);
 
-    const newUser = await prisma.user.create({
-      data: {
-        email,
-        password: hashedPassword,
-        role,
-        empresaId: finalEmpresaId,
-        nombre: input.nombre,
-        apellido: input.apellido,
-        mustChangePassword: true as any,
-        creadoPorId: createdBy.id,
-        ...roleSpecificData,
-      } as any,
+    const newUser = await prisma.$transaction(async (tx: any) => {
+      const existingUser = await tx.user.findUnique({ where: { email } });
+      if (existingUser) return null;
+
+      return tx.user.create({
+        data: {
+          email,
+          password: hashedPassword,
+          role,
+          empresaId: finalEmpresaId,
+          nombre: input.nombre,
+          apellido: input.apellido,
+          mustChangePassword: true as any,
+          creadoPorId: createdBy.id,
+          ...roleSpecificData,
+        } as any,
+      });
     });
+
+    if (!newUser) {
+      return { success: false, message: 'El email ya está en uso' };
+    }
 
     return {
       success: true,
