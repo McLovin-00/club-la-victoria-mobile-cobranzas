@@ -1,4 +1,4 @@
-import { Queue, Worker, Job } from 'bullmq';
+import { Queue, Job } from 'bullmq';
 import { Redis } from 'ioredis';
 import { AppLogger } from '../config/logger';
 import { getEnvironment } from '../config/environment';
@@ -36,7 +36,6 @@ class QueueService {
   private documentAIValidationQueue: Queue<DocumentAIValidationJobData>;
   private complianceQueue: Queue<{ type: 'verify-missing-equipo'; tenantId: number; equipoId: number }>;
   private dlqQueue: Queue<DLQJobData>;
-  private dlqWorkers: Worker[] = [];
 
   private constructor() {
     // Configurar Redis (URL, TLS y password desde env)
@@ -353,15 +352,6 @@ class QueueService {
       } catch { /* DLQ insertion is best-effort */ }
     };
 
-    const createDLQWorker = (queueName: string): Worker => {
-      const w = new Worker(queueName, undefined as any, {
-        connection: this.redis as never,
-        autorun: false,
-      });
-      w.on('failed', (job, err) => moveToDLQ(job, err, queueName));
-      return w;
-    };
-
     (this.documentValidationQueue as any).on('failed', (job: Job, err: Error) =>
       moveToDLQ(job, err, 'document-validation')
     );
@@ -406,7 +396,6 @@ class QueueService {
       await this.documentAIValidationQueue.close();
       await this.complianceQueue.close();
       await this.dlqQueue.close();
-      for (const w of this.dlqWorkers) await w.close();
       await this.redis.quit();
       AppLogger.info('📬 Queue Service cerrado');
     } catch (error) {
