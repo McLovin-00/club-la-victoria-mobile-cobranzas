@@ -26,6 +26,7 @@ export const ChangePasswordForm = () => {
   });
 
   const [isLoading, setIsLoading] = useState(false);
+  const [result, setResult] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
@@ -100,8 +101,8 @@ export const ChangePasswordForm = () => {
       });
 
       if (response.ok) {
+        setResult({ type: 'success', text: 'Contraseña cambiada exitosamente' });
         showToast('Contraseña cambiada exitosamente', 'success');
-        // Si el backend limpió mustChangePassword, reflejarlo en el estado local para levantar el bloqueo de navegación.
         if (currentUser) {
           dispatch(setCurrentUser({ ...currentUser, mustChangePassword: false }));
         }
@@ -112,9 +113,12 @@ export const ChangePasswordForm = () => {
         });
       } else {
         const error = await response.json();
-        showToast(error.message || 'Error al cambiar la contraseña', 'error');
+        const msg = error.message || 'Error al cambiar la contraseña';
+        setResult({ type: 'error', text: msg });
+        showToast(msg, 'error');
       }
     } catch {
+      setResult({ type: 'error', text: 'Error de conexión al cambiar la contraseña' });
       showToast('Error de conexión al cambiar la contraseña', 'error');
     } finally {
       setIsLoading(false);
@@ -235,6 +239,22 @@ export const ChangePasswordForm = () => {
           </button>
         </div>
       </div>
+
+      {result && (
+        <div
+          className={`p-4 rounded-lg flex items-start gap-3 ${
+            result.type === 'success'
+              ? 'bg-green-50 border border-green-300 text-green-800'
+              : 'bg-red-50 border border-red-300 text-red-800'
+          }`}
+        >
+          <span className='text-lg flex-shrink-0'>{result.type === 'success' ? '✅' : '❌'}</span>
+          <div>
+            <p className='font-semibold'>{result.type === 'success' ? 'Contraseña actualizada' : 'Error'}</p>
+            <p className='text-sm'>{result.text}</p>
+          </div>
+        </div>
+      )}
 
       <div className='pt-4'>
         <button

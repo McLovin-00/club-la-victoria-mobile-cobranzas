@@ -17,13 +17,17 @@ const PlatformUsersPage: React.FC = () => {
   const [deleteUser, { isLoading: isDeleting }] = useDeletePlatformUserMutation();
   const [toggleActivo] = useToggleUserActivoMutation();
   const [confirmingDelete, setConfirmingDelete] = useState<{ id: number; email: string } | null>(null);
+  const [confirmingToggle, setConfirmingToggle] = useState<{ id: number; email: string; activo: boolean } | null>(null);
 
-  const handleToggleActivo = async (userId: number, currentActivo: boolean) => {
+  const handleConfirmToggle = async () => {
+    if (!confirmingToggle) return;
     try {
-      await toggleActivo({ id: userId, activo: !currentActivo }).unwrap();
-      showToast(`Usuario ${!currentActivo ? 'activado' : 'desactivado'} exitosamente`, 'success');
+      await toggleActivo({ id: confirmingToggle.id, activo: !confirmingToggle.activo }).unwrap();
+      showToast(`Usuario ${!confirmingToggle.activo ? 'activado' : 'desactivado'} exitosamente`, 'success');
     } catch (e: any) {
       showToast(e?.data?.message || 'Error al cambiar estado', 'error');
+    } finally {
+      setConfirmingToggle(null);
     }
   };
 
@@ -101,7 +105,7 @@ const PlatformUsersPage: React.FC = () => {
                     <button className="text-sm" onClick={()=>setEditing(u)}>Editar</button>
                     <button 
                       className={`text-sm ${u.activo !== false ? 'text-orange-600' : 'text-green-600'}`} 
-                      onClick={() => handleToggleActivo(u.id, u.activo !== false)}
+                      onClick={() => setConfirmingToggle({ id: u.id, email: u.email, activo: u.activo !== false })}
                     >
                       {u.activo !== false ? 'Desactivar' : 'Activar'}
                     </button>
@@ -194,6 +198,59 @@ const PlatformUsersPage: React.FC = () => {
                 className="flex-1 bg-red-600 hover:bg-red-700 text-white"
               >
                 {isDeleting ? 'Eliminando...' : 'Eliminar'}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal de confirmación de activar/desactivar */}
+      {confirmingToggle && (
+        <div
+          className="fixed inset-0 bg-black/50 flex items-center justify-center z-50"
+          onClick={() => setConfirmingToggle(null)}
+          onKeyDown={(e) => e.key === 'Escape' && setConfirmingToggle(null)}
+          role="button"
+          tabIndex={0}
+        >
+          <div
+            className="bg-white dark:bg-slate-900 rounded-lg p-6 w-full max-w-md shadow-xl"
+            onClick={(e) => e.stopPropagation()}
+            onKeyDown={(e) => e.stopPropagation()}
+            role="dialog"
+          >
+            <div className="flex items-center gap-3 mb-4">
+              <div className={`flex-shrink-0 w-10 h-10 rounded-full flex items-center justify-center ${confirmingToggle.activo ? 'bg-orange-100' : 'bg-green-100'}`}>
+                <span className="text-lg">{confirmingToggle.activo ? '⏸️' : '▶️'}</span>
+              </div>
+              <div>
+                <h3 className="text-lg font-medium text-foreground">
+                  {confirmingToggle.activo ? 'Desactivar' : 'Activar'} Usuario
+                </h3>
+                <p className="text-sm text-muted-foreground">
+                  {confirmingToggle.activo
+                    ? 'El usuario no podrá ingresar al sistema'
+                    : 'El usuario podrá volver a ingresar al sistema'}
+                </p>
+              </div>
+            </div>
+            <p className="text-sm text-foreground mb-6">
+              {confirmingToggle.activo ? '¿Estás seguro de que deseas desactivar' : '¿Estás seguro de que deseas activar'} al usuario{' '}
+              <span className="font-medium">{confirmingToggle.email}</span>?
+            </p>
+            <div className="flex gap-3">
+              <Button
+                variant="outline"
+                onClick={() => setConfirmingToggle(null)}
+                className="flex-1"
+              >
+                Cancelar
+              </Button>
+              <Button
+                onClick={handleConfirmToggle}
+                className={`flex-1 text-white ${confirmingToggle.activo ? 'bg-orange-600 hover:bg-orange-700' : 'bg-green-600 hover:bg-green-700'}`}
+              >
+                {confirmingToggle.activo ? 'Desactivar' : 'Activar'}
               </Button>
             </div>
           </div>
