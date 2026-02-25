@@ -102,26 +102,45 @@ function App() {
                 <Route path='/empresas' element={<EmpresasPageLazy />} />
               </Route>
 
-              {/* Rutas de Documentos para todos los roles que usan el sistema */}
-              <Route element={<RequireAuth allowedRoles={['SUPERADMIN', 'ADMIN', 'OPERATOR', 'ADMIN_INTERNO', 'OPERADOR_INTERNO', 'DADOR_DE_CARGA', 'TRANSPORTISTA', 'CHOFER']} />}>
-                <Route path='/documentos' element={
+              {/* ═══════════════════════════════════════════════════════════ */}
+              {/* Configuración del sistema - Solo SUPERADMIN               */}
+              {/* ═══════════════════════════════════════════════════════════ */}
+              <Route element={<RequireAuth allowedRoles={['SUPERADMIN']} />}>
+                <Route path='/plantillas' element={
                   <ProtectedServiceRoute service="documentos">
-                    <DocumentosMainPage />
+                    <TemplatesPage />
                   </ProtectedServiceRoute>
                 } />
+                <Route path='/configuracion/flowise' element={
+                  <ProtectedServiceRoute service="documentos">
+                    <FlowiseConfigPage />
+                  </ProtectedServiceRoute>
+                } />
+                <Route path='/configuracion/evolution' element={
+                  <ProtectedServiceRoute service="documentos">
+                    <EvolutionConfigPage />
+                  </ProtectedServiceRoute>
+                } />
+              </Route>
+
+              {/* ═══════════════════════════════════════════════════════════ */}
+              {/* Configuración de notificaciones - SUPERADMIN, ADMIN       */}
+              {/* ═══════════════════════════════════════════════════════════ */}
+              <Route element={<RequireAuth allowedRoles={['SUPERADMIN', 'ADMIN']} />}>
+                <Route path='/configuracion/notificaciones' element={
+                  <ProtectedServiceRoute service="documentos">
+                    <NotificationsConfigPage />
+                  </ProtectedServiceRoute>
+                } />
+              </Route>
+
+              {/* ═══════════════════════════════════════════════════════════ */}
+              {/* Administración de documentos - SUPERADMIN, ADMIN, ADMIN_INTERNO */}
+              {/* ═══════════════════════════════════════════════════════════ */}
+              <Route element={<RequireAuth allowedRoles={['SUPERADMIN', 'ADMIN', 'ADMIN_INTERNO']} />}>
                 <Route path='/documentos/auditoria' element={
                   <ProtectedServiceRoute service="documentos">
                     <AuditLogsPage />
-                  </ProtectedServiceRoute>
-                } />
-                <Route path='/documentos/clientes' element={
-                  <ProtectedServiceRoute service="documentos">
-                    <ClientsPage />
-                  </ProtectedServiceRoute>
-                } />
-                <Route path='/documentos/clientes/:clienteId/requirements' element={
-                  <ProtectedServiceRoute service="documentos">
-                    <ClientRequirementsPage />
                   </ProtectedServiceRoute>
                 } />
                 <Route path='/documentos/plantillas' element={
@@ -132,6 +151,59 @@ function App() {
                 <Route path='/documentos/plantillas/:clienteId' element={
                   <ProtectedServiceRoute service="documentos">
                     <PlantillasRequisitoPage />
+                  </ProtectedServiceRoute>
+                } />
+                <Route path='/documentos/dadores' element={
+                  <ProtectedServiceRoute service="documentos">
+                    <DadoresPage />
+                  </ProtectedServiceRoute>
+                } />
+                <Route path='/documentos/equipos/:id/editar' element={
+                  <ProtectedServiceRoute service="documentos">
+                    <EditarEquipoPage />
+                  </ProtectedServiceRoute>
+                } />
+              </Route>
+
+              {/* ═══════════════════════════════════════════════════════════ */}
+              {/* Datos extraídos IA - SUPERADMIN, ADMIN_INTERNO            */}
+              {/* ═══════════════════════════════════════════════════════════ */}
+              <Route element={<RequireAuth allowedRoles={['SUPERADMIN', 'ADMIN_INTERNO']} />}>
+                <Route path='/documentos/datos-extraidos' element={
+                  <ProtectedServiceRoute service="documentos">
+                    <ExtractedDataPage />
+                  </ProtectedServiceRoute>
+                } />
+              </Route>
+
+              {/* ═══════════════════════════════════════════════════════════ */}
+              {/* Documentos por dador - SUPERADMIN, ADMIN, ADMIN_INTERNO, DADOR_DE_CARGA */}
+              {/* ═══════════════════════════════════════════════════════════ */}
+              <Route element={<RequireAuth allowedRoles={['SUPERADMIN', 'ADMIN', 'ADMIN_INTERNO', 'DADOR_DE_CARGA']} />}>
+                <Route path='/dadores/:empresaId/documentos' element={
+                  <ProtectedServiceRoute service="documentos">
+                    <DocumentosPage />
+                  </ProtectedServiceRoute>
+                } />
+              </Route>
+
+              {/* ═══════════════════════════════════════════════════════════ */}
+              {/* Rutas de Documentos - Roles operativos del sistema        */}
+              {/* ═══════════════════════════════════════════════════════════ */}
+              <Route element={<RequireAuth allowedRoles={['SUPERADMIN', 'ADMIN', 'OPERATOR', 'ADMIN_INTERNO', 'OPERADOR_INTERNO', 'DADOR_DE_CARGA', 'TRANSPORTISTA', 'CHOFER']} />}>
+                <Route path='/documentos' element={
+                  <ProtectedServiceRoute service="documentos">
+                    <DocumentosMainPage />
+                  </ProtectedServiceRoute>
+                } />
+                <Route path='/documentos/clientes' element={
+                  <ProtectedServiceRoute service="documentos">
+                    <ClientsPage />
+                  </ProtectedServiceRoute>
+                } />
+                <Route path='/documentos/clientes/:clienteId/requirements' element={
+                  <ProtectedServiceRoute service="documentos">
+                    <ClientRequirementsPage />
                   </ProtectedServiceRoute>
                 } />
                 <Route path='/documentos/equipos' element={
@@ -149,12 +221,6 @@ function App() {
                     <EstadoEquipoPage />
                   </ProtectedServiceRoute>
                 } />
-                <Route path='/documentos/equipos/:id/editar' element={
-                  <ProtectedServiceRoute service="documentos">
-                    <EditarEquipoPage />
-                  </ProtectedServiceRoute>
-                } />
-                 {/* Eliminado: Empresas (Documentos) */}
                 <Route path='/documentos/choferes' element={
                   <ProtectedServiceRoute service="documentos">
                     <ChoferesPage />
@@ -170,34 +236,9 @@ function App() {
                     <AcopladosPage />
                   </ProtectedServiceRoute>
                 } />
-                <Route path='/documentos/dadores' element={
-                  <ProtectedServiceRoute service="documentos">
-                    <DadoresPage />
-                  </ProtectedServiceRoute>
-                } />
                 <Route path='/documentos/consulta' element={
                   <ProtectedServiceRoute service="documentos">
                     <ConsultaPage />
-                  </ProtectedServiceRoute>
-                } />
-                <Route path='/plantillas' element={
-                  <ProtectedServiceRoute service="documentos">
-                    <TemplatesPage />
-                  </ProtectedServiceRoute>
-                } />
-                <Route path='/configuracion/flowise' element={
-                  <ProtectedServiceRoute service="documentos">
-                    <FlowiseConfigPage />
-                  </ProtectedServiceRoute>
-                } />
-                <Route path='/configuracion/evolution' element={
-                  <ProtectedServiceRoute service="documentos">
-                    <EvolutionConfigPage />
-                  </ProtectedServiceRoute>
-                } />
-                <Route path='/configuracion/notificaciones' element={
-                  <ProtectedServiceRoute service="documentos">
-                    <NotificationsConfigPage />
                   </ProtectedServiceRoute>
                 } />
                 <Route path='/documentos/dashboard' element={
@@ -233,16 +274,6 @@ function App() {
                 <Route path='/documentos/aprobacion/:id' element={
                   <ProtectedServiceRoute service="documentos">
                     <ApprovalDetailPage />
-                  </ProtectedServiceRoute>
-                } />
-                <Route path='/documentos/datos-extraidos' element={
-                  <ProtectedServiceRoute service="documentos">
-                    <ExtractedDataPage />
-                  </ProtectedServiceRoute>
-                } />
-                <Route path='/dadores/:empresaId/documentos' element={
-                  <ProtectedServiceRoute service="documentos">
-                    <DocumentosPage />
                   </ProtectedServiceRoute>
                 } />
               </Route>
