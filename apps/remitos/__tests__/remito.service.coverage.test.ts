@@ -134,8 +134,8 @@ describe('RemitoService.create', () => {
     };
 
     const result = await RemitoService.create(baseInput, multiFile);
-    expect(result.imagenes).toHaveLength(2);
-    expect(minioService.uploadRemitoImage).toHaveBeenCalledTimes(2);
+    expect(result.imagenes).toHaveLength(3);
+    expect(minioService.uploadRemitoImage).toHaveBeenCalledTimes(3);
   });
 
   it('creates remito with optional chofer fields as null when absent', async () => {
@@ -645,9 +645,9 @@ describe('RemitoService.updateManual', () => {
     expect(updateCall.data.tieneTicketDestino).toBe(true);
   });
 
-  it('sets tieneTicketDestino=false when all destino pesos are null', async () => {
+  it('sets tieneTicketDestino=false when all destino pesos are null (remito and update)', async () => {
     prisma.remito.findUnique.mockResolvedValue(
-      makeRemito({ estado: 'PENDIENTE_APROBACION', pesoDestinoBruto: 100, pesoDestinoTara: null, pesoDestinoNeto: null })
+      makeRemito({ estado: 'PENDIENTE_APROBACION', pesoDestinoBruto: null, pesoDestinoTara: null, pesoDestinoNeto: null })
     );
     prisma.remito.update.mockResolvedValue(makeRemito());
     prisma.remitoHistory.create.mockResolvedValue({});

@@ -357,5 +357,459 @@ describe('PlatformAuthController (coverage)', () => {
       expect(res.status).toHaveBeenCalledWith(500);
     });
   });
+
+  // ==========================================================================
+  // login – remaining branches
+  // ==========================================================================
+  describe('login (remaining branches)', () => {
+    it('returns 401 when login fails', async () => {
+      (PlatformAuthService.login as jest.Mock).mockResolvedValue({
+        success: false,
+        message: 'Credenciales inválidas',
+      });
+
+      const req: any = { body: { email: 'x@x.com', password: 'wrong' }, ip: '1.1.1.1', get: () => 'ua' };
+      const res = createRes();
+
+      await PlatformAuthController.login(req as Request, res);
+
+      expect(res.status).toHaveBeenCalledWith(401);
+    });
+
+    it('returns 500 on service exception', async () => {
+      (PlatformAuthService.login as jest.Mock).mockRejectedValue(new Error('crash'));
+
+      const req: any = { body: { email: 'x@x.com', password: 'x' }, ip: '1.1.1.1', get: () => 'ua' };
+      const res = createRes();
+
+      await PlatformAuthController.login(req as Request, res);
+
+      expect(res.status).toHaveBeenCalledWith(500);
+    });
+  });
+
+  // ==========================================================================
+  // register
+  // ==========================================================================
+  describe('register', () => {
+    const actorProfile = {
+      id: 10, email: 'admin@b.com', role: 'ADMIN',
+      empresaId: 1, createdAt: new Date(), updatedAt: new Date(),
+    };
+
+    it('returns 201 on successful registration', async () => {
+      (PlatformAuthService.getUserProfile as jest.Mock).mockResolvedValue(actorProfile);
+      (PlatformAuthService as any).register = jest.fn().mockResolvedValue({
+        success: true,
+        message: 'Registrado',
+        platformUser: { id: 5 },
+      });
+
+      const req: any = {
+        user: { userId: 10 },
+        body: { email: 'new@x.com', password: 'Pass1!', role: 'OPERATOR' },
+        ip: '1.1.1.1',
+      };
+      const res = createRes();
+
+      await PlatformAuthController.register(req as any, res);
+
+      expect(res.status).toHaveBeenCalledWith(201);
+    });
+
+    it('returns 400 when registration fails', async () => {
+      (PlatformAuthService.getUserProfile as jest.Mock).mockResolvedValue(actorProfile);
+      (PlatformAuthService as any).register = jest.fn().mockResolvedValue({
+        success: false,
+        message: 'Email ya registrado',
+      });
+
+      const req: any = {
+        user: { userId: 10 },
+        body: { email: 'dup@x.com', password: 'x', role: 'OPERATOR' },
+        ip: '1.1.1.1',
+      };
+      const res = createRes();
+
+      await PlatformAuthController.register(req as any, res);
+
+      expect(res.status).toHaveBeenCalledWith(400);
+    });
+
+    it('returns 400 with error message on Error instance', async () => {
+      (PlatformAuthService.getUserProfile as jest.Mock).mockResolvedValue(actorProfile);
+      (PlatformAuthService as any).register = jest.fn().mockRejectedValue(new Error('Validation failed'));
+
+      const req: any = {
+        user: { userId: 10 },
+        body: { email: 'x@x.com', password: 'x', role: 'OPERATOR' },
+        ip: '1.1.1.1',
+      };
+      const res = createRes();
+
+      await PlatformAuthController.register(req as any, res);
+
+      expect(res.status).toHaveBeenCalledWith(400);
+      expect(res.json).toHaveBeenCalledWith(
+        expect.objectContaining({ message: 'Validation failed' })
+      );
+    });
+
+    it('returns 500 on non-Error exception', async () => {
+      (PlatformAuthService.getUserProfile as jest.Mock).mockResolvedValue(actorProfile);
+      (PlatformAuthService as any).register = jest.fn().mockRejectedValue('string error');
+
+      const req: any = {
+        user: { userId: 10 },
+        body: { email: 'x@x.com', password: 'x', role: 'OPERATOR' },
+        ip: '1.1.1.1',
+      };
+      const res = createRes();
+
+      await PlatformAuthController.register(req as any, res);
+
+      expect(res.status).toHaveBeenCalledWith(500);
+    });
+
+    it('returns 401 when user not authenticated', async () => {
+      const req: any = {
+        user: null,
+        body: { email: 'x@x.com', password: 'x' },
+        ip: '1.1.1.1',
+      };
+      const res = createRes();
+
+      await PlatformAuthController.register(req as any, res);
+
+      expect(res.status).toHaveBeenCalledWith(401);
+    });
+  });
+
+  // ==========================================================================
+  // getProfile
+  // ==========================================================================
+  describe('getProfile', () => {
+    it('returns 401 when not authenticated', async () => {
+      const req: any = { user: null };
+      const res = createRes();
+
+      await PlatformAuthController.getProfile(req as any, res);
+
+      expect(res.status).toHaveBeenCalledWith(401);
+    });
+
+    it('returns 404 when profile not found', async () => {
+      (PlatformAuthService.getUserProfile as jest.Mock).mockResolvedValue(null);
+
+      const req: any = { user: { userId: 999 } };
+      const res = createRes();
+
+      await PlatformAuthController.getProfile(req as any, res);
+
+      expect(res.status).toHaveBeenCalledWith(404);
+    });
+
+    it('returns 200 with profile', async () => {
+      (PlatformAuthService.getUserProfile as jest.Mock).mockResolvedValue({
+        id: 1, email: 'x@x.com', role: 'ADMIN',
+      });
+
+      const req: any = { user: { userId: 1 } };
+      const res = createRes();
+
+      await PlatformAuthController.getProfile(req as any, res);
+
+      expect(res.status).toHaveBeenCalledWith(200);
+    });
+
+    it('returns 500 on error', async () => {
+      (PlatformAuthService.getUserProfile as jest.Mock).mockRejectedValue(new Error('crash'));
+
+      const req: any = { user: { userId: 1 } };
+      const res = createRes();
+
+      await PlatformAuthController.getProfile(req as any, res);
+
+      expect(res.status).toHaveBeenCalledWith(500);
+    });
+  });
+
+  // ==========================================================================
+  // changePassword
+  // ==========================================================================
+  describe('changePassword', () => {
+    it('returns 401 when not authenticated', async () => {
+      const req: any = { user: null, body: {} };
+      const res = createRes();
+
+      await PlatformAuthController.changePassword(req as any, res);
+
+      expect(res.status).toHaveBeenCalledWith(401);
+    });
+
+    it('returns 200 on success', async () => {
+      (PlatformAuthService as any).updatePassword = jest.fn().mockResolvedValue({
+        success: true,
+        message: 'Contraseña actualizada',
+      });
+
+      const req: any = {
+        user: { userId: 1 },
+        body: { currentPassword: 'old', newPassword: 'new' },
+        ip: '1.1.1.1',
+      };
+      const res = createRes();
+
+      await PlatformAuthController.changePassword(req as any, res);
+
+      expect(res.status).toHaveBeenCalledWith(200);
+    });
+
+    it('returns 400 when password change fails', async () => {
+      (PlatformAuthService as any).updatePassword = jest.fn().mockResolvedValue({
+        success: false,
+        message: 'Contraseña actual incorrecta',
+      });
+
+      const req: any = {
+        user: { userId: 1 },
+        body: { currentPassword: 'wrong', newPassword: 'new' },
+        ip: '1.1.1.1',
+      };
+      const res = createRes();
+
+      await PlatformAuthController.changePassword(req as any, res);
+
+      expect(res.status).toHaveBeenCalledWith(400);
+    });
+
+    it('returns 500 on error', async () => {
+      (PlatformAuthService as any).updatePassword = jest.fn().mockRejectedValue(new Error('crash'));
+
+      const req: any = {
+        user: { userId: 1 },
+        body: { currentPassword: 'x', newPassword: 'y' },
+        ip: '1.1.1.1',
+      };
+      const res = createRes();
+
+      await PlatformAuthController.changePassword(req as any, res);
+
+      expect(res.status).toHaveBeenCalledWith(500);
+    });
+  });
+
+  // ==========================================================================
+  // verifyToken
+  // ==========================================================================
+  describe('verifyToken', () => {
+    it('returns 401 when not authenticated', async () => {
+      const req: any = { user: null };
+      const res = createRes();
+
+      await PlatformAuthController.verifyToken(req as any, res);
+
+      expect(res.status).toHaveBeenCalledWith(401);
+    });
+
+    it('returns 200 with user data', async () => {
+      const req: any = {
+        user: { userId: 1, email: 'x@x.com', role: 'ADMIN', empresaId: 10 },
+      };
+      const res = createRes();
+
+      await PlatformAuthController.verifyToken(req as any, res);
+
+      expect(res.status).toHaveBeenCalledWith(200);
+      expect(res.json).toHaveBeenCalledWith(
+        expect.objectContaining({
+          success: true,
+          user: expect.objectContaining({ userId: 1 }),
+        })
+      );
+    });
+  });
+
+  // ==========================================================================
+  // updateUser
+  // ==========================================================================
+  describe('updateUser', () => {
+    const actorProfile = {
+      id: 10, email: 'admin@b.com', role: 'ADMIN',
+      empresaId: 1, createdAt: new Date(), updatedAt: new Date(),
+    };
+
+    it('returns 200 on successful update', async () => {
+      (PlatformAuthService.getUserProfile as jest.Mock).mockResolvedValue(actorProfile);
+      (PlatformAuthService.updatePlatformUser as jest.Mock).mockResolvedValue({ id: 5, email: 'updated@x.com' });
+
+      const req: any = {
+        user: { userId: 10 },
+        params: { id: '5' },
+        body: { email: 'updated@x.com' },
+      };
+      const res = createRes();
+
+      await PlatformAuthController.updateUser(req as any, res);
+
+      expect(res.status).toHaveBeenCalledWith(200);
+    });
+
+    it('returns 400 on validation errors', async () => {
+      const { validationResult } = require('express-validator');
+      (validationResult as jest.Mock).mockReturnValue({
+        isEmpty: () => false,
+        array: () => [{ msg: 'Invalid email' }],
+      });
+
+      const req: any = {
+        user: { userId: 10 },
+        params: { id: '5' },
+        body: { email: 'invalid' },
+      };
+      const res = createRes();
+
+      await PlatformAuthController.updateUser(req as any, res);
+
+      expect(res.status).toHaveBeenCalledWith(400);
+    });
+
+    it('returns 401 when not authenticated', async () => {
+      const { validationResult } = require('express-validator');
+      (validationResult as jest.Mock).mockReturnValue({
+        isEmpty: () => true,
+        array: () => [],
+      });
+
+      const req: any = {
+        user: null,
+        params: { id: '5' },
+        body: {},
+      };
+      const res = createRes();
+
+      await PlatformAuthController.updateUser(req as any, res);
+
+      expect(res.status).toHaveBeenCalledWith(401);
+    });
+
+    it('returns 500 on service error', async () => {
+      const { validationResult } = require('express-validator');
+      (validationResult as jest.Mock).mockReturnValue({
+        isEmpty: () => true,
+        array: () => [],
+      });
+      (PlatformAuthService.getUserProfile as jest.Mock).mockResolvedValue(actorProfile);
+      (PlatformAuthService.updatePlatformUser as jest.Mock).mockRejectedValue(new Error('db fail'));
+
+      const req: any = {
+        user: { userId: 10 },
+        params: { id: '5' },
+        body: { email: 'x@x.com' },
+      };
+      const res = createRes();
+
+      await PlatformAuthController.updateUser(req as any, res);
+
+      expect(res.status).toHaveBeenCalledWith(500);
+    });
+  });
+
+  // ==========================================================================
+  // deleteUser – unauthenticated path
+  // ==========================================================================
+  describe('deleteUser (unauthenticated)', () => {
+    it('returns 401 when user not in request', async () => {
+      const req: any = { user: null, params: { id: '5' } };
+      const res = createRes();
+
+      await PlatformAuthController.deleteUser(req as any, res);
+
+      expect(res.status).toHaveBeenCalledWith(401);
+    });
+
+    it('returns 401 when profile not found', async () => {
+      (PlatformAuthService.getUserProfile as jest.Mock).mockResolvedValue(null);
+
+      const req: any = { user: { userId: 999 }, params: { id: '5' } };
+      const res = createRes();
+
+      await PlatformAuthController.deleteUser(req as any, res);
+
+      expect(res.status).toHaveBeenCalledWith(401);
+    });
+
+    it('returns 200 on successful delete', async () => {
+      const actorProfile = {
+        id: 10, email: 'admin@b.com', role: 'ADMIN',
+        empresaId: 1, createdAt: new Date(), updatedAt: new Date(),
+      };
+      (PlatformAuthService.getUserProfile as jest.Mock).mockResolvedValue(actorProfile);
+      (PlatformAuthService.deletePlatformUser as jest.Mock).mockResolvedValue(undefined);
+
+      const req: any = { user: { userId: 10 }, params: { id: '5' } };
+      const res = createRes();
+
+      await PlatformAuthController.deleteUser(req as any, res);
+
+      expect(res.status).toHaveBeenCalledWith(200);
+    });
+
+    it('returns 403 for Solo superadmin error', async () => {
+      const actorProfile = {
+        id: 10, email: 'admin@b.com', role: 'ADMIN',
+        empresaId: 1, createdAt: new Date(), updatedAt: new Date(),
+      };
+      (PlatformAuthService.getUserProfile as jest.Mock).mockResolvedValue(actorProfile);
+      (PlatformAuthService.deletePlatformUser as jest.Mock).mockRejectedValue(
+        new Error('Solo superadmin puede realizar esta acción')
+      );
+
+      const req: any = { user: { userId: 10 }, params: { id: '5' } };
+      const res = createRes();
+
+      await PlatformAuthController.deleteUser(req as any, res);
+
+      expect(res.status).toHaveBeenCalledWith(403);
+    });
+  });
+
+  // ==========================================================================
+  // logout – cookie token branch
+  // ==========================================================================
+  describe('logout (cookie token)', () => {
+    it('uses cookie token when no Bearer header', async () => {
+      const req: any = {
+        headers: {},
+        cookies: { platformToken: 'cookie-tok' },
+        ip: '127.0.0.1',
+        get: () => 'ua',
+        user: { userId: 1 },
+      };
+      const res = createRes();
+
+      await PlatformAuthController.logout(req as any, res);
+
+      expect(PlatformAuthService.revokeToken).toHaveBeenCalledWith('cookie-tok');
+      expect(res.status).toHaveBeenCalledWith(200);
+    });
+
+    it('returns 500 on logout error', async () => {
+      (PlatformAuthService.revokeAllUserTokens as jest.Mock).mockRejectedValue(new Error('crash'));
+
+      const req: any = {
+        headers: { authorization: 'Bearer tok' },
+        cookies: {},
+        ip: '127.0.0.1',
+        get: () => 'ua',
+        user: { userId: 1 },
+      };
+      const res = createRes();
+
+      await PlatformAuthController.logout(req as any, res);
+
+      expect(res.status).toHaveBeenCalledWith(500);
+    });
+  });
 });
 
