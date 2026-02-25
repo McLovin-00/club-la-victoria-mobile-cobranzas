@@ -1,7 +1,8 @@
 # Procesos de Punta a Punta - Sistema BCA
 
 **Fecha de relevamiento**: 2026-02-20  
-**Versión**: 1.0  
+**Última actualización**: 2026-02-23  
+**Versión**: 1.1  
 **Propósito**: Inventario exhaustivo de todos los flujos end-to-end del sistema para auditoría
 
 ---
@@ -43,6 +44,11 @@
 18. [Configuración del Sistema](#18-configuración-del-sistema)
 19. [End Users y Permisos (Backend legacy)](#19-end-users-y-permisos-backend-legacy)
 20. [Health y Monitoreo](#20-health-y-monitoreo)
+21. [Notificaciones WhatsApp (Evolution API)](#21-notificaciones-whatsapp-evolution-api)
+22. [Tareas Programadas (Scheduler)](#22-tareas-programadas-scheduler)
+23. [Requisitos de Cliente (CRUD)](#23-requisitos-de-cliente-crud)
+24. [Búsqueda Global](#24-búsqueda-global)
+25. [Perfil de Usuario](#25-perfil-de-usuario)
 
 ---
 
@@ -580,6 +586,21 @@ PENDIENTE_ANALISIS → EN_ANALISIS → PENDIENTE_APROBACION → APROBADO
                                  → ERROR_ANALISIS → (reprocess) → PENDIENTE_ANALISIS
 ```
 
+### Control de confianza IA
+
+Se aplica un umbral mínimo de confianza (`MIN_CONFIANZA = 30%`) para aprobar remitos:
+
+- Si `confianzaIA < 30%` → la aprobación se **bloquea** con error descriptivo
+- El admin tiene dos opciones para desbloquear:
+  1. **Editar manualmente** (`PATCH /:id`): al corregir datos, `confianzaIA` se eleva a 100% automáticamente
+  2. **Reprocesar** (`POST /:id/reprocess`): re-envía a Flowise para nuevo análisis con nueva confianza
+
+```
+confianzaIA < 30% → BLOQUEO de aprobación
+                   → Opción A: Editar datos → confianzaIA = 100% → Aprobar
+                   → Opción B: Reprocesar IA → nueva confianzaIA → Si ≥ 30% → Aprobar
+```
+
 ### Datos extraídos por IA
 
 | Campo | Descripción |
@@ -594,7 +615,7 @@ PENDIENTE_ANALISIS → EN_ANALISIS → PENDIENTE_APROBACION → APROBADO
 | `patenteChasis` / `patenteAcoplado` | Patentes del vehículo |
 | `pesoOrigenBruto/Tara/Neto` | Pesos en origen |
 | `pesoDestinoBruto/Tara/Neto` | Pesos en destino (si hay ticket) |
-| `confianzaIA` | Nivel de confianza del análisis (0-100%) |
+| `confianzaIA` | Nivel de confianza del análisis (0-100%), umbral mínimo 30% |
 
 ---
 
@@ -913,7 +934,7 @@ Accede a transferencias, aprobaciones, gestión de equipos/documentos.
 | 8. Solicitudes de Transferencia | 7 | **Crítica** |
 | 9. Gestión de Remitos | 12 | **Crítica** |
 | 10. Compliance | 6 | Alta |
-| 11. Notificaciones | 6 | Media |
+| 11. Notificaciones Internas | 6 | Media |
 | 12. Portales de Autoservicio | 12 | Media |
 | 13. Operaciones Batch | 14 | Media |
 | 14. Datos Extraídos IA | 5 | Baja |
@@ -923,7 +944,12 @@ Accede a transferencias, aprobaciones, gestión de equipos/documentos.
 | 18. Configuración | 12 | Media |
 | 19. End Users y Permisos (legacy) | 24 | Baja |
 | 20. Health y Monitoreo | 7 | Media |
-| **TOTAL** | **238** | — |
+| 21. Notificaciones WhatsApp | 5 | Media |
+| 22. Tareas Programadas | 11 | Alta |
+| 23. Requisitos de Cliente | 3 | Media |
+| 24. Búsqueda Global | 1 | Baja |
+| 25. Perfil de Usuario | 2 | Baja |
+| **TOTAL** | **260** | — |
 
 ---
 
@@ -965,8 +991,149 @@ SUPERADMIN           → Acceso total al sistema
 
 ---
 
+## 21. Notificaciones WhatsApp (Evolution API)
+
+**Microservicio**: Documentos  
+**Tablas**: `documentos.NotificationLog`, `documentos.SystemConfig`  
+**Servicios**: `NotificationService`, `EvolutionClient`  
+**Ruta base (config)**: `/api/docs/evolution`
+
+| # | Proceso | Actor(es) | Endpoint / Trigger |
+|---|---------|-----------|-------------------|
+| 21.1 | Ver configuración Evolution | SUPERADMIN | `GET /api/docs/evolution` |
+| 21.2 | Actualizar configuración Evolution | SUPERADMIN | `PUT /api/docs/evolution` |
+| 21.3 | Probar conexión Evolution | SUPERADMIN | `POST /api/docs/evolution/test` |
+| 21.4 | Envío automático por vencimiento | Cron (cada hora :10) | `NotificationService.checkExpirations()` |
+| 21.5 | Envío automático por faltantes | Cron (diario 07:00 UTC) | `NotificationService.checkMissingDocs()` |
+
+### Audiencias de notificación
+
+| Audiencia | Destinatario | Datos de contacto |
+|-----------|-------------|-------------------|
+| `CHOFER` | Chofer del equipo | Teléfono registrado en la entidad |
+| `DADOR` | Dador de carga del equipo | Teléfono configurado en notificaciones del dador |
+
+### Ventanas de notificación por vencimiento
+
+| Ventana | Condición | Prioridad |
+|---------|-----------|-----------|
+| Aviso | Documento vence dentro de `diasAnticipacion` | Baja |
+| Alerta | Documento vence en 7 días o menos | Media |
+| Alarma | Documento vence en 3 días o menos | Alta |
+
+### Flujo detallado: Notificación por vencimiento (21.4)
+
+```
+Cron → NotificationService.checkExpirations()
+  → Por cada tenant activo:
+    1. Obtiene equipos con documentos próximos a vencer
+    2. Por cada equipo/documento:
+       - Verifica deduplicación (no reenviar mismo día)
+       - Determina ventana (aviso/alerta/alarma)
+       - Construye mensaje con template y variables
+       - Envía vía EvolutionClient.sendText(msisdn, text)
+       - Registra en NotificationLog
+```
+
+---
+
+## 22. Tareas Programadas (Scheduler)
+
+**Microservicio**: Documentos  
+**Service**: `SchedulerService`  
+**Librería**: `node-cron`
+
+| # | Tarea | Schedule | Descripción |
+|---|-------|----------|-------------|
+| 22.1 | Chequeo de vencimientos | `0 * * * *` (cada hora) + `5 3 * * *` (03:05 UTC) | Detecta documentos vencidos y actualiza estados |
+| 22.2 | Alertas programadas | `*/30 * * * *` (cada 30 min) | Ejecuta chequeos de alertas rojas |
+| 22.3 | Limpieza de colas | `0 2 * * *` (02:00 UTC diario) | Limpia jobs completados/fallidos de BullMQ |
+| 22.4 | Optimización de performance | `*/5 * * * *` (cada 5 min) | Refresca vistas materializadas |
+| 22.5 | Notificaciones por vencimiento | `10 * * * *` (cada hora :10) | Envía WhatsApp a choferes/dadores por documentos próximos a vencer |
+| 22.6 | Notificaciones por faltantes | `0 7 * * *` (07:00 UTC diario) | Envía WhatsApp por documentos faltantes |
+| 22.7 | Normalización de vencimientos | `0 3 * * *` (03:00 UTC diario) | Normaliza fechas de expiración inconsistentes |
+| 22.8 | Limpieza de notificaciones | `0 4 * * *` (04:00 UTC diario) | Elimina notificaciones > 30 días y leídas > 90 días |
+| 22.9 | Retención de auditoría | `0 2 * * *` (02:00 UTC diario) | Elimina audit logs > 180 días |
+| 22.10 | Evaluación diaria de compliance | `0 9 * * *` (09:00 UTC = 06:00 AR diario) | Re-evalúa estado documental de todos los equipos activos |
+| 22.11 | Limpieza de huérfanos MinIO | `0 8 * * 0` (domingos 08:00 UTC) | Elimina archivos sin referencia en BD (máx 100 por tenant) |
+
+---
+
+## 23. Requisitos de Cliente (CRUD)
+
+**Microservicio**: Documentos  
+**Tabla**: `documentos.ClienteDocumentRequirement`  
+**Ruta base**: `/api/docs/clients/:clienteId/requirements`
+
+| # | Proceso | Actor(es) | Endpoint |
+|---|---------|-----------|----------|
+| 23.1 | Listar requisitos de cliente | ADMIN, SUPERADMIN, ADMIN_INTERNO, DADOR_DE_CARGA | `GET /api/docs/clients/:clienteId/requirements` |
+| 23.2 | Agregar requisito a cliente | ADMIN, SUPERADMIN, ADMIN_INTERNO, DADOR_DE_CARGA | `POST /api/docs/clients/:clienteId/requirements` |
+| 23.3 | Eliminar requisito de cliente | ADMIN, SUPERADMIN, ADMIN_INTERNO, DADOR_DE_CARGA | `DELETE /api/docs/clients/:clienteId/requirements/:requirementId` |
+
+---
+
+## 24. Búsqueda Global
+
+**Microservicio**: Documentos  
+**Ruta base**: `/api/docs/search`
+
+| # | Proceso | Actor(es) | Endpoint |
+|---|---------|-----------|----------|
+| 24.1 | Búsqueda global | Cualquier autenticado | `GET /api/docs/search` |
+
+Busca en todas las entidades (choferes, camiones, acoplados, empresas transportistas, equipos) por texto libre. Los resultados se filtran según el rol del usuario (dador, transportista, chofer, admin).
+
+---
+
+## 25. Perfil de Usuario
+
+**Microservicio**: Backend  
+**Ruta base**: `/api/platform/auth`  
+**Frontend**: `/perfil`
+
+| # | Proceso | Actor(es) | Endpoint |
+|---|---------|-----------|----------|
+| 25.1 | Ver perfil propio | Cualquier autenticado | `GET /api/platform/auth/profile` |
+| 25.2 | Cambiar contraseña | Cualquier autenticado | `POST /api/platform/auth/change-password` |
+
+---
+
+## Resumen Cuantitativo (Actualizado)
+
+| Dominio | Procesos | Criticidad |
+|---------|----------|------------|
+| 1. Autenticación y Sesión | 5 | Alta |
+| 2. Gestión de Usuarios | 10 | Alta |
+| 3. Gestión de Empresas | 7 | Media |
+| 4. Entidades Maestras | 26 | Media |
+| 5. Gestión de Equipos | 28 | **Crítica** |
+| 6. Gestión de Documentos | 19 | **Crítica** |
+| 7. Plantillas de Requisitos | 16 | **Crítica** |
+| 8. Solicitudes de Transferencia | 7 | **Crítica** |
+| 9. Gestión de Remitos | 12 | **Crítica** |
+| 10. Compliance | 6 | Alta |
+| 11. Notificaciones Internas | 6 | Media |
+| 12. Portales de Autoservicio | 12 | Media |
+| 13. Operaciones Batch | 14 | Media |
+| 14. Datos Extraídos IA | 5 | Baja |
+| 15. Templates | 5 | Media |
+| 16. Dashboards y KPIs | 13 | Baja |
+| 17. Auditoría | 4 | Alta |
+| 18. Configuración | 12 | Media |
+| 19. End Users y Permisos (legacy) | 24 | Baja |
+| 20. Health y Monitoreo | 7 | Media |
+| 21. Notificaciones WhatsApp | 5 | Media |
+| 22. Tareas Programadas | 11 | Alta |
+| 23. Requisitos de Cliente | 3 | Media |
+| 24. Búsqueda Global | 1 | Baja |
+| 25. Perfil de Usuario | 2 | Baja |
+| **TOTAL** | **260** | — |
+
+---
+
 **Documento generado para auditoría del sistema BCA**  
-**238 procesos de punta a punta identificados en 20 dominios de negocio**
+**260 procesos de punta a punta identificados en 25 dominios de negocio**
 
 ---
 
@@ -1930,12 +2097,34 @@ Cambios más grandes que requieren diseño y planificación.
 
 ---
 
+#### Pendientes resueltos (2026-02-23)
+
+| # | Hallazgo | Fase | Archivo modificado |
+|---|----------|------|--------------------|
+| 1 | Threshold confianza IA bloquea aprobación + edición manual eleva confianza a 100% | F1 | `apps/remitos/src/services/remito.service.ts` |
+| 2 | SELECT FOR UPDATE en resolución de conflictos de equipos | F2 | `apps/documentos/src/services/equipo.service.ts` |
+| 3 | Creación de equipo + historial en transacción atómica | F2 | `apps/documentos/src/services/equipo.service.ts` |
+| 4 | Contador `entidadesTransferidas` correcto (incrementa solo si no falla) | F2 | `apps/documentos/src/services/transferencia.service.ts` |
+| 5 | Revalidación de ownership al aprobar transferencia | F2 | `apps/documentos/src/services/transferencia.service.ts` |
+| 6 | `addTemplate` y `assignToEquipo` envueltos en transacciones | F2 | `apps/documentos/src/services/plantillas.service.ts` |
+| 7 | Creación de usuarios envuelta en transacción (check + create atómico) | F3 | `apps/backend/src/services/platformAuth.service.ts` |
+| 8 | ClamAV obligatorio en todos los ambientes cuando está configurado | F3 | `apps/documentos/src/controllers/documents.controller.ts` |
+| 9 | `updateTemplate` dispara re-evaluación de equipos | F3 | `apps/documentos/src/services/plantillas.service.ts` |
+| 10 | Dead Letter Queue implementada para jobs que agotan reintentos | F4 | `apps/documentos/src/services/queue.service.ts` |
+| 11 | Timeout de 60s para operaciones MinIO en worker de remitos | F4 | `apps/remitos/src/workers/analysis.worker.ts` |
+
+**Estado final**: Todas las fases 1-6 completadas al 100%. 0 pendientes.
+
+---
+
 **FIN DE LAS AUDITORÍAS Y CORRECCIONES**
 
 **Fecha de completitud auditorías**: 2026-02-20  
 **Fecha de completitud plan completo (Fases 1-6)**: 2026-02-18  
+**Fecha de resolución pendientes restantes**: 2026-02-23  
 **Dominios auditados**: 8 de 20 (dominios críticos)  
 **Total de hallazgos**: 106  
-**Correcciones implementadas fases 1-6**: 40 (100% de los críticos y altos + mejoras de arquitectura)
+**Correcciones implementadas fases 1-6**: 40 (100% de los críticos y altos + mejoras de arquitectura)  
+**Pendientes resueltos (2026-02-23)**: 11 items adicionales — todas las fases 1-5 completadas al 100%
 
 ---

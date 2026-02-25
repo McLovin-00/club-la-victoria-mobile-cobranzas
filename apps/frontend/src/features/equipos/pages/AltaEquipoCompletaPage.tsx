@@ -18,6 +18,7 @@ import { useRoleBasedNavigation } from '../../../hooks/useRoleBasedNavigation';
 import { PreCheckModal } from '../components/PreCheckModal';
 import { useEntityVerification, EntityType } from '../hooks/useEntityVerification';
 import { EntityStatusBadge } from '../components/EntityStatusBadge';
+import { showToast } from '../../../components/ui/Toast.utils';
 
 /** Helper para clases CSS de badge de entidad en precheck (evita ternarios anidados) */
 export function getEntityBadgeClass(existe: boolean, perteneceSolicitante: boolean): string {
@@ -296,16 +297,21 @@ const AltaEquipoCompletaPage: React.FC = () => {
 
   // Validar datos básicos
   const datosBasicosCompletos = useMemo(() => {
-    return (
+    const baseValid =
       dadorCargaId !== null &&
       empresaTransportista.trim().length > 1 &&
       /^\d{11}$/.test(cuitTransportista) &&
       choferNombre.trim().length >= 1 &&
       choferApellido.trim().length >= 1 &&
       choferDni.trim().length >= 6 &&
-      tractorPatente.trim().length >= 5
-    );
-  }, [dadorCargaId, empresaTransportista, cuitTransportista, choferNombre, choferApellido, choferDni, tractorPatente]);
+      tractorPatente.trim().length >= 5 &&
+      tractorMarca.trim().length >= 1 &&
+      tractorModelo.trim().length >= 1;
+
+    const semiValid = !semiPatente || semiPatente.trim().length < 5 || semiTipo.trim().length >= 1;
+
+    return baseValid && semiValid;
+  }, [dadorCargaId, empresaTransportista, cuitTransportista, choferNombre, choferApellido, choferDni, tractorPatente, tractorMarca, tractorModelo, semiPatente, semiTipo]);
 
   // Calcular documentos obligatorios
   const templateIdsObligatorios = useMemo(() => {
@@ -574,7 +580,27 @@ const AltaEquipoCompletaPage: React.FC = () => {
   // Handler de creación de equipo (NUEVO FLUJO TRANSACCIONAL)
   const handleCrearEquipo = async () => {
     if (!datosBasicosCompletos) {
-      setMessage({ type: 'error', text: 'Completá todos los datos básicos obligatorios' });
+      const faltantes: string[] = [];
+      if (!dadorCargaId) faltantes.push('Dador de Carga');
+      if (empresaTransportista.trim().length <= 1) faltantes.push('Razón Social');
+      if (!/^\d{11}$/.test(cuitTransportista)) faltantes.push('CUIT (11 dígitos)');
+      if (choferDni.trim().length < 6) faltantes.push('DNI del Chofer');
+      if (choferNombre.trim().length < 1) faltantes.push('Nombre del Chofer');
+      if (choferApellido.trim().length < 1) faltantes.push('Apellido del Chofer');
+      if (tractorPatente.trim().length < 5) faltantes.push('Patente del Tractor');
+      if (tractorMarca.trim().length < 1) faltantes.push('Marca del Tractor');
+      if (tractorModelo.trim().length < 1) faltantes.push('Modelo del Tractor');
+      if (semiPatente && semiPatente.trim().length >= 5 && semiTipo.trim().length < 1) {
+        faltantes.push('Tipo del Acoplado');
+      }
+      setTouchedFields(new Set([
+        'empresaTransportista', 'cuitTransportista', 'choferDni', 'choferNombre',
+        'choferApellido', 'tractorPatente', 'tractorMarca', 'tractorModelo', 'semiTipo',
+      ]));
+      const msg = `Completá los siguientes campos obligatorios: ${faltantes.join(', ')}`;
+      setMessage({ type: 'error', text: msg });
+      showToast(msg, 'error', 8000);
+      window.scrollTo({ top: 0, behavior: 'smooth' });
       return;
     }
 
@@ -753,11 +779,16 @@ const AltaEquipoCompletaPage: React.FC = () => {
         // ═══════════════════════════════════════════════════════════════════
         // ÉXITO COMPLETO
         // ═══════════════════════════════════════════════════════════════════
-        setMessage({ type: 'success', text: '✅ Equipo creado exitosamente con todos sus documentos' });
-        // Mantener deshabilitado hasta la navegación
+        const totalDocs = uploadedCount;
+        setMessage({
+          type: 'success',
+          text: `✅ Equipo creado exitosamente. Se cargaron ${totalDocs} documento(s). Los documentos quedan pendientes de aprobación por un administrador.`,
+        });
+        showToast(`Equipo creado con ${totalDocs} documento(s) pendientes de aprobación`, 'success', 6000);
+        window.scrollTo({ top: 0, behavior: 'smooth' });
         setTimeout(() => {
           navigate(getHomeRoute());
-        }, 2000);
+        }, 4000);
         return; // No rehabilitar el botón, vamos a navegar
       }
       // Rehabilitar botón si hubo errores en uploads pero no navegamos
@@ -1165,28 +1196,40 @@ const AltaEquipoCompletaPage: React.FC = () => {
 
           <div>
             <label className='block text-sm font-medium text-gray-700 mb-1'>
-              Marca (opcional)
+              Marca *
             </label>
             <input
               type='text'
               value={tractorMarca}
               onChange={(e) => setTractorMarca(e.target.value)}
-              className='w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500'
+              onBlur={() => markTouched('tractorMarca')}
+              className={`w-full border rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                touchedFields.has('tractorMarca') && tractorMarca.trim().length < 1 ? 'border-red-400' : 'border-gray-300'
+              }`}
               placeholder='Mercedes-Benz'
             />
+            {touchedFields.has('tractorMarca') && tractorMarca.trim().length < 1 && (
+              <p className='text-xs text-red-600 mt-1'>La marca es obligatoria</p>
+            )}
           </div>
 
           <div>
             <label className='block text-sm font-medium text-gray-700 mb-1'>
-              Modelo (opcional)
+              Modelo *
             </label>
             <input
               type='text'
               value={tractorModelo}
               onChange={(e) => setTractorModelo(e.target.value)}
-              className='w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500'
+              onBlur={() => markTouched('tractorModelo')}
+              className={`w-full border rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                touchedFields.has('tractorModelo') && tractorModelo.trim().length < 1 ? 'border-red-400' : 'border-gray-300'
+              }`}
               placeholder='Actros 2046'
             />
+            {touchedFields.has('tractorModelo') && tractorModelo.trim().length < 1 && (
+              <p className='text-xs text-red-600 mt-1'>El modelo es obligatorio</p>
+            )}
           </div>
         </div>
       </div>
@@ -1219,15 +1262,23 @@ const AltaEquipoCompletaPage: React.FC = () => {
 
           <div>
             <label className='block text-sm font-medium text-gray-700 mb-1'>
-              Tipo
+              Tipo {semiPatente && semiPatente.trim().length >= 5 ? '*' : ''}
             </label>
             <input
               type='text'
               value={semiTipo}
               onChange={(e) => setSemiTipo(e.target.value)}
-              className='w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500'
+              onBlur={() => markTouched('semiTipo')}
+              className={`w-full border rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                touchedFields.has('semiTipo') && semiPatente.trim().length >= 5 && semiTipo.trim().length < 1
+                  ? 'border-red-400'
+                  : 'border-gray-300'
+              }`}
               placeholder='Ej: Caja seca, Cisterna, etc.'
             />
+            {touchedFields.has('semiTipo') && semiPatente.trim().length >= 5 && semiTipo.trim().length < 1 && (
+              <p className='text-xs text-red-600 mt-1'>El tipo es obligatorio cuando se carga un acoplado</p>
+            )}
           </div>
         </div>
         
@@ -1245,7 +1296,8 @@ const AltaEquipoCompletaPage: React.FC = () => {
             <div>
               <p className='font-semibold text-yellow-800'>Completá todos los campos obligatorios (*)</p>
               <p className='text-sm text-yellow-700 mt-1'>
-                Se requiere: Razón Social, CUIT, DNI, Nombre y Apellido del Chofer, y Patente del Tractor
+                Se requiere: Razón Social, CUIT, DNI, Nombre y Apellido del Chofer, Patente, Marca y Modelo del Tractor
+                {semiPatente && semiPatente.trim().length >= 5 ? ', y Tipo del Acoplado' : ''}
               </p>
             </div>
           </div>

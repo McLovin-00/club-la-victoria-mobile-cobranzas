@@ -140,8 +140,14 @@ async function processJob(job: Job<RemitoAnalysisJobData>): Promise<void> {
     await updateRemitoStatus(remitoId, 'EN_ANALISIS');
     await logHistory(remitoId, 'ANALISIS_INICIADO', { jobId: job.id });
 
-    // Obtener archivo de MinIO
-    const fileBuffer = await minioService.getObject(bucketName, objectKey);
+    // Obtener archivo de MinIO (timeout 60s para evitar bloqueos indefinidos)
+    const MINIO_TIMEOUT_MS = 60_000;
+    const fileBuffer = await Promise.race([
+      minioService.getObject(bucketName, objectKey),
+      new Promise<never>((_resolve, reject) =>
+        setTimeout(() => reject(new Error('MinIO getObject timeout (60s)')), MINIO_TIMEOUT_MS)
+      ),
+    ]);
     const isPdf = objectKey.toLowerCase().endsWith('.pdf');
 
     // Preparar imagen para análisis

@@ -395,6 +395,10 @@ export class RemitoService {
       updateData.tieneTicketDestino = hasDestinoData;
     }
 
+    // Si el usuario corrige datos manualmente, se eleva la confianza al 100%
+    // porque un humano validó la información (desbloquea aprobación)
+    updateData.confianzaIA = 100;
+
     const updated = await prisma.remito.update({
       where: { id },
       data: updateData,
@@ -420,9 +424,9 @@ export class RemitoService {
 
     const MIN_CONFIANZA = 30;
     if (existing.confianzaIA !== null && Number(existing.confianzaIA) < MIN_CONFIANZA) {
-      AppLogger.warn('Aprobación de remito con confianza baja', {
-        id, confianza: existing.confianzaIA, threshold: MIN_CONFIANZA, userId,
-      });
+      throw new Error(
+        `No se puede aprobar: confianza IA (${existing.confianzaIA}%) es inferior al umbral mínimo (${MIN_CONFIANZA}%). Reprocese o edite manualmente los datos antes de aprobar.`
+      );
     }
 
     const remito = await prisma.remito.update({

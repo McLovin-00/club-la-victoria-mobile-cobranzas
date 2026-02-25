@@ -226,14 +226,21 @@ describe('PlantillasService', () => {
   });
 
   describe('updateTemplate', () => {
-    it('actualiza configuración de template', async () => {
+    it('actualiza configuración y dispara re-evaluación', async () => {
+      prisma.plantillaRequisitoTemplate.findUnique.mockResolvedValue({
+        plantillaRequisitoId: 5,
+      });
       prisma.plantillaRequisitoTemplate.update.mockResolvedValue({
         id: 1,
         obligatorio: false,
       });
+      prisma.equipoPlantillaRequisito.findMany.mockResolvedValue([]);
 
       const result = await PlantillasService.updateTemplate(1, 1, { obligatorio: false });
       expect(result.obligatorio).toBe(false);
+      expect(prisma.plantillaRequisitoTemplate.findUnique).toHaveBeenCalledWith(
+        expect.objectContaining({ where: { id: 1 } }),
+      );
     });
   });
 

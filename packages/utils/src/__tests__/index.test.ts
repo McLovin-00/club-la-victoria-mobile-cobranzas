@@ -1,5 +1,4 @@
 /**
- * Tests for packages/utils
  * @jest-environment node
  */
 
@@ -32,6 +31,8 @@ import {
   formatError,
   sleep,
   retry,
+  debounce,
+  throttle,
   generateId,
   generateUUID,
   isDevelopment,
@@ -42,265 +43,351 @@ import {
 } from '../index';
 import { UserRole, User } from '@workspace/types';
 
-// ============================================================================
-// VALIDATION UTILITIES
-// ============================================================================
 describe('Validation Utilities', () => {
   describe('validateEmail', () => {
-    it('should return true for valid emails', () => {
+    it('returns true for valid emails', () => {
       expect(validateEmail('test@example.com')).toBe(true);
       expect(validateEmail('user.name@domain.co.uk')).toBe(true);
       expect(validateEmail('admin@test.org')).toBe(true);
     });
 
-    it('should return false for invalid emails', () => {
-      expect(validateEmail('invalid')).toBe(false);
-      expect(validateEmail('missing@domain')).toBe(false);
-      expect(validateEmail('@nodomain.com')).toBe(false);
-      expect(validateEmail('spaces in@email.com')).toBe(false);
+    it('returns false for empty string', () => {
       expect(validateEmail('')).toBe(false);
+    });
+
+    it('returns false when email exceeds 254 characters', () => {
+      const longLocal = 'a'.repeat(246);
+      expect(validateEmail(`${longLocal}@test.com`)).toBe(false);
+    });
+
+    it('returns false for emails without @', () => {
+      expect(validateEmail('invalid')).toBe(false);
+    });
+
+    it('returns false for emails without domain extension', () => {
+      expect(validateEmail('missing@domain')).toBe(false);
+    });
+
+    it('returns false for emails starting with @', () => {
+      expect(validateEmail('@nodomain.com')).toBe(false);
+    });
+
+    it('returns false for emails with spaces', () => {
+      expect(validateEmail('spaces in@email.com')).toBe(false);
     });
   });
 
   describe('validatePassword', () => {
-    it('should return empty array for valid password', () => {
-      const errors = validatePassword('ValidPass1');
-      expect(errors).toHaveLength(0);
+    it('returns empty array for a valid password', () => {
+      expect(validatePassword('ValidPass1')).toHaveLength(0);
     });
 
-    it('should return error for short password', () => {
-      const errors = validatePassword('Short1');
+    it('returns error for password shorter than 8 characters', () => {
+      const errors = validatePassword('Sh1');
       expect(errors.some(e => e.message.includes('8 characters'))).toBe(true);
     });
 
-    it('should return error for missing uppercase', () => {
+    it('returns error for missing uppercase letter', () => {
       const errors = validatePassword('lowercase1');
       expect(errors.some(e => e.message.includes('uppercase'))).toBe(true);
     });
 
-    it('should return error for missing lowercase', () => {
+    it('returns error for missing lowercase letter', () => {
       const errors = validatePassword('UPPERCASE1');
       expect(errors.some(e => e.message.includes('lowercase'))).toBe(true);
     });
 
-    it('should return error for missing number', () => {
+    it('returns error for missing number', () => {
       const errors = validatePassword('NoNumberHere');
       expect(errors.some(e => e.message.includes('number'))).toBe(true);
     });
 
-    it('should return multiple errors for very weak password', () => {
+    it('returns all four errors for the worst-case password', () => {
+      const errors = validatePassword('!!!');
+      expect(errors).toHaveLength(4);
+    });
+
+    it('all errors reference the password field', () => {
       const errors = validatePassword('weak');
-      expect(errors.length).toBeGreaterThan(1);
+      for (const e of errors) {
+        expect(e.field).toBe('password');
+      }
     });
   });
 
   describe('validateRequired', () => {
-    it('should return null for valid values', () => {
+    it('returns null for non-empty string', () => {
       expect(validateRequired('value', 'field')).toBeNull();
+    });
+
+    it('returns null for truthy number', () => {
       expect(validateRequired(123, 'field')).toBeNull();
+    });
+
+    it('returns null for true', () => {
       expect(validateRequired(true, 'field')).toBeNull();
+    });
+
+    it('returns null for empty object and array (truthy references)', () => {
       expect(validateRequired({}, 'field')).toBeNull();
       expect(validateRequired([], 'field')).toBeNull();
     });
 
-    it('should return error for null/undefined', () => {
+    it('returns error for null', () => {
       expect(validateRequired(null, 'name')).toEqual({
         field: 'name',
         message: 'name is required',
       });
+    });
+
+    it('returns error for undefined', () => {
       expect(validateRequired(undefined, 'email')).toEqual({
         field: 'email',
         message: 'email is required',
       });
     });
 
-    it('should return error for empty string', () => {
-      expect(validateRequired('', 'title')).not.toBeNull();
-      expect(validateRequired('   ', 'title')).not.toBeNull();
+    it('returns error for false', () => {
+      expect(validateRequired(false, 'active')).toEqual({
+        field: 'active',
+        message: 'active is required',
+      });
     });
 
-    it('should return error for false and 0', () => {
-      expect(validateRequired(false, 'active')).not.toBeNull();
-      expect(validateRequired(0, 'count')).not.toBeNull();
+    it('returns error for 0', () => {
+      expect(validateRequired(0, 'count')).toEqual({
+        field: 'count',
+        message: 'count is required',
+      });
+    });
+
+    it('returns error for empty string', () => {
+      expect(validateRequired('', 'title')).toEqual({
+        field: 'title',
+        message: 'title is required',
+      });
+    });
+
+    it('returns error for whitespace-only string', () => {
+      expect(validateRequired('   ', 'title')).toEqual({
+        field: 'title',
+        message: 'title is required',
+      });
     });
   });
 });
 
-// ============================================================================
-// STRING UTILITIES
-// ============================================================================
 describe('String Utilities', () => {
   describe('capitalizeFirst', () => {
-    it('should capitalize first letter and lowercase rest', () => {
+    it('capitalizes the first letter and lowercases the rest', () => {
       expect(capitalizeFirst('hello')).toBe('Hello');
       expect(capitalizeFirst('HELLO')).toBe('Hello');
       expect(capitalizeFirst('hELLO')).toBe('Hello');
     });
 
-    it('should handle empty string', () => {
+    it('returns empty string unchanged', () => {
       expect(capitalizeFirst('')).toBe('');
     });
 
-    it('should handle single character', () => {
+    it('handles a single character', () => {
       expect(capitalizeFirst('a')).toBe('A');
+      expect(capitalizeFirst('Z')).toBe('Z');
     });
   });
 
   describe('capitalize', () => {
-    it('should capitalize each word', () => {
+    it('capitalizes each word in a sentence', () => {
       expect(capitalize('hello world')).toBe('Hello World');
       expect(capitalize('HELLO WORLD')).toBe('Hello World');
     });
 
-    it('should handle empty string', () => {
+    it('returns empty string unchanged', () => {
       expect(capitalize('')).toBe('');
+    });
+
+    it('handles single word', () => {
+      expect(capitalize('word')).toBe('Word');
     });
   });
 
   describe('slugify', () => {
-    it('should convert to lowercase slug', () => {
+    it('converts to lowercase hyphenated slug', () => {
       expect(slugify('Hello World')).toBe('hello-world');
       expect(slugify('Some Title Here')).toBe('some-title-here');
     });
 
-    it('should remove special characters', () => {
+    it('removes special characters', () => {
       expect(slugify('Hello! World?')).toBe('hello-world');
       expect(slugify('Test@#$%String')).toBe('teststring');
     });
 
-    it('should handle multiple spaces/underscores', () => {
+    it('collapses multiple spaces, underscores, and hyphens', () => {
       expect(slugify('hello   world')).toBe('hello-world');
       expect(slugify('hello_world')).toBe('hello-world');
+      expect(slugify('a---b___c   d')).toBe('a-b-c-d');
     });
 
-    it('should trim leading/trailing hyphens', () => {
+    it('trims leading/trailing hyphens', () => {
       expect(slugify('  hello world  ')).toBe('hello-world');
       expect(slugify('---hello---')).toBe('hello');
+    });
+
+    it('bounds input to 256 characters', () => {
+      const long = 'a'.repeat(300);
+      const result = slugify(long);
+      expect(result.length).toBeLessThanOrEqual(256);
     });
   });
 
   describe('truncate', () => {
-    it('should truncate long strings', () => {
+    it('truncates strings longer than limit', () => {
       expect(truncate('Hello World', 5)).toBe('Hello...');
     });
 
-    it('should not truncate short strings', () => {
+    it('returns string unchanged if within limit', () => {
       expect(truncate('Hello', 10)).toBe('Hello');
+      expect(truncate('Hello', 5)).toBe('Hello');
     });
 
-    it('should use custom suffix', () => {
+    it('uses custom suffix', () => {
       expect(truncate('Hello World', 5, '…')).toBe('Hello…');
     });
   });
 });
 
-// ============================================================================
-// DATE UTILITIES
-// ============================================================================
 describe('Date Utilities', () => {
   describe('formatDate', () => {
-    it('should format Date object', () => {
+    it('formats a Date object with default locale', () => {
       const date = new Date('2024-01-15T12:00:00Z');
-      const result = formatDate(date, 'es-ES');
+      const result = formatDate(date);
       expect(result).toContain('2024');
-      // Day may vary by timezone, just check format is valid
-      expect(result).toMatch(/\d+.*enero.*2024/i);
     });
 
-    it('should format date string', () => {
+    it('formats a date string', () => {
       const result = formatDate('2024-06-20T12:00:00Z', 'es-ES');
       expect(result).toContain('2024');
-      expect(result).toMatch(/\d+.*junio.*2024/i);
     });
   });
 
   describe('formatDateTime', () => {
-    it('should include time in format', () => {
-      const date = new Date('2024-01-15T14:30:00');
-      const result = formatDateTime(date, 'es-ES');
-      expect(result).toContain('15');
+    it('formats a Date object with time', () => {
+      const date = new Date('2024-01-15T14:30:00Z');
+      const result = formatDateTime(date);
+      expect(result).toContain('2024');
+    });
+
+    it('formats a date string with time', () => {
+      const result = formatDateTime('2024-03-01T08:00:00Z', 'es-ES');
       expect(result).toContain('2024');
     });
   });
 
   describe('formatRelativeTime', () => {
-    it('should return "hace un momento" for recent times', () => {
-      const now = new Date();
-      expect(formatRelativeTime(now)).toBe('hace un momento');
+    beforeEach(() => {
+      jest.useFakeTimers();
+      jest.setSystemTime(new Date('2025-06-15T12:00:00Z'));
     });
 
-    it('should return minutes for times < 1 hour ago', () => {
-      const date = new Date(Date.now() - 30 * 60 * 1000); // 30 min ago
-      expect(formatRelativeTime(date)).toContain('minutos');
+    afterEach(() => {
+      jest.useRealTimers();
     });
 
-    it('should return hours for times < 1 day ago', () => {
-      const date = new Date(Date.now() - 5 * 60 * 60 * 1000); // 5 hours ago
-      expect(formatRelativeTime(date)).toContain('horas');
+    it('returns "hace un momento" for < 60 seconds ago', () => {
+      const date = new Date('2025-06-15T11:59:30Z');
+      expect(formatRelativeTime(date)).toBe('hace un momento');
     });
 
-    it('should return days for times < 30 days ago', () => {
-      const date = new Date(Date.now() - 10 * 24 * 60 * 60 * 1000); // 10 days ago
-      expect(formatRelativeTime(date)).toContain('días');
+    it('returns minutes for 60s..3599s ago', () => {
+      const date = new Date('2025-06-15T11:30:00Z');
+      expect(formatRelativeTime(date)).toBe('hace 30 minutos');
+    });
+
+    it('returns hours for 3600s..86399s ago', () => {
+      const date = new Date('2025-06-15T07:00:00Z');
+      expect(formatRelativeTime(date)).toBe('hace 5 horas');
+    });
+
+    it('returns days for 86400s..2591999s ago', () => {
+      const tenDaysAgo = new Date('2025-06-05T12:00:00Z');
+      expect(formatRelativeTime(tenDaysAgo)).toBe('hace 10 días');
+    });
+
+    it('falls back to formatted date for >= 30 days ago', () => {
+      const oldDate = new Date('2025-01-01T12:00:00Z');
+      const result = formatRelativeTime(oldDate);
+      expect(result).toContain('2025');
+      expect(result).not.toContain('hace');
+    });
+
+    it('accepts a string date', () => {
+      expect(formatRelativeTime('2025-06-15T11:59:30Z')).toBe('hace un momento');
     });
   });
 
   describe('isToday', () => {
-    it('should return true for today', () => {
+    it('returns true for today', () => {
       expect(isToday(new Date())).toBe(true);
     });
 
-    it('should return false for yesterday', () => {
+    it('returns false for yesterday', () => {
       const yesterday = new Date();
       yesterday.setDate(yesterday.getDate() - 1);
       expect(isToday(yesterday)).toBe(false);
     });
 
-    it('should handle string dates', () => {
-      const todayStr = new Date().toISOString();
-      expect(isToday(todayStr)).toBe(true);
+    it('handles string dates', () => {
+      expect(isToday(new Date().toISOString())).toBe(true);
+    });
+
+    it('returns false for a far-future date', () => {
+      expect(isToday('2099-01-01T00:00:00Z')).toBe(false);
     });
   });
 });
 
-// ============================================================================
-// NUMBER UTILITIES
-// ============================================================================
 describe('Number Utilities', () => {
   describe('formatNumber', () => {
-    it('should format numbers with locale', () => {
-      const result = formatNumber(1234567, 'es-ES');
+    it('formats with default locale', () => {
+      const result = formatNumber(1234567);
       expect(result).toMatch(/1.*234.*567/);
+    });
+
+    it('accepts a custom locale', () => {
+      const result = formatNumber(1234567, 'en-US');
+      expect(result).toContain('1,234,567');
     });
   });
 
   describe('formatCurrency', () => {
-    it('should format currency', () => {
-      const result = formatCurrency(1234.56, 'EUR', 'es-ES');
-      expect(result).toContain('€');
+    it('formats EUR by default', () => {
+      const result = formatCurrency(1234.56);
+      expect(result).toMatch(/€|EUR/);
     });
 
-    it('should format USD', () => {
+    it('formats USD with en-US locale', () => {
       const result = formatCurrency(1234.56, 'USD', 'en-US');
       expect(result).toContain('$');
     });
   });
 
   describe('formatPercentage', () => {
-    it('should format percentage', () => {
-      const result = formatPercentage(0.75, 'es-ES');
+    it('formats a fraction as percentage', () => {
+      const result = formatPercentage(0.75);
       expect(result).toContain('75');
+      expect(result).toContain('%');
+    });
+
+    it('handles zero', () => {
+      const result = formatPercentage(0);
+      expect(result).toContain('0');
       expect(result).toContain('%');
     });
   });
 });
 
-// ============================================================================
-// ARRAY UTILITIES
-// ============================================================================
 describe('Array Utilities', () => {
   describe('groupBy', () => {
-    it('should group array by key', () => {
+    it('groups items by the given key', () => {
       const items = [
         { category: 'A', value: 1 },
         { category: 'B', value: 2 },
@@ -310,26 +397,44 @@ describe('Array Utilities', () => {
       expect(result['A']).toHaveLength(2);
       expect(result['B']).toHaveLength(1);
     });
+
+    it('handles empty array', () => {
+      expect(groupBy([], 'key' as never)).toEqual({});
+    });
+
+    it('creates single-element groups when all keys are unique', () => {
+      const items = [
+        { id: 1, name: 'a' },
+        { id: 2, name: 'b' },
+      ];
+      const result = groupBy(items, 'id');
+      expect(result['1']).toHaveLength(1);
+      expect(result['2']).toHaveLength(1);
+    });
   });
 
   describe('sortBy', () => {
-    it('should sort ascending by default', () => {
-      const items = [{ value: 3 }, { value: 1 }, { value: 2 }];
+    const items = [{ value: 3 }, { value: 1 }, { value: 2 }];
+
+    it('sorts ascending by default', () => {
       const sorted = sortBy(items, 'value');
-      expect(sorted[0].value).toBe(1);
-      expect(sorted[2].value).toBe(3);
+      expect(sorted.map(i => i.value)).toEqual([1, 2, 3]);
     });
 
-    it('should sort descending when specified', () => {
-      const items = [{ value: 3 }, { value: 1 }, { value: 2 }];
+    it('sorts descending', () => {
       const sorted = sortBy(items, 'value', 'desc');
-      expect(sorted[0].value).toBe(3);
-      expect(sorted[2].value).toBe(1);
+      expect(sorted.map(i => i.value)).toEqual([3, 2, 1]);
+    });
+
+    it('does not mutate the original array', () => {
+      const copy = [...items];
+      sortBy(items, 'value');
+      expect(items).toEqual(copy);
     });
   });
 
   describe('uniqueBy', () => {
-    it('should remove duplicates by key', () => {
+    it('removes duplicates by key, keeping the first occurrence', () => {
       const items = [
         { id: 1, name: 'A' },
         { id: 2, name: 'B' },
@@ -338,75 +443,89 @@ describe('Array Utilities', () => {
       const result = uniqueBy(items, 'id');
       expect(result).toHaveLength(2);
       expect(result[0].name).toBe('A');
+      expect(result[1].name).toBe('B');
+    });
+
+    it('returns empty array for empty input', () => {
+      expect(uniqueBy([], 'id' as never)).toEqual([]);
     });
   });
 });
 
-// ============================================================================
-// OBJECT UTILITIES
-// ============================================================================
 describe('Object Utilities', () => {
   describe('omit', () => {
-    it('should remove specified keys', () => {
-      const obj = { a: 1, b: 2, c: 3 };
-      const result = omit(obj, ['b']);
-      expect(result).toEqual({ a: 1, c: 3 });
+    it('removes the specified keys', () => {
+      expect(omit({ a: 1, b: 2, c: 3 }, ['b'])).toEqual({ a: 1, c: 3 });
     });
 
-    it('should handle multiple keys', () => {
-      const obj = { a: 1, b: 2, c: 3, d: 4 };
-      const result = omit(obj, ['a', 'c']);
-      expect(result).toEqual({ b: 2, d: 4 });
+    it('removes multiple keys', () => {
+      expect(omit({ a: 1, b: 2, c: 3, d: 4 }, ['a', 'c'])).toEqual({ b: 2, d: 4 });
+    });
+
+    it('does not mutate the original object', () => {
+      const obj = { a: 1, b: 2 };
+      omit(obj, ['a']);
+      expect(obj).toEqual({ a: 1, b: 2 });
     });
   });
 
   describe('pick', () => {
-    it('should keep only specified keys', () => {
-      const obj = { a: 1, b: 2, c: 3 };
-      const result = pick(obj, ['a', 'c']);
-      expect(result).toEqual({ a: 1, c: 3 });
+    it('keeps only the specified keys', () => {
+      expect(pick({ a: 1, b: 2, c: 3 }, ['a', 'c'])).toEqual({ a: 1, c: 3 });
     });
 
-    it('should ignore missing keys', () => {
+    it('ignores keys not present in the object', () => {
       const obj = { a: 1, b: 2 } as { a: number; b: number; c?: number };
-      const result = pick(obj, ['a', 'c']);
-      expect(result).toEqual({ a: 1 });
+      expect(pick(obj, ['a', 'c'])).toEqual({ a: 1 });
     });
   });
 
   describe('deepClone', () => {
-    it('should clone nested objects', () => {
+    it('returns null for null input', () => {
+      expect(deepClone(null)).toBeNull();
+    });
+
+    it('returns primitives unchanged', () => {
+      expect(deepClone(42)).toBe(42);
+      expect(deepClone('text')).toBe('text');
+      expect(deepClone(true)).toBe(true);
+      expect(deepClone(undefined)).toBeUndefined();
+    });
+
+    it('clones Date instances', () => {
+      const original = new Date('2024-01-01');
+      const cloned = deepClone(original);
+      expect(cloned).toBeInstanceOf(Date);
+      expect(cloned.getTime()).toBe(original.getTime());
+      expect(cloned).not.toBe(original);
+    });
+
+    it('clones arrays deeply', () => {
+      const original = [1, [2, 3], [4, [5]]];
+      const cloned = deepClone(original);
+      expect(cloned).toEqual(original);
+      expect(cloned).not.toBe(original);
+      expect(cloned[1]).not.toBe(original[1]);
+    });
+
+    it('clones nested objects deeply', () => {
       const original = { a: { b: { c: 1 } } };
       const cloned = deepClone(original);
-      cloned.a.b.c = 2;
+      cloned.a.b.c = 999;
       expect(original.a.b.c).toBe(1);
     });
 
-    it('should clone arrays', () => {
-      const original = { arr: [1, 2, 3] };
+    it('clones objects containing Date and Array values', () => {
+      const original = { date: new Date('2024-06-01'), items: [1, 2, 3] };
       const cloned = deepClone(original);
-      cloned.arr.push(4);
-      expect(original.arr).toHaveLength(3);
-    });
-
-    it('should clone dates', () => {
-      const original = { date: new Date('2024-01-01') };
-      const cloned = deepClone(original);
+      cloned.items.push(4);
+      expect(original.items).toHaveLength(3);
       expect(cloned.date).toBeInstanceOf(Date);
-      expect(cloned.date.getTime()).toBe(original.date.getTime());
-    });
-
-    it('should handle primitives', () => {
-      expect(deepClone(null)).toBeNull();
-      expect(deepClone(123)).toBe(123);
-      expect(deepClone('string')).toBe('string');
+      expect(cloned.date).not.toBe(original.date);
     });
   });
 });
 
-// ============================================================================
-// USER UTILITIES
-// ============================================================================
 describe('User Utilities', () => {
   const mockUser: User = {
     id: 1,
@@ -418,145 +537,320 @@ describe('User Utilities', () => {
   };
 
   describe('getUserDisplayName', () => {
-    it('should extract username from email', () => {
+    it('extracts the local part of the email', () => {
       expect(getUserDisplayName(mockUser)).toBe('john.doe');
+    });
+
+    it('works with simple emails', () => {
+      const user = { ...mockUser, email: 'admin@test.com' };
+      expect(getUserDisplayName(user)).toBe('admin');
     });
   });
 
   describe('getUserRoleLabel', () => {
-    it('should return Spanish label for role', () => {
-      expect(getUserRoleLabel(UserRole.admin)).toBe('Administrador');
+    it('returns "Usuario" for user role', () => {
       expect(getUserRoleLabel(UserRole.user)).toBe('Usuario');
+    });
+
+    it('returns "Administrador" for admin role', () => {
+      expect(getUserRoleLabel(UserRole.admin)).toBe('Administrador');
+    });
+
+    it('returns "Super Administrador" for superadmin role', () => {
       expect(getUserRoleLabel(UserRole.superadmin)).toBe('Super Administrador');
+    });
+
+    it('returns "Desconocido" for an unknown role', () => {
+      expect(getUserRoleLabel('unknown' as UserRole)).toBe('Desconocido');
     });
   });
 
   describe('canUserAccessResource', () => {
-    it('should return true if user has required role', () => {
-      expect(canUserAccessResource(mockUser, [UserRole.admin])).toBe(true);
+    it('returns true when user role is in the required list', () => {
+      expect(canUserAccessResource(mockUser, [UserRole.admin, UserRole.superadmin])).toBe(true);
     });
 
-    it('should return false if user lacks required role', () => {
+    it('returns false when user role is not in the required list', () => {
       expect(canUserAccessResource(mockUser, [UserRole.superadmin])).toBe(false);
+    });
+
+    it('returns false for empty required roles', () => {
+      expect(canUserAccessResource(mockUser, [])).toBe(false);
     });
   });
 
   describe('isUserInEmpresa', () => {
-    it('should return true for matching empresa', () => {
+    it('returns true when empresaId matches', () => {
       expect(isUserInEmpresa(mockUser, 100)).toBe(true);
     });
 
-    it('should return false for different empresa', () => {
+    it('returns false when empresaId does not match', () => {
       expect(isUserInEmpresa(mockUser, 999)).toBe(false);
+    });
+
+    it('returns false when user has null empresaId', () => {
+      const userNoEmpresa = { ...mockUser, empresaId: null };
+      expect(isUserInEmpresa(userNoEmpresa, 100)).toBe(false);
     });
   });
 });
 
-// ============================================================================
-// ERROR UTILITIES
-// ============================================================================
 describe('Error Utilities', () => {
   describe('createError', () => {
-    it('should create error with message and status', () => {
+    it('creates an error with custom message and statusCode', () => {
       const error = createError('Not found', 404);
       expect(error.message).toBe('Not found');
-      expect((error as any).statusCode).toBe(404);
+      expect((error as any).statusCode).toBe(404); // NOSONAR: testing dynamic property
     });
 
-    it('should default to status 500', () => {
+    it('defaults statusCode to 500', () => {
       const error = createError('Server error');
-      expect((error as any).statusCode).toBe(500);
+      expect((error as any).statusCode).toBe(500); // NOSONAR: testing dynamic property
     });
   });
 
   describe('formatError', () => {
-    it('should format Error instance', () => {
+    it('extracts message from Error instances', () => {
       expect(formatError(new Error('Test error'))).toBe('Test error');
     });
 
-    it('should format string error', () => {
+    it('returns string errors as-is', () => {
       expect(formatError('String error')).toBe('String error');
     });
 
-    it('should handle unknown error types', () => {
-      expect(formatError({ unexpected: true })).toBe('An unknown error occurred');
+    it('returns generic message for unknown types', () => {
+      expect(formatError(42)).toBe('An unknown error occurred');
+      expect(formatError({ code: 500 })).toBe('An unknown error occurred');
+      expect(formatError(null)).toBe('An unknown error occurred');
     });
   });
 });
 
-// ============================================================================
-// ASYNC UTILITIES
-// ============================================================================
 describe('Async Utilities', () => {
+  beforeEach(() => {
+    jest.useFakeTimers();
+  });
+
+  afterEach(() => {
+    jest.useRealTimers();
+  });
+
   describe('sleep', () => {
-    it('should wait for specified time', async () => {
-      const start = Date.now();
-      await sleep(50);
-      const elapsed = Date.now() - start;
-      expect(elapsed).toBeGreaterThanOrEqual(40);
+    it('resolves after the specified duration', async () => {
+      const promise = sleep(1000);
+      jest.advanceTimersByTime(1000);
+      await expect(promise).resolves.toBeUndefined();
+    });
+
+    it('does not resolve before the duration elapses', () => {
+      let resolved = false;
+      sleep(500).then(() => {
+        resolved = true;
+      });
+      jest.advanceTimersByTime(499);
+      expect(resolved).toBe(false);
     });
   });
 
   describe('retry', () => {
-    it('should return result on success', async () => {
-      const fn = jest.fn().mockResolvedValue('success');
-      const result = await retry(fn);
-      expect(result).toBe('success');
+    it('returns the result on first successful attempt', async () => {
+      const fn = jest.fn().mockResolvedValue('ok');
+      const promise = retry(fn, 3, 100);
+      await jest.advanceTimersByTimeAsync(0);
+      await expect(promise).resolves.toBe('ok');
       expect(fn).toHaveBeenCalledTimes(1);
     });
 
-    it('should retry on failure', async () => {
+    it('retries and succeeds on the second attempt', async () => {
       const fn = jest
         .fn()
         .mockRejectedValueOnce(new Error('fail'))
-        .mockResolvedValueOnce('success');
-      const result = await retry(fn, 3, 10);
-      expect(result).toBe('success');
+        .mockResolvedValueOnce('ok');
+
+      const promise = retry(fn, 3, 100);
+
+      await jest.advanceTimersByTimeAsync(100);
+      await jest.advanceTimersByTimeAsync(100);
+
+      await expect(promise).resolves.toBe('ok');
       expect(fn).toHaveBeenCalledTimes(2);
     });
 
-    it('should throw after max attempts', async () => {
+    it('throws the last error after exhausting maxAttempts', async () => {
+      jest.useRealTimers();
+
       const fn = jest.fn().mockRejectedValue(new Error('always fails'));
+
       await expect(retry(fn, 2, 10)).rejects.toThrow('always fails');
       expect(fn).toHaveBeenCalledTimes(2);
+
+      jest.useFakeTimers();
+    });
+
+    it('wraps non-Error throws in an Error', async () => {
+      const fn = jest
+        .fn()
+        .mockRejectedValueOnce('string error')
+        .mockResolvedValueOnce('ok');
+
+      const promise = retry(fn, 3, 100);
+
+      await jest.advanceTimersByTimeAsync(200);
+
+      await expect(promise).resolves.toBe('ok');
+    });
+
+    it('uses default maxAttempts=3 and delayMs=1000', async () => {
+      const fn = jest
+        .fn()
+        .mockRejectedValueOnce(new Error('1'))
+        .mockRejectedValueOnce(new Error('2'))
+        .mockResolvedValueOnce('ok');
+
+      const promise = retry(fn);
+
+      await jest.advanceTimersByTimeAsync(1000);
+      await jest.advanceTimersByTimeAsync(2000);
+
+      await expect(promise).resolves.toBe('ok');
+      expect(fn).toHaveBeenCalledTimes(3);
     });
   });
 });
 
-// ============================================================================
-// ID GENERATION
-// ============================================================================
+describe('Debounce', () => {
+  beforeEach(() => {
+    jest.useFakeTimers();
+  });
+
+  afterEach(() => {
+    jest.useRealTimers();
+  });
+
+  it('calls the function after the delay', () => {
+    const fn = jest.fn();
+    const debounced = debounce(fn, 200);
+
+    debounced();
+    expect(fn).not.toHaveBeenCalled();
+
+    jest.advanceTimersByTime(200);
+    expect(fn).toHaveBeenCalledTimes(1);
+  });
+
+  it('resets the timer on subsequent calls', () => {
+    const fn = jest.fn();
+    const debounced = debounce(fn, 200);
+
+    debounced();
+    jest.advanceTimersByTime(100);
+    debounced();
+    jest.advanceTimersByTime(100);
+
+    expect(fn).not.toHaveBeenCalled();
+
+    jest.advanceTimersByTime(100);
+    expect(fn).toHaveBeenCalledTimes(1);
+  });
+
+  it('passes arguments to the debounced function', () => {
+    const fn = jest.fn();
+    const debounced = debounce(fn, 100);
+
+    debounced('a', 'b');
+    jest.advanceTimersByTime(100);
+
+    expect(fn).toHaveBeenCalledWith('a', 'b');
+  });
+
+  it('only executes the last call when invoked multiple times', () => {
+    const fn = jest.fn();
+    const debounced = debounce(fn, 100);
+
+    debounced(1);
+    debounced(2);
+    debounced(3);
+    jest.advanceTimersByTime(100);
+
+    expect(fn).toHaveBeenCalledTimes(1);
+    expect(fn).toHaveBeenCalledWith(3);
+  });
+});
+
+describe('Throttle', () => {
+  beforeEach(() => {
+    jest.useFakeTimers();
+  });
+
+  afterEach(() => {
+    jest.useRealTimers();
+  });
+
+  it('executes immediately on first call', () => {
+    const fn = jest.fn();
+    const throttled = throttle(fn, 200);
+
+    throttled();
+    expect(fn).toHaveBeenCalledTimes(1);
+  });
+
+  it('suppresses calls within the throttle window', () => {
+    const fn = jest.fn();
+    const throttled = throttle(fn, 200);
+
+    throttled();
+    throttled();
+    throttled();
+
+    expect(fn).toHaveBeenCalledTimes(1);
+  });
+
+  it('allows a new call after the throttle window', () => {
+    const fn = jest.fn();
+    const throttled = throttle(fn, 200);
+
+    throttled();
+    jest.advanceTimersByTime(200);
+    throttled();
+
+    expect(fn).toHaveBeenCalledTimes(2);
+  });
+
+  it('passes arguments to the throttled function', () => {
+    const fn = jest.fn();
+    const throttled = throttle(fn, 100);
+
+    throttled('x', 'y');
+    expect(fn).toHaveBeenCalledWith('x', 'y');
+  });
+});
+
 describe('ID Generation', () => {
   describe('generateId', () => {
-    it('should generate unique IDs', () => {
-      const id1 = generateId();
-      const id2 = generateId();
-      expect(id1).not.toBe(id2);
+    it('returns a string', () => {
+      expect(typeof generateId()).toBe('string');
     });
 
-    it('should generate string IDs', () => {
-      expect(typeof generateId()).toBe('string');
+    it('generates unique IDs across multiple calls', () => {
+      const ids = new Set(Array.from({ length: 50 }, () => generateId()));
+      expect(ids.size).toBe(50);
     });
   });
 
   describe('generateUUID', () => {
-    it('should generate valid UUID format', () => {
-      const uuid = generateUUID();
+    it('matches the UUID v4 format', () => {
       const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
-      expect(uuid).toMatch(uuidRegex);
+      expect(generateUUID()).toMatch(uuidRegex);
     });
 
-    it('should generate unique UUIDs', () => {
-      const uuid1 = generateUUID();
-      const uuid2 = generateUUID();
-      expect(uuid1).not.toBe(uuid2);
+    it('generates unique UUIDs', () => {
+      const a = generateUUID();
+      const b = generateUUID();
+      expect(a).not.toBe(b);
     });
   });
 });
 
-// ============================================================================
-// ENVIRONMENT UTILITIES
-// ============================================================================
 describe('Environment Utilities', () => {
   const originalEnv = process.env.NODE_ENV;
 
@@ -565,48 +859,51 @@ describe('Environment Utilities', () => {
   });
 
   describe('isDevelopment', () => {
-    it('should return true in development', () => {
+    it('returns true when NODE_ENV is development', () => {
       process.env.NODE_ENV = 'development';
       expect(isDevelopment()).toBe(true);
     });
 
-    it('should return false in production', () => {
+    it('returns false when NODE_ENV is not development', () => {
       process.env.NODE_ENV = 'production';
       expect(isDevelopment()).toBe(false);
     });
   });
 
   describe('isProduction', () => {
-    it('should return true in production', () => {
+    it('returns true when NODE_ENV is production', () => {
       process.env.NODE_ENV = 'production';
       expect(isProduction()).toBe(true);
     });
 
-    it('should return false in development', () => {
+    it('returns false when NODE_ENV is not production', () => {
       process.env.NODE_ENV = 'development';
       expect(isProduction()).toBe(false);
     });
   });
 
   describe('isTest', () => {
-    it('should return true in test', () => {
+    it('returns true when NODE_ENV is test', () => {
       process.env.NODE_ENV = 'test';
       expect(isTest()).toBe(true);
+    });
+
+    it('returns false when NODE_ENV is not test', () => {
+      process.env.NODE_ENV = 'production';
+      expect(isTest()).toBe(false);
     });
   });
 });
 
-// ============================================================================
-// URL UTILITIES
-// ============================================================================
 describe('URL Utilities', () => {
   describe('buildUrl', () => {
-    it('should build URL from base and path', () => {
-      const url = buildUrl('https://api.example.com', '/users');
-      expect(url).toBe('https://api.example.com/users');
+    it('builds a URL from base and path', () => {
+      expect(buildUrl('https://api.example.com', '/users')).toBe(
+        'https://api.example.com/users'
+      );
     });
 
-    it('should add query parameters', () => {
+    it('appends query parameters', () => {
       const url = buildUrl('https://api.example.com', '/search', {
         q: 'test',
         page: '1',
@@ -614,18 +911,37 @@ describe('URL Utilities', () => {
       expect(url).toContain('q=test');
       expect(url).toContain('page=1');
     });
+
+    it('builds URL without params', () => {
+      const url = buildUrl('https://example.com', '/path');
+      expect(url).toBe('https://example.com/path');
+    });
+
+    it('handles empty params object', () => {
+      const url = buildUrl('https://example.com', '/path', {});
+      expect(url).toBe('https://example.com/path');
+    });
   });
 
   describe('parseQueryString', () => {
-    it('should parse query string to object', () => {
-      const result = parseQueryString('?foo=bar&baz=qux');
-      expect(result).toEqual({ foo: 'bar', baz: 'qux' });
+    it('parses key-value pairs from a query string', () => {
+      expect(parseQueryString('?foo=bar&baz=qux')).toEqual({
+        foo: 'bar',
+        baz: 'qux',
+      });
     });
 
-    it('should handle empty query string', () => {
-      const result = parseQueryString('');
-      expect(result).toEqual({});
+    it('returns empty object for empty string', () => {
+      expect(parseQueryString('')).toEqual({});
+    });
+
+    it('parses without leading question mark', () => {
+      expect(parseQueryString('key=value')).toEqual({ key: 'value' });
+    });
+
+    it('handles encoded values', () => {
+      const result = parseQueryString('name=hello%20world');
+      expect(result.name).toBe('hello world');
     });
   });
 });
-

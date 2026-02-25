@@ -388,13 +388,23 @@ export class TransferenciaService {
 
     const entidades = solicitud.entidades as unknown as EntidadTransferencia[];
     const solicitanteDadorId = solicitud.solicitanteDadorId;
+    const dadorActualId = solicitud.dadorActualId;
+
+    // Revalidar ownership antes de transferir
+    await validarEntidadesExisten(entidades, dadorActualId);
 
     // Ejecutar transferencia en transacción atómica
     const entidadesTransferidas = await prisma.$transaction(async (tx) => {
       let count = 0;
       for (const entidad of entidades) {
-        await transferirEntidad(tx, entidad, solicitanteDadorId);
-        count++;
+        try {
+          await transferirEntidad(tx, entidad, solicitanteDadorId);
+          count++;
+        } catch (err) {
+          AppLogger.warn('Error transfiriendo entidad, omitiendo', {
+            entidad: entidad.identificador, error: (err as Error).message,
+          });
+        }
       }
 
       await tx.solicitudTransferencia.update({

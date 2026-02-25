@@ -55,6 +55,144 @@ jest.mock('../src/services/queue.service', () => ({
   },
 }));
 
+import { RemitoService } from '../src/services/remito.service';
+import { db } from '../src/config/database';
+
+// NOSONAR: mock genérico para tests
+const prisma = (db as any).getClient();
+
+describe('RemitoService – service methods', () => {
+  beforeEach(() => jest.clearAllMocks());
+
+  describe('approve', () => {
+    it('aprueba remito en PENDIENTE_APROBACION con confianza >= 30', async () => {
+      prisma.remito.findUnique.mockResolvedValue({
+        id: 1, estado: 'PENDIENTE_APROBACION', confianzaIA: 85,
+      });
+      prisma.remito.update.mockResolvedValue({
+        id: 1, estado: 'APROBADO', aprobadoPorUserId: 5,
+      });
+      prisma.remitoHistory.create.mockResolvedValue({});
+
+      const result = await RemitoService.approve(1, 5);
+
+      expect(result.estado).toBe('APROBADO');
+      expect(prisma.remito.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { id: 1 },
+          data: expect.objectContaining({ estado: 'APROBADO' }),
+        })
+      );
+    });
+
+    it('lanza error si remito no encontrado', async () => {
+      prisma.remito.findUnique.mockResolvedValue(null);
+
+      await expect(RemitoService.approve(999, 5)).rejects.toThrow('Remito no encontrado');
+    });
+
+    it('lanza error si estado no es PENDIENTE_APROBACION', async () => {
+      prisma.remito.findUnique.mockResolvedValue({
+        id: 1, estado: 'APROBADO', confianzaIA: 90,
+      });
+
+      await expect(RemitoService.approve(1, 5)).rejects.toThrow('No se puede aprobar');
+    });
+
+    it('bloquea aprobación si confianzaIA < 30', async () => {
+      prisma.remito.findUnique.mockResolvedValue({
+        id: 1, estado: 'PENDIENTE_APROBACION', confianzaIA: 15,
+      });
+
+      await expect(RemitoService.approve(1, 5)).rejects.toThrow('confianza IA');
+    });
+
+    it('permite aprobación si confianzaIA es null', async () => {
+      prisma.remito.findUnique.mockResolvedValue({
+        id: 1, estado: 'PENDIENTE_APROBACION', confianzaIA: null,
+      });
+      prisma.remito.update.mockResolvedValue({ id: 1, estado: 'APROBADO' });
+      prisma.remitoHistory.create.mockResolvedValue({});
+
+      const result = await RemitoService.approve(1, 5);
+
+      expect(result.estado).toBe('APROBADO');
+    });
+  });
+
+  describe('reject', () => {
+    it('rechaza remito en estado PENDIENTE_APROBACION', async () => {
+      prisma.remito.findUnique.mockResolvedValue({
+        id: 1, estado: 'PENDIENTE_APROBACION',
+      });
+      prisma.remito.update.mockResolvedValue({
+        id: 1, estado: 'RECHAZADO', motivoRechazo: 'datos incorrectos',
+      });
+      prisma.remitoHistory.create.mockResolvedValue({});
+
+      const result = await RemitoService.reject(1, 5, 'datos incorrectos');
+
+      expect(result.estado).toBe('RECHAZADO');
+    });
+
+    it('rechaza remito en estado EN_ANALISIS', async () => {
+      prisma.remito.findUnique.mockResolvedValue({ id: 1, estado: 'EN_ANALISIS' });
+      prisma.remito.update.mockResolvedValue({ id: 1, estado: 'RECHAZADO' });
+      prisma.remitoHistory.create.mockResolvedValue({});
+
+      const result = await RemitoService.reject(1, 5, 'motivo');
+
+      expect(result.estado).toBe('RECHAZADO');
+    });
+
+    it('rechaza remito en ERROR_ANALISIS', async () => {
+      prisma.remito.findUnique.mockResolvedValue({ id: 1, estado: 'ERROR_ANALISIS' });
+      prisma.remito.update.mockResolvedValue({ id: 1, estado: 'RECHAZADO' });
+      prisma.remitoHistory.create.mockResolvedValue({});
+
+      const result = await RemitoService.reject(1, 5, 'motivo');
+
+      expect(result.estado).toBe('RECHAZADO');
+    });
+
+    it('lanza error si remito no encontrado', async () => {
+      prisma.remito.findUnique.mockResolvedValue(null);
+
+      await expect(RemitoService.reject(999, 5, 'x')).rejects.toThrow('Remito no encontrado');
+    });
+
+    it('lanza error si estado no es rechazable', async () => {
+      prisma.remito.findUnique.mockResolvedValue({ id: 1, estado: 'APROBADO' });
+
+      await expect(RemitoService.reject(1, 5, 'x')).rejects.toThrow('No se puede rechazar');
+    });
+  });
+
+  describe('updateManual', () => {
+    it('actualiza datos y eleva confianza a 100%', async () => {
+      prisma.remito.findUnique.mockResolvedValue({
+        id: 1, estado: 'PENDIENTE_APROBACION', confianzaIA: 20,
+        pesoOrigenBruto: null, pesoOrigenTara: null, pesoOrigenNeto: null,
+        pesoDestinoBruto: null, pesoDestinoTara: null, pesoDestinoNeto: null,
+      });
+      prisma.remito.update.mockResolvedValue({
+        id: 1, estado: 'PENDIENTE_APROBACION', confianzaIA: 100,
+        numeroRemito: 'R-001',
+      });
+      prisma.remitoHistory.create.mockResolvedValue({});
+
+      const result = await RemitoService.updateManual(1, 5, { numeroRemito: 'R-001' });
+
+      expect(result.confianzaIA).toBe(100);
+      expect(prisma.remito.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({ confianzaIA: 100 }),
+        })
+      );
+    });
+  });
+});
+
 describe('RemitoService', () => {
   describe('Remito status types', () => {
     const statuses = [

@@ -196,14 +196,16 @@ describe('TransferenciaService', () => {
   });
 
   describe('aprobarSolicitud', () => {
-    it('aprueba y transfiere entidades', async () => {
+    it('aprueba y transfiere entidades (revalida ownership)', async () => {
       prisma.solicitudTransferencia.findFirst.mockResolvedValue({
         id: 1,
         solicitanteUserId: 2,
         solicitanteDadorId: 3,
         solicitanteDadorNombre: 'Dador Sol',
+        dadorActualId: 10,
         entidades: [{ tipo: 'CHOFER', id: 10, identificador: '12345' }],
       });
+      prisma.chofer.findUnique.mockResolvedValue({ dadorCargaId: 10 });
       prisma.chofer.update.mockResolvedValue({});
       prisma.solicitudTransferencia.update.mockResolvedValue({});
       prisma.internalNotification.findMany.mockResolvedValue([{ userId: 5 }]);
@@ -216,6 +218,9 @@ describe('TransferenciaService', () => {
 
       expect(result.success).toBe(true);
       expect(result.entidadesTransferidas).toBe(1);
+      expect(prisma.chofer.findUnique).toHaveBeenCalledWith(
+        expect.objectContaining({ where: { id: 10 } }),
+      );
     });
 
     it('retorna error cuando solicitud no encontrada', async () => {
@@ -230,6 +235,25 @@ describe('TransferenciaService', () => {
       expect(result.success).toBe(false);
     });
 
+    it('lanza error si ownership cambió antes de aprobar', async () => {
+      prisma.solicitudTransferencia.findFirst.mockResolvedValue({
+        id: 3,
+        solicitanteUserId: 2,
+        solicitanteDadorId: 5,
+        dadorActualId: 10,
+        entidades: [{ tipo: 'CHOFER', id: 10, identificador: '12345' }],
+      });
+      prisma.chofer.findUnique.mockResolvedValue({ dadorCargaId: 99 });
+
+      await expect(
+        TransferenciaService.aprobarSolicitud({
+          tenantEmpresaId: 1,
+          solicitudId: 3,
+          aprobadorUserId: 9,
+        }),
+      ).rejects.toThrow('no pertenece al dador indicado');
+    });
+
     it('transfiere CAMION, ACOPLADO y EMPRESA_TRANSPORTISTA', async () => {
       const entidades: EntidadTransferencia[] = [
         { tipo: 'CAMION', id: 20, identificador: 'ABC123' },
@@ -241,8 +265,12 @@ describe('TransferenciaService', () => {
         solicitanteUserId: 2,
         solicitanteDadorId: 5,
         solicitanteDadorNombre: 'DadorX',
+        dadorActualId: 10,
         entidades,
       });
+      prisma.camion.findUnique.mockResolvedValue({ dadorCargaId: 10 });
+      prisma.acoplado.findUnique.mockResolvedValue({ dadorCargaId: 10 });
+      prisma.empresaTransportista.findUnique.mockResolvedValue({ dadorCargaId: 10 });
       prisma.camion.update.mockResolvedValue({});
       prisma.acoplado.update.mockResolvedValue({});
       prisma.empresaTransportista.update.mockResolvedValue({});
@@ -259,6 +287,34 @@ describe('TransferenciaService', () => {
       expect(prisma.camion.update).toHaveBeenCalled();
       expect(prisma.acoplado.update).toHaveBeenCalled();
       expect(prisma.empresaTransportista.update).toHaveBeenCalled();
+    });
+
+    it('cuenta correctamente cuando una entidad falla en transferencia', async () => {
+      prisma.solicitudTransferencia.findFirst.mockResolvedValue({
+        id: 4,
+        solicitanteUserId: 2,
+        solicitanteDadorId: 5,
+        dadorActualId: 10,
+        entidades: [
+          { tipo: 'CHOFER', id: 10, identificador: '12345' },
+          { tipo: 'CAMION', id: 20, identificador: 'ABC123' },
+        ],
+      });
+      prisma.chofer.findUnique.mockResolvedValue({ dadorCargaId: 10 });
+      prisma.camion.findUnique.mockResolvedValue({ dadorCargaId: 10 });
+      prisma.chofer.update.mockResolvedValue({});
+      prisma.camion.update.mockRejectedValue(new Error('DB error'));
+      prisma.solicitudTransferencia.update.mockResolvedValue({});
+      prisma.internalNotification.findMany.mockResolvedValue([]);
+
+      const result = await TransferenciaService.aprobarSolicitud({
+        tenantEmpresaId: 1,
+        solicitudId: 4,
+        aprobadorUserId: 9,
+      });
+
+      expect(result.success).toBe(true);
+      expect(result.entidadesTransferidas).toBe(1);
     });
   });
 

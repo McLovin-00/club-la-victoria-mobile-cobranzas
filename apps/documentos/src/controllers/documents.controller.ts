@@ -267,12 +267,8 @@ async function scanFilesForVirus(inputs: MediaInput[]): Promise<void> {
     }
   } catch (e) {
     if (e instanceof Error && 'code' in e) throw e;
-    const isProduction = process.env.NODE_ENV === 'production';
-    if (isProduction) {
-      AppLogger.error('Antivirus configurado pero no disponible; rechazando upload en producción');
-      throw createError('Antivirus no disponible, intente más tarde', 503, 'ANTIVIRUS_UNAVAILABLE');
-    }
-    AppLogger.warn('Antivirus no disponible; continuando en entorno no-productivo');
+    AppLogger.error('Antivirus configurado pero no disponible; rechazando upload');
+    throw createError('Antivirus no disponible, intente más tarde', 503, 'ANTIVIRUS_UNAVAILABLE');
   }
 }
 
