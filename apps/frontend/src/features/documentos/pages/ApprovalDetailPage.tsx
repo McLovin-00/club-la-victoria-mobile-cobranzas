@@ -8,6 +8,8 @@ import { useAppSelector } from '../../../store/hooks';
 import { ArrowPathIcon, ExclamationTriangleIcon, InformationCircleIcon, ShieldExclamationIcon } from '@heroicons/react/24/outline';
 import { getRuntimeEnv } from '../../../lib/runtimeEnv';
 
+const ROLES_CAN_EDIT = ['SUPERADMIN', 'ADMIN', 'OPERATOR', 'ADMIN_INTERNO', 'OPERADOR_INTERNO'];
+
 export default function ApprovalDetailPage() {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -19,6 +21,7 @@ export default function ApprovalDetailPage() {
   const [recheckWithAI, { isLoading: rechecking }] = useRecheckDocumentWithAIMutation();
   const userRole = useAppSelector((s) => (s as any).auth?.user?.role) as string | undefined;
   const canRecheck = userRole === 'SUPERADMIN' || userRole === 'ADMIN_INTERNO' || userRole === 'DADOR_DE_CARGA';
+  const canApprove = Boolean(userRole && ROLES_CAN_EDIT.includes(userRole));
 
   const [entityType, setEntityType] = useState<EntityType | ''>('');
   const [entityId, setEntityId] = useState<string>('');
@@ -29,12 +32,6 @@ export default function ApprovalDetailPage() {
   const location = useLocation();
 
   // Helpers de formato de fecha
-  const _toYmd = (dmy: string): string => {
-    const m = dmy.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
-    if (!m) return '';
-    const [_, dd, mm, yyyy] = m;
-    return `${yyyy}-${mm}-${dd}`;
-  };
   const toDmy = (ymd: string): string => {
     if (!ymd) return '';
     const m = ymd.match(/^(\d{4})-(\d{2})-(\d{2})$/);
@@ -370,7 +367,7 @@ export default function ApprovalDetailPage() {
 
             <div className="space-y-2">
               <label className="text-sm font-medium">Entidad</label>
-              <select className="input input-bordered py-2 px-3 rounded-md bg-background border w-full" value={entityType} onChange={(e) => setEntityType(e.target.value)}>
+              <select className="input input-bordered py-2 px-3 rounded-md bg-background border w-full" value={entityType} onChange={(e) => setEntityType((e.target.value || '') as EntityType | '')} disabled={!canApprove}>
                 <option value="">Seleccionar</option>
                 <option value="EMPRESA_TRANSPORTISTA">Empresa Transportista</option>
                 <option value="CHOFER">Chofer</option>
@@ -381,7 +378,7 @@ export default function ApprovalDetailPage() {
 
             <div className="space-y-2">
               <label className="text-sm font-medium">Identidad (ID)</label>
-              <input className="input input-bordered py-2 px-3 rounded-md bg-background border w-full" value={entityId} onChange={(e) => setEntityId(e.target.value)} placeholder="Ej: 123" />
+              <input className="input input-bordered py-2 px-3 rounded-md bg-background border w-full" value={entityId} onChange={(e) => setEntityId(e.target.value)} placeholder="Ej: 123" disabled={!canApprove} />
             </div>
 
             <div className="space-y-2">
@@ -390,6 +387,7 @@ export default function ApprovalDetailPage() {
                 className="input input-bordered py-2 px-3 rounded-md bg-background border w-full"
                 value={templateId}
                 onChange={(e) => setTemplateId(e.target.value ? Number(e.target.value) : '')}
+                disabled={!canApprove}
               >
                 <option value="">Seleccionar</option>
                 {Array.isArray(templatesAll) && (entityType ? templatesAll.filter((t: any) => (t.entityType || t.tipo || t.type) === entityType) : templatesAll)
@@ -409,10 +407,11 @@ export default function ApprovalDetailPage() {
                 className="input input-bordered py-2 px-3 rounded-md bg-background border w-full"
                 value={expiresAt}
                 onChange={(e) => {
-                  const v = e.target.value; // formato yyyy-mm-dd
+                  const v = e.target.value;
                   setExpiresAt(v);
                   setExpiresRaw(toDmy(v));
                 }}
+                disabled={!canApprove}
               />
               {expiresRaw && <span className="text-xs text-muted-foreground">{expiresRaw}</span>}
             </div>
@@ -424,6 +423,7 @@ export default function ApprovalDetailPage() {
 
             <div className="pt-2 border-t" />
 
+            {canApprove && (
             <div className="flex items-center gap-2">
               <button 
                 className="bg-gradient-to-r from-green-500 to-teal-500 hover:from-green-600 hover:to-teal-600 text-white font-medium px-8 py-3 rounded-lg shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105 disabled:opacity-50"
@@ -440,6 +440,7 @@ export default function ApprovalDetailPage() {
                 {rejecting ? 'Rechazando...' : 'Rechazar'}
               </button>
             </div>
+            )}
             <div className="mt-2 flex flex-col sm:flex-row gap-2">
               <select 
                 className="input input-bordered py-2 px-3 rounded-md bg-background border w-full sm:w-1/2"

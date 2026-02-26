@@ -1,4 +1,6 @@
 import { useMemo, useState } from 'react';
+import { useSelector } from 'react-redux';
+import type { RootState } from '../../../store/store';
 import { Pagination } from '../../../components/ui/Pagination';
 import { Link } from 'react-router-dom';
 import {
@@ -12,9 +14,13 @@ import {
 import type { DadorCarga, EmpresaTransportista } from '../types/entities';
 import { useRoleBasedNavigation } from '../../../hooks/useRoleBasedNavigation';
 
+const ROLES_CAN_EDIT = ['SUPERADMIN', 'ADMIN', 'OPERATOR', 'ADMIN_INTERNO', 'OPERADOR_INTERNO'];
+
 export default function EmpresasTransportistasPage() {
   const { goBack } = useRoleBasedNavigation();
-  const show = (msg: string) => { try { alert(msg); } catch { console.log(msg); } };
+  const user = useSelector((state: RootState) => state.auth.user);
+  const canEdit = Boolean(user?.role && ROLES_CAN_EDIT.includes(user.role));
+  const show = (msg: string, _variant?: string) => { try { alert(msg); } catch { console.log(msg); } };
   const [q, setQ] = useState('');
   const [page, setPage] = useState(1);
   const [limit] = useState(20);
@@ -79,6 +85,7 @@ export default function EmpresasTransportistasPage() {
             <p className="text-muted-foreground">Gestión de empresas, choferes y equipos asociados.</p>
           </div>
         </div>
+        {canEdit && (
         <div className="flex items-center gap-2">
           <button 
             className="bg-gradient-to-r from-indigo-500 to-blue-500 hover:from-indigo-600 hover:to-blue-600 text-white font-medium px-6 py-2 rounded-lg shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105"
@@ -87,6 +94,7 @@ export default function EmpresasTransportistasPage() {
             Nueva Empresa
           </button>
         </div>
+        )}
       </header>
 
       <section className="bg-card rounded-xl border p-4 shadow-sm">
@@ -133,12 +141,15 @@ export default function EmpresasTransportistasPage() {
                       >
                         Detalle
                       </Link>
+                      {canEdit && (
                       <button 
                         className="bg-green-500 hover:bg-green-600 text-white text-xs px-3 py-1 rounded-md transition-colors duration-200"
                         onClick={() => { setEditing(row); setShowModal(true); }}
                       >
                         Editar
                       </button>
+                      )}
+                      {canEdit && (
                       <button 
                         className="bg-red-500 hover:bg-red-600 text-white text-xs px-3 py-1 rounded-md transition-colors duration-200 disabled:opacity-50"
                         onClick={() => setConfirmDeleteId(row.id)} 
@@ -146,6 +157,7 @@ export default function EmpresasTransportistasPage() {
                       >
                         Eliminar
                       </button>
+                      )}
                     </div>
                   </td>
                 </tr>

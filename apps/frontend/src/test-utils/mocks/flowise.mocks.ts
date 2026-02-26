@@ -18,15 +18,15 @@ export const flowiseHandlers = [
   }),
 
   // PUT config
-  http.put(`${API_URL}/api/docs/flowise`, async ({ request }) => {
+  http.put(`${API_URL}/api/docs/flowise`, async ({ request: _request }) => {
     return new HttpResponse(null, { status: 200 });
   }),
 
   // POST test connection
   http.post(`${API_URL}/api/docs/flowise/test`, async ({ request }) => {
-    const body = await request.json();
+    const body = await request.json() as Record<string, unknown> | null;
     
-    if (body.baseUrl && body.flowId) {
+    if (body?.baseUrl && body?.flowId) {
       return HttpResponse.json({
         success: true,
         message: 'Conexión exitosa',

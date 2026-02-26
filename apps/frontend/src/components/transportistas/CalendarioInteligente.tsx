@@ -270,7 +270,7 @@ export const CalendarioInteligente: React.FC = () => {
       {isLoading ? (
         <div className="bg-white rounded-2xl shadow-lg border-0 p-8">
           <div className="flex flex-col items-center justify-center text-gray-500">
-            <Spinner size="lg" className="mb-4" />
+            <Spinner className="mb-4 h-8 w-8" />
             <p className="text-lg font-medium">Cargando calendario...</p>
             <p className="text-sm">Obteniendo eventos de vencimiento</p>
           </div>

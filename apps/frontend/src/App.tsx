@@ -9,9 +9,7 @@ import { MainLayout } from './components/layout/MainLayout';
 import { RequireAuth } from './features/auth/components/RequireAuth';
 import { RequirePasswordChange } from './features/auth/components/RequirePasswordChange';
 import DashboardPage from './pages/DashboardPage';
-import UsuariosPageLazy from './pages/UsuariosPage.lazy';
 import EmpresasPageLazy from './features/empresas/pages/EmpresasPage.lazy';
-// Eliminado: Instancias, Gateway y Chat Processor
 import PlatformUsersPageLazy from './pages/PlatformUsersPage.lazy';
 import EndUsersPageLazy from './pages/EndUsersPage.lazy';
 // Eliminado: WizardV2 (Chat Processor)

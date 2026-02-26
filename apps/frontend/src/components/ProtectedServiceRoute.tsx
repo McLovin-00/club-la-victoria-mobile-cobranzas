@@ -5,7 +5,7 @@ import { Spinner } from './ui/spinner';
 import { Alert, AlertDescription, AlertTitle } from './ui/alert';
 import { ExclamationTriangleIcon, InformationCircleIcon } from '@heroicons/react/24/outline';
 import { Logger } from '../lib/utils';
-import { withServiceProtectionFactory } from './ProtectedServiceRoute.utils';
+// withServiceProtectionFactory available in ./ProtectedServiceRoute.utils if needed
 
 interface ProtectedServiceRouteProps {
   service: 'documentos';
@@ -111,14 +111,6 @@ export const ProtectedServiceRoute: React.FC<ProtectedServiceRouteProps> = ({
   return <>{children}</>;
 };
 
-/**
- * HOC (Higher Order Component) para proteger componentes de páginas
- */
-const withServiceProtection = withServiceProtectionFactory(ProtectedServiceRoute);
-
-/**
- * Hook para verificar si el usuario puede acceder a un servicio
- */
 // No re-export of hooks/HOCs here to satisfy react-refresh
 
 export default ProtectedServiceRoute; 

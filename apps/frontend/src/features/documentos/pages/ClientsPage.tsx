@@ -1,15 +1,21 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useSelector } from 'react-redux';
 import { Card } from '../../../components/ui/card';
 import { Button } from '../../../components/ui/button';
 import { Input } from '../../../components/ui/input';
 import { useCreateClientMutation, useDeleteClientMutation, useGetClientsQuery, useUpdateClientMutation, useGetDefaultsQuery, useUpdateDefaultsMutation } from '../api/documentosApiSlice';
 import { ArrowLeftIcon } from '@heroicons/react/24/outline';
 import { useRoleBasedNavigation } from '../../../hooks/useRoleBasedNavigation';
+import type { RootState } from '../../../store/store';
+
+const ROLES_CAN_EDIT = ['SUPERADMIN', 'ADMIN', 'OPERATOR', 'ADMIN_INTERNO', 'OPERADOR_INTERNO'];
 
 export const ClientsPage: React.FC = () => {
   const navigate = useNavigate();
   const { goBack } = useRoleBasedNavigation();
+  const user = useSelector((state: RootState) => state.auth.user);
+  const canEdit = Boolean(user?.role && ROLES_CAN_EDIT.includes(user.role));
   // ya no dependemos de empresas
   const { data: clientsData } = useGetClientsQuery({});
   const clients = clientsData?.list ?? (Array.isArray(clientsData) ? clientsData : []);
@@ -33,16 +39,18 @@ export const ClientsPage: React.FC = () => {
           </Button>
           <h1 className='text-2xl font-bold'>Clientes</h1>
         </div>
-        <div className='flex gap-2'>
-          <Input placeholder='Razón social' value={razonSocial} onChange={(e) => setRazonSocial(e.target.value)} />
-          <Input placeholder='CUIT (11 dígitos)' value={cuit} onChange={(e) => setCuit(e.target.value.replace(/\D+/g,''))} />
-          <Button onClick={async () => { if (!razonSocial || cuit.length !== 11) return; await createClient({ razonSocial, cuit }); setRazonSocial(''); setCuit(''); }}>Crear</Button>
-        </div>
+        {canEdit && (
+          <div className='flex gap-2'>
+            <Input placeholder='Razón social' value={razonSocial} onChange={(e) => setRazonSocial(e.target.value)} />
+            <Input placeholder='CUIT (11 dígitos)' value={cuit} onChange={(e) => setCuit(e.target.value.replace(/\D+/g,''))} />
+            <Button onClick={async () => { if (!razonSocial || cuit.length !== 11) return; await createClient({ razonSocial, cuit }); setRazonSocial(''); setCuit(''); }}>Crear</Button>
+          </div>
+        )}
       </div>
 
       <Card className='p-4'>
         <div className='grid gap-3'>
-          {defaults && (
+          {canEdit && defaults && (
             <div className='flex items-center gap-4 mb-2 text-sm'>
               <label className='flex items-center gap-2'>
                 Delay verificación faltantes (minutos):
@@ -67,18 +75,20 @@ export const ClientsPage: React.FC = () => {
                 <span className='text-sm text-muted-foreground'>CUIT {c.cuit} · ID {c.id}</span>
               </div>
               <div className='flex items-center gap-4'>
-                <label className='flex items-center gap-2 text-sm'>
-                  <input type='checkbox' checked={Boolean(defaults && defaults.defaultClienteId === c.id)} onChange={async (e)=>{
-                    const val = e.target.checked ? c.id : null;
-                    await updateDefaults({ defaultClienteId: val });
-                  }} />
-                  Cliente por defecto
-                </label>
+                {canEdit && (
+                  <label className='flex items-center gap-2 text-sm'>
+                    <input type='checkbox' checked={Boolean(defaults && defaults.defaultClienteId === c.id)} onChange={async (e)=>{
+                      const val = e.target.checked ? c.id : null;
+                      await updateDefaults({ defaultClienteId: val });
+                    }} />
+                    Cliente por defecto
+                  </label>
+                )}
                 <div className='flex gap-2'>
                 <Button variant='outline' onClick={() => navigate(`/documentos/plantillas/${c.id}`)}>Plantillas</Button>
                 <Button variant='outline' onClick={() => navigate(`/documentos/clientes/${c.id}/requirements`)}>Requisitos (legacy)</Button>
-                <Button variant='outline' onClick={() => updateClient({ id: c.id, activo: !c.activo })}>{c.activo ? 'Desactivar' : 'Activar'}</Button>
-                <Button variant='destructive' onClick={() => setConfirmDeleteId(c.id)}>Borrar</Button>
+                {canEdit && <Button variant='outline' onClick={() => updateClient({ id: c.id, activo: !c.activo })}>{c.activo ? 'Desactivar' : 'Activar'}</Button>}
+                {canEdit && <Button variant='destructive' onClick={() => setConfirmDeleteId(c.id)}>Borrar</Button>}
                 </div>
               </div>
             </div>

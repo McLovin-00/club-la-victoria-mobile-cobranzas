@@ -588,9 +588,9 @@ const BatchUploader: React.FC<{ dadorId?: number }> = ({ dadorId }) => {
           </div>
         )}
       </div>
-      {status?.job?.items && status.job.items.length > 0 && (
+      {(status?.job as any)?.items && (status?.job as any).items.length > 0 && (
         <div className="mt-3 text-xs text-muted-foreground">
-          Archivos en proceso: {status.job.items.length}
+          Archivos en proceso: {(status?.job as any).items.length}
         </div>
       )}
       {status?.job?.status === 'completed' && (

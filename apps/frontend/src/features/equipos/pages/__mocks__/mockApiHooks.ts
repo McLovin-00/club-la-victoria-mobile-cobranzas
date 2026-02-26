@@ -13,13 +13,13 @@ export const createQueryMock = (data: unknown, isLoading = false, error: unknown
     refetch: jest.fn(),
 });
 
-export const createMutationMock = (result: unknown = {}, isLoading = false) => {
-    const mutationFn = jest.fn().mockResolvedValue(result);
+export const createMutationMock = (result: any = {}, isLoading = false) => {
+    const mutationFn = jest.fn<() => Promise<any>>().mockResolvedValue(result);
     return [mutationFn, { isLoading, isError: false, error: null }];
 };
 
-export const createLazyQueryMock = (data: unknown = null, isFetching = false) => {
-    const triggerFn = jest.fn().mockResolvedValue({ data });
+export const createLazyQueryMock = (data: any = null, isFetching = false) => {
+    const triggerFn = jest.fn<() => Promise<any>>().mockResolvedValue({ data });
     return [triggerFn, { data, isFetching, isError: false, error: null }];
 };
 
@@ -92,7 +92,7 @@ export const createRoleBasedNavigationMock = (role = 'ADMIN_INTERNO', empresaId?
 /**
  * Mock de store Redux
  */
-export const createMockStore = (authState: Record<string, unknown> = {}) => ({
+export const createMockStore = (authState: Record<string, any> = {}) => ({
     dispatch: jest.fn(),
     getState: jest.fn(() => ({
         auth: {

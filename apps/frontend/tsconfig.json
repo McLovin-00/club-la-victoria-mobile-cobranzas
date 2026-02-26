@@ -25,6 +25,7 @@
     "rootDir": "./src",
     "outDir": "./dist",
     "paths": {
+      "@/*": ["./src/*"],
       "@workspace/types": ["../../packages/types/src"],
       "@workspace/utils": ["../../packages/utils/src"]
     }

@@ -11,7 +11,7 @@ import { Label } from '../../../components/ui/label';
 import { ConfirmContext } from '../../../contexts/confirmContext';
 import { useGetDadoresQuery, useGetTemplatesQuery, useGetClientsQuery, useLazySearchEquiposQuery, useGetDefaultsQuery, useLazyGetEquipoComplianceQuery, useDeleteEquipoMutation, useGetEquipoComplianceQuery, useSearchEquiposByDnisMutation, useGetEmpresasTransportistasQuery, useSearchEquiposPagedQuery, useToggleEquipoActivoMutation } from '../api/documentosApiSlice';
 import { showToast } from '../../../components/ui/Toast.utils';
-import { ArrowLeftIcon, ChevronLeftIcon, ChevronRightIcon, ExclamationTriangleIcon, ClockIcon, CheckCircleIcon, DocumentTextIcon, SparklesIcon, XMarkIcon } from '@heroicons/react/24/outline';
+import { ArrowLeftIcon, ChevronLeftIcon, ChevronRightIcon, ExclamationTriangleIcon, ClockIcon, DocumentTextIcon, SparklesIcon, XMarkIcon } from '@heroicons/react/24/outline';
 
 type FilterType = 'todos' | 'dador' | 'cliente' | 'empresa';
 type ComplianceFilter = 'all' | 'faltantes' | 'vencidos' | 'por_vencer';
@@ -105,12 +105,15 @@ function downloadViaForm(action: string, authToken: string, equipoIds: number[])
   document.body.removeChild(form);
 }
 
+const ROLES_CAN_EDIT = ['SUPERADMIN', 'ADMIN', 'OPERATOR', 'ADMIN_INTERNO', 'OPERADOR_INTERNO'];
+
 export const ConsultaPage: React.FC = () => {
   const navigate = useNavigate();
   const userRole = useAppSelector((s) => (s as any).auth?.user?.role) as string | undefined;
   const userDadorCargaId = useAppSelector((s) => (s as any).auth?.user?.dadorCargaId) as number | undefined;
   const isChofer = userRole === 'CHOFER';
   const isDadorDeCarga = userRole === 'DADOR_DE_CARGA';
+  const canEdit = Boolean(userRole && ROLES_CAN_EDIT.includes(userRole));
   
   // Determinar ruta de volver según el rol
   const getBackRoute = () => {
@@ -140,7 +143,7 @@ export const ConsultaPage: React.FC = () => {
   const dadores = isDadorDeCarga && userDadorCargaId
     ? dadoresRaw.filter((d: any) => d.id === userDadorCargaId)
     : dadoresRaw;
-  const { data: templates = [] } = useGetTemplatesQuery(undefined as any, { skip: isChofer } as any);
+  const { data: _templates = [] } = useGetTemplatesQuery(undefined as any, { skip: isChofer } as any);
   const { data: clientsResp } = useGetClientsQuery({}, { skip: isChofer } as any);
   const clients = clientsResp?.list ?? (Array.isArray(clientsResp) ? clientsResp : []);
   const empresaIdFromAuth = useSelector((s: RootState) => s.auth?.user?.empresaId) as number | undefined;
@@ -689,7 +692,9 @@ export const ConsultaPage: React.FC = () => {
           currentPage += 1;
         }
 
-        ids = Array.from(new Set(allIds));
+        const fallbackIds = Array.from(new Set(allIds));
+        const baseUrl2 = getRuntimeEnv('VITE_DOCUMENTOS_API_URL') || '';
+        downloadViaForm(`${baseUrl2}/api/docs/equipos/download/vigentes-form`, authToken, fallbackIds);
       }
     } finally {
       setIsDownloading(false);
@@ -1340,6 +1345,7 @@ export const ConsultaPage: React.FC = () => {
                     Datos IA
                   </Button>
                 )}
+                {canEdit && (
                 <Button
                   variant='default'
                   size='sm'
@@ -1348,6 +1354,7 @@ export const ConsultaPage: React.FC = () => {
                 >
                   ✏️ Editar
                 </Button>
+                )}
                 <Button
                   variant='outline'
                   size='sm'
@@ -1378,6 +1385,7 @@ export const ConsultaPage: React.FC = () => {
                   }}
                 >{isDownloadingSingle === eq.id ? '⏳ Preparando...' : 'Bajar documentación'}</Button>
                 <Button variant='outline' size='sm' onClick={()=> navigate(`/documentos/equipos/${eq.id}/estado`)}>Ver estado</Button>
+                {canEdit && (
                 <Button 
                   variant='outline' 
                   size='sm' 
@@ -1388,7 +1396,6 @@ export const ConsultaPage: React.FC = () => {
                       setTogglingEquipoId(eq.id);
                       const startTime = Date.now();
                       await toggleActivo({ equipoId: eq.id, activo: eq.activo === false }).unwrap();
-                      // Mantener indicador visible mínimo 600ms para feedback visual
                       const elapsed = Date.now() - startTime;
                       if (elapsed < 600) await new Promise(r => setTimeout(r, 600 - elapsed));
                       showToast(`Equipo ${eq.activo === false ? 'activado' : 'desactivado'} exitosamente`, 'success');
@@ -1408,12 +1415,15 @@ export const ConsultaPage: React.FC = () => {
                     eq.activo !== false ? '⏸ Desactivar' : '▶ Activar'
                   )}
                 </Button>
+                )}
+                {canEdit && (
                 <Button variant='destructive' size='sm' onClick={async ()=>{
                   const ok = await confirm({ title: 'Eliminar equipo', message: `¿Eliminar equipo #${eq.id}? Esta acción es irreversible.`, confirmText: 'Eliminar', variant: 'danger' });
                   if (!ok) return;
                   await deleteEquipo({ id: (eq as any).id });
                   showToast('Equipo eliminado', 'success');
                 }}>Eliminar</Button>
+                )}
               </div>
             </div>
           );

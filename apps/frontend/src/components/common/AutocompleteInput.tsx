@@ -3,6 +3,7 @@ import { useSelector } from 'react-redux';
 import { selectCurrentToken } from '../../features/auth/authSlice';
 
 interface AutocompleteInputProps {
+  id?: string;
   value: string;
   onChange: (value: string) => void;
   field: 'cliente' | 'transportista' | 'patente';
@@ -12,6 +13,7 @@ interface AutocompleteInputProps {
 }
 
 export function AutocompleteInput({
+  id,
   value,
   onChange,
   field,
@@ -100,6 +102,7 @@ export function AutocompleteInput({
     <div ref={containerRef} className="relative">
       <input
         ref={inputRef}
+        id={id}
         type="text"
         value={value}
         onChange={handleInputChange}

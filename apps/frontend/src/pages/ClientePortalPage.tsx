@@ -23,7 +23,7 @@ import {
 } from '@heroicons/react/24/outline';
 
 export const ClientePortalPage: React.FC = () => {
-  const _navigate = useNavigate();
+  const navigate = useNavigate(); void navigate;
   const { goBack } = useRoleBasedNavigation();
   const { data: clientsResp } = useGetClientsQuery({});
   const clients = useMemo<Cliente[]>(() => (clientsResp?.list ?? []) as Cliente[], [clientsResp]);
@@ -103,7 +103,7 @@ export const ClientePortalPage: React.FC = () => {
   const exportCsv = () => {
     const rows: string[] = ['equipoId,entityType,templateId,templateName,estado,venceEl'];
     for (const e of equipos) {
-      const equipo = e.equipo || e;
+      const equipo = (e as any).equipo || e;
       const docs = docsCacheRef.current.get(equipo.id) ?? [];
       for (const r of reqs as any[]) {
         const found = docs.find(d => d.templateId === r.templateId && d.entityType === r.entityType);

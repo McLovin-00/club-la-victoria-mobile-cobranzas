@@ -10,7 +10,6 @@ import {
   Bars3Icon,
   XMarkIcon,
   UsersIcon,
-  ClipboardDocumentListIcon,
   DocumentTextIcon,
   ClipboardDocumentCheckIcon,
   TruckIcon,
@@ -27,8 +26,6 @@ import { getRoleLabel, handleNavItemMouseEnter } from './MainLayout.utils';
 
 export const MainLayout = () => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const _dispatch = useDispatch();
-
   return (
     <div className='h-screen bg-background overflow-hidden flex flex-col'>
       {/* Barra superior */}
@@ -176,7 +173,7 @@ const SidebarContent = ({ closeSidebar }: SidebarContentProps) => {
   const hasAdminInternoAccess = isAdminInterno || isSuperAdmin || isAdmin;
   
   // Roles que pueden gestionar usuarios (crear/editar)
-  const _canManageUsers = isAdmin || isAdminInterno || isDadorDeCarga || isTransportista;
+  const _hasAdminPrivileges = isAdmin || isAdminInterno || isDadorDeCarga || isTransportista; void _hasAdminPrivileges;
   
   // Obtener configuración de servicios
   const serviceFlags = useServiceFlags();

@@ -134,7 +134,7 @@ export const AlertasUrgentes: React.FC<AlertasUrgentesProps> = ({ alertas }) => 
 
       {/* Alertas List */}
       <div className="p-6 space-y-4">
-        {displayAlertas.map((alerta, index) => {
+        {displayAlertas.map((alerta, _index) => {
           const style = getPrioridadStyle(alerta.prioridad);
           
           return (

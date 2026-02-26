@@ -31,6 +31,9 @@ export interface Document {
   uploadedAt: string;
   validatedAt?: string;
   files: DocumentFile[];
+  fileName?: string;
+  fileSize?: number;
+  mimeType?: string;
 }
 
 export interface DocumentFile {
@@ -131,7 +134,7 @@ export const documentosApiSlice = createApi({
     getDocumentosPorEquipo: builder.query<EquipoDocumento[], { equipoId: number }>({
       query: ({ equipoId }) => ({ url: `/clients/equipos/${equipoId}/documentos` }),
       transformResponse: (r: any) => r?.data ?? [],
-      providesTags: ['Documents'],
+      providesTags: ['Document'],
     }),
 
     downloadDocumento: builder.query<Blob, { documentId: number }>({
@@ -139,7 +142,7 @@ export const documentosApiSlice = createApi({
     }),
 
     // Batch jobs
-    getJobStatus: builder.query<{ success: boolean; job: { id: string; status: string; progress: number; message?: string } }, { jobId: string }>({
+    getJobStatus: builder.query<{ success: boolean; job: { id: string; status: string; progress: number; message?: string; items?: any[]; results?: any[] } }, { jobId: string }>({
       query: ({ jobId }) => ({ url: `/jobs/${jobId}/status` }),
     }),
 
@@ -257,7 +260,7 @@ export const documentosApiSlice = createApi({
 
     // Requisitos por cliente
     getClientRequirements: builder.query<
-      Array<{ id: number; templateId: number; entityType: 'CHOFER'|'CAMION'|'ACOPLADO'; obligatorio: boolean; diasAnticipacion: number; visibleChofer: boolean; template: { id: number; name: string; entityType: string } }>,
+      Array<{ id: number; templateId: number; entityType: 'EMPRESA_TRANSPORTISTA'|'CHOFER'|'CAMION'|'ACOPLADO'; obligatorio: boolean; diasAnticipacion: number; visibleChofer: boolean; template: { id: number; name: string; entityType: string } }>,
       { clienteId: number }
     >({
       query: ({ clienteId }) => ({ url: `/clients/${clienteId}/requirements` }),
@@ -266,7 +269,7 @@ export const documentosApiSlice = createApi({
     }),
     addClientRequirement: builder.mutation<
       any,
-      { clienteId: number; templateId: number; entityType: 'CHOFER'|'CAMION'|'ACOPLADO'; obligatorio?: boolean; diasAnticipacion?: number; visibleChofer?: boolean }
+      { clienteId: number; templateId: number; entityType: 'EMPRESA_TRANSPORTISTA'|'CHOFER'|'CAMION'|'ACOPLADO'; obligatorio?: boolean; diasAnticipacion?: number; visibleChofer?: boolean }
     >({
       query: ({ clienteId, ...body }) => ({ url: `/clients/${clienteId}/requirements`, method: 'POST', body }),
       transformResponse: (response: any) => response?.data,
@@ -632,12 +635,12 @@ export const documentosApiSlice = createApi({
     }),
 
     // Defaults
-    getDefaults: builder.query<{ defaultClienteId: number | null; defaultDadorId: number | null; missingCheckDelayMinutes: number | null }, void>({
+    getDefaults: builder.query<{ defaultClienteId: number | null; defaultDadorId: number | null; missingCheckDelayMinutes: number | null; noExpiryHorizonYears?: number | null }, void>({
       query: () => ({ url: '/defaults' }),
       transformResponse: (r: any) => r?.data ?? { defaultClienteId: null, defaultDadorId: null, missingCheckDelayMinutes: null },
       providesTags: ['Clients'],
     }),
-    updateDefaults: builder.mutation<void, { defaultClienteId?: number | null; defaultDadorId?: number | null; missingCheckDelayMinutes?: number | null }>({
+    updateDefaults: builder.mutation<void, { defaultClienteId?: number | null; defaultDadorId?: number | null; missingCheckDelayMinutes?: number | null; noExpiryHorizonYears?: number | null }>({
       query: (body) => ({ url: '/defaults', method: 'PUT', body }),
       invalidatesTags: ['Clients'],
     }),
@@ -786,7 +789,7 @@ export const documentosApiSlice = createApi({
     >({
       query: (body) => ({ url: '/equipos/alta-completa', method: 'POST', body }),
       transformResponse: (response: any) => response?.data,
-      invalidatesTags: ['Equipos', 'Choferes', 'Camiones', 'Acoplados', 'EmpresasTransportistas'],
+      invalidatesTags: ['Equipos', 'Maestros', 'EmpresasTransportistas'],
     }),
     rollbackEquipoCompleto: builder.mutation<
       any,
@@ -800,7 +803,7 @@ export const documentosApiSlice = createApi({
     >({
       query: ({ equipoId, ...body }) => ({ url: `/equipos/${equipoId}/rollback`, method: 'POST', body }),
       transformResponse: (response: any) => response?.data,
-      invalidatesTags: ['Equipos', 'Choferes', 'Camiones', 'Acoplados', 'EmpresasTransportistas'],
+      invalidatesTags: ['Equipos', 'Maestros', 'EmpresasTransportistas'],
     }),
     updateEquipo: builder.mutation<
       any,
@@ -1011,25 +1014,23 @@ export const documentosApiSlice = createApi({
             documentosApiSlice.util.updateQueryData(
               'getDocumentsByEmpresa',
               { dadorId: empresaId },
-              (draft: any[]) => {
-                if (!Array.isArray(draft)) return;
-                // Evitar duplicados
-                const exists = draft.some((d: any) => Number(d.id) === Number((created as any)?.id));
-                if (!exists) draft.unshift(created as any);
+              (draft) => {
+                if (!Array.isArray(draft.data)) return;
+                const exists = draft.data.some((d) => Number(d.id) === Number((created as any)?.id));
+                if (!exists) draft.data.unshift(created as any);
               }
             )
           );
-          // Si hay vista filtrada por estado del nuevo documento, actualizarla también
           const status = (created as any)?.status;
           if (status) {
             dispatch(
               documentosApiSlice.util.updateQueryData(
                 'getDocumentsByEmpresa',
                 { dadorId: empresaId, status: String(status) },
-                (draft: any[]) => {
-                  if (!Array.isArray(draft)) return;
-                  const exists = draft.some((d: any) => Number(d.id) === Number((created as any)?.id));
-                  if (!exists) draft.unshift(created as any);
+                (draft) => {
+                  if (!Array.isArray(draft.data)) return;
+                  const exists = draft.data.some((d) => Number(d.id) === Number((created as any)?.id));
+                  if (!exists) draft.data.unshift(created as any);
                 }
               )
             );
@@ -1099,14 +1100,12 @@ export const documentosApiSlice = createApi({
     getDashboardData: builder.query<DashboardData, void>({
       query: () => '/dashboard/semaforos',
       providesTags: ['Dashboard'],
-      // Polling cada 2 minutos como fallback si WebSocket no está disponible
-      pollingInterval: 120000,
     }),
     // Resumen de pendientes de aprobación
     getPendingSummary: builder.query<{ total: number; top: Array<{ templateId: number; templateName: string; count: number }>; lastUploads: Array<{ id: number; uploadedAt: string; fileName: string; dadorCargaId: number }> }, void>({
       query: () => '/dashboard/pending/summary',
       transformResponse: (r: any) => r?.data ?? { total: 0, top: [], lastUploads: [] },
-      transformErrorResponse: (error: any) => {
+      transformErrorResponse: (_error: any) => {
         console.warn('getPendingSummary endpoint not available, using fallback');
         return { total: 0, top: [], lastUploads: [] };
       },
@@ -1138,8 +1137,6 @@ export const documentosApiSlice = createApi({
       },
       transformResponse: (r: any) => r?.data ?? { since: '', created: 0, swaps: 0, deleted: 0 },
       providesTags: ['Dashboard'],
-      pollingInterval: 60000,
-      // backoff básico: reintentos hasta 3 veces con delays 1s, 2s, 5s
       extraOptions: {
         maxRetries: 3,
         backoff: () => new Promise((resolve) => setTimeout(resolve, 1000)),
@@ -1160,7 +1157,7 @@ export const documentosApiSlice = createApi({
         return { url: `/approval/pending${qs ? `?${qs}` : ''}` };
       },
       transformResponse: (r: any) => ({ data: r?.data ?? [], pagination: r?.pagination }),
-      transformErrorResponse: (error: any) => {
+      transformErrorResponse: (_error: any) => {
         console.warn('getApprovalPending endpoint not available, using fallback');
         return { data: [], pagination: { page: 1, limit: 20, total: 0, pages: 0 } };
       },
@@ -1169,7 +1166,7 @@ export const documentosApiSlice = createApi({
     getApprovalPendingById: builder.query<ApprovalPendingDocument, { id: number }>({
       query: ({ id }) => ({ url: `/approval/pending/${id}` }),
       transformResponse: (r: any) => r?.data ?? r,
-      providesTags: (result, _err, arg) => [{ type: 'Approval' as const, id: arg.id }],
+      providesTags: (_result, _err, arg) => [{ type: 'Approval' as const, id: arg.id }],
     }),
     approvePendingDocument: builder.mutation<any, { id: number; confirmedEntityType: string; confirmedEntityId: number | string; expiresAt?: string | null; reviewNotes?: string | null; templateId?: number }>({
       query: ({ id, expiresAt, templateId, ...rest }) => {
@@ -1206,12 +1203,11 @@ export const documentosApiSlice = createApi({
     getApprovalKpis: builder.query<any, void>({
       query: () => ({ url: `/dashboard/approval-kpis` }),
       transformResponse: (r: any) => r?.data ?? r,
-      transformErrorResponse: (error: any) => {
+      transformErrorResponse: (_error: any) => {
         console.warn('getApprovalKpis endpoint not available, using fallback');
         return { pending: 0, approvedToday: 0, asOf: new Date().toISOString() };
       },
       providesTags: ['Approval', 'Dashboard'],
-      pollingInterval: 60000,
     }),
 
     // =================================
@@ -1403,13 +1399,13 @@ export const documentosApiSlice = createApi({
     getPortalTransportistaDocumentosRechazados: builder.query<any[], void>({
       query: () => ({ url: '/portal-transportista/documentos/rechazados' }),
       transformResponse: (r: any) => r?.data ?? [],
-      providesTags: ['Documents'],
+      providesTags: ['Document'],
     }),
     
     getPortalTransportistaDocumentosPendientes: builder.query<any[], void>({
       query: () => ({ url: '/portal-transportista/documentos/pendientes' }),
       transformResponse: (r: any) => r?.data ?? [],
-      providesTags: ['Documents'],
+      providesTags: ['Document'],
     }),
     
     // Resubir documento rechazado
@@ -1423,7 +1419,7 @@ export const documentosApiSlice = createApi({
           body: formData,
         };
       },
-      invalidatesTags: ['Documents', 'Equipos'],
+      invalidatesTags: ['Document', 'Equipos'],
     }),
     
     // Stats por rol (dashboard personalizado)

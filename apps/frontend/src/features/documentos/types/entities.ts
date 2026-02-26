@@ -6,6 +6,7 @@ export interface EmpresaTransportista {
   id: number;
   dadorCargaId: number;
   razonSocial: string;
+  nombre?: string;
   cuit: string;
   activo: boolean;
   notas?: string | null;

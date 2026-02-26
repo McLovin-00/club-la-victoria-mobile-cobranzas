@@ -50,7 +50,7 @@ export function getSubmitButtonText(isSubmitting: boolean, preCheckPassed: boole
 const AltaEquipoCompletaPage: React.FC = () => {
   const navigate = useNavigate();
   const { goBack, getHomeRoute, user } = useRoleBasedNavigation();
-  const _empresaId = useAppSelector((s) => (s as any).auth?.user?.empresaId) as number | undefined;
+  const empresaIdFromAuth = useAppSelector((s) => (s as any).auth?.user?.empresaId) as number | undefined; void empresaIdFromAuth;
   const userDadorCargaId = useAppSelector((s) => (s as any).auth?.user?.dadorCargaId) as number | undefined;
   const role = user?.role;
 
@@ -139,10 +139,10 @@ const AltaEquipoCompletaPage: React.FC = () => {
     return Array.isArray(raw) ? raw : [];
   }, [dadoresResp]);
   
-  const _clientesList = useMemo(() => {
+  const clientesList = useMemo(() => {
     const raw = ((clientsResp as any)?.data || (clientsResp as any)?.list) ?? [];
     return Array.isArray(raw) ? raw : [];
-  }, [clientsResp]);
+  }, [clientsResp]); void clientesList;
   
   // Determinar dadorCargaId según el rol del usuario
   // - DADOR_DE_CARGA: DEBE usar su propio dadorCargaId (obligatorio)
@@ -316,14 +316,14 @@ const AltaEquipoCompletaPage: React.FC = () => {
   // Calcular documentos obligatorios
   const templateIdsObligatorios = useMemo(() => {
     const ids: number[] = [
-      ...templatesPorTipo.EMPRESA_TRANSPORTISTA.map((t) => t.id),
-      ...templatesPorTipo.CHOFER.map((t) => t.id),
-      ...templatesPorTipo.CAMION.map((t) => t.id),
+      ...templatesPorTipo.EMPRESA_TRANSPORTISTA.map((t: { id: number }) => t.id),
+      ...templatesPorTipo.CHOFER.map((t: { id: number }) => t.id),
+      ...templatesPorTipo.CAMION.map((t: { id: number }) => t.id),
     ];
 
     // Si hay patente semi, agregar documentos de semi
     if (semiPatente && semiPatente.length >= 5) {
-      ids.push(...templatesPorTipo.ACOPLADO.map((t) => t.id));
+      ids.push(...templatesPorTipo.ACOPLADO.map((t: { id: number }) => t.id));
     }
 
     return ids;
@@ -393,7 +393,7 @@ const AltaEquipoCompletaPage: React.FC = () => {
   };
 
   // Handler dummy para compatibilidad (ya no se usa)
-  const handleUploadSuccess = (templateId: number, expiryDate?: string) => {
+  const handleUploadSuccess = (_templateId: number, _expiryDate?: string) => {
     // No hace nada, la subida se hace al crear el equipo
   };
 
@@ -681,10 +681,10 @@ const AltaEquipoCompletaPage: React.FC = () => {
       const uploadErrors: string[] = [];
 
       for (const [templateId, fileData] of selectedFiles.entries()) {
-        try {
-          const template = [...Object.values(templatesPorTipo)].flat().find((t) => t.id === templateId);
-          if (!template) continue;
+        const template = [...Object.values(templatesPorTipo)].flat().find((t: { id: number }) => t.id === templateId) as { id: number; name: string; entityType: string } | undefined;
+        if (!template) continue;
 
+        try {
           let entityId: number;
           const entityType = template.entityType;
 

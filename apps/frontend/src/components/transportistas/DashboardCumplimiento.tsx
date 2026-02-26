@@ -18,13 +18,13 @@ interface DashboardCumplimientoProps {
 export const DashboardCumplimiento: React.FC<DashboardCumplimientoProps> = ({
   className
 }) => {
-  const { stats, alertas, isLoading, refetch } = useEquipoStats();
+  const { stats, alerts: alertas, isLoadingStats: isLoading, refetchStats: refetch } = useEquipoStats();
 
   const handleRefresh = async () => {
     await refetch();
   };
 
-  if (isLoading) {
+  if (isLoading || !stats) {
     return <DashboardSkeleton />;
   }
 
@@ -53,15 +53,33 @@ export const DashboardCumplimiento: React.FC<DashboardCumplimientoProps> = ({
         {/* Main Content */}
         <div className="px-4 py-6 space-y-6">
           {/* Estado General - Protagonista principal */}
-          <EstadoGeneral stats={stats} />
+          <EstadoGeneral stats={{
+            cumplimiento: stats.compliancePercentage,
+            vigentes: stats.equiposVigentes,
+            vencidos: stats.equiposVencidos,
+            proximos: stats.equiposProximos,
+            total: stats.totalEquipos,
+          }} />
 
           {/* Grid responsivo para stats secundarios */}
           <div className="grid grid-cols-1 gap-6">
             {/* Resumen de Equipos */}
-            <EquiposResumen stats={stats} />
+            <EquiposResumen stats={{
+              vigentes: stats.equiposVigentes,
+              vencidos: stats.equiposVencidos,
+              proximos: stats.equiposProximos,
+              total: stats.totalEquipos,
+            }} />
 
             {/* Alertas Urgentes */}
-            <AlertasUrgentes alertas={alertas} />
+            <AlertasUrgentes alertas={alertas.map(a => ({
+              id: a.id,
+              equipoId: a.equipoId ?? 0,
+              documentoTipo: a.type,
+              diasVencimiento: 0,
+              prioridad: 'alta' as const,
+              mensaje: a.message,
+            }))} />
           </div>
 
           {/* Acciones Rápidas */}

@@ -194,7 +194,7 @@ export const useUserAudit = () => {
         clearTimeout(batchTimeout.current);
       }
 
-      batchTimeout.current = setTimeout(processBatch, 2000);
+      batchTimeout.current = window.setTimeout(processBatch, 2000);
     },
     [processBatch]
   );

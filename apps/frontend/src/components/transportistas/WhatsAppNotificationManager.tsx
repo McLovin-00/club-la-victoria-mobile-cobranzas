@@ -487,7 +487,7 @@ export const WhatsAppNotificationManager: React.FC<WhatsAppNotificationManagerPr
                       <Button
                         size="sm"
                         variant="outline"
-                        onClick={() => setEditingTemplate(template.id)}
+                        onClick={() => _setEditingTemplate(template.id)}
                         className="text-gray-600 hover:text-blue-600 border-gray-300 hover:border-blue-300"
                       >
                         <PencilIcon className="h-4 w-4" />

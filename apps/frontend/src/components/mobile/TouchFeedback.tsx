@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useRef, useState } from 'react';
 import { cn } from '../../lib/utils';
 
 interface TouchFeedbackProps {
@@ -9,6 +9,7 @@ interface TouchFeedbackProps {
   scaleOnPress?: boolean;
   rippleEffect?: boolean;
   onPress?: () => void;
+  onClick?: () => void;
 }
 
 /**
@@ -23,6 +24,7 @@ export const TouchFeedback: React.FC<TouchFeedbackProps> = ({
   scaleOnPress = false,
   rippleEffect = false,
   onPress,
+  onClick,
 }) => {
   const [isPressed, setIsPressed] = useState(false);
   const [ripples, setRipples] = useState<Array<{ id: string; x: number; y: number }>>([]);
@@ -102,6 +104,7 @@ export const TouchFeedback: React.FC<TouchFeedbackProps> = ({
         disabled && 'opacity-50 cursor-not-allowed pointer-events-none',
         className
       )}
+      onClick={onClick}
       onTouchStart={handleTouchStart}
       onTouchEnd={handleTouchEnd}
       onMouseDown={handleMouseDown}

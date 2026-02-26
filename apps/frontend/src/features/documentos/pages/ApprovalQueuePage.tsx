@@ -5,7 +5,7 @@ import { useGetApprovalPendingQuery, useGetApprovalKpisQuery } from '@/features/
 import { formatDateTime } from '../../../utils/formatters';
 import type { ApprovalPendingDocument } from '../types/entities';
 import { useAppSelector } from '../../../store/hooks';
-import { ArrowLeftIcon, CheckCircleIcon, ExclamationTriangleIcon, XCircleIcon, MinusCircleIcon } from '@heroicons/react/24/outline';
+import { ArrowLeftIcon, CheckCircleIcon, MinusCircleIcon, XCircleIcon } from '@heroicons/react/24/outline';
 
 type EntityType = 'DADOR' | 'EMPRESA_TRANSPORTISTA' | 'CHOFER' | 'CAMION' | 'ACOPLADO' | '';
 

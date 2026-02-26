@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
+import { useSelector } from 'react-redux';
 import { Button } from '../../../components/ui/button';
 import { Card } from '../../../components/ui/card';
 import { Input } from '../../../components/ui/input';
@@ -9,8 +10,11 @@ import type { Chofer, DadorCarga } from '../types/entities';
 import { useToast } from '../../../hooks/useToast';
 import { validatePhone } from '../../../utils/validators';
 import { useRoleBasedNavigation } from '../../../hooks/useRoleBasedNavigation';
+import type { RootState } from '../../../store/store';
 
-const ChoferPhonesInline: React.FC<{ choferId: number; initial: string[]; onSave: (phones: string[])=>Promise<any> }>=({ choferId, initial, onSave })=>{
+const ROLES_CAN_EDIT = ['SUPERADMIN', 'ADMIN', 'OPERATOR', 'ADMIN_INTERNO', 'OPERADOR_INTERNO'];
+
+const ChoferPhonesInline: React.FC<{ choferId: number; initial: string[]; onSave: (phones: string[])=>Promise<any> }>=({ choferId: _choferId, initial, onSave })=>{
   const [phones, setPhones] = useState<string[]>(initial.length ? initial : ['']);
   const [saving, setSaving] = useState(false);
   const canAdd = phones.length < 3;
@@ -39,6 +43,8 @@ const ChoferPhonesInline: React.FC<{ choferId: number; initial: string[]; onSave
 const ChoferesPage: React.FC = () => {
   const { goBack } = useRoleBasedNavigation();
   const { show } = useToast();
+  const user = useSelector((state: RootState) => state.auth.user);
+  const canEdit = Boolean(user?.role && ROLES_CAN_EDIT.includes(user.role));
   const { data: dadoresResp } = useGetDadoresQuery({});
   const dadores = useMemo<DadorCarga[]>(() => (dadoresResp?.list ?? []) as DadorCarga[], [dadoresResp]);
   const defaultDadorId = useMemo(() => dadores[0]?.id || 0, [dadores]);
@@ -97,6 +103,7 @@ const ChoferesPage: React.FC = () => {
         </div>
       </div>
 
+      {canEdit && (<>
       {/* Formulario de creación */}
       <div className='mb-2 grid grid-cols-1 md:grid-cols-6 gap-2 items-end'>
         <Input className='md:col-span-1' placeholder='DNI' value={dni} onChange={(e) => setDni(e.target.value.replace(/\D+/g,''))} />
@@ -139,6 +146,7 @@ const ChoferesPage: React.FC = () => {
           }
         }}>Crear</Button>
       </div>
+      </>)}
 
       {!dadorId && (
         <div className='mb-4 text-sm text-yellow-700 dark:text-yellow-300 bg-yellow-50 dark:bg-yellow-900/30 border border-yellow-200 dark:border-yellow-700 rounded p-3'>
@@ -156,9 +164,11 @@ const ChoferesPage: React.FC = () => {
                   <span className='text-sm text-muted-foreground'>{c.apellido ?? ''} {c.nombre ?? ''} · ID {c.id}</span>
                 </div>
                 <div className='flex gap-2'>
+                  {canEdit && (<>
                   <Button variant='outline' onClick={() => { setEditingId(c.id); setEditDni(c.dni); setEditNombre(c.nombre ?? ''); setEditApellido(c.apellido ?? ''); }}>Editar</Button>
                   <Button variant='outline' onClick={() => updateChofer({ id: c.id, activo: !c.activo })}>{c.activo ? 'Desactivar' : 'Activar'}</Button>
                   <Button variant='destructive' onClick={() => setConfirmDeleteId(c.id)}>Borrar</Button>
+                  </>)}
                 </div>
               </div>
               {editingId === c.id && (

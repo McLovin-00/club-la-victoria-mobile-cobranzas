@@ -151,7 +151,7 @@ export const UserTable: React.FC = () => {
 
   // Forzar refetch cuando cambia el usuario logueado (especialmente para admins)
   useEffect(() => {
-    if (currentUser?.role === 'admin') {
+    if (currentUser?.role === 'ADMIN') {
       refetchUsers();
     }
   }, [currentUser?.id, currentUser?.role, refetchUsers]);
@@ -163,7 +163,7 @@ export const UserTable: React.FC = () => {
   );
 
   const canCreateUsers = useMemo(() => {
-    return currentUser?.role === 'admin' || currentUser?.role === 'superadmin';
+    return currentUser?.role === 'ADMIN' || currentUser?.role === 'SUPERADMIN';
   }, [currentUser?.role]);
 
   const canEditUser = useCallback(
@@ -172,16 +172,15 @@ export const UserTable: React.FC = () => {
         return false;
       }
 
-      if (currentUser.role === 'superadmin') {
+      if (currentUser.role === 'SUPERADMIN') {
         return true;
       }
 
-      if (currentUser.role === 'admin') {
-        // Admin puede editar usuarios de su empresa (excepto otros admin)
+      if (currentUser.role === 'ADMIN') {
         return (
           currentUser.empresaId === user.empresaId &&
-          user.role !== 'admin' &&
-          user.role !== 'superadmin'
+          user.role !== 'ADMIN' &&
+          user.role !== 'SUPERADMIN'
         );
       }
 
@@ -194,14 +193,12 @@ export const UserTable: React.FC = () => {
     (user: User) => {
       if (!currentUser) return false;
 
-      if (currentUser.role === 'superadmin') {
-        // Superadmin no puede eliminar a otros superadmin
-        return user.role !== 'superadmin';
+      if (currentUser.role === 'SUPERADMIN') {
+        return user.role !== 'SUPERADMIN';
       }
 
-      if (currentUser.role === 'admin') {
-        // Admin puede eliminar usuarios de su empresa (excepto admin y superadmin)
-        return currentUser.empresaId === user.empresaId && user.role === 'user';
+      if (currentUser.role === 'ADMIN') {
+        return currentUser.empresaId === user.empresaId && user.role === 'OPERATOR';
       }
 
       return false;
@@ -234,7 +231,7 @@ export const UserTable: React.FC = () => {
   const handleRoleFilter = useCallback((role: UserRole | '') => {
     setQueryParams(prev => ({
       ...prev,
-      role: role ?? undefined,
+      role: role || undefined,
       page: 1,
     }));
   }, []);
@@ -242,7 +239,7 @@ export const UserTable: React.FC = () => {
   const handleEmpresaFilter = useCallback((empresaId: number | '') => {
     setQueryParams(prev => ({
       ...prev,
-      empresaId: empresaId ?? undefined,
+      empresaId: empresaId || undefined,
       page: 1,
     }));
   }, []);
@@ -320,11 +317,11 @@ export const UserTable: React.FC = () => {
 
   const getRoleLabel = (role: UserRole) => {
     switch (role) {
-      case 'superadmin':
+      case 'SUPERADMIN':
         return 'Superadministrador';
-      case 'admin':
+      case 'ADMIN':
         return 'Administrador';
-      case 'user':
+      case 'OPERATOR':
         return 'Usuario';
       default:
         return role;
@@ -333,11 +330,11 @@ export const UserTable: React.FC = () => {
 
   const getRoleBadgeColor = (role: UserRole) => {
     switch (role) {
-      case 'superadmin':
+      case 'SUPERADMIN':
         return 'bg-purple-100 text-purple-800 border-purple-200';
-      case 'admin':
+      case 'ADMIN':
         return 'bg-blue-100 text-blue-800 border-blue-200';
-      case 'user':
+      case 'OPERATOR':
         return 'bg-green-100 text-green-800 border-green-200';
       default:
         return 'bg-gray-100 text-gray-800 border-gray-200';
@@ -436,16 +433,16 @@ export const UserTable: React.FC = () => {
                   className='w-full px-3 py-2 border border-border rounded-md bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary'
                 >
                   <option value=''>Todos los roles</option>
-                  <option value='user'>Usuario</option>
-                  <option value='admin'>Administrador</option>
-                  {currentUser?.role === 'superadmin' && (
-                    <option value='superadmin'>Superadministrador</option>
+                  <option value='OPERATOR'>Usuario</option>
+                  <option value='ADMIN'>Administrador</option>
+                  {currentUser?.role === 'SUPERADMIN' && (
+                    <option value='SUPERADMIN'>Superadministrador</option>
                   )}
                 </select>
               </div>
 
               {/* Filtro por empresa */}
-              {currentUser?.role === 'superadmin' && (
+              {currentUser?.role === 'SUPERADMIN' && (
                 <div>
                   <label className='block text-sm font-medium text-foreground mb-2'>
                     Filtrar por empresa

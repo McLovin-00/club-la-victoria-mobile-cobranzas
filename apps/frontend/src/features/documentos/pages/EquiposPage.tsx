@@ -18,13 +18,15 @@ import { ConfirmContext } from '../../../contexts/confirmContext';
 // Roles que pueden crear equipos completos
 // TRANSPORTISTA puede crear equipos, CHOFER no tiene acceso directo a esta opción
 const ROLES_CAN_CREATE_EQUIPO = ['ADMIN', 'SUPERADMIN', 'ADMIN_INTERNO', 'DADOR_DE_CARGA', 'TRANSPORTISTA'];
+const ROLES_CAN_EDIT = ['SUPERADMIN', 'ADMIN', 'OPERATOR', 'ADMIN_INTERNO', 'OPERADOR_INTERNO'];
 
 export const EquiposPage: React.FC = () => {
   const navigate = useNavigate();
   const { goBack } = useRoleBasedNavigation();
   const user = useSelector((state: RootState) => state.auth.user);
   const canCreateEquipo = user?.role && ROLES_CAN_CREATE_EQUIPO.includes(user.role);
-  const show = (msg: string) => { try { alert(msg); } catch { console.log(msg); } };
+  const canEdit = Boolean(user?.role && ROLES_CAN_EDIT.includes(user.role));
+  const show = (msg: string, _variant?: string) => { try { alert(msg); } catch { console.log(msg); } };
   const { confirm } = useContext(ConfirmContext);
   const { data: dadoresResp } = useGetDadoresQuery({});
   const dadores = useMemo<DadorCarga[]>(() => (dadoresResp?.list ?? []) as DadorCarga[], [dadoresResp]);
@@ -318,7 +320,7 @@ export const EquiposPage: React.FC = () => {
         )}
       </div>
 
-      {/* Importación CSV */}
+      {canEdit && (
       <Card className='p-4 mb-6 bg-card'>
         <div className='flex items-center justify-between'>
           <h2 className='text-lg font-semibold'>Importar equipos desde CSV</h2>
@@ -364,7 +366,9 @@ export const EquiposPage: React.FC = () => {
         </div>
         <p className='text-xs text-muted-foreground mt-2'>Formato recomendado: external_id,empresa_transportista_cuit,empresa_transportista_nombre,chofer_dni,chofer_nombre,camion_patente,acoplado_patente,chofer_phones</p>
       </Card>
+      )}
 
+      {canEdit && (
       <Card className='p-4 mb-6 bg-card'>
         <div className='grid grid-cols-2 md:grid-cols-3 gap-4'>
           <div>
@@ -453,7 +457,7 @@ export const EquiposPage: React.FC = () => {
                   driverId: Number(driverIdSel),
                   truckId: Number(truckIdSel),
                   trailerId: trailerIdSel ? Number(trailerIdSel) : undefined,
-                  empresaTransportistaId: empresaTransportistaId ?? undefined,
+                  empresaTransportistaId: empresaTransportistaId || undefined,
                   driverDni: ch?.dni ?? '',
                   truckPlate: tr?.patente ?? '',
                   trailerPlate: ac?.patente,
@@ -476,13 +480,13 @@ export const EquiposPage: React.FC = () => {
                       driverId: Number(driverIdSel),
                       truckId: Number(truckIdSel),
                       trailerId: trailerIdSel ? Number(trailerIdSel) : undefined,
-                      empresaTransportistaId: empresaTransportistaId ?? undefined,
+                      empresaTransportistaId: empresaTransportistaId || undefined,
                       driverDni: ch?.dni ?? '',
                       truckPlate: tr?.patente ?? '',
                       trailerPlate: ac?.patente,
                       validFrom: new Date().toISOString(),
-                      forceMove: true as any,
-                    }).unwrap();
+                      forceMove: true,
+                    } as any).unwrap();
                     show('Equipo creado moviendo componentes', 'success');
                     return;
                   } catch (e2: any) {
@@ -540,6 +544,7 @@ export const EquiposPage: React.FC = () => {
           Al crear, si el chofer o los vehículos no existen para el dador seleccionado, el sistema te ofrecerá crearlos y asociarlos automáticamente.
         </p>
       </Card>
+      )}
 
       <Card className='p-4 bg-card'>
         {/* KPIs mínimos */}
@@ -621,6 +626,7 @@ export const EquiposPage: React.FC = () => {
 
               {/* Columna derecha: Acciones */}
               <div className='flex flex-wrap justify-end items-center gap-2'>
+                {canEdit && (
                 <Button
                   variant='default'
                   size='sm'
@@ -629,6 +635,7 @@ export const EquiposPage: React.FC = () => {
                 >
                   ✏️ Editar
                 </Button>
+                )}
                 <Button
                   variant='outline'
                   size='sm'
@@ -723,8 +730,11 @@ export const EquiposPage: React.FC = () => {
                   }}
                 >Bajar documentación</Button>
                 <Button variant='outline' size='sm' onClick={()=> navigate(`/documentos/equipos/${eq.id}/estado?only=vencidos`)}>Ver estado</Button>
+                {canEdit && (
                 <Button variant='outline' size='sm' onClick={()=> openManage(eq.id)}>Gestionar componentes</Button>
+                )}
                 <Button variant='outline' size='sm' onClick={()=> setHistoryEquipoId(eq.id)}>Historial</Button>
+                {canEdit && (
                 <Button
                   variant='outline'
                   size='sm'
@@ -744,12 +754,15 @@ export const EquiposPage: React.FC = () => {
                     show(target === 'finalizada' ? 'Equipo desactivado' : 'Equipo activado', 'success');
                   }}
                 >{(eq as any).estado === 'finalizada' ? 'Activar' : 'Desactivar'}</Button>
+                )}
+                {canEdit && (
                 <Button variant='destructive' size='sm' onClick={async ()=>{
                   const ok = await confirm({ title: 'Eliminar equipo', message: `¿Eliminar equipo #${eq.id}? Esta acción es irreversible.`, confirmText: 'Eliminar', variant: 'danger' });
                   if (!ok) return;
                   await deleteEquipo({ id: (eq as any).id });
                   show('Equipo eliminado', 'success');
                 }}>Eliminar</Button>
+                )}
               </div>
             </div>
           ))}
@@ -864,7 +877,6 @@ const Dot: React.FC<{ color: string }> = ({ color }) => (
 );
 
 const EquipoSemaforo: React.FC<{ equipoId: number }> = ({ equipoId }) => {
-  const _navigate = useNavigate();
   const { data } = useGetEquipoComplianceQuery({ id: equipoId }, { skip: !equipoId });
   if (!data) return null;
   const now = Date.now();

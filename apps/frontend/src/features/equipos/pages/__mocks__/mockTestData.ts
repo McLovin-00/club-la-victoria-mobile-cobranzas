@@ -1,5 +1,3 @@
-import { jest } from '@jest/globals';
-
 // Datos de templates de documentos para testing
 export const mockTemplates = [
     { id: 1, nombre: 'DNI Frente y Dorso', name: 'DNI Frente y Dorso', entityType: 'CHOFER' },

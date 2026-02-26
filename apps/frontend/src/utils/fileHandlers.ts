@@ -30,7 +30,7 @@ export function validateBeforeUpload(file: File, allowedTypes: string[], maxByte
 }
 
 // Placeholder de compresión de imagen (opcional)
-export async function compressImage(file: File, quality = 0.8): Promise<File> {
+export async function compressImage(file: File, _quality = 0.8): Promise<File> {
   // En una siguiente fase se puede integrar compression real (browser-image-compression)
   return file;
 }
