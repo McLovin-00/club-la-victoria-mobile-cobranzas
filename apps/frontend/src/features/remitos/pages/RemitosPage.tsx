@@ -20,7 +20,7 @@ type FilterType = 'todos' | 'PENDIENTE_APROBACION' | 'APROBADO' | 'RECHAZADO';
 export function RemitosPage() {
   const user = useSelector(selectCurrentUser);
   const token = useSelector(selectCurrentToken);
-  const canApprove = user?.role === 'SUPERADMIN' || user?.role === 'ADMIN_INTERNO' || user?.role === 'DADOR_CARGA';
+  const canApprove = user?.role === 'SUPERADMIN' || user?.role === 'ADMIN_INTERNO' || user?.role === 'DADOR_DE_CARGA';
   
   // Por defecto mostrar pendientes
   const [activeFilter, setActiveFilter] = useState<FilterType>('PENDIENTE_APROBACION');

@@ -47,11 +47,11 @@ export const UserForm: React.FC<UserFormProps> = ({
       email: user?.email ?? '',
       password: '',
       confirmPassword: '',
-      role: user?.role === 'superadmin' ? 'admin' : user?.role || 'user',
+      role: user?.role === 'SUPERADMIN' ? 'ADMIN' : user?.role || 'OPERATOR',
           empresaId:
       user?.empresa_id ||
       user?.empresaId ||
-      (currentUser?.role === 'admin' ? currentUser.empresaId : null),
+      (currentUser?.role === 'ADMIN' ? currentUser.empresaId : null),
     },
   });
 
@@ -83,7 +83,7 @@ export const UserForm: React.FC<UserFormProps> = ({
       }
 
       // Crear nuevo timeout
-      emailCheckTimeoutRef.current = setTimeout(() => {
+      emailCheckTimeoutRef.current = window.setTimeout(() => {
         debouncedCheckEmail(watchedEmail);
       }, 500);
 
@@ -98,7 +98,7 @@ export const UserForm: React.FC<UserFormProps> = ({
 
   // Auto-seleccionar empresa para admin
   useEffect(() => {
-    if (currentUser?.role === 'admin' && currentUser.empresaId) {
+    if (currentUser?.role === 'ADMIN' && currentUser.empresaId) {
       setValue('empresaId', currentUser.empresaId);
     }
   }, [currentUser?.role, currentUser?.empresaId, setValue]);
@@ -135,21 +135,23 @@ export const UserForm: React.FC<UserFormProps> = ({
 
   const getRoleLabel = (role: string) => {
     switch (role) {
-      case 'admin':
+      case 'ADMIN':
         return 'Administrador';
-      case 'user':
+      case 'OPERATOR':
         return 'Usuario';
+      case 'SUPERADMIN':
+        return 'Superadministrador';
       default:
         return role;
     }
   };
 
   const canEditRole = () => {
-    return currentUser?.role === 'superadmin';
+    return currentUser?.role === 'SUPERADMIN';
   };
 
   const canSelectEmpresa = () => {
-    return currentUser?.role === 'superadmin';
+    return currentUser?.role === 'SUPERADMIN';
   };
 
   return (
@@ -310,8 +312,8 @@ export const UserForm: React.FC<UserFormProps> = ({
                 }`}
                 disabled={isLoading}
               >
-                <option value='user'>Usuario</option>
-                <option value='admin'>Administrador</option>
+                <option value='OPERATOR'>Usuario</option>
+                <option value='ADMIN'>Administrador</option>
               </select>
             ) : (
               <input
@@ -334,7 +336,7 @@ export const UserForm: React.FC<UserFormProps> = ({
               <select
                 {...register('empresaId', {
                   required:
-                    watchedRole === 'admin'
+                    watchedRole === 'ADMIN'
                       ? 'Los administradores deben tener una empresa asignada'
                       : false,
                 })}

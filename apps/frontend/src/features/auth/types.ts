@@ -4,7 +4,7 @@ export interface Credentials {
   password: string;
 }
 
-export type UserRole = 'ADMIN' | 'OPERATOR' | 'SUPERADMIN';
+export type UserRole = 'SUPERADMIN' | 'ADMIN' | 'OPERATOR' | 'ADMIN_INTERNO' | 'OPERADOR_INTERNO' | 'DADOR_DE_CARGA' | 'TRANSPORTISTA' | 'EMPRESA_TRANSPORTISTA' | 'CHOFER' | 'CLIENTE' | 'CLIENTE_TRANSPORTE';
 
 // Tipos para la respuesta del login (lo que recibimos)
 // Ajusta esto según la respuesta REAL de tu endpoint /login
@@ -23,6 +23,11 @@ export interface UserResponse {
   id: number;
   email: string;
   name?: string;
+  username?: string;
+  firstName?: string;
+  lastName?: string;
+  phone?: string;
+  avatar?: string;
   role: UserRole;
   empresaId?: number | null;
   mustChangePassword?: boolean | null;
@@ -30,6 +35,13 @@ export interface UserResponse {
     id: number;
     nombre: string;
   } | null;
+  preferences?: {
+    notifications: boolean;
+    darkMode: boolean;
+    language: string;
+    cacheEnabled: boolean;
+    compactMode: boolean;
+  };
   // Asociaciones por rol
   dadorCargaId?: number | null;
   empresaTransportistaId?: number | null;

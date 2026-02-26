@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useEffect } from 'react';
+import React, { useCallback, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useGetPortalClienteEquiposQuery } from '../../documentos/api/documentosApiSlice';
 import { Card } from '../../../components/ui/card';

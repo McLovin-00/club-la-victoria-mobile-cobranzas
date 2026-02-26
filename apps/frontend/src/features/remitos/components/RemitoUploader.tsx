@@ -164,10 +164,10 @@ export function RemitoUploader({ onSuccess, dadorCargaId }: RemitoUploaderProps)
       
       if (isChofer) {
         // Usuario chofer: usar sus propios datos
-        choferId = userChoferId;
-        choferDni = user?.choferDni;
-        choferNombre = user?.choferNombre;
-        choferApellido = user?.choferApellido;
+        choferId = userChoferId ?? undefined;
+        choferDni = user?.choferDni ?? undefined;
+        choferNombre = user?.choferNombre ?? undefined;
+        choferApellido = user?.choferApellido ?? undefined;
       } else if (selectedChofer) {
         // Otros roles: usar el chofer seleccionado
         choferId = selectedChofer.id;
@@ -201,7 +201,6 @@ export function RemitoUploader({ onSuccess, dadorCargaId }: RemitoUploaderProps)
     if (fileInputRef.current) fileInputRef.current.value = '';
   };
   
-  const hasPdf = files.some(f => f.type === 'pdf');
   const hasImages = files.some(f => f.type === 'image');
   
   return (

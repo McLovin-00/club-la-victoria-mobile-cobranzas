@@ -1,5 +1,5 @@
 // Tipos base para usuarios
-export type UserRole = 'admin' | 'user' | 'superadmin';
+export type UserRole = 'SUPERADMIN' | 'ADMIN' | 'OPERATOR' | 'ADMIN_INTERNO' | 'OPERADOR_INTERNO' | 'DADOR_DE_CARGA' | 'TRANSPORTISTA' | 'EMPRESA_TRANSPORTISTA' | 'CHOFER' | 'CLIENTE' | 'CLIENTE_TRANSPORTE';
 
 // Interfaz para un usuario completo
 export interface User {
@@ -22,7 +22,7 @@ export interface User {
 export interface CreateUserPayload {
   email: string;
   password: string;
-  role: 'user' | 'admin';
+  role: UserRole;
   empresaId?: number | null;
 }
 
@@ -30,7 +30,7 @@ export interface CreateUserPayload {
 export interface UpdateUserPayload {
   email?: string;
   password?: string;
-  role?: 'user' | 'admin';
+  role?: UserRole;
   empresaId?: number | null;
 }
 
@@ -87,7 +87,7 @@ export interface UserFormState {
   email: string;
   password: string;
   confirmPassword: string;
-  role: 'user' | 'admin';
+  role: UserRole;
   empresaId: number | null;
 }
 

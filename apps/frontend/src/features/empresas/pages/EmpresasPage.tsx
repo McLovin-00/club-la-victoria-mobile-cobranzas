@@ -14,7 +14,7 @@ import { Empresa, EmpresaCreateInput, EmpresaUpdateInput } from '../types';
 import { PlusIcon } from '@heroicons/react/24/outline';
 
 export const EmpresasPage: React.FC = () => {
-  const _navigate = useNavigate();
+  const navigate = useNavigate(); void navigate;
   const [modalOpen, setModalOpen] = useState(false);
   const [selectedEmpresa, setSelectedEmpresa] = useState<Empresa | undefined>(undefined);
 

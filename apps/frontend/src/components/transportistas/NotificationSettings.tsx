@@ -10,7 +10,6 @@ import {
   DocumentIcon,
   ExclamationTriangleIcon,
   CheckCircleIcon,
-  ClockIcon,
   TruckIcon,
 } from '@heroicons/react/24/outline';
 

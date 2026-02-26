@@ -48,7 +48,7 @@ const EditarEquipoPage: React.FC = () => {
   const isDador = role === 'DADOR_DE_CARGA';
   const isTransportista = role === 'TRANSPORTISTA';
   const isChofer = role === 'CHOFER';
-  const _isCliente = role === 'CLIENTE'; // Para uso futuro
+  const isCliente = role === 'CLIENTE'; void isCliente;
   
   // Determinar qué puede hacer el usuario
   const canEdit = isAdmin || isDador || isTransportista;

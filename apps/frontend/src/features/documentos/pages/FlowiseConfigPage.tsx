@@ -46,7 +46,7 @@ export const FlowiseConfigPage: React.FC = () => {
     lastCheck: null,
     error: null,
   });
-  const [hasChanges, setHasChanges] = useState(false);
+  const [_hasChanges, setHasChanges] = useState(false);
   const isLoadingConfigRef = useRef(false);
   const hasLoadedOnceRef = useRef(false);
   const isSavingRef = useRef(false);

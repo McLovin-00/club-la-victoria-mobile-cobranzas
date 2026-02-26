@@ -23,16 +23,16 @@
         <div class='clearfix'>
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">100% </span>
+                <span class="strong">46.15% </span>
                 <span class="quiet">Statements</span>
-                <span class='fraction'>9/9</span>
+                <span class='fraction'>6/13</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">90% </span>
+                <span class="strong">0% </span>
                 <span class="quiet">Branches</span>
-                <span class='fraction'>9/10</span>
+                <span class='fraction'>0/10</span>
             </div>
         
             
@@ -44,9 +44,9 @@
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">100% </span>
+                <span class="strong">41.66% </span>
                 <span class="quiet">Lines</span>
-                <span class='fraction'>9/9</span>
+                <span class='fraction'>5/12</span>
             </div>
         
             
@@ -61,7 +61,7 @@
             </div>
         </template>
     </div>
-    <div class='status-line high'></div>
+    <div class='status-line low'></div>
     <pre><table class="coverage">
 <tr><td class="line-count quiet"><a name='L1'></a><a href='#L1'>1</a>
 <a name='L2'></a><a href='#L2'>2</a>
@@ -97,9 +97,9 @@
 <a name='L32'></a><a href='#L32'>32</a>
 <a name='L33'></a><a href='#L33'>33</a>
 <a name='L34'></a><a href='#L34'>34</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">4x</span>
+<span class="cline-any cline-yes">4x</span>
+<span class="cline-any cline-yes">4x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -107,27 +107,27 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">5x</span>
-<span class="cline-any cline-yes">3x</span>
-<span class="cline-any cline-yes">3x</span>
-<span class="cline-any cline-yes">3x</span>
+<span class="cline-any cline-yes">12x</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">3x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">2x</span>
-<span class="cline-any cline-yes">2x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">2x</span>
+<span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span></td><td class="text"><pre class="prettyprint lang-js">&nbsp;
 import { Navigate, Outlet, useLocation } from 'react-router-dom';
@@ -141,26 +141,26 @@ interface RequireAuthProps {
 &nbsp;
 export const RequireAuth = ({ allowedRoles }: RequireAuthProps) =&gt; {
   const isAuthenticated = useSelector(selectIsAuthenticated);
-  const user = useSelector(selectCurrentUser);
-  const location = useLocation();
+  const user = <span class="cstat-no" title="statement not covered" >useSelector(selectCurrentUser);</span>
+  const location = <span class="cstat-no" title="statement not covered" >useLocation();</span>
 &nbsp;
-  if (!isAuthenticated || !user) {
+<span class="cstat-no" title="statement not covered" >  if (!isAuthenticated || !user) {</span>
     // Redirigir a login manteniendo la ubicación actual
     return &lt;Navigate to='/login' state={{ from: location }} replace /&gt;;
   }
 &nbsp;
   // Si se especifican roles permitidos, verificar que el usuario tenga uno de ellos
-  <span class="missing-if-branch" title="else path not taken" >E</span>if (allowedRoles &amp;&amp; allowedRoles.length &gt; 0) {
-    const hasAllowedRole = allowedRoles.includes(user.role as UserRole);
+<span class="cstat-no" title="statement not covered" >  if (allowedRoles &amp;&amp; allowedRoles.length &gt; 0) {</span>
+    const hasAllowedRole = <span class="cstat-no" title="statement not covered" >allowedRoles.includes(user.role as UserRole);</span>
 &nbsp;
-    if (!hasAllowedRole) {
+<span class="cstat-no" title="statement not covered" >    if (!hasAllowedRole) {</span>
       // El usuario no tiene el rol requerido, redirigir al dashboard
       return &lt;Navigate to='/' replace /&gt;;
     }
   }
 &nbsp;
   // El usuario está autenticado y tiene los permisos necesarios
-  return &lt;Outlet /&gt;;
+<span class="cstat-no" title="statement not covered" >  return &lt;Outlet /&gt;;</span>
 };
 &nbsp;</pre></td></tr></table></pre>
 
@@ -169,7 +169,7 @@ export const RequireAuth = ({ allowedRoles }: RequireAuthProps) =&gt; {
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2026-01-23T02:19:09.303Z
+                at 2026-02-23T18:21:19.619Z
             </div>
         <script src="../../prettify.js"></script>
         <script>

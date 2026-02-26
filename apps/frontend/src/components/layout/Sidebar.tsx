@@ -9,7 +9,7 @@ import { useServiceFlags } from '../../hooks/useServiceConfig';
 import { useAppSelector } from '../../store/hooks';
 
 export const Sidebar = () => {
-  const flags = useServiceFlags();
+  const _flags = useServiceFlags(); void _flags;
   const userRole = useAppSelector((s) => (s as any).auth?.user?.role) as string | undefined;
   const isSuperAdmin = userRole === 'SUPERADMIN';
   

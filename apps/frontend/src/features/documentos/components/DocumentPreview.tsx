@@ -70,9 +70,7 @@ export const DocumentPreview: React.FC<DocumentPreviewProps> = ({
   const [isFullscreen, setIsFullscreen] = useState(false);
   const show = (msg: string) => { try { alert(msg); } catch { console.log(msg); } };
 
-  // Detectar si estamos en un dispositivo móvil/Android
   const isMobile = /Android|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
-  const isAndroid = /Android/i.test(navigator.userAgent);
 
   // Obtener lista de empresas para mostrar el nombre (respuesta puede ser { list: [...] })
   const { data: dadoresResp } = useGetDadoresQuery({});
@@ -122,7 +120,7 @@ export const DocumentPreview: React.FC<DocumentPreviewProps> = ({
         : serverUrl;
       if (!finalUrl) throw new Error('URL de preview no disponible');
 
-      // Descargar archivo con reintentos
+      const authHeader = { 'Authorization': `Bearer ${localStorage.getItem('token')}` };
       const fileResp = await fetchWithRetry(finalUrl, { headers: authHeader });
       
       if (!fileResp.ok) {
@@ -157,14 +155,6 @@ export const DocumentPreview: React.FC<DocumentPreviewProps> = ({
       if (serverMsg) return serverMsg;
     } catch { /* ignore parse errors */ }
     return message;
-  }
-
-  // Helper para resolver la URL final de preview
-  function resolvePreviewUrl(data: any, baseUrl: string, docId: number): string | undefined {
-    const serverUrl = data.previewUrl ?? data.data?.previewUrl ?? data.data?.url;
-    const minioRegex = /:\/\/minio(?::|\/)/i;
-    const preferBackend = !serverUrl || minioRegex.test(serverUrl);
-    return preferBackend ? `${baseUrl}/api/docs/documents/${docId}/download?inline=1` : serverUrl;
   }
 
   useEffect(() => {

@@ -23,30 +23,30 @@
         <div class='clearfix'>
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">87.5% </span>
+                <span class="strong">78.57% </span>
                 <span class="quiet">Statements</span>
-                <span class='fraction'>7/8</span>
+                <span class='fraction'>11/14</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">100% </span>
+                <span class="strong">72.72% </span>
                 <span class="quiet">Branches</span>
-                <span class='fraction'>5/5</span>
+                <span class='fraction'>8/11</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">75% </span>
+                <span class="strong">50% </span>
                 <span class="quiet">Functions</span>
-                <span class='fraction'>3/4</span>
+                <span class='fraction'>3/6</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">85.71% </span>
+                <span class="strong">83.33% </span>
                 <span class="quiet">Lines</span>
-                <span class='fraction'>6/7</span>
+                <span class='fraction'>10/12</span>
             </div>
         
             
@@ -155,7 +155,20 @@
 <a name='L90'></a><a href='#L90'>90</a>
 <a name='L91'></a><a href='#L91'>91</a>
 <a name='L92'></a><a href='#L92'>92</a>
-<a name='L93'></a><a href='#L93'>93</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
+<a name='L93'></a><a href='#L93'>93</a>
+<a name='L94'></a><a href='#L94'>94</a>
+<a name='L95'></a><a href='#L95'>95</a>
+<a name='L96'></a><a href='#L96'>96</a>
+<a name='L97'></a><a href='#L97'>97</a>
+<a name='L98'></a><a href='#L98'>98</a>
+<a name='L99'></a><a href='#L99'>99</a>
+<a name='L100'></a><a href='#L100'>100</a>
+<a name='L101'></a><a href='#L101'>101</a>
+<a name='L102'></a><a href='#L102'>102</a>
+<a name='L103'></a><a href='#L103'>103</a>
+<a name='L104'></a><a href='#L104'>104</a>
+<a name='L105'></a><a href='#L105'>105</a></td><td class="line-coverage quiet"><span class="cline-any cline-yes">7x</span>
+<span class="cline-any cline-yes">7x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -180,14 +193,13 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">6x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">6x</span>
+<span class="cline-any cline-yes">38x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -198,6 +210,15 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">38x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">38x</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">38x</span>
@@ -220,11 +241,14 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">95x</span>
-<span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">95x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">95x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -249,6 +273,7 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span></td><td class="text"><pre class="prettyprint lang-js">import React from 'react';
 import { DocumentoField } from './DocumentoField';
+import type { DocumentoExistente } from '../hooks/useEntityVerification';
 &nbsp;
 export interface Template {
   id: number;
@@ -268,13 +293,12 @@ export interface SeccionDocumentosProps {
   uploadedTemplateIds: number[];
   selectOnlyMode?: boolean; // Modo solo selección de archivos
   onFileSelect?: (templateId: number, file: File | null, expiryDate?: string) =&gt; void;
+  /** Documentos existentes para esta entidad (provenientes del pre-check) */
+  documentosExistentes?: DocumentoExistente[];
 }
 &nbsp;
-// TODOS los documentos requieren fecha de vencimiento
-// Si en el futuro hay templates que no requieren vencimiento, agregarlos aquí
-const TEMPLATES_WITHOUT_EXPIRY: string[] = [
-  // Ejemplo: 'CONTRATO_INDEFINIDO', 'HABILITACION_PERMANENTE'
-];
+// NOTA: Si en el futuro hay templates que no requieren vencimiento,
+// implementar lógica con un array de keywords aquí
 &nbsp;
 /**
  * Componente que agrupa documentos por tipo de entidad
@@ -291,9 +315,19 @@ export const SeccionDocumentos: React.FC&lt;SeccionDocumentosProps&gt; = ({
   uploadedTemplateIds,
   selectOnlyMode = false,
   onFileSelect,
+  documentosExistentes = [],
 }) =&gt; {
   const templatesCount = templates.length;
-  const uploadedCount = templates.filter((t) =&gt; uploadedTemplateIds.includes(t.id)).length;
+  
+  // Contar documentos vigentes existentes (reutilizables)
+  const docsVigentesIds = documentosExistentes
+    .filter(<span class="fstat-no" title="function not covered" >d =&gt; <span class="cstat-no" title="statement not covered" >d</span>.reutilizable &amp;&amp; (d.estado === 'VIGENTE' || d.estado === 'POR_VENCER'))</span>
+    .map(<span class="fstat-no" title="function not covered" >d =&gt; <span class="cstat-no" title="statement not covered" >d</span>.templateId)</span>;
+  
+  // Total de docs OK: los recién subidos + los vigentes existentes
+  const uploadedCount = templates.filter(
+    (t) =&gt; uploadedTemplateIds.includes(t.id) || docsVigentesIds.includes(t.id)
+  ).length;
 &nbsp;
   return (
     &lt;div className='border border-gray-300 rounded-lg p-4 mb-4 bg-gray-50'&gt;
@@ -311,10 +345,11 @@ export const SeccionDocumentos: React.FC&lt;SeccionDocumentosProps&gt; = ({
       ) : (
         &lt;div className='space-y-2'&gt;
           {templates.map((template) =&gt; {
-            // TODOS requieren vencimiento EXCEPTO los que están explícitamente excluidos
-            const requiresExpiry = !TEMPLATES_WITHOUT_EXPIRY.some(<span class="fstat-no" title="function not covered" >(k</span>eyword) =&gt;
-<span class="cstat-no" title="statement not covered" >              template.name.includes(keyword)</span>
-            );
+            // TODOS los documentos requieren fecha de vencimiento (decisión de negocio)
+            const requiresExpiry = true;
+            
+            // Buscar si existe un documento para este template
+            const docExistente = documentosExistentes.find(<span class="fstat-no" title="function not covered" >d =&gt; <span class="cstat-no" title="statement not covered" >d</span>.templateId === template.id)</span>;
 &nbsp;
             return (
               &lt;DocumentoField
@@ -330,6 +365,7 @@ export const SeccionDocumentos: React.FC&lt;SeccionDocumentosProps&gt; = ({
                 disabled={disabled}
                 selectOnlyMode={selectOnlyMode}
                 onFileSelect={onFileSelect}
+                documentoExistente={docExistente}
               /&gt;
             );
           })}
@@ -346,7 +382,7 @@ export const SeccionDocumentos: React.FC&lt;SeccionDocumentosProps&gt; = ({
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2026-01-23T02:19:09.303Z
+                at 2026-02-23T18:21:19.619Z
             </div>
         <script src="../../prettify.js"></script>
         <script>

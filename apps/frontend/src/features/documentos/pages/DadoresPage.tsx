@@ -12,19 +12,12 @@ import { getRuntimeEnv } from '../../../lib/runtimeEnv';
 
 const phoneRegex = /^\+?[1-9]\d{7,14}$/;
 
-const DadorPhonesInline: React.FC<{ dadorId: number; initial: string[]; onSave: (phones: string[])=>Promise<any> }>=({ dadorId, initial, onSave })=>{
+const DadorPhonesInline: React.FC<{ dadorId: number; initial: string[]; onSave: (phones: string[])=>Promise<any> }>=({ dadorId: _dadorId, initial, onSave })=>{
   const [phones, setPhones] = React.useState<string[]>(initial.length ? initial : ['']);
   const [saving, setSaving] = React.useState(false);
   const canAdd = phones.length < 5;
   const valid = phones.filter(Boolean).every(p=>phoneRegex.test(p)) && phones.filter(Boolean).length>=1;
-  const show = (msg: string) => { try { alert(msg); } catch { console.log(msg); } };
-  const authToken = useSelector((s: RootState) => s.auth?.token);
-  const empresaId = useSelector((s: RootState) => s.auth?.user?.empresaId);
-  const authHeaders: HeadersInit = {
-    ...(authToken ? { Authorization: `Bearer ${authToken}` } : {}),
-    ...(empresaId ? { 'x-tenant-id': String(empresaId) } : {}),
-  };
-
+  const show = (msg: string, _variant?: string) => { try { alert(msg); } catch { console.log(msg); } };
   return (
     <div className='mt-1'>
       <div className='flex flex-col gap-2 max-w-md'>
@@ -54,7 +47,7 @@ const DadoresPage: React.FC = () => {
   const [createDador] = useCreateDadorMutation();
   const [updateDador] = useUpdateDadorMutation();
   const [deleteDador] = useDeleteDadorMutation();
-  const show = (msg: string) => { try { alert(msg); } catch { console.log(msg); } };
+  const show = (msg: string, _variant?: string) => { try { alert(msg); } catch { console.log(msg); } };
   const authToken = useSelector((s: RootState) => s.auth?.token);
   const empresaId = useSelector((s: RootState) => s.auth?.user?.empresaId);
   const authHeaders: HeadersInit = {
@@ -177,7 +170,7 @@ const DadorEditInline: React.FC<{
   onToggleActivo: ()=>Promise<void>; 
   onDelete: ()=>void;
   authHeaders: HeadersInit;
-}>=({ dador, isDefault, onSave, onToggleDefault, onToggleActivo, onDelete, authHeaders })=>{
+}>=({ dador, isDefault, onSave, onToggleDefault, onToggleActivo, onDelete, authHeaders: _authHeaders })=>{
   const [editing, setEditing] = useState(false);
   const [razonSocial, setRazonSocial] = useState(dador.razonSocial ?? '');
   const [cuit, setCuit] = useState(dador.cuit ?? '');

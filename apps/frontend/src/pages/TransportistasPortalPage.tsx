@@ -70,12 +70,12 @@ export const TransportistasPortalPage: React.FC = () => {
           <div className="relative">
             <div className="overflow-x-auto no-scrollbar" ref={tabsScrollRef}>
               <TabsList className="flex w-max min-w-full gap-1 rounded-xl p-1 bg-gray-100 dark:bg-slate-800">
-                <TabsTrigger value="dashboard" className="rounded-lg px-3 py-2 text-[11px] whitespace-nowrap dark:text-slate-200" ref={(el) => (tabsTriggersRef.current['dashboard'] = el)}>📊 Panel</TabsTrigger>
-                <TabsTrigger value="registro" className="rounded-lg px-3 py-2 text-[11px] whitespace-nowrap dark:text-slate-200" ref={(el) => (tabsTriggersRef.current['registro'] = el)}>➕ Registro</TabsTrigger>
-                <TabsTrigger value="documentos" className="rounded-lg px-3 py-2 text-[11px] whitespace-nowrap dark:text-slate-200" ref={(el) => (tabsTriggersRef.current['documentos'] = el)}>📄 Docs</TabsTrigger>
-                <TabsTrigger value="equipos" className="rounded-lg px-3 py-2 text-[11px] whitespace-nowrap dark:text-slate-200" ref={(el) => (tabsTriggersRef.current['equipos'] = el)}>🚛 Equipos</TabsTrigger>
-                <TabsTrigger value="calendario" className="rounded-lg px-3 py-2 text-[11px] whitespace-nowrap dark:text-slate-200" ref={(el) => (tabsTriggersRef.current['calendario'] = el)}>📅 Calendario</TabsTrigger>
-                <TabsTrigger value="perfil" className="rounded-lg px-3 py-2 text-[11px] whitespace-nowrap dark:text-slate-200" ref={(el) => (tabsTriggersRef.current['perfil'] = el)}>👤 Perfil</TabsTrigger>
+                <TabsTrigger value="dashboard" className="rounded-lg px-3 py-2 text-[11px] whitespace-nowrap dark:text-slate-200" ref={(el) => { tabsTriggersRef.current['dashboard'] = el; }}>📊 Panel</TabsTrigger>
+                <TabsTrigger value="registro" className="rounded-lg px-3 py-2 text-[11px] whitespace-nowrap dark:text-slate-200" ref={(el) => { tabsTriggersRef.current['registro'] = el; }}>➕ Registro</TabsTrigger>
+                <TabsTrigger value="documentos" className="rounded-lg px-3 py-2 text-[11px] whitespace-nowrap dark:text-slate-200" ref={(el) => { tabsTriggersRef.current['documentos'] = el; }}>📄 Docs</TabsTrigger>
+                <TabsTrigger value="equipos" className="rounded-lg px-3 py-2 text-[11px] whitespace-nowrap dark:text-slate-200" ref={(el) => { tabsTriggersRef.current['equipos'] = el; }}>🚛 Equipos</TabsTrigger>
+                <TabsTrigger value="calendario" className="rounded-lg px-3 py-2 text-[11px] whitespace-nowrap dark:text-slate-200" ref={(el) => { tabsTriggersRef.current['calendario'] = el; }}>📅 Calendario</TabsTrigger>
+                <TabsTrigger value="perfil" className="rounded-lg px-3 py-2 text-[11px] whitespace-nowrap dark:text-slate-200" ref={(el) => { tabsTriggersRef.current['perfil'] = el; }}>👤 Perfil</TabsTrigger>
               </TabsList>
             </div>
           </div>
@@ -222,7 +222,7 @@ const RegistroEquipoTab: React.FC<any> = ({
               </div>
 
               <div className="bg-green-50 border-2 border-green-200 rounded-xl p-4 space-y-3">
-                {phones.map((p, idx) => (
+                {phones.map((p: string, idx: number) => (
                   <div key={idx} className="flex gap-3">
                     <Input
                       placeholder="+54911234567"
@@ -233,7 +233,7 @@ const RegistroEquipoTab: React.FC<any> = ({
                     <Button
                       variant="outline"
                       size="sm"
-                      onClick={() => setPhones(arr => arr.filter((_, i) => i !== idx))}
+                      onClick={() => setPhones((arr: string[]) => arr.filter((_: string, i: number) => i !== idx))}
                       disabled={phones.length <= 1}
                       className="h-12 px-3 border-2 border-red-200 text-red-600 hover:bg-red-50 rounded-xl"
                     >
@@ -245,14 +245,14 @@ const RegistroEquipoTab: React.FC<any> = ({
                 <Button
                   variant="outline"
                   disabled={phones.length >= 3}
-                  onClick={() => setPhones(arr => [...arr, ''])}
+                  onClick={() => setPhones((arr: string[]) => [...arr, ''])}
                   className="w-full h-12 border-2 border-green-300 text-green-600 hover:bg-green-100 rounded-xl"
                 >
                   <PlusIcon className="h-4 w-4 mr-2" />
                   Agregar Teléfono
                 </Button>
 
-                {!phones.filter(Boolean).every(p => phoneRegex.test(p)) && (
+                {!phones.filter(Boolean).every((p: string) => phoneRegex.test(p)) && (
                   <div className="bg-yellow-100 border-2 border-yellow-300 rounded-xl p-3">
                     <p className="text-sm text-yellow-700">
                       <strong>Formato requerido:</strong> +[código país][número], 8-15 dígitos<br />
@@ -282,8 +282,8 @@ const RegistroEquipoTab: React.FC<any> = ({
                 disabled={!defaultDadorId || !dni || !tractor || isLoading}
                 onClick={async () => {
                   if (!defaultDadorId) return;
-                  const validPhones = phones.map(p => p.trim()).filter(Boolean);
-                  if (validPhones.length > 0 && !validPhones.every(p => phoneRegex.test(p))) {
+                  const validPhones = phones.map((p: string) => p.trim()).filter(Boolean);
+                  if (validPhones.length > 0 && !validPhones.every((p: string) => phoneRegex.test(p))) {
                     return showToast('Teléfonos inválidos. Use formato WhatsApp.', 'error');
                   }
                   await createMinimal({ dadorCargaId: defaultDadorId, dniChofer: dni, patenteTractor: tractor, patenteAcoplado: acoplado || undefined, choferPhones: validPhones } as any);
@@ -391,9 +391,9 @@ const TransportistaBatchUploader: React.FC = () => {
           </div>
         )}
       </div>
-      {status?.job?.items && status.job.items.length > 0 && (
+      {(status?.job as any)?.items && (status?.job as any).items.length > 0 && (
         <div className="mt-3 text-xs text-muted-foreground">
-          Archivos en proceso: {status.job.items.length}
+          Archivos en proceso: {(status?.job as any).items.length}
         </div>
       )}
       {status?.job?.status === 'completed' && (

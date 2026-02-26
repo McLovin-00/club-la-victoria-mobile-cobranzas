@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import { Button } from '../../../components/ui/button';
-import { Card } from '../../../components/ui/card';
-import { DocumentTemplate } from '../api/documentosApiSlice';
+import type { DocumentTemplate } from '../api/documentosApiSlice';
 import {
   XMarkIcon,
   CloudArrowUpIcon,
@@ -281,7 +280,7 @@ export const DocumentUploadModal: React.FC<DocumentUploadModalProps> = ({
             {/* Lista de Archivos */}
             {files.length > 0 && (
               <div className='mt-4 space-y-2'>
-                {files.map((file) => (
+                {files.map((file, idx) => (
                   <div
                     key={`${file.name}-${file.size}-${file.lastModified}`}
                     className='flex items-center justify-between p-3 bg-gray-50 dark:bg-slate-800/60 rounded-md'
@@ -301,7 +300,7 @@ export const DocumentUploadModal: React.FC<DocumentUploadModalProps> = ({
                       type='button'
                       variant='ghost'
                       size='sm'
-                      onClick={() => removeFile(index)}
+                      onClick={() => removeFile(idx)}
                     >
                       <XMarkIcon className='h-4 w-4' />
                     </Button>

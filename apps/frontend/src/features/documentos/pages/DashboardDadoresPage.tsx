@@ -4,6 +4,7 @@ import { Button } from '../../../components/ui/button';
 import { useGetApprovalKpisQuery, useUploadBatchDocsDadorMutation } from '../api/documentosApiSlice';
 import { useSelector } from 'react-redux';
 import { RootState } from '../../../store/store';
+import { useNavigate } from 'react-router-dom';
 import { useRoleBasedNavigation } from '../../../hooks/useRoleBasedNavigation';
 import { getRuntimeEnv } from '../../../lib/runtimeEnv';
 
@@ -13,16 +14,6 @@ const COLOR_CLASSES: Record<'red' | 'yellow' | 'green', string> = {
   red: 'bg-red-500',
   yellow: 'bg-yellow-500',
   green: 'bg-green-500',
-};
-
-const StatusDot: React.FC<{ count: number; color: 'red' | 'yellow' | 'green' }> = ({ count, color }) => {
-  const colorClass = COLOR_CLASSES[color];
-  return (
-    <div className='flex items-center gap-2'>
-      <span className={`inline-block w-3 h-3 rounded-full ${colorClass}`} />
-      <span className='text-sm'>{count}</span>
-    </div>
-  );
 };
 
 type SemaforoStatusCounts = {
@@ -40,10 +31,15 @@ type Semaforo = {
   green?: number;
 };
 
+const ROLES_CAN_EDIT = ['SUPERADMIN', 'ADMIN', 'OPERATOR', 'ADMIN_INTERNO', 'OPERADOR_INTERNO'];
+
 const DashboardDadoresPage: React.FC = () => {
+  const navigate = useNavigate();
   const { goBack } = useRoleBasedNavigation();
   const authToken = useSelector((s: RootState) => s.auth?.token);
   const empresaId = useSelector((s: RootState) => s.auth?.user?.empresaId);
+  const user = useSelector((state: RootState) => state.auth.user);
+  const canEdit = Boolean(user?.role && ROLES_CAN_EDIT.includes(user.role));
   const headers: HeadersInit = useMemo(() => ({
     ...(authToken ? { Authorization: `Bearer ${authToken}` } : {}),
     ...(empresaId ? { 'x-tenant-id': String(empresaId) } : {}),
@@ -211,7 +207,7 @@ const DashboardDadoresPage: React.FC = () => {
         </div>
       </Card>
 
-      {/* Carga masiva - sólo aquí */}
+      {canEdit && (
       <Card className='p-6 mb-6 bg-card'>
         <h2 className='text-lg font-semibold mb-3'>Carga masiva de documentos</h2>
         <div className='grid grid-cols-1 md:grid-cols-[1fr_auto] gap-3 items-end'>
@@ -241,6 +237,7 @@ const DashboardDadoresPage: React.FC = () => {
         </div>
         <p className='text-xs text-muted-foreground mt-2'>Sólo aquí se muestra “Evitar deduplicación”. Si no marcas la casilla, archivos idénticos por contenido (checksum) se omiten.</p>
       </Card>
+      )}
 
       {loading && (
         <div className='grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6'>

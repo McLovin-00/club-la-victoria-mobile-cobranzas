@@ -46,7 +46,7 @@ const Section: React.FC<{ title: string; items: Array<{ templateId: number; temp
 
   const totalCount = items.length;
   const faltantes = items.filter(item => item.state?.toUpperCase() === 'FALTANTE').length;
-  const vigentes = items.filter(item => ['OK', 'VIGENTE'].includes(item.state?.toUpperCase())).length;
+  const vigentes = items.filter(item => ['OK', 'VIGENTE'].includes(item.state?.toUpperCase() ?? '')).length;
   const porVencer = items.filter(item => item.state?.toUpperCase() === 'PROXIMO').length;
   const vencidos = items.filter(item => item.state?.toUpperCase() === 'VENCIDO').length;
 

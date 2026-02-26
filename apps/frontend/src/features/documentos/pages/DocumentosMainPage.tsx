@@ -1,5 +1,6 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useSelector } from 'react-redux';
 import { Card } from '../../../components/ui/card';
 import { Button } from '../../../components/ui/button';
 import { useGetDadoresQuery, useGetDashboardDataQuery, useGetPendingSummaryQuery } from '../api/documentosApiSlice';
@@ -9,9 +10,14 @@ import {
   BuildingOfficeIcon,
   ChartBarIcon,
 } from '@heroicons/react/24/outline';
+import type { RootState } from '../../../store/store';
+
+const ROLES_CAN_EDIT = ['SUPERADMIN', 'ADMIN', 'OPERATOR', 'ADMIN_INTERNO', 'OPERADOR_INTERNO'];
 
 export const DocumentosMainPage: React.FC = () => {
   const navigate = useNavigate();
+  const user = useSelector((state: RootState) => state.auth.user);
+  const canEdit = Boolean(user?.role && ROLES_CAN_EDIT.includes(user.role));
   const { data: dadoresResp, isLoading: dadoresLoading } = useGetDadoresQuery({});
   const dadores = dadoresResp?.list ?? (Array.isArray(dadoresResp) ? dadoresResp : []);
   const { data: dashboardData, isLoading: dashboardLoading } = useGetDashboardDataQuery();
@@ -117,35 +123,47 @@ export const DocumentosMainPage: React.FC = () => {
           <Button size='sm' variant='outline' onClick={() => navigate('/documentos/equipos')}>
             Equipos
           </Button>
-          <Button size='sm' variant='outline' onClick={() => navigate('/documentos/dadores')}>
-            Dadores
-          </Button>
+          {canEdit && (
+            <Button size='sm' variant='outline' onClick={() => navigate('/documentos/dadores')}>
+              Dadores
+            </Button>
+          )}
           <Button size='sm' variant='outline' onClick={() => navigate('/documentos/consulta')}>
             Consulta
           </Button>
-          <Button size='sm' variant='outline' onClick={() => navigate('/plantillas')} className='flex items-center'>
-            <DocumentTextIcon className='h-4 w-4 mr-2' />
-            Plantillas
-          </Button>
-          <Button size='sm' variant='outline' onClick={() => navigate('/configuracion/flowise')} className='flex items-center'>
-            <DocumentTextIcon className='h-4 w-4 mr-2' />
-            Flowise
-          </Button>
-          <Button size='sm' variant='outline' onClick={() => navigate('/configuracion/evolution')} className='flex items-center'>
-            <DocumentTextIcon className='h-4 w-4 mr-2' />
-            Evolution API
-          </Button>
-          <Button size='sm' variant='outline' onClick={() => navigate('/configuracion/notificaciones')} className='flex items-center'>
-            <DocumentTextIcon className='h-4 w-4 mr-2' />
-            Notificaciones
-          </Button>
+          {canEdit && (
+            <Button size='sm' variant='outline' onClick={() => navigate('/plantillas')} className='flex items-center'>
+              <DocumentTextIcon className='h-4 w-4 mr-2' />
+              Plantillas
+            </Button>
+          )}
+          {canEdit && (
+            <Button size='sm' variant='outline' onClick={() => navigate('/configuracion/flowise')} className='flex items-center'>
+              <DocumentTextIcon className='h-4 w-4 mr-2' />
+              Flowise
+            </Button>
+          )}
+          {canEdit && (
+            <Button size='sm' variant='outline' onClick={() => navigate('/configuracion/evolution')} className='flex items-center'>
+              <DocumentTextIcon className='h-4 w-4 mr-2' />
+              Evolution API
+            </Button>
+          )}
+          {canEdit && (
+            <Button size='sm' variant='outline' onClick={() => navigate('/configuracion/notificaciones')} className='flex items-center'>
+              <DocumentTextIcon className='h-4 w-4 mr-2' />
+              Notificaciones
+            </Button>
+          )}
           <Button size='sm' variant='outline' onClick={() => navigate('/documentos/dashboard')} className='flex items-center'>
             <DocumentTextIcon className='h-4 w-4 mr-2' />
             Dashboard
           </Button>
-          <Button size='sm' className='bg-blue-600 hover:bg-blue-700 text-white' onClick={() => navigate('/documentos/aprobacion')}>
-            Aprobación Manual
-          </Button>
+          {canEdit && (
+            <Button size='sm' className='bg-blue-600 hover:bg-blue-700 text-white' onClick={() => navigate('/documentos/aprobacion')}>
+              Aprobación Manual
+            </Button>
+          )}
         </div>
       </div>
 

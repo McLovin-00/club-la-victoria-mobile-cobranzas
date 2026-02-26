@@ -106,7 +106,7 @@ export const apiSlice = createApi({
   refetchOnMountOrArgChange: 30, // Solo refetch si data tiene más de 30s
   refetchOnFocus: false, // No refetch al enfocar ventana
   refetchOnReconnect: true, // Sí refetch al reconectar
-  endpoints: builder => ({}),
+  endpoints: _builder => ({}),
 });
 
 export default apiSlice;

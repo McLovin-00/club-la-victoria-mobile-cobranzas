@@ -9,7 +9,7 @@
 // MOCK DE AUTH SLICE SELECTORS
 // =============================================================================
 
-export const createAuthSliceMock = (overrides: Record<string, unknown> = {}) => ({
+export const createAuthSliceMock = (overrides: Record<string, any> = {}) => ({
   selectCurrentUser: () => ({ 
     id: 1, 
     email: 'test@test.com', 
@@ -20,7 +20,6 @@ export const createAuthSliceMock = (overrides: Record<string, unknown> = {}) => 
   selectCurrentToken: () => overrides.token ?? 'mock-token',
   selectIsAuthenticated: () => overrides.isAuthenticated ?? true,
   selectIsInitialized: () => overrides.isInitialized ?? true,
-  // Re-exportar acciones reales si las hay
   ...overrides,
 });
 
@@ -30,7 +29,7 @@ export const mockAuthSlice = createAuthSliceMock();
 // MOCK DE useRoleBasedNavigation
 // =============================================================================
 
-export const createRoleBasedNavigationMock = (overrides: Record<string, unknown> = {}) => ({
+export const createRoleBasedNavigationMock = (overrides: Record<string, any> = {}) => ({
   useRoleBasedNavigation: () => ({ 
     goBack: jest.fn(), 
     getHomePath: () => overrides.homePath ?? '/',
@@ -44,7 +43,7 @@ export const mockRoleBasedNavigation = createRoleBasedNavigationMock();
 // MOCK DE useServiceConfig
 // =============================================================================
 
-export const createServiceConfigMock = (overrides: Record<string, unknown> = {}) => ({
+export const createServiceConfigMock = (overrides: Record<string, any> = {}) => ({
   useServiceConfig: () => ({ 
     isLoading: false, 
     error: null, 
@@ -107,7 +106,7 @@ export const __resetWhatsAppMockConfig = () => {
   __whatsAppLoading = false;
 };
 
-export const createWhatsAppNotificationsMock = (overrides: Record<string, unknown> = {}) => ({
+export const createWhatsAppNotificationsMock = (overrides: Record<string, any> = {}) => ({
   useWhatsAppNotifications: () => ({ 
     config: { enabled: __whatsAppEnabled, ...overrides.config },
     templates: overrides.templates ?? __whatsAppTemplates,

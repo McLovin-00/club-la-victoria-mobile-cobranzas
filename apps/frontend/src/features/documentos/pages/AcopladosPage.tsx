@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
+import { useSelector } from 'react-redux';
 import { Button } from '../../../components/ui/button';
 import { Card } from '../../../components/ui/card';
 import { Input } from '../../../components/ui/input';
@@ -8,10 +9,15 @@ import { useCreateAcopladoMutation, useDeleteAcopladoMutation, useGetAcopladosQu
 import { useToast } from '../../../hooks/useToast';
 import type { Acoplado, DadorCarga } from '../types/entities';
 import { useRoleBasedNavigation } from '../../../hooks/useRoleBasedNavigation';
+import type { RootState } from '../../../store/store';
+
+const ROLES_CAN_EDIT = ['SUPERADMIN', 'ADMIN', 'OPERATOR', 'ADMIN_INTERNO', 'OPERADOR_INTERNO'];
 
 const AcopladosPage: React.FC = () => {
   const { goBack } = useRoleBasedNavigation();
   const { show } = useToast();
+  const user = useSelector((state: RootState) => state.auth.user);
+  const canEdit = Boolean(user?.role && ROLES_CAN_EDIT.includes(user.role));
   const { data: dadoresResp } = useGetDadoresQuery({});
   const dadores = useMemo<DadorCarga[]>(() => (dadoresResp?.list ?? []) as DadorCarga[], [dadoresResp]);
   const defaultDadorId = useMemo(() => dadores[0]?.id || 0, [dadores]);
@@ -63,6 +69,7 @@ const AcopladosPage: React.FC = () => {
         </div>
       </div>
 
+      {canEdit && (<>
       <div className='mb-4 grid grid-cols-1 md:grid-cols-8 gap-2 items-end'>
         <Input className='md:col-span-3' placeholder='Patente' value={patente} onChange={(e) => setPatente(e.target.value.toUpperCase())} />
         <Input className='md:col-span-3' placeholder='Tipo (opcional)' value={tipo} onChange={(e)=> setTipo(e.target.value)} />
@@ -87,6 +94,7 @@ const AcopladosPage: React.FC = () => {
           }}>Crear</Button>
         </div>
       </div>
+      </>)}
 
       {!dadorId && (
         <div className='mb-4 text-sm text-yellow-700 dark:text-yellow-300 bg-yellow-50 dark:bg-yellow-900/30 border border-yellow-200 dark:border-yellow-700 rounded p-3'>
@@ -102,7 +110,7 @@ const AcopladosPage: React.FC = () => {
                 <span className='font-medium'>Patente {v.patente}</span>
                 <span className='text-sm text-muted-foreground'>{(v as any).tipo ? `${(v as any).tipo} · ` : ''}ID {v.id}</span>
               </div>
-              <AcopladoEditInline acoplado={v} onSave={async (payload)=> { await updateAcoplado({ id: v.id, ...payload }).unwrap(); show('Acoplado actualizado', 'success'); }} onToggleActivo={async ()=> { await updateAcoplado({ id: v.id, activo: !v.activo }); show(v.activo ? 'Acoplado desactivado' : 'Acoplado activado', 'success'); }} onDelete={()=> setConfirmDeleteId(v.id)} />
+              <AcopladoEditInline acoplado={v} canEdit={canEdit} onSave={async (payload)=> { await updateAcoplado({ id: v.id, ...payload }).unwrap(); show('Acoplado actualizado', 'success'); }} onToggleActivo={async ()=> { await updateAcoplado({ id: v.id, activo: !v.activo }); show(v.activo ? 'Acoplado desactivado' : 'Acoplado activado', 'success'); }} onDelete={()=> setConfirmDeleteId(v.id)} />
             </div>
           ))}
           {acoplados.length === 0 && <div className='text-sm text-muted-foreground'>Sin acoplados</div>}
@@ -132,7 +140,7 @@ const AcopladosPage: React.FC = () => {
 export default AcopladosPage;
 
 // Editor inline para un acoplado (patente y tipo + acciones)
-const AcopladoEditInline: React.FC<{ acoplado: Acoplado; onSave: (p: { patente?: string; tipo?: string })=>Promise<void>; onToggleActivo: ()=>Promise<void>; onDelete: ()=>void }>=({ acoplado, onSave, onToggleActivo, onDelete })=>{
+const AcopladoEditInline: React.FC<{ acoplado: Acoplado; canEdit: boolean; onSave: (p: { patente?: string; tipo?: string })=>Promise<void>; onToggleActivo: ()=>Promise<void>; onDelete: ()=>void }>=({ acoplado, canEdit, onSave, onToggleActivo, onDelete })=>{
   const [editing, setEditing] = useState(false);
   const [patente, setPatente] = useState(acoplado.patente ?? '');
   const [tipo, setTipo] = useState((acoplado as any).tipo ?? '');
@@ -149,9 +157,11 @@ const AcopladoEditInline: React.FC<{ acoplado: Acoplado; onSave: (p: { patente?:
         </>
       ) : (
         <div className='md:col-span-8 flex gap-2 justify-end'>
+          {canEdit && (<>
           <Button variant='outline' onClick={()=> setEditing(true)}>Editar</Button>
           <Button variant='outline' onClick={onToggleActivo}>{(acoplado as any).activo ? 'Desactivar' : 'Activar'}</Button>
           <Button variant='destructive' onClick={onDelete}>Borrar</Button>
+          </>)}
         </div>
       )}
     </div>

@@ -16,7 +16,7 @@ import { useToast } from '../../../hooks/useToast';
  */
 const TransferenciasPage: React.FC = () => {
   const navigate = useNavigate();
-  const { toast } = useToast();
+  const { show: toast } = useToast();
   const [selectedTab, setSelectedTab] = useState<'pendientes' | 'historial'>('pendientes');
   const [motivoRechazo, setMotivoRechazo] = useState('');
   const [solicitudRechazar, setSolicitudRechazar] = useState<number | null>(null);
@@ -38,45 +38,27 @@ const TransferenciasPage: React.FC = () => {
   const handleAprobar = async (id: number) => {
     try {
       const result = await aprobar({ id }).unwrap();
-      toast({
-        title: 'Transferencia aprobada',
-        description: result.message || `${result.entidadesTransferidas} entidad(es) transferida(s)`,
-      });
+      toast(result.message || `${result.entidadesTransferidas} entidad(es) transferida(s)`, 'success');
       refetchPendientes();
     } catch (error: any) {
-      toast({
-        title: 'Error',
-        description: error?.data?.message || 'No se pudo aprobar la transferencia',
-        variant: 'destructive',
-      });
+      toast(error?.data?.message || 'No se pudo aprobar la transferencia', 'error');
     }
   };
 
   const handleRechazar = async () => {
     if (!solicitudRechazar || !motivoRechazo.trim() || motivoRechazo.length < 10) {
-      toast({
-        title: 'Error',
-        description: 'El motivo de rechazo debe tener al menos 10 caracteres',
-        variant: 'destructive',
-      });
+      toast('El motivo de rechazo debe tener al menos 10 caracteres', 'error');
       return;
     }
 
     try {
       await rechazar({ id: solicitudRechazar, motivoRechazo }).unwrap();
-      toast({
-        title: 'Transferencia rechazada',
-        description: 'La solicitud ha sido rechazada',
-      });
+      toast('La solicitud ha sido rechazada', 'success');
       setSolicitudRechazar(null);
       setMotivoRechazo('');
       refetchPendientes();
     } catch (error: any) {
-      toast({
-        title: 'Error',
-        description: error?.data?.message || 'No se pudo rechazar la transferencia',
-        variant: 'destructive',
-      });
+      toast(error?.data?.message || 'No se pudo rechazar la transferencia', 'error');
     }
   };
 

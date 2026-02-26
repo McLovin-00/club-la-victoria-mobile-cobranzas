@@ -1,7 +1,7 @@
 import { apiSlice } from '../../../store/apiSlice';
 
 // Todos los roles del sistema
-type UserRole = 'SUPERADMIN' | 'ADMIN' | 'ADMIN_INTERNO' | 'OPERATOR' | 'OPERADOR_INTERNO' | 'DADOR_DE_CARGA' | 'TRANSPORTISTA' | 'CHOFER' | 'CLIENTE';
+type UserRole = 'SUPERADMIN' | 'ADMIN' | 'OPERATOR' | 'ADMIN_INTERNO' | 'OPERADOR_INTERNO' | 'DADOR_DE_CARGA' | 'TRANSPORTISTA' | 'EMPRESA_TRANSPORTISTA' | 'CHOFER' | 'CLIENTE' | 'CLIENTE_TRANSPORTE';
 
 export interface PlatformUser {
   id: number;

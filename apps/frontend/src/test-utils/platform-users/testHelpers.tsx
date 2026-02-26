@@ -13,7 +13,6 @@ import { configureStore, Store } from '@reduxjs/toolkit';
 import { fireEvent } from '@testing-library/react';
 import apiSlice from '@/store/apiSlice';
 import { documentosApiSlice } from '@/features/documentos/api/documentosApiSlice';
-import { platformUsersApiSlice } from '@/features/platform-users/api/platformUsersApiSlice';
 
 // =============================================================================
 // TIPOS
@@ -115,16 +114,13 @@ export const createPlatformUsersStore = (user: Partial<MockUser> = {}): Store =>
         isLoading: false,
         error: null,
       }),
-      api: apiSlice.reducer,
       [apiSlice.reducerPath]: apiSlice.reducer,
       [documentosApiSlice.reducerPath]: documentosApiSlice.reducer,
-      [platformUsersApiSlice.reducerPath]: platformUsersApiSlice.reducer,
     },
     middleware: (getDefaultMiddleware) =>
       getDefaultMiddleware().concat(
         apiSlice.middleware,
         documentosApiSlice.middleware,
-        platformUsersApiSlice.middleware
       ),
   });
 };
@@ -140,7 +136,7 @@ interface PlatformUsersWrapperProps {
   userRole?: UserRole;
 }
 
-const PlatformUsersWrapper: React.FC<PlatformUsersWrapperProps> = ({
+export const PlatformUsersWrapper: React.FC<PlatformUsersWrapperProps> = ({
   children,
   store,
   user = {},
@@ -170,7 +166,7 @@ const PlatformUsersWrapper: React.FC<PlatformUsersWrapperProps> = ({
 export const renderWithAuthUser = (
   ui: React.ReactElement,
   options: PlatformUsersRenderOptions = {}
-) => {
+): ReturnType<typeof render> & { store: ReturnType<typeof createPlatformUsersStore> } => {
   const {
     user,
     userRole,
@@ -204,7 +200,7 @@ export const renderWithRole = (
   ui: React.ReactElement,
   role: UserRole,
   userOverrides: Partial<MockUser> = {}
-) => renderWithAuthUser(ui, { userRole: role, user: userOverrides });
+): ReturnType<typeof renderWithAuthUser> => renderWithAuthUser(ui, { userRole: role, user: userOverrides });
 
 // =============================================================================
 // HELPERS PARA MUTATIONS
@@ -218,7 +214,7 @@ type TriggerFn = () => Promise<MutationResult>;
  */
 export const waitForMutationCall = async (
   mockFn: jest.Mock
-): Promise<{ calls: jest.MockCalls[]; trigger: TriggerFn }> => {
+): Promise<{ calls: unknown[][]; trigger: TriggerFn }> => {
   await waitFor(() => {
     expect(mockFn).toHaveBeenCalled();
   });

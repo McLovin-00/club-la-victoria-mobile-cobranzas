@@ -56,16 +56,19 @@ export const useEventFilters = () => {
   }, []);
 
   // Toggle arrays de filtros (equipos, tipos, etc.)
-  const toggleArrayFilter = useCallback(<K extends keyof Pick<CalendarFilters, 'equipos' | 'tiposDocumento' | 'prioridades' | 'estados'>>(
-    key: K,
+  const toggleArrayFilter = useCallback((
+    key: 'equipos' | 'tiposDocumento' | 'prioridades' | 'estados',
     value: string
   ) => {
-    setFilters(prev => ({
-      ...prev,
-      [key]: prev[key].includes(value)
-        ? prev[key].filter(item => item !== value)
-        : [...prev[key], value],
-    }));
+    setFilters(prev => {
+      const arr = prev[key] as string[];
+      return {
+        ...prev,
+        [key]: arr.includes(value)
+          ? arr.filter(item => item !== value)
+          : [...arr, value],
+      };
+    });
   }, []);
 
   // Limpiar todos los filtros

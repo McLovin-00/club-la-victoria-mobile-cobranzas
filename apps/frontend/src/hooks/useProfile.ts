@@ -53,14 +53,14 @@ export const useProfile = () => {
     if (user) {
       setProfile({
         id: user.id,
-        username: user.username,
+        username: user.username ?? user.email,
         email: user.email,
         firstName: user.firstName,
         lastName: user.lastName,
         phone: user.phone,
         avatar: user.avatar,
         role: user.role,
-        empresaId: user.empresaId,
+        empresaId: user.empresaId ?? undefined,
         preferences: user.preferences || {
           notifications: true,
           darkMode: false,

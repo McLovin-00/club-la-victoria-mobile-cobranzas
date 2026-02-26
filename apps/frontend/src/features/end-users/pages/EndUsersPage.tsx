@@ -11,7 +11,7 @@ const EndUsersPage: React.FC = () => {
   const [empresaId, setEmpresaId] = useState<number | ''>('');
   const [identifierType, setIdentifierType] = useState('');
   const [isActive, setIsActive] = useState('');
-  const { data, isLoading, refetch } = useListEndUsersQuery({ search, empresaId: empresaId ?? undefined, identifierType: identifierType ?? undefined, isActive: isActive === '' ? undefined : isActive === 'true', page: 1, limit: 50 });
+  const { data, isLoading, refetch } = useListEndUsersQuery({ search, empresaId: empresaId === '' ? undefined : empresaId, identifierType: identifierType || undefined, isActive: isActive === '' ? undefined : isActive === 'true', page: 1, limit: 50 });
   const [createEndUser] = useCreateEndUserMutation();
   const [updateEndUser] = useUpdateEndUserMutation();
   const [isModalOpen, setModalOpen] = useState(false);

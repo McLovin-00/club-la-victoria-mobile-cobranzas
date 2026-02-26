@@ -4,12 +4,17 @@
  */
 
 export type UserRole =
+  | 'SUPERADMIN'
+  | 'ADMIN'
+  | 'OPERATOR'
   | 'ADMIN_INTERNO'
+  | 'OPERADOR_INTERNO'
   | 'DADOR_DE_CARGA'
   | 'TRANSPORTISTA'
+  | 'EMPRESA_TRANSPORTISTA'
   | 'CHOFER'
   | 'CLIENTE'
-  | 'SUPERADMIN';
+  | 'CLIENTE_TRANSPORTE';
 
 /**
  * Obtiene la ruta de destino según el rol del usuario
@@ -28,7 +33,14 @@ export function getDestinationByRole(role: UserRole): string {
     case 'CLIENTE':
       return '/portal/cliente';
     case 'SUPERADMIN':
+    case 'ADMIN':
+    case 'OPERATOR':
+    case 'OPERADOR_INTERNO':
       return '/dashboard';
+    case 'EMPRESA_TRANSPORTISTA':
+      return '/portal/transportistas';
+    case 'CLIENTE_TRANSPORTE':
+      return '/portal/cliente';
     default:
       return '/';
   }
@@ -42,12 +54,17 @@ export function getDestinationByRole(role: UserRole): string {
 export function isValidRole(role: string | null | undefined): boolean {
   if (!role) return false;
   const validRoles: UserRole[] = [
+    'SUPERADMIN',
+    'ADMIN',
+    'OPERATOR',
     'ADMIN_INTERNO',
+    'OPERADOR_INTERNO',
     'DADOR_DE_CARGA',
     'TRANSPORTISTA',
+    'EMPRESA_TRANSPORTISTA',
     'CHOFER',
     'CLIENTE',
-    'SUPERADMIN',
+    'CLIENTE_TRANSPORTE',
   ];
   return validRoles.includes(role as UserRole);
 }
