@@ -77,10 +77,11 @@ const EditarEquipoPage: React.FC = () => {
     { empresaId: dadorId!, page: 1, limit: 100 },
     { skip: !dadorId }
   );
-  const { data: empresasResp } = useGetEmpresasTransportistasQuery(
+  const { data: empresasRespRaw } = useGetEmpresasTransportistasQuery(
     { dadorCargaId: dadorId! },
     { skip: !dadorId }
   );
+  const empresasResp = empresasRespRaw?.data ?? [];
   
   // Cargar requisitos del equipo
   const { data: requisitos, refetch: refetchRequisitos } = useGetEquipoRequisitosQuery(

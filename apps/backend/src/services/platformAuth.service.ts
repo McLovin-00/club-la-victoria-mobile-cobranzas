@@ -293,7 +293,8 @@ export class PlatformAuthService {
     this.validateRegistrationPermissions(createdBy, registerData.role || 'OPERATOR');
 
     const prisma = prismaService.getClient();
-    const { email, password, role, empresaId, nombre, apellido, dadorCargaId, empresaTransportistaId, choferId, clienteId } = registerData;
+    const { email, password, role, empresaId, nombre, apellido, empresaTransportistaId, choferId, clienteId } = registerData;
+    let { dadorCargaId } = registerData;
 
     const existingUser = await prisma.user.findUnique({
       where: { email: email.toLowerCase().trim() },
@@ -301,6 +302,20 @@ export class PlatformAuthService {
 
     if (existingUser) {
       return { success: false, message: 'El email ya está en uso' };
+    }
+
+    if (role === 'TRANSPORTISTA' && !dadorCargaId && empresaTransportistaId) {
+      dadorCargaId = await this.resolveDadorFromEntity(
+        'documentos.empresas_transportistas', empresaTransportistaId,
+        'La empresa transportista no existe o no tiene un Dador de Carga asignado. No se puede crear el usuario TRANSPORTISTA sin dador.'
+      );
+    }
+
+    if (role === 'CHOFER' && !dadorCargaId && choferId) {
+      dadorCargaId = await this.resolveDadorFromEntity(
+        'documentos.choferes', choferId,
+        'El chofer no existe o no tiene un Dador de Carga asignado. No se puede crear el usuario CHOFER sin dador.'
+      );
     }
 
     const hashedPassword = await this.hashPassword(password);
@@ -591,6 +606,18 @@ export class PlatformAuthService {
     return base.join('');
   }
 
+  private static async resolveDadorFromEntity(table: string, entityId: number, errorMsg: string): Promise<number> {
+    const prisma = prismaService.getClient();
+    const rows = await prisma.$queryRawUnsafe<{ dador_carga_id: number | null }[]>(
+      `SELECT dador_carga_id FROM ${table} WHERE id = $1 LIMIT 1`,
+      Number(entityId)
+    );
+    if (rows.length === 0 || !rows[0].dador_carga_id) {
+      throw new Error(errorMsg);
+    }
+    return rows[0].dador_carga_id;
+  }
+
   private static readonly ENTITY_TABLE_MAP: Record<string, string> = {
     clienteId: 'documentos.clientes',
     dadorCargaId: 'documentos.dadores_carga',
@@ -717,10 +744,14 @@ export class PlatformAuthService {
     input: { email: string; nombre?: string; apellido?: string; empresaId?: number | null; empresaTransportistaId: number },
     createdBy: PlatformUserProfile
   ): Promise<AuthResponse> {
+    const dadorCargaId = await this.resolveDadorFromEntity(
+      'documentos.empresas_transportistas', input.empresaTransportistaId,
+      'La empresa transportista no existe o no tiene un Dador de Carga asignado'
+    );
     return this.createUserWithTempPassword(
       input, createdBy, 'TRANSPORTISTA' as UserRole,
       ['SUPERADMIN', 'ADMIN', 'ADMIN_INTERNO', 'DADOR_DE_CARGA'],
-      { empresaTransportistaId: input.empresaTransportistaId }, 'TRANSPORTISTA'
+      { empresaTransportistaId: input.empresaTransportistaId, dadorCargaId }, 'TRANSPORTISTA'
     );
   }
 
@@ -728,10 +759,14 @@ export class PlatformAuthService {
     input: { email: string; nombre?: string; apellido?: string; empresaId?: number | null; choferId: number },
     createdBy: PlatformUserProfile
   ): Promise<AuthResponse> {
+    const dadorCargaId = await this.resolveDadorFromEntity(
+      'documentos.choferes', input.choferId,
+      'El chofer no existe o no tiene un Dador de Carga asignado'
+    );
     return this.createUserWithTempPassword(
       input, createdBy, 'CHOFER' as UserRole,
       ['SUPERADMIN', 'ADMIN', 'ADMIN_INTERNO', 'DADOR_DE_CARGA', 'TRANSPORTISTA'],
-      { choferId: input.choferId }, 'CHOFER'
+      { choferId: input.choferId, dadorCargaId }, 'CHOFER'
     );
   }
 

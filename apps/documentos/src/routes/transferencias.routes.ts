@@ -71,7 +71,7 @@ router.post('/', validate(crearSolicitudSchema), async (req: any, res) => {
     if (!solicitanteDadorId) {
       return res.status(400).json({ 
         success: false, 
-        message: 'Usuario no tiene dador de carga asociado' 
+        message: 'No podés solicitar transferencias porque tu usuario no tiene un Dador de Carga asociado. Contactá a un administrador para que lo configure en tu perfil.' 
       });
     }
 

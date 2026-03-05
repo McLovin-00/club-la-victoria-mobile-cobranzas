@@ -39,7 +39,9 @@ export default function EmpresasTransportistasPage() {
     ) as number;
   }, [dadorCargaId, dadoresResp, defaults, dadores]);
 
-  const { data: list, refetch, isFetching } = useGetEmpresasTransportistasQuery({ dadorCargaId: effectiveDadorId, q, page, limit });
+  const { data: empresasResp, refetch, isFetching } = useGetEmpresasTransportistasQuery({ dadorCargaId: effectiveDadorId, q, page, limit });
+  const list = empresasResp?.data ?? [];
+  const totalItems = empresasResp?.pagination?.total ?? 0;
   const [createEmpresa, { isLoading: creating }] = useCreateEmpresaTransportistaMutation();
   const [updateEmpresa, { isLoading: updating }] = useUpdateEmpresaTransportistaMutation();
   const [deleteEmpresa, { isLoading: deleting }] = useDeleteEmpresaTransportistaMutation();
@@ -127,7 +129,7 @@ export default function EmpresasTransportistasPage() {
               </tr>
             </thead>
             <tbody>
-              {(Array.isArray(list) ? list : []).map((row: EmpresaTransportista) => (
+              {list.map((row: EmpresaTransportista) => (
                 <tr key={row.id} className="border-b hover:bg-muted/30">
                   <td className="py-2 pr-3">{row.id}</td>
                   <td className="py-2 pr-3">{row.razonSocial}</td>
@@ -162,7 +164,7 @@ export default function EmpresasTransportistasPage() {
                   </td>
                 </tr>
               ))}
-              {(!list || (Array.isArray(list) && list.length === 0)) && (
+              {list.length === 0 && (
                 <tr>
                   <td className="py-6 text-center text-muted-foreground" colSpan={5}>Sin resultados</td>
                 </tr>
@@ -172,7 +174,7 @@ export default function EmpresasTransportistasPage() {
         </div>
 
         <div className="mt-4 flex items-center justify-end gap-2">
-          <Pagination currentPage={page} totalItems={Number.MAX_SAFE_INTEGER} pageSize={limit} onPageChange={setPage} />
+          <Pagination currentPage={page} totalItems={totalItems} pageSize={limit} onPageChange={setPage} />
         </div>
       </section>
 
