@@ -1,4 +1,6 @@
 import React, { useState } from 'react';
+import { useSelector } from 'react-redux';
+import type { RootState } from '../../../store/store';
 import { Button } from '../../../components/ui/button';
 import { 
   usePreCheckDocumentosMutation,
@@ -84,6 +86,9 @@ export const PreCheckModal: React.FC<PreCheckModalProps> = ({
   onContinue,
   onTransferenciaCreada,
 }) => {
+  const user = useSelector((state: RootState) => state.auth.user);
+  const hasDadorCargaId = Boolean(user?.dadorCargaId);
+
   const [preCheck, { isLoading: checking }] = usePreCheckDocumentosMutation();
   const [crearTransferencia, { isLoading: creatingTransferencia }] = useCrearSolicitudTransferenciaMutation();
   
@@ -278,12 +283,23 @@ export const PreCheckModal: React.FC<PreCheckModalProps> = ({
               {/* Formulario de transferencia */}
               {result.requiereTransferencia && !showTransferenciaForm && (
                 <div className="mt-6 pt-6 border-t">
-                  <Button 
-                    onClick={() => setShowTransferenciaForm(true)}
-                    className="w-full bg-yellow-600 hover:bg-yellow-700"
-                  >
-                    🔀 Solicitar Transferencia de Entidades
-                  </Button>
+                  {hasDadorCargaId ? (
+                    <Button 
+                      onClick={() => setShowTransferenciaForm(true)}
+                      className="w-full bg-yellow-600 hover:bg-yellow-700"
+                    >
+                      🔀 Solicitar Transferencia de Entidades
+                    </Button>
+                  ) : (
+                    <div className="bg-red-50 border border-red-200 rounded-lg p-4 text-center">
+                      <p className="text-red-700 font-medium">
+                        No podés solicitar transferencias
+                      </p>
+                      <p className="text-sm text-red-600 mt-1">
+                        Tu usuario no tiene un Dador de Carga asociado. Contactá a un administrador para que lo configure.
+                      </p>
+                    </div>
+                  )}
                 </div>
               )}
 

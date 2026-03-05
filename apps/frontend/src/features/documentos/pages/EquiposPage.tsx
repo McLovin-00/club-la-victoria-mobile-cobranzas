@@ -84,7 +84,8 @@ export const EquiposPage: React.FC = () => {
   const [createEquipo] = useCreateEquipoMutation();
   const [updateEquipo] = useUpdateEquipoMutation();
   // Empresas transportistas por dador
-  const { data: empresasTransp = [] } = useGetEmpresasTransportistasQuery({ dadorCargaId: dadorId });
+  const { data: empresasTranspResp } = useGetEmpresasTransportistasQuery({ dadorCargaId: dadorId });
+  const empresasTransp = empresasTranspResp?.data ?? [];
   const [empresaTransportistaId, setEmpresaTransportistaId] = useState<number | ''>('');
   const idToCuit = useMemo(() => {
     const m = new Map<number, string>();

@@ -176,11 +176,23 @@ router.post(
     empresaId: z.number().int().positive().optional(),
     nombre: z.string().max(100).optional(),
     apellido: z.string().max(100).optional(),
-    // Asociaciones por rol
     dadorCargaId: z.number().int().positive().optional(),
     empresaTransportistaId: z.number().int().positive().optional(),
     choferId: z.number().int().positive().optional(),
     clienteId: z.number().int().positive().optional(),
+  }).superRefine((data, ctx) => {
+    if (data.role === 'DADOR_DE_CARGA' && !data.dadorCargaId) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['dadorCargaId'], message: 'El rol DADOR_DE_CARGA requiere un dadorCargaId asociado' });
+    }
+    if (data.role === 'TRANSPORTISTA' && !data.empresaTransportistaId) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['empresaTransportistaId'], message: 'El rol TRANSPORTISTA requiere una empresaTransportistaId asociada' });
+    }
+    if (data.role === 'CHOFER' && !data.choferId) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['choferId'], message: 'El rol CHOFER requiere un choferId asociado' });
+    }
+    if (data.role === 'CLIENTE' && !data.clienteId) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['clienteId'], message: 'El rol CLIENTE requiere un clienteId asociado' });
+    }
   })),
   logAction('PLATFORM_USER_REGISTER'),
   PlatformAuthController.register

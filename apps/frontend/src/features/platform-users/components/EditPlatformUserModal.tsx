@@ -338,17 +338,19 @@ const EditPlatformUserModal: React.FC<Props> = ({ isOpen, onClose, user }) => {
       }
       if (data.role === 'TRANSPORTISTA') {
         payload.empresaTransportistaId = data.empresaTransportistaId ? Number(data.empresaTransportistaId) : null;
+        payload.dadorCargaId = selectedDadorForTransportista ? Number(selectedDadorForTransportista) : (user.dadorCargaId ?? null);
       }
       if (data.role === 'CHOFER') {
         payload.empresaTransportistaId = data.empresaTransportistaId ? Number(data.empresaTransportistaId) : null;
         payload.choferId = data.choferId ? Number(data.choferId) : null;
+        payload.dadorCargaId = selectedDadorForChofer ? Number(selectedDadorForChofer) : (user.dadorCargaId ?? null);
       }
       if (data.role === 'CLIENTE') {
         payload.clienteId = data.clienteId ? Number(data.clienteId) : null;
       }
       
       // Limpiar asociaciones no relevantes al rol actual
-      if (data.role !== 'DADOR_DE_CARGA') payload.dadorCargaId = null;
+      if (!['DADOR_DE_CARGA', 'TRANSPORTISTA', 'CHOFER'].includes(data.role)) payload.dadorCargaId = null;
       if (data.role !== 'TRANSPORTISTA' && data.role !== 'CHOFER') payload.empresaTransportistaId = null;
       if (data.role !== 'CHOFER') payload.choferId = null;
       if (data.role !== 'CLIENTE') payload.clienteId = null;

@@ -162,14 +162,15 @@ export const ConsultaPage: React.FC = () => {
   const [empresaSearchText, setEmpresaSearchText] = useState('');
   
   // Obtener empresas transportistas - para admins sin filtro, para dadores con su ID
-  const { data: empresasTransp = [] } = useGetEmpresasTransportistasQuery(
+  const { data: empresasTranspResp } = useGetEmpresasTransportistasQuery(
     { 
       dadorCargaId: (selectedDadorId || dadorIdForSearch) ?? undefined,
       q: empresaSearchText ?? undefined,
-      limit: 100 // Traer hasta 100 empresas que coincidan
+      limit: 100
     },
     { skip: isChofer }
   );
+  const empresasTransp = empresasTranspResp?.data ?? [];
   
   const [dni, setDni] = useState('');
   const [truckPlate, setTruckPlate] = useState('');

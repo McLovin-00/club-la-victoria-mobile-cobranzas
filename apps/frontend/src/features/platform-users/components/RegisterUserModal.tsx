@@ -126,8 +126,8 @@ export const RegisterUserModal: React.FC<RegisterUserModalProps> = ({ isOpen, on
   );
   
   const dadores = useMemo(() => (dadoresResp as any)?.list ?? dadoresResp ?? [], [dadoresResp]);
-  const transportistas = useMemo(() => (transportistasResp as any)?.list ?? transportistasResp ?? [], [transportistasResp]);
-  const transportistasForChofer = useMemo(() => (transportistasForChoferResp as any)?.list ?? transportistasForChoferResp ?? [], [transportistasForChoferResp]);
+  const transportistas = useMemo(() => transportistasResp?.data ?? [], [transportistasResp]);
+  const transportistasForChofer = useMemo(() => transportistasForChoferResp?.data ?? [], [transportistasForChoferResp]);
   const choferes = useMemo(() => choferesResp ?? [], [choferesResp]);
   const clientes = useMemo(() => (clientesResp as any)?.list ?? clientesResp ?? [], [clientesResp]);
   
@@ -458,7 +458,15 @@ export const RegisterUserModal: React.FC<RegisterUserModalProps> = ({ isOpen, on
       reset();
       onClose();
     } catch (e: any) {
-      showToast(e?.data?.message ?? 'No se pudo crear el usuario', 'error');
+      const apiMsg = e?.data?.message;
+      const validationDetails = e?.data?.details ?? e?.data?.errors;
+      let errorText = 'No se pudo crear el usuario';
+      if (validationDetails && Array.isArray(validationDetails) && validationDetails.length > 0) {
+        errorText = validationDetails.map((err: { message?: string }) => err.message ?? '').filter(Boolean).join('. ');
+      } else if (apiMsg) {
+        errorText = apiMsg;
+      }
+      showToast(errorText, 'error');
     }
   };
 
