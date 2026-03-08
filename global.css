@@ -1,0 +1,100 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    /* Background & Foreground */
+    --background: 0 0% 98%;
+    --foreground: 0 0% 10%;
+    
+    /* Card */
+    --card: 0 0% 100%;
+    --card-foreground: 0 0% 10%;
+    
+    /* Popover */
+    --popover: 0 0% 100%;
+    --popover-foreground: 0 0% 10%;
+    
+    /* Primary - Verde teal del club */
+    --primary: 180 70% 40%;
+    --primary-foreground: 0 0% 100%;
+    
+    /* Secondary */
+    --secondary: 0 0% 96%;
+    --secondary-foreground: 0 0% 10%;
+    
+    /* Muted */
+    --muted: 0 0% 94%;
+    --muted-foreground: 0 0% 45%;
+    
+    /* Accent */
+    --accent: 180 70% 40%;
+    --accent-foreground: 0 0% 100%;
+    
+    /* Destructive - Rojo del club */
+    --destructive: 0 70% 50%;
+    --destructive-foreground: 0 0% 100%;
+    
+    /* Border & Input */
+    --border: 0 0% 88%;
+    --input: 0 0% 100%;
+    --ring: 180 70% 40%;
+    
+    /* Radius */
+    --radius: 0.5rem;
+    --radius-sm: calc(var(--radius) - 4px);
+    --radius-md: calc(var(--radius) - 2px);
+    --radius-lg: var(--radius);
+    --radius-xl: calc(var(--radius) + 4px);
+    
+    /* Shadows */
+    --shadow-soft: 0 2px 8px -2px rgba(0, 0, 0, 0.08), 0 4px 16px -4px rgba(0, 0, 0, 0.12);
+    --shadow-card: 0 1px 3px rgba(0, 0, 0, 0.04), 0 4px 12px rgba(0, 0, 0, 0.06);
+    --shadow-elevated: 0 4px 12px rgba(0, 0, 0, 0.08), 0 8px 24px rgba(0, 0, 0, 0.12);
+  }
+
+  .dark {
+    /* Background & Foreground */
+    --background: 0 0% 6%;
+    --foreground: 0 0% 95%;
+    
+    /* Card */
+    --card: 0 0% 10%;
+    --card-foreground: 0 0% 95%;
+    
+    /* Popover */
+    --popover: 0 0% 10%;
+    --popover-foreground: 0 0% 95%;
+    
+    /* Primary - Verde teal (más brillante en dark) */
+    --primary: 180 65% 50%;
+    --primary-foreground: 0 0% 10%;
+    
+    /* Secondary */
+    --secondary: 0 0% 16%;
+    --secondary-foreground: 0 0% 95%;
+    
+    /* Muted */
+    --muted: 0 0% 18%;
+    --muted-foreground: 0 0% 65%;
+    
+    /* Accent */
+    --accent: 180 65% 50%;
+    --accent-foreground: 0 0% 10%;
+    
+    /* Destructive - Rojo (más brillante en dark) */
+    --destructive: 0 65% 55%;
+    --destructive-foreground: 0 0% 100%;
+    
+    /* Border & Input */
+    --border: 0 0% 18%;
+    --input: 0 0% 14%;
+    --ring: 180 65% 50%;
+    
+    /* Shadows - más intensas en dark */
+    --shadow-soft: 0 2px 8px -2px rgba(0, 0, 0, 0.3), 0 4px 16px -4px rgba(0, 0, 0, 0.4);
+    --shadow-card: 0 1px 3px rgba(0, 0, 0, 0.2), 0 4px 12px rgba(0, 0, 0, 0.25);
+    --shadow-elevated: 0 4px 12px rgba(0, 0, 0, 0.3), 0 8px 24px rgba(0, 0, 0, 0.4);
+  }
+}

@@ -1,11 +1,12 @@
 {
   "expo": {
-    "name": "club-la-victoria-mobile-cobranzas",
-    "slug": "club-la-victoria-mobile-cobranzas",
+    "name": "Club La Victoria - Cobranzas",
+    "slug": "club-la-victoria-cobranzas",
     "version": "1.0.0",
+    "scheme": "club-la-victoria-cobranzas",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
-    "userInterfaceStyle": "light",
+    "userInterfaceStyle": "automatic",
     "splash": {
       "image": "./assets/splash-icon.png",
       "resizeMode": "contain",
@@ -24,7 +25,11 @@
       "predictiveBackGestureEnabled": false
     },
     "web": {
+      "bundler": "metro",
       "favicon": "./assets/favicon.png"
-    }
+    },
+    "plugins": [
+      "expo-router"
+    ]
   }
 }
