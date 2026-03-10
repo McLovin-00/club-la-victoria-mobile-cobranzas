@@ -3,10 +3,10 @@
   "version": "1.0.0",
   "main": "expo-router/entry",
   "scripts": {
-    "start": "expo start",
-    "android": "expo start --android",
-    "ios": "expo start --ios",
-    "web": "expo start --web"
+    "start": "cross-env REACT_NATIVE_PACKAGER_HOSTNAME=192.168.100.8 expo start --host lan",
+    "android": "cross-env REACT_NATIVE_PACKAGER_HOSTNAME=192.168.100.8 expo start --host lan --android",
+    "ios": "cross-env REACT_NATIVE_PACKAGER_HOSTNAME=192.168.100.8 expo start --host lan --ios",
+    "web": "cross-env REACT_NATIVE_PACKAGER_HOSTNAME=192.168.100.8 expo start --host lan --web"
   },
   "dependencies": {
     "@expo/metro-runtime": "~55.0.6",
@@ -34,6 +34,7 @@
   },
   "devDependencies": {
     "@types/react": "~19.2.2",
+    "cross-env": "^10.0.0",
     "typescript": "~5.9.2"
   },
   "private": true

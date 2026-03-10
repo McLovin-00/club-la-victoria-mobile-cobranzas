@@ -9,24 +9,12 @@ import { DatePicker } from "../../components/ui/date-picker";
 import { Modal } from "../../components/ui/modal";
 import { mobileApi } from "../../lib/api";
 import { getBinding } from "../../lib/storage";
-import { Text, View, ScrollView, Pressable, ActivityIndicator } from "react-native";
-import { useRouter } from "expo-router";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { Calendar, Search, Clipboard, DollarSign, TrendingUp } from "lucide-react-native";
-import { ScreenBackButton } from "../../components/ui/screen-back-button";
-import { Spinner } from "../../components/ui/spinner";
-import { DatePicker } from "../../components/ui/date-picker";
-import { mobileApi } from "../../lib/api";
-import { getBinding } from "../../lib/storage";
 
 type OperacionCompleta = NonNullable<Awaited<ReturnType<typeof mobileApi.misCobranzas>>['operaciones'][number]>;
 
 interface ReporteData {
   totalCobrado: number;
   operaciones: OperacionCompleta[];
-}
-  totalCobrado: number;
-  operaciones: Array<{ id: number; total: number; fechaHoraServidor: string }>;
 }
 
 export default function MisCobranzasScreen() {
@@ -40,7 +28,6 @@ export default function MisCobranzasScreen() {
   const [hasConsulted, setHasConsulted] = useState(false);
   const [selectedOp, setSelectedOp] = useState<OperacionCompleta | null>(null);
   const [modalVisible, setModalVisible] = useState(false);
-  const [hasConsulted, setHasConsulted] = useState(false);
 
   const consultar = async () => {
     setError(null);
@@ -455,4 +442,5 @@ export default function MisCobranzasScreen() {
         )}
       </Modal>
     </View>
+  );
 }
