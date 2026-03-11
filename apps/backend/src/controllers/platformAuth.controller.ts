@@ -118,7 +118,10 @@ export class PlatformAuthController {
       if (!actorProfile) return;
 
       const id = parseInt(req.params.id, 10);
-      const data = req.body;
+      const { email, nombre, apellido, role, password, empresaId,
+              dadorCargaId, empresaTransportistaId, choferId, clienteId } = req.body;
+      const data = { email, nombre, apellido, role, password, empresaId,
+                     dadorCargaId, empresaTransportistaId, choferId, clienteId };
 
       const result = await PlatformAuthService.updatePlatformUser(id, data, actorProfile);
       res.status(200).json({ success: true, user: result });

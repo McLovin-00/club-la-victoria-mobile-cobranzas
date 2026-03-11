@@ -61,6 +61,7 @@ export const getDashboardAdmin = async (req: Request, res: Response) => {
       whereClause.role = {
         not: 'SUPERADMIN',
       };
+      whereClause.empresaId = user.empresaId;
     }
 
     const users = await prisma.user.findMany({

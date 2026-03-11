@@ -445,6 +445,16 @@ export class PlatformAuthService {
       }
     }
 
+    if (actor.role === 'ADMIN_INTERNO') {
+      const forbiddenRoles: UserRole[] = ['SUPERADMIN' as UserRole, 'ADMIN' as UserRole];
+      if (data.role && forbiddenRoles.includes(data.role)) {
+        throw new Error('ADMIN_INTERNO no puede asignar rol SUPERADMIN ni ADMIN');
+      }
+      if (data.empresaId && data.empresaId !== actor.empresaId) {
+        throw new Error('No puede asignar otra empresa');
+      }
+    }
+
     const update: any = { ...data };
     if (data.password) {
       update.password = await this.hashPassword(data.password);

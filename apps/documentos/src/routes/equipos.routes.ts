@@ -381,12 +381,12 @@ router.get('/:id', ownsEquipo(), EquiposController.getById);
 router.post('/', authorize(ADMIN_ROLES), validate(createEquipoSchema), EquiposController.create);
 router.post('/minimal', authorize(ADMIN_ROLES), validate(createMinimalSchema), EquiposController.createMinimal);
 router.post('/alta-completa', authorize(ADMIN_ROLES), validate(createCompletoSchema), EquiposController.createCompleto);
-router.post('/:id/rollback', authorize(ADMIN_ROLES), validate(rollbackCompletoSchema), EquiposController.rollbackCompleto);
+router.post('/:id/rollback', authorize(ADMIN_ROLES), ownsEquipo(), validate(rollbackCompletoSchema), EquiposController.rollbackCompleto);
 
 router.put('/:id', authorize(ADMIN_ROLES), ownsEquipo(), validate(updateEquipoSchema), EquiposController.update);
 router.delete('/:id', authorize(ADMIN_ROLES), ownsEquipo(), EquiposController.delete);
 
-router.patch('/:id/toggle-activo', authorize([...ADMIN_ROLES, 'TRANSPORTISTA' as any]), async (req: any, res) => {
+router.patch('/:id/toggle-activo', authorize([...ADMIN_ROLES, 'TRANSPORTISTA' as any]), ownsEquipo(), async (req: any, res) => {
   const equipoId = Number(req.params.id);
   const { activo } = req.body;
 
@@ -466,14 +466,14 @@ router.get('/:id/estado', ownsEquipo(), async (req, res) => {
   return res.json({ success: true, data });
 });
 
-router.post('/:id/attach', authorize(ADMIN_ROLES), validate(equipoAttachSchema), async (req: any, res) => {
+router.post('/:id/attach', authorize(ADMIN_ROLES), ownsEquipo(), validate(equipoAttachSchema), async (req: any, res) => {
   const { EquipoService } = await import('../services/equipo.service');
   const result = await EquipoService.attachComponents(req.tenantId!, Number(req.params.id), req.body);
   void AuditService.log({ tenantEmpresaId: req.tenantId, userId: req.user?.userId, userRole: req.user?.role, method: req.method, path: req.originalUrl, statusCode: 200, action: 'EQUIPO_ATTACH', entityType: 'EQUIPO', entityId: Number(req.params.id), details: req.body });
   return res.json({ success: true, data: result });
 });
 
-router.post('/:id/detach', authorize(ADMIN_ROLES), validate(equipoDetachSchema), async (req: any, res) => {
+router.post('/:id/detach', authorize(ADMIN_ROLES), ownsEquipo(), validate(equipoDetachSchema), async (req: any, res) => {
   const { EquipoService } = await import('../services/equipo.service');
   const result = await EquipoService.detachComponents(req.tenantId!, Number(req.params.id), req.body);
   void AuditService.log({ tenantEmpresaId: req.tenantId, userId: req.user?.userId, userRole: req.user?.role, method: req.method, path: req.originalUrl, statusCode: 200, action: 'EQUIPO_DETACH', entityType: 'EQUIPO', entityId: Number(req.params.id), details: req.body });
@@ -504,7 +504,7 @@ router.post('/download/vigentes', authorize(ADMIN_ROLES), validate(bulkZipSchema
   return streamVigentesZip(req.body.equipoIds, res);
 });
 
-router.get('/:id/summary.xlsx', validate(equipoSummarySchema), async (req: any, res) => {
+router.get('/:id/summary.xlsx', ownsEquipo(), validate(equipoSummarySchema), async (req: any, res) => {
   try {
     const equipoId = Number(req.params.id);
     const equipo = await prisma.equipo.findUnique({
@@ -585,7 +585,7 @@ router.post('/pre-check', validate(preCheckSchema), async (req: any, res) => {
 });
 
 // Evaluar estado documental de un equipo
-router.post('/:id/evaluar', authorize(ADMIN_ROLES), async (req: any, res) => {
+router.post('/:id/evaluar', authorize(ADMIN_ROLES), ownsEquipo(), async (req: any, res) => {
   try {
     const equipoId = Number(req.params.id);
     if (!Number.isInteger(equipoId) || equipoId <= 0) {

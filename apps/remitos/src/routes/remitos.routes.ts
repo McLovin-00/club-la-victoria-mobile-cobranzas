@@ -3,6 +3,8 @@ import multer from 'multer';
 import rateLimit from 'express-rate-limit';
 import { RemitosController } from '../controllers/remitos.controller';
 import { authenticate, authorize, ROLES_UPLOAD, ROLES_APPROVE } from '../middlewares/auth.middleware';
+import { validateBody, validateQuery } from '../middlewares/validation.middleware';
+import { updateRemitoSchema, rejectRemitoSchema, listRemitosQuerySchema, exportRemitosQuerySchema } from '../schemas/remito.schemas';
 
 const router: IRouter = Router();
 
@@ -37,13 +39,13 @@ const upload = multer({
 router.get('/stats', authenticate, RemitosController.stats);
 
 // GET /remitos/export - Exportar a Excel (antes que /:id para no confundir)
-router.get('/export', authenticate, RemitosController.exportExcel);
+router.get('/export', authenticate, validateQuery(exportRemitosQuerySchema), RemitosController.exportExcel);
 
 // GET /remitos/suggestions - Autocompletado para filtros
 router.get('/suggestions', authenticate, RemitosController.suggestions);
 
 // GET /remitos - Listar remitos
-router.get('/', authenticate, RemitosController.list);
+router.get('/', authenticate, validateQuery(listRemitosQuerySchema), RemitosController.list);
 
 // POST /remitos - Crear nuevo remito
 // Acepta: 
@@ -67,6 +69,7 @@ router.patch(
   '/:id',
   authenticate,
   authorize(ROLES_APPROVE),
+  validateBody(updateRemitoSchema),
   RemitosController.update
 );
 
@@ -86,6 +89,7 @@ router.post(
   '/:id/reject',
   authenticate,
   authorize(ROLES_APPROVE),
+  validateBody(rejectRemitoSchema),
   RemitosController.reject
 );
 

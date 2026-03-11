@@ -145,8 +145,7 @@ router.get('/', (req, res) => {
   });
 });
 
-// Test endpoint sin autenticación
-router.get('/test-templates', async (req, res) => {
+router.get('/test-templates', authenticate, async (_req: any, res) => {
   try {
     const { db } = await import('../config/database');
     const templates = await db.getClient().documentTemplate.findMany();

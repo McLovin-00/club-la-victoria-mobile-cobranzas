@@ -180,7 +180,10 @@ export class RemitosController {
 
       validateInputs(inputs);
 
-      const tenantEmpresaId = req.user?.tenantId || 1;
+      const tenantEmpresaId = req.user?.tenantId;
+      if (!tenantEmpresaId) {
+        throw createError('Tenant no identificado', 403, 'TENANT_REQUIRED');
+      }
       const dadorCargaId = req.body.dadorCargaId || req.user?.dadorId || 1;
       const choferId = getChoferId(req);
       const choferCargadorData = getChoferCargadorData(req);
@@ -309,7 +312,7 @@ export class RemitosController {
         pesoDestinoBruto: parseWeight(pesoDestinoBruto),
         pesoDestinoTara: parseWeight(pesoDestinoTara),
         pesoDestinoNeto: parseWeight(pesoDestinoNeto),
-      });
+      }, req.user?.tenantId);
 
       sendJson(res, 200, { success: true, message: 'Remito actualizado', data: remito });
     } catch (error: any) {
@@ -323,7 +326,7 @@ export class RemitosController {
   static async approve(req: AuthRequest, res: Response): Promise<void> {
     try {
       const id = parseParamId(req.params, 'id');
-      const remito = await RemitoService.approve(id, req.user!.userId);
+      const remito = await RemitoService.approve(id, req.user!.userId, req.user?.tenantId);
       sendJson(res, 200, { success: true, message: 'Remito aprobado', data: remito });
     } catch (error: any) {
       sendError(res, error);
@@ -342,7 +345,7 @@ export class RemitosController {
         throw createError('Motivo de rechazo requerido (mín 5 caracteres)', 400, 'VALIDATION_ERROR');
       }
 
-      const remito = await RemitoService.reject(id, req.user!.userId, motivo.trim());
+      const remito = await RemitoService.reject(id, req.user!.userId, motivo.trim(), req.user?.tenantId);
       sendJson(res, 200, { success: true, message: 'Remito rechazado', data: remito });
     } catch (error: any) {
       sendError(res, error);
@@ -354,7 +357,10 @@ export class RemitosController {
    */
   static async stats(req: AuthRequest, res: Response): Promise<void> {
     try {
-      const tenantId = req.user?.tenantId || 1;
+      const tenantId = req.user?.tenantId;
+      if (!tenantId) {
+        throw createError('Tenant no identificado', 403, 'TENANT_REQUIRED');
+      }
       const dadorId = req.user?.dadorId;
       const stats = await RemitoService.getStats(tenantId, dadorId);
       sendJson(res, 200, { success: true, data: stats });
@@ -395,7 +401,7 @@ export class RemitosController {
   static async reprocess(req: AuthRequest, res: Response): Promise<void> {
     try {
       const id = parseParamId(req.params, 'id');
-      const result = await RemitoService.reprocess(id, req.user!.userId);
+      const result = await RemitoService.reprocess(id, req.user!.userId, req.user?.tenantId);
       sendJson(res, 200, { success: true, message: 'Remito encolado para reprocesamiento', data: result });
     } catch (error: any) {
       sendError(res, error);

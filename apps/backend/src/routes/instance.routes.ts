@@ -498,12 +498,17 @@ router.put(
   async (req: Request, res: Response) => {
     try {
       const { instanceId: _instanceId, permisoId: _permisoId } = req.params;
-      const _user = (req as any).user;
-      
-      // Por ahora devolver un objeto vacío hasta implementar la lógica completa
+      const user = (req as any).user as AuthPayload;
+      const instanceId = parseInt(_instanceId);
+
+      const access = await validateInstanceAccess(user, instanceId, 'modificar permisos');
+      if (!access.allowed) {
+        return res.status(access.errorStatus!).json({ success: false, message: access.errorMessage });
+      }
+
       res.json({
         success: true,
-        data: { id: parseInt(_permisoId), ...req.body }
+        data: { id: parseInt(_permisoId) }
       });
     } catch (_error) {
       res.status(500).json({
@@ -522,9 +527,14 @@ router.delete(
   async (req: Request, res: Response) => {
     try {
       const { instanceId: _instanceId, permisoId: _permisoId } = req.params;
-      const _user = (req as any).user;
-      
-      // Por ahora devolver respuesta exitosa hasta implementar la lógica completa
+      const user = (req as any).user as AuthPayload;
+      const instanceId = parseInt(_instanceId);
+
+      const access = await validateInstanceAccess(user, instanceId, 'eliminar permisos');
+      if (!access.allowed) {
+        return res.status(access.errorStatus!).json({ success: false, message: access.errorMessage });
+      }
+
       res.status(204).send();
     } catch (_error) {
       res.status(500).json({
