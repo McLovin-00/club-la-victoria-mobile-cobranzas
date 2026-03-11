@@ -26,6 +26,8 @@ export interface ApprovalPendingDocument {
   id: number;
   entityType?: EntityType | string | null;
   entityId?: string | number | null;
+  dadorCargaId?: number | null;
+  dadorCargaNombre?: string | null;
   uploadedAt: string;
   classification?: DocumentClassification | null;
 }
