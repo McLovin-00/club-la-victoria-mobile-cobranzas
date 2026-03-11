@@ -26,12 +26,19 @@ function handleWizardRegisterResult(
   return true;
 }
 
+function isWizardBusinessError(msg: string): boolean {
+  return msg.includes('permisos') || msg.includes('no existe') || msg.includes('No tiene');
+}
+
 function handleWizardError(res: Response, error: unknown, context: string): void {
+  const msg = error instanceof Error ? error.message : 'Error interno del servidor';
+  if (error instanceof Error && isWizardBusinessError(msg)) {
+    AppLogger.warn(`Wizard ${context} rechazado: ${msg}`);
+    res.status(400).json({ success: false, message: msg });
+    return;
+  }
   AppLogger.error(`Error en wizard ${context}:`, error);
-  res.status(500).json({
-    success: false,
-    message: error instanceof Error ? error.message : 'Error interno del servidor',
-  });
+  res.status(500).json({ success: false, message: 'Error interno del servidor' });
 }
 
 async function resolveActorProfile(req: AuthRequest, res: Response): Promise<PlatformUserProfile | null> {

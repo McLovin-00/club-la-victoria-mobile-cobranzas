@@ -480,7 +480,7 @@ export const RegisterUserModal: React.FC<RegisterUserModalProps> = ({ isOpen, on
           <h3 className="text-lg font-medium mb-6">Nuevo Usuario</h3>
 
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-            <div className="grid grid-cols-2 gap-4">
+            <div key={`grid-${selectedRole}`} className="grid grid-cols-2 gap-4">
               {/* Email */}
               <div className="col-span-2">
                 <label className="block text-sm font-medium mb-1">Email *</label>
@@ -497,7 +497,7 @@ export const RegisterUserModal: React.FC<RegisterUserModalProps> = ({ isOpen, on
 
               {/* Nombre y Apellido - ocultos cuando se crea CHOFER nuevo (se usan los datos del chofer) */}
               {!(selectedRole === 'CHOFER' && choferMode === 'new') && (
-                <>
+                <React.Fragment key="nombre-apellido">
                   <div>
                     <label className="block text-sm font-medium mb-1">Nombre</label>
                     <Controller name="nombre" control={control} render={({ field }) => (
@@ -510,7 +510,7 @@ export const RegisterUserModal: React.FC<RegisterUserModalProps> = ({ isOpen, on
                       <input type="text" className="w-full px-3 py-2 border rounded-md" {...field} />
                     )} />
                   </div>
-                </>
+                </React.Fragment>
               )}
 
               {/* Rol */}
@@ -626,7 +626,7 @@ export const RegisterUserModal: React.FC<RegisterUserModalProps> = ({ isOpen, on
 
               {/* Crear Dador nuevo */}
               {selectedRole === 'DADOR_DE_CARGA' && dadorMode === 'new' && (
-                <>
+                <React.Fragment key="dador-new">
                   <div className="col-span-2">
                     <label className="block text-sm font-medium mb-1">Razón Social del Dador *</label>
                     <Controller name="dadorRazonSocial" control={control} render={({ field }) => (
@@ -645,7 +645,7 @@ export const RegisterUserModal: React.FC<RegisterUserModalProps> = ({ isOpen, on
                       <input type="text" className="w-full px-3 py-2 border rounded-md" {...field} />
                     )} />
                   </div>
-                </>
+                </React.Fragment>
               )}
 
               {/* TRANSPORTISTA - modo wizard */}
@@ -669,8 +669,7 @@ export const RegisterUserModal: React.FC<RegisterUserModalProps> = ({ isOpen, on
 
               {/* Asociación: Empresa Transportista existente */}
               {selectedRole === 'TRANSPORTISTA' && transportistaMode === 'existing' && (
-                <>
-                  {/* Dador de Carga: automático para DADOR_DE_CARGA, selector para admins */}
+                <React.Fragment key="transportista-existing">
                   {isDadorDeCargeUser ? (
                     <div className="col-span-2">
                       <label className="block text-sm font-medium mb-1">Dador de Carga</label>
@@ -713,13 +712,12 @@ export const RegisterUserModal: React.FC<RegisterUserModalProps> = ({ isOpen, on
                     />
                     {errors.empresaTransportistaId && <p className="text-red-500 text-xs mt-1">{errors.empresaTransportistaId.message}</p>}
                   </div>
-                </>
+                </React.Fragment>
               )}
 
               {/* Crear Transportista nuevo */}
               {selectedRole === 'TRANSPORTISTA' && transportistaMode === 'new' && (
-                <>
-                  {/* Dador de Carga: automático para DADOR_DE_CARGA */}
+                <React.Fragment key="transportista-new">
                   {isDadorDeCargeUser ? (
                     <div className="col-span-2">
                       <label className="block text-sm font-medium mb-1">Dador de Carga</label>
@@ -758,7 +756,7 @@ export const RegisterUserModal: React.FC<RegisterUserModalProps> = ({ isOpen, on
                       <input type="text" className="w-full px-3 py-2 border rounded-md" {...field} />
                     )} />
                   </div>
-                </>
+                </React.Fragment>
               )}
 
               {/* CHOFER - modo wizard */}
@@ -782,8 +780,7 @@ export const RegisterUserModal: React.FC<RegisterUserModalProps> = ({ isOpen, on
 
               {/* Asociación: Chofer existente (Dador → Transportista → Chofer) */}
               {selectedRole === 'CHOFER' && choferMode === 'existing' && (
-                <>
-                  {/* Dador de Carga: automático para DADOR_DE_CARGA y TRANSPORTISTA */}
+                <React.Fragment key="chofer-existing">
                   {isDadorDeCargeUser || isTransportistaUser ? (
                     <div className="col-span-2">
                       <label className="block text-sm font-medium mb-1">Dador de Carga</label>
@@ -811,7 +808,6 @@ export const RegisterUserModal: React.FC<RegisterUserModalProps> = ({ isOpen, on
                     </div>
                   )}
                   
-                  {/* Empresa Transportista: automático para TRANSPORTISTA, selector para otros */}
                   {isTransportistaUser ? (
                     <div className="col-span-2">
                       <label className="block text-sm font-medium mb-1">Empresa Transportista</label>
@@ -856,13 +852,12 @@ export const RegisterUserModal: React.FC<RegisterUserModalProps> = ({ isOpen, on
                     />
                     {errors.choferId && <p className="text-red-500 text-xs mt-1">{errors.choferId.message}</p>}
                   </div>
-                </>
+                </React.Fragment>
               )}
 
               {/* Crear Chofer nuevo */}
               {selectedRole === 'CHOFER' && choferMode === 'new' && (
-                <>
-                  {/* Dador de Carga: automático para DADOR_DE_CARGA y TRANSPORTISTA */}
+                <React.Fragment key="chofer-new">
                   {isDadorDeCargeUser || isTransportistaUser ? (
                     <div className="col-span-2">
                       <label className="block text-sm font-medium mb-1">Dador de Carga</label>
@@ -901,7 +896,7 @@ export const RegisterUserModal: React.FC<RegisterUserModalProps> = ({ isOpen, on
                       <input type="text" className="w-full px-3 py-2 border rounded-md" {...field} />
                     )} />
                   </div>
-                </>
+                </React.Fragment>
               )}
 
               {/* CLIENTE: asociar existente */}
@@ -927,7 +922,7 @@ export const RegisterUserModal: React.FC<RegisterUserModalProps> = ({ isOpen, on
 
               {/* CLIENTE: crear nuevo */}
               {selectedRole === 'CLIENTE' && clienteMode === 'new' && (
-                <>
+                <React.Fragment key="cliente-new">
                   <div className="col-span-2">
                     <label className="block text-sm font-medium mb-1">Razón Social (Cliente) *</label>
                     <Controller
@@ -962,7 +957,7 @@ export const RegisterUserModal: React.FC<RegisterUserModalProps> = ({ isOpen, on
                       )}
                     />
                   </div>
-                </>
+                </React.Fragment>
               )}
 
               {/* Password - solo para roles que NO usan wizard con contraseña auto-generada */}

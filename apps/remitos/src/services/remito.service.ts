@@ -270,7 +270,7 @@ export class RemitoService {
   /**
    * Obtener remito por ID
    */
-  static async getById(id: number, userId?: number, userRole?: string): Promise<(Remito & { imagenes: RemitoImagen[]; historial: RemitoHistory[] }) | null> {
+  static async getById(id: number, userId?: number, userRole?: string, tenantEmpresaId?: number): Promise<(Remito & { imagenes: RemitoImagen[]; historial: RemitoHistory[] }) | null> {
     const prisma = db.getClient();
 
     const remito = await prisma.remito.findUnique({
@@ -279,6 +279,10 @@ export class RemitoService {
     });
 
     if (!remito) return null;
+
+    if (tenantEmpresaId && remito.tenantEmpresaId !== tenantEmpresaId) {
+      return null;
+    }
 
     if (userRole && !['SUPERADMIN', 'ADMIN_INTERNO'].includes(userRole) && remito.cargadoPorUserId !== userId) {
       return null;

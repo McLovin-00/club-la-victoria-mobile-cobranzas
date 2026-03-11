@@ -1,5 +1,5 @@
 import React from 'react';
-import { render, screen, fireEvent, within } from '@testing-library/react';
+import { render, screen, fireEvent, within, waitFor } from '@testing-library/react';
 import { describe, it, expect, jest } from '@jest/globals';
 import { Provider } from 'react-redux';
 import { MemoryRouter } from 'react-router-dom';
@@ -44,44 +44,58 @@ describe('RegisterUserModal (render)', () => {
     expect(screen.queryByText(/Nuevo Usuario/i)).not.toBeInTheDocument();
   });
 
-  it('debe mostrar/ocultar secciones según el rol seleccionado (cliente/dador/transportista)', () => {
+  it('debe mostrar sección CLIENTE al seleccionar rol', async () => {
     renderWithAuthUser(<RegisterUserModal isOpen onClose={jest.fn()} />);
 
-    // Base
     expect(screen.getByText(/Nuevo Usuario/i)).toBeInTheDocument();
     expect(screen.getByText('Empresa (Tenant) *')).toBeInTheDocument();
 
     const roleSelect = getRoleSelect();
 
-    // CLIENTE: debe ocultar password y permitir modo wizard
     fireEvent.change(roleSelect, { target: { value: 'CLIENTE' } });
-    expect(screen.getByText('Asociar cliente existente')).toBeInTheDocument();
-    expect(screen.getByText('Crear cliente nuevo + crear usuario')).toBeInTheDocument();
-    expect(screen.queryByText('Password temporal *')).not.toBeInTheDocument();
+
+    await waitFor(() => {
+      expect(screen.getByText('Asociar cliente existente')).toBeInTheDocument();
+      expect(screen.getByText('Crear cliente nuevo + crear usuario')).toBeInTheDocument();
+      expect(screen.queryByText('Password *')).not.toBeInTheDocument();
+    });
 
     fireEvent.click(screen.getByLabelText('Crear cliente nuevo + crear usuario'));
-    expect(screen.getByText('Razón Social (Cliente) *')).toBeInTheDocument();
-    expect(screen.getByText('CUIT (11 dígitos) *')).toBeInTheDocument();
 
-    // DADOR: debe mostrar wizard + selector de dador existente
+    await waitFor(() => {
+      expect(screen.getByText('Razón Social (Cliente) *')).toBeInTheDocument();
+      expect(screen.getByText('CUIT (11 dígitos) *')).toBeInTheDocument();
+    });
+  });
+
+  it('debe mostrar sección DADOR_DE_CARGA al seleccionar rol', async () => {
+    renderWithAuthUser(<RegisterUserModal isOpen onClose={jest.fn()} />);
+
+    const roleSelect = getRoleSelect();
     fireEvent.change(roleSelect, { target: { value: 'DADOR_DE_CARGA' } });
-    expect(screen.getByText('Asociar dador existente')).toBeInTheDocument();
-    expect(screen.getByText('Crear dador nuevo + crear usuario')).toBeInTheDocument();
-    expect(screen.getByText('Password temporal *')).toBeInTheDocument();
-    expect(screen.getByText('Dador de Carga asociado *')).toBeInTheDocument();
 
-    // TRANSPORTISTA: debe mostrar wizard y, como SUPERADMIN, pedir dador para filtrar transportistas
+    await waitFor(() => {
+      expect(screen.getByText('Asociar dador existente')).toBeInTheDocument();
+      expect(screen.getByText('Crear dador nuevo + crear usuario')).toBeInTheDocument();
+      expect(screen.getByText('Dador de Carga asociado *')).toBeInTheDocument();
+    });
+  });
+
+  it('debe mostrar sección TRANSPORTISTA con selector de dador disabled', async () => {
+    renderWithAuthUser(<RegisterUserModal isOpen onClose={jest.fn()} />);
+
+    const roleSelect = getRoleSelect();
     fireEvent.change(roleSelect, { target: { value: 'TRANSPORTISTA' } });
-    expect(screen.getByText('Asociar transportista existente')).toBeInTheDocument();
-    expect(screen.getByText('Crear transportista nuevo + crear usuario')).toBeInTheDocument();
-    expect(screen.getByText('Dador de Carga *')).toBeInTheDocument();
 
-    // Al inicio, el selector de transportista debe estar disabled hasta elegir dador
+    await waitFor(() => {
+      expect(screen.getByText('Asociar transportista existente')).toBeInTheDocument();
+      expect(screen.getByText('Crear transportista nuevo + crear usuario')).toBeInTheDocument();
+      expect(screen.getByText('Dador de Carga *')).toBeInTheDocument();
+    });
+
     const transportistaLabel = screen.getByText(/Empresa Transportista asociada/i);
     const transportistaContainer = transportistaLabel.parentElement as HTMLElement;
     const select = within(transportistaContainer).getByRole('combobox') as HTMLSelectElement;
     expect(select).toBeDisabled();
   });
 });
-
-

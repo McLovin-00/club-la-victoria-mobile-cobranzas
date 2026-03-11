@@ -10,13 +10,13 @@ import { describe, it, expect, jest, beforeEach } from '@jest/globals';
 
 const prismaMock = {
   user: {
-    findMany: jest.fn(),
-    findFirst: jest.fn(),
-    count: jest.fn(),
-    update: jest.fn(),
+    findMany: jest.fn<any>(),
+    findFirst: jest.fn<any>(),
+    count: jest.fn<any>(),
+    update: jest.fn<any>(),
   },
   empresa: {
-    findUnique: jest.fn(),
+    findUnique: jest.fn<any>(),
   },
 };
 
@@ -25,24 +25,24 @@ jest.mock('../../config/prisma', () => ({
 }));
 
 jest.mock('../../config/logger', () => ({
-  AppLogger: { info: jest.fn(), warn: jest.fn(), error: jest.fn(), debug: jest.fn() },
+  AppLogger: { info: jest.fn<any>(), warn: jest.fn<any>(), error: jest.fn<any>(), debug: jest.fn<any>() },
 }));
 
-const mockValidationResult = jest.fn(() => ({ isEmpty: () => true, array: () => [] }));
+const mockValidationResult = jest.fn<any>(() => ({ isEmpty: () => true, array: () => [] }));
 jest.mock('express-validator', () => ({
   validationResult: (...args: any[]) => mockValidationResult(...args),
 }));
 
 jest.mock('jsonwebtoken', () => ({
-  sign: jest.fn(() => 'new-jwt-token'),
+  sign: jest.fn<any>(() => 'new-jwt-token'),
 }));
 
 import { PlatformUserController } from '../user.controller';
 
 function createRes(): Response {
   const res = {
-    status: jest.fn().mockReturnThis(),
-    json: jest.fn().mockReturnThis(),
+    status: jest.fn<any>().mockReturnThis(),
+    json: jest.fn<any>().mockReturnThis(),
   };
   return res as unknown as Response;
 }

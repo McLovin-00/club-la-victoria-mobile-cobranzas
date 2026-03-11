@@ -383,8 +383,8 @@ router.post('/minimal', authorize(ADMIN_ROLES), validate(createMinimalSchema), E
 router.post('/alta-completa', authorize(ADMIN_ROLES), validate(createCompletoSchema), EquiposController.createCompleto);
 router.post('/:id/rollback', authorize(ADMIN_ROLES), validate(rollbackCompletoSchema), EquiposController.rollbackCompleto);
 
-router.put('/:id', authorize(ADMIN_ROLES), validate(updateEquipoSchema), EquiposController.update);
-router.delete('/:id', authorize(ADMIN_ROLES), EquiposController.delete);
+router.put('/:id', authorize(ADMIN_ROLES), ownsEquipo(), validate(updateEquipoSchema), EquiposController.update);
+router.delete('/:id', authorize(ADMIN_ROLES), ownsEquipo(), EquiposController.delete);
 
 router.patch('/:id/toggle-activo', authorize([...ADMIN_ROLES, 'TRANSPORTISTA' as any]), async (req: any, res) => {
   const equipoId = Number(req.params.id);
@@ -407,9 +407,9 @@ router.patch('/:id/toggle-activo', authorize([...ADMIN_ROLES, 'TRANSPORTISTA' as
   return res.json({ success: true, data: updated });
 });
 
-router.get('/:id/history', authorize(ADMIN_ROLES), validate(equipoHistoryQuerySchema), EquiposController.history);
-router.get('/:id/audit', authorize(ADMIN_ROLES), EquiposController.getAuditHistory);
-router.get('/:id/requisitos', authorize([...ADMIN_ROLES, 'TRANSPORTISTA' as any, 'CHOFER' as any]), EquiposController.getRequisitos);
+router.get('/:id/history', authorize(ADMIN_ROLES), ownsEquipo(), validate(equipoHistoryQuerySchema), EquiposController.history);
+router.get('/:id/audit', authorize(ADMIN_ROLES), ownsEquipo(), EquiposController.getAuditHistory);
+router.get('/:id/requisitos', authorize([...ADMIN_ROLES, 'TRANSPORTISTA' as any, 'CHOFER' as any]), ownsEquipo(), EquiposController.getRequisitos);
 
 router.put('/:id/entidades', canModifyEquipo(), validate(updateEntidadesSchema), EquiposController.updateEntidades);
 router.post('/:id/clientes', canModifyEquipo(), validate(addClienteSchema), EquiposController.addCliente);
@@ -420,7 +420,7 @@ router.post('/:id/transferir', canTransferEquipo(), validate(transferirSchema), 
 router.post('/:equipoId/clientes/:clienteId', authorize(ADMIN_ROLES), validate(equipoClienteAssocSchema), EquiposController.associateCliente);
 router.delete('/:equipoId/clientes/:clienteId', authorize(ADMIN_ROLES), EquiposController.removeCliente);
 
-router.post('/:equipoId/check-missing-now', authorize(ADMIN_ROLES), async (req, res) => {
+router.post('/:equipoId/check-missing-now', authorize(ADMIN_ROLES), ownsEquipo(), async (req, res) => {
   const equipoId = Number(req.params.equipoId);
   const { NotificationService } = await import('../services/notification.service');
   const equipo = await prisma.equipo.findUnique({ where: { id: equipoId }, select: { tenantEmpresaId: true } });
@@ -428,7 +428,7 @@ router.post('/:equipoId/check-missing-now', authorize(ADMIN_ROLES), async (req, 
   res.json({ success: true, data: { sent: count } });
 });
 
-router.post('/:equipoId/request-missing', authorize(ADMIN_ROLES), async (req, res) => {
+router.post('/:equipoId/request-missing', authorize(ADMIN_ROLES), ownsEquipo(), async (req, res) => {
   const equipoId = Number(req.params.equipoId);
   const { ComplianceService } = await import('../services/compliance.service');
   const { NotificationService } = await import('../services/notification.service');
@@ -460,7 +460,7 @@ router.post('/:equipoId/request-missing', authorize(ADMIN_ROLES), async (req, re
   res.json({ success: true, data: { faltantes, sent } });
 });
 
-router.get('/:id/estado', async (req, res) => {
+router.get('/:id/estado', ownsEquipo(), async (req, res) => {
   const { EquipoEstadoService } = await import('../services/equipo-estado.service');
   const data = await EquipoEstadoService.calculateEquipoEstado(Number(req.params.id), req.query.clienteId ? Number(req.query.clienteId) : undefined);
   return res.json({ success: true, data });

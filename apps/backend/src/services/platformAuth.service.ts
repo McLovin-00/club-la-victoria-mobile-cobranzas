@@ -425,7 +425,17 @@ export class PlatformAuthService {
 
   static async updatePlatformUser(id: number, data: Partial<RegisterData & { role: UserRole }>, actor: PlatformUserProfile): Promise<PlatformUserProfile> {
     const prisma = prismaService.getClient();
-    // Reglas: ADMIN no puede elevar roles ni modificar fuera de su empresa
+
+    if (actor.role !== 'SUPERADMIN') {
+      const targetUser = await prisma.user.findUnique({ where: { id }, select: { empresaId: true } });
+      if (!targetUser) {
+        throw new Error('Usuario no encontrado');
+      }
+      if (targetUser.empresaId !== actor.empresaId) {
+        throw new Error('No tiene permisos para modificar este usuario');
+      }
+    }
+
     if (actor.role === 'ADMIN') {
       if (data.role && data.role !== 'OPERATOR') {
         throw new Error('Un administrador no puede cambiar el rol a ADMIN o SUPERADMIN');

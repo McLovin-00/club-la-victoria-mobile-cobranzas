@@ -246,7 +246,7 @@ export class RemitosController {
   static async getById(req: AuthRequest, res: Response): Promise<void> {
     try {
       const id = parseParamId(req.params, 'id');
-      const remito = await RemitoService.getById(id, req.user?.userId, req.user?.role);
+      const remito = await RemitoService.getById(id, req.user?.userId, req.user?.role, req.user?.tenantId);
 
       if (!remito) {
         throw createError('Remito no encontrado', 404, 'NOT_FOUND');
@@ -369,7 +369,7 @@ export class RemitosController {
   static async getImage(req: AuthRequest, res: Response): Promise<void> {
     try {
       const remitoId = parseParamId(req.params, 'id');
-      const remito = await RemitoService.getById(remitoId, req.user?.userId, req.user?.role);
+      const remito = await RemitoService.getById(remitoId, req.user?.userId, req.user?.role, req.user?.tenantId);
 
       if (!remito) {
         throw createError('Remito no encontrado', 404, 'NOT_FOUND');
@@ -409,9 +409,8 @@ export class RemitosController {
   static async exportExcel(req: AuthRequest, res: Response): Promise<void> {
     try {
       const user = req.user!;
-      const tenantEmpresaId = req.tenantId!;
+      const tenantEmpresaId = user.tenantId!;
 
-      // Parsear filtros
       const fechaDesde = req.query.fechaDesde 
         ? new Date(req.query.fechaDesde as string) 
         : undefined;
@@ -462,7 +461,7 @@ export class RemitosController {
    */
   static async suggestions(req: AuthRequest, res: Response): Promise<void> {
     try {
-      const tenantEmpresaId = req.tenantId!;
+      const tenantEmpresaId = req.user!.tenantId!;
       const field = req.query.field as 'cliente' | 'transportista' | 'patente';
       const query = (req.query.q as string) || '';
 

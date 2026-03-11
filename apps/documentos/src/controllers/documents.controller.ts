@@ -14,6 +14,17 @@ import { parseParamId, parseParamIdOptional } from '../utils/params';
 import { normalizeExpirationToEndOfDayAR } from '../utils/expiration.utils';
 
 // ============================================================================
+// TENANT ISOLATION HELPER
+// ============================================================================
+function assertTenantAccess(user: AuthRequest['user'], tenantEmpresaId: number): void {
+  if (user?.role === 'SUPERADMIN') return;
+  const userTenantId = (user as any)?.empresaId; // NOSONAR - empresaId comes from JWT middleware
+  if (userTenantId !== tenantEmpresaId) {
+    throw createError('Acceso denegado al documento', 403, 'DOCUMENT_ACCESS_DENIED');
+  }
+}
+
+// ============================================================================
 // MULTER MIDDLEWARE PARA UPLOAD
 // ============================================================================
 // NOSONAR: Content length limit is intentional - 50MB is required for large PDF documents.
@@ -636,16 +647,7 @@ export class DocumentsController {
         throw createError('Documento no encontrado', 404, 'DOCUMENT_NOT_FOUND');
       }
 
-      // Verificar permisos de acceso
-      // Nota: para usuarios no SUPERADMIN, el token trae empresaId del tenant.
-      // El documento pertenece a un tenant (tenantEmpresaId) y a un dador específico (dadorCargaId).
-      // El acceso de ADMIN/OPERATOR debe validarse por tenant, no por dador.
-      if (req.user?.role !== 'SUPERADMIN') {
-        const userTenantId = (req.user as any).empresaId;
-        if (userTenantId !== document.tenantEmpresaId) {
-          throw createError('Acceso denegado al documento', 403, 'DOCUMENT_ACCESS_DENIED');
-        }
-      }
+      assertTenantAccess(req.user, document.tenantEmpresaId);
 
       // Extraer bucket y path del filePath
       const [_bucketName, ..._pathParts] = document.filePath.split('/');
@@ -722,13 +724,7 @@ export class DocumentsController {
         throw createError('Documento no encontrado', 404, 'DOCUMENT_NOT_FOUND');
       }
 
-      // Verificar permisos de acceso (mismo criterio que preview)
-      if (req.user?.role !== 'SUPERADMIN') {
-        const userTenantId = (req.user as any).empresaId;
-        if (userTenantId !== document.tenantEmpresaId) {
-          throw createError('Acceso denegado al documento', 403, 'DOCUMENT_ACCESS_DENIED');
-        }
-      }
+      assertTenantAccess(req.user, document.tenantEmpresaId);
 
       // Extraer bucket y path del filePath
       const [bucketName, ...pathParts] = document.filePath.split('/');
@@ -804,12 +800,7 @@ export class DocumentsController {
         select: { id: true, tenantEmpresaId: true, dadorCargaId: true, mimeType: true },
       });
       if (!document) throw createError('Documento no encontrado', 404, 'DOCUMENT_NOT_FOUND');
-      if (req.user?.role !== 'SUPERADMIN') {
-        const userTenantId = (req.user as any).empresaId;
-        if (userTenantId !== document.tenantEmpresaId) {
-          throw createError('Acceso denegado al documento', 403, 'DOCUMENT_ACCESS_DENIED');
-        }
-      }
+      assertTenantAccess(req.user, document.tenantEmpresaId);
       const { ThumbnailService } = await import('../services/thumbnail.service');
       const url = await ThumbnailService.getSignedUrl(id);
       res.json({ success: true, data: { url, mimeType: 'image/jpeg', expiresIn: 3600 } });
@@ -828,15 +819,24 @@ export class DocumentsController {
   static async renewDocument(req: AuthRequest, res: Response): Promise<void> {
     try {
       const id = parseParamId(req.params, 'id');
+
+      const doc = await db.getClient().document.findUnique({
+        where: { id },
+        select: { tenantEmpresaId: true },
+      });
+      if (!doc) throw createError('Documento no encontrado', 404, 'DOCUMENT_NOT_FOUND');
+      assertTenantAccess(req.user, doc.tenantEmpresaId);
+
       const { expiresAt } = req.body || {};
-      const next = await DocumentService.renew(id, {
+      const renewed = await DocumentService.renew(id, {
         expiresAt: expiresAt ? normalizeExpirationToEndOfDayAR(new Date(expiresAt)) ?? undefined : undefined,
         requestedBy: (req.user as any)?.userId,
       });
-      res.status(201).json({ success: true, data: next });
+      res.status(201).json({ success: true, data: renewed });
       try { (await import('../services/performance.service')).performanceService.refreshMaterializedView(); } catch { /* Refresh async */ }
     } catch (error) {
       AppLogger.error('💥 Error renovando documento:', error);
+      if (error instanceof Error && 'code' in error) throw error;
       throw createError('Error al renovar documento', 500, 'DOCUMENT_RENEW_ERROR');
     }
   }
@@ -847,10 +847,19 @@ export class DocumentsController {
   static async getDocumentHistory(req: AuthRequest, res: Response): Promise<void> {
     try {
       const id = parseParamId(req.params, 'id');
+
+      const doc = await db.getClient().document.findUnique({
+        where: { id },
+        select: { tenantEmpresaId: true },
+      });
+      if (!doc) throw createError('Documento no encontrado', 404, 'DOCUMENT_NOT_FOUND');
+      assertTenantAccess(req.user, doc.tenantEmpresaId);
+
       const rows = await DocumentService.getHistory(id);
       res.json({ success: true, data: rows });
     } catch (error) {
       AppLogger.error('💥 Error obteniendo historial de documento:', error);
+      if (error instanceof Error && 'code' in error) throw error;
       throw createError('Error al obtener historial', 500, 'DOCUMENT_HISTORY_ERROR');
     }
   }
@@ -869,6 +878,7 @@ export class DocumentsController {
           filePath: true,
           fileName: true,
           dadorCargaId: true,
+          tenantEmpresaId: true,
           entityType: true,
           entityId: true,
           template: {
@@ -883,12 +893,7 @@ export class DocumentsController {
         throw createError('Documento no encontrado', 404, 'DOCUMENT_NOT_FOUND');
       }
 
-      // Verificar permisos de eliminación
-      if (req.user?.role !== 'SUPERADMIN') {
-        if (req.user?.empresaId !== document.dadorCargaId) {
-          throw createError('Acceso denegado para eliminar documento', 403, 'DELETE_ACCESS_DENIED');
-        }
-      }
+      assertTenantAccess(req.user, document.tenantEmpresaId);
 
       // Extraer bucket y path del filePath
       const [bucketName, ...pathParts] = document.filePath.split('/');

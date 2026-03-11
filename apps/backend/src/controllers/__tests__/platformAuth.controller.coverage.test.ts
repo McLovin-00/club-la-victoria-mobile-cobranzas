@@ -7,7 +7,7 @@ import type { Request, Response } from 'express';
 import { describe, it, expect, jest, beforeEach } from '@jest/globals';
 
 jest.mock('express-validator', () => ({
-  body: jest.fn(() => {
+  body: jest.fn<any>(() => {
     const chain: any = new Proxy(
       {},
       {
@@ -16,28 +16,28 @@ jest.mock('express-validator', () => ({
     );
     return chain;
   }),
-  validationResult: jest.fn(() => ({ isEmpty: () => true, array: () => [] })),
+  validationResult: jest.fn<any>(() => ({ isEmpty: () => true, array: () => [] })),
 }));
 
 jest.mock('../../services/platformAuth.service', () => ({
   PlatformAuthService: {
-    login: jest.fn(),
-    refreshAccessToken: jest.fn(),
-    getUserProfile: jest.fn(),
-    deletePlatformUser: jest.fn(),
-    updatePlatformUser: jest.fn(),
-    toggleUserActivo: jest.fn(),
-    registerClientWithTempPassword: jest.fn(),
-    registerDadorWithTempPassword: jest.fn(),
-    registerTransportistaWithTempPassword: jest.fn(),
-    registerChoferWithTempPassword: jest.fn(),
-    revokeToken: jest.fn(),
-    revokeAllUserTokens: jest.fn(),
+    login: jest.fn<any>(),
+    refreshAccessToken: jest.fn<any>(),
+    getUserProfile: jest.fn<any>(),
+    deletePlatformUser: jest.fn<any>(),
+    updatePlatformUser: jest.fn<any>(),
+    toggleUserActivo: jest.fn<any>(),
+    registerClientWithTempPassword: jest.fn<any>(),
+    registerDadorWithTempPassword: jest.fn<any>(),
+    registerTransportistaWithTempPassword: jest.fn<any>(),
+    registerChoferWithTempPassword: jest.fn<any>(),
+    revokeToken: jest.fn<any>(),
+    revokeAllUserTokens: jest.fn<any>(),
   },
 }));
 
 jest.mock('../../config/logger', () => ({
-  AppLogger: { info: jest.fn(), warn: jest.fn(), error: jest.fn(), debug: jest.fn() },
+  AppLogger: { info: jest.fn<any>(), warn: jest.fn<any>(), error: jest.fn<any>(), debug: jest.fn<any>() },
 }));
 
 import { PlatformAuthService } from '../../services/platformAuth.service';
@@ -45,10 +45,10 @@ import { PlatformAuthController } from '../platformAuth.controller';
 
 function createRes(): Response {
   const res = {
-    status: jest.fn().mockReturnThis(),
-    json: jest.fn().mockReturnThis(),
-    cookie: jest.fn().mockReturnThis(),
-    clearCookie: jest.fn().mockReturnThis(),
+    status: jest.fn<any>().mockReturnThis(),
+    json: jest.fn<any>().mockReturnThis(),
+    cookie: jest.fn<any>().mockReturnThis(),
+    clearCookie: jest.fn<any>().mockReturnThis(),
   };
   return res as unknown as Response;
 }
@@ -60,7 +60,7 @@ describe('PlatformAuthController (coverage)', () => {
 
   describe('login', () => {
     it('incluye refreshToken en la respuesta cuando el servicio lo retorna', async () => {
-      (PlatformAuthService.login as jest.Mock).mockResolvedValue({
+      (PlatformAuthService.login as jest.Mock<any>).mockResolvedValue({
         success: true,
         token: 't',
         refreshToken: 'rt',
@@ -90,7 +90,7 @@ describe('PlatformAuthController (coverage)', () => {
     });
 
     it('retorna 200 con el resultado del servicio', async () => {
-      (PlatformAuthService.refreshAccessToken as jest.Mock).mockResolvedValue({
+      (PlatformAuthService.refreshAccessToken as jest.Mock<any>).mockResolvedValue({
         success: true,
         token: 'new',
         refreshToken: 'newrt',
@@ -118,8 +118,8 @@ describe('PlatformAuthController (coverage)', () => {
     };
 
     it('retorna 403 ante error de negocio', async () => {
-      (PlatformAuthService.getUserProfile as jest.Mock).mockResolvedValue(actorProfile);
-      (PlatformAuthService.deletePlatformUser as jest.Mock).mockRejectedValue(
+      (PlatformAuthService.getUserProfile as jest.Mock<any>).mockResolvedValue(actorProfile);
+      (PlatformAuthService.deletePlatformUser as jest.Mock<any>).mockRejectedValue(
         new Error('No tiene permisos para eliminar usuarios de otra empresa')
       );
 
@@ -132,8 +132,8 @@ describe('PlatformAuthController (coverage)', () => {
     });
 
     it('retorna 500 ante error inesperado', async () => {
-      (PlatformAuthService.getUserProfile as jest.Mock).mockResolvedValue(actorProfile);
-      (PlatformAuthService.deletePlatformUser as jest.Mock).mockRejectedValue(new Error('DB down'));
+      (PlatformAuthService.getUserProfile as jest.Mock<any>).mockResolvedValue(actorProfile);
+      (PlatformAuthService.deletePlatformUser as jest.Mock<any>).mockRejectedValue(new Error('DB down'));
 
       const req: any = { user: { userId: 10 }, params: { id: '5' } };
       const res = createRes();
@@ -151,7 +151,7 @@ describe('PlatformAuthController (coverage)', () => {
     };
 
     it('retorna 400 si activo no es booleano', async () => {
-      (PlatformAuthService.getUserProfile as jest.Mock).mockResolvedValue(actorProfile);
+      (PlatformAuthService.getUserProfile as jest.Mock<any>).mockResolvedValue(actorProfile);
       const req: any = { user: { userId: 10 }, params: { id: '5' }, body: { activo: 'yes' } };
       const res = createRes();
 
@@ -161,8 +161,8 @@ describe('PlatformAuthController (coverage)', () => {
     });
 
     it('retorna 200 al activar usuario', async () => {
-      (PlatformAuthService.getUserProfile as jest.Mock).mockResolvedValue(actorProfile);
-      (PlatformAuthService.toggleUserActivo as jest.Mock).mockResolvedValue({ id: 5, email: 'u@b.com', activo: true });
+      (PlatformAuthService.getUserProfile as jest.Mock<any>).mockResolvedValue(actorProfile);
+      (PlatformAuthService.toggleUserActivo as jest.Mock<any>).mockResolvedValue({ id: 5, email: 'u@b.com', activo: true });
       const req: any = { user: { userId: 10 }, params: { id: '5' }, body: { activo: true } };
       const res = createRes();
 
@@ -173,8 +173,8 @@ describe('PlatformAuthController (coverage)', () => {
     });
 
     it('retorna 404 si usuario no encontrado', async () => {
-      (PlatformAuthService.getUserProfile as jest.Mock).mockResolvedValue(actorProfile);
-      (PlatformAuthService.toggleUserActivo as jest.Mock).mockRejectedValue(new Error('Usuario no encontrado'));
+      (PlatformAuthService.getUserProfile as jest.Mock<any>).mockResolvedValue(actorProfile);
+      (PlatformAuthService.toggleUserActivo as jest.Mock<any>).mockRejectedValue(new Error('Usuario no encontrado'));
       const req: any = { user: { userId: 10 }, params: { id: '5' }, body: { activo: false } };
       const res = createRes();
 
@@ -184,8 +184,8 @@ describe('PlatformAuthController (coverage)', () => {
     });
 
     it('retorna 403 si no tiene permisos', async () => {
-      (PlatformAuthService.getUserProfile as jest.Mock).mockResolvedValue(actorProfile);
-      (PlatformAuthService.toggleUserActivo as jest.Mock).mockRejectedValue(new Error('No tiene permisos para modificar este usuario'));
+      (PlatformAuthService.getUserProfile as jest.Mock<any>).mockResolvedValue(actorProfile);
+      (PlatformAuthService.toggleUserActivo as jest.Mock<any>).mockRejectedValue(new Error('No tiene permisos para modificar este usuario'));
       const req: any = { user: { userId: 10 }, params: { id: '5' }, body: { activo: false } };
       const res = createRes();
 
@@ -195,8 +195,8 @@ describe('PlatformAuthController (coverage)', () => {
     });
 
     it('retorna 500 ante error inesperado', async () => {
-      (PlatformAuthService.getUserProfile as jest.Mock).mockResolvedValue(actorProfile);
-      (PlatformAuthService.toggleUserActivo as jest.Mock).mockRejectedValue(new Error('DB crash'));
+      (PlatformAuthService.getUserProfile as jest.Mock<any>).mockResolvedValue(actorProfile);
+      (PlatformAuthService.toggleUserActivo as jest.Mock<any>).mockRejectedValue(new Error('DB crash'));
       const req: any = { user: { userId: 10 }, params: { id: '5' }, body: { activo: true } };
       const res = createRes();
 
@@ -242,8 +242,8 @@ describe('PlatformAuthController (coverage)', () => {
     };
 
     it('registerClientWizard retorna 201 en éxito', async () => {
-      (PlatformAuthService.getUserProfile as jest.Mock).mockResolvedValue(actorProfile);
-      (PlatformAuthService.registerClientWithTempPassword as jest.Mock).mockResolvedValue({
+      (PlatformAuthService.getUserProfile as jest.Mock<any>).mockResolvedValue(actorProfile);
+      (PlatformAuthService.registerClientWithTempPassword as jest.Mock<any>).mockResolvedValue({
         success: true, message: 'ok', platformUser: { id: 1 }, tempPassword: 'tmp',
       });
       const req: any = {
@@ -258,8 +258,8 @@ describe('PlatformAuthController (coverage)', () => {
     });
 
     it('registerClientWizard retorna 400 en fallo', async () => {
-      (PlatformAuthService.getUserProfile as jest.Mock).mockResolvedValue(actorProfile);
-      (PlatformAuthService.registerClientWithTempPassword as jest.Mock).mockResolvedValue({
+      (PlatformAuthService.getUserProfile as jest.Mock<any>).mockResolvedValue(actorProfile);
+      (PlatformAuthService.registerClientWithTempPassword as jest.Mock<any>).mockResolvedValue({
         success: false, message: 'El email ya está en uso',
       });
       const req: any = {
@@ -274,8 +274,8 @@ describe('PlatformAuthController (coverage)', () => {
     });
 
     it('registerDadorWizard retorna 201 en éxito', async () => {
-      (PlatformAuthService.getUserProfile as jest.Mock).mockResolvedValue(actorProfile);
-      (PlatformAuthService.registerDadorWithTempPassword as jest.Mock).mockResolvedValue({
+      (PlatformAuthService.getUserProfile as jest.Mock<any>).mockResolvedValue(actorProfile);
+      (PlatformAuthService.registerDadorWithTempPassword as jest.Mock<any>).mockResolvedValue({
         success: true, message: 'ok', platformUser: { id: 2 }, tempPassword: 'tmp',
       });
       const req: any = {
@@ -290,8 +290,8 @@ describe('PlatformAuthController (coverage)', () => {
     });
 
     it('registerTransportistaWizard retorna 201 en éxito', async () => {
-      (PlatformAuthService.getUserProfile as jest.Mock).mockResolvedValue(actorProfile);
-      (PlatformAuthService.registerTransportistaWithTempPassword as jest.Mock).mockResolvedValue({
+      (PlatformAuthService.getUserProfile as jest.Mock<any>).mockResolvedValue(actorProfile);
+      (PlatformAuthService.registerTransportistaWithTempPassword as jest.Mock<any>).mockResolvedValue({
         success: true, message: 'ok', platformUser: { id: 3 }, tempPassword: 'tmp',
       });
       const req: any = {
@@ -306,8 +306,8 @@ describe('PlatformAuthController (coverage)', () => {
     });
 
     it('registerChoferWizard retorna 201 en éxito', async () => {
-      (PlatformAuthService.getUserProfile as jest.Mock).mockResolvedValue(actorProfile);
-      (PlatformAuthService.registerChoferWithTempPassword as jest.Mock).mockResolvedValue({
+      (PlatformAuthService.getUserProfile as jest.Mock<any>).mockResolvedValue(actorProfile);
+      (PlatformAuthService.registerChoferWithTempPassword as jest.Mock<any>).mockResolvedValue({
         success: true, message: 'ok', platformUser: { id: 4 }, tempPassword: 'tmp',
       });
       const req: any = {
@@ -322,8 +322,8 @@ describe('PlatformAuthController (coverage)', () => {
     });
 
     it('registerChoferWizard retorna 500 en error inesperado', async () => {
-      (PlatformAuthService.getUserProfile as jest.Mock).mockResolvedValue(actorProfile);
-      (PlatformAuthService.registerChoferWithTempPassword as jest.Mock).mockRejectedValue(new Error('boom'));
+      (PlatformAuthService.getUserProfile as jest.Mock<any>).mockResolvedValue(actorProfile);
+      (PlatformAuthService.registerChoferWithTempPassword as jest.Mock<any>).mockRejectedValue(new Error('boom'));
       const req: any = {
         user: { userId: 10 },
         body: { email: 'ch@b.com', nombre: 'N', apellido: 'A', choferId: '2' },
@@ -336,7 +336,7 @@ describe('PlatformAuthController (coverage)', () => {
     });
 
     it('refreshToken retorna 401 si no es exitoso', async () => {
-      (PlatformAuthService.refreshAccessToken as jest.Mock).mockResolvedValue({
+      (PlatformAuthService.refreshAccessToken as jest.Mock<any>).mockResolvedValue({
         success: false, message: 'expired',
       });
       const req: any = { body: { refreshToken: 'old' } };
@@ -348,7 +348,7 @@ describe('PlatformAuthController (coverage)', () => {
     });
 
     it('refreshToken retorna 500 ante error inesperado', async () => {
-      (PlatformAuthService.refreshAccessToken as jest.Mock).mockRejectedValue(new Error('crash'));
+      (PlatformAuthService.refreshAccessToken as jest.Mock<any>).mockRejectedValue(new Error('crash'));
       const req: any = { body: { refreshToken: 'old' } };
       const res = createRes();
 
@@ -363,7 +363,7 @@ describe('PlatformAuthController (coverage)', () => {
   // ==========================================================================
   describe('login (remaining branches)', () => {
     it('returns 401 when login fails', async () => {
-      (PlatformAuthService.login as jest.Mock).mockResolvedValue({
+      (PlatformAuthService.login as jest.Mock<any>).mockResolvedValue({
         success: false,
         message: 'Credenciales inválidas',
       });
@@ -377,7 +377,7 @@ describe('PlatformAuthController (coverage)', () => {
     });
 
     it('returns 500 on service exception', async () => {
-      (PlatformAuthService.login as jest.Mock).mockRejectedValue(new Error('crash'));
+      (PlatformAuthService.login as jest.Mock<any>).mockRejectedValue(new Error('crash'));
 
       const req: any = { body: { email: 'x@x.com', password: 'x' }, ip: '1.1.1.1', get: () => 'ua' };
       const res = createRes();
@@ -398,8 +398,8 @@ describe('PlatformAuthController (coverage)', () => {
     };
 
     it('returns 201 on successful registration', async () => {
-      (PlatformAuthService.getUserProfile as jest.Mock).mockResolvedValue(actorProfile);
-      (PlatformAuthService as any).register = jest.fn().mockResolvedValue({
+      (PlatformAuthService.getUserProfile as jest.Mock<any>).mockResolvedValue(actorProfile);
+      (PlatformAuthService as any).register = jest.fn<any>().mockResolvedValue({
         success: true,
         message: 'Registrado',
         platformUser: { id: 5 },
@@ -418,8 +418,8 @@ describe('PlatformAuthController (coverage)', () => {
     });
 
     it('returns 400 when registration fails', async () => {
-      (PlatformAuthService.getUserProfile as jest.Mock).mockResolvedValue(actorProfile);
-      (PlatformAuthService as any).register = jest.fn().mockResolvedValue({
+      (PlatformAuthService.getUserProfile as jest.Mock<any>).mockResolvedValue(actorProfile);
+      (PlatformAuthService as any).register = jest.fn<any>().mockResolvedValue({
         success: false,
         message: 'Email ya registrado',
       });
@@ -437,8 +437,8 @@ describe('PlatformAuthController (coverage)', () => {
     });
 
     it('returns 400 with error message on Error instance', async () => {
-      (PlatformAuthService.getUserProfile as jest.Mock).mockResolvedValue(actorProfile);
-      (PlatformAuthService as any).register = jest.fn().mockRejectedValue(new Error('Validation failed'));
+      (PlatformAuthService.getUserProfile as jest.Mock<any>).mockResolvedValue(actorProfile);
+      (PlatformAuthService as any).register = jest.fn<any>().mockRejectedValue(new Error('Validation failed'));
 
       const req: any = {
         user: { userId: 10 },
@@ -456,8 +456,8 @@ describe('PlatformAuthController (coverage)', () => {
     });
 
     it('returns 500 on non-Error exception', async () => {
-      (PlatformAuthService.getUserProfile as jest.Mock).mockResolvedValue(actorProfile);
-      (PlatformAuthService as any).register = jest.fn().mockRejectedValue('string error');
+      (PlatformAuthService.getUserProfile as jest.Mock<any>).mockResolvedValue(actorProfile);
+      (PlatformAuthService as any).register = jest.fn<any>().mockRejectedValue('string error');
 
       const req: any = {
         user: { userId: 10 },
@@ -499,7 +499,7 @@ describe('PlatformAuthController (coverage)', () => {
     });
 
     it('returns 404 when profile not found', async () => {
-      (PlatformAuthService.getUserProfile as jest.Mock).mockResolvedValue(null);
+      (PlatformAuthService.getUserProfile as jest.Mock<any>).mockResolvedValue(null);
 
       const req: any = { user: { userId: 999 } };
       const res = createRes();
@@ -510,7 +510,7 @@ describe('PlatformAuthController (coverage)', () => {
     });
 
     it('returns 200 with profile', async () => {
-      (PlatformAuthService.getUserProfile as jest.Mock).mockResolvedValue({
+      (PlatformAuthService.getUserProfile as jest.Mock<any>).mockResolvedValue({
         id: 1, email: 'x@x.com', role: 'ADMIN',
       });
 
@@ -523,7 +523,7 @@ describe('PlatformAuthController (coverage)', () => {
     });
 
     it('returns 500 on error', async () => {
-      (PlatformAuthService.getUserProfile as jest.Mock).mockRejectedValue(new Error('crash'));
+      (PlatformAuthService.getUserProfile as jest.Mock<any>).mockRejectedValue(new Error('crash'));
 
       const req: any = { user: { userId: 1 } };
       const res = createRes();
@@ -548,7 +548,7 @@ describe('PlatformAuthController (coverage)', () => {
     });
 
     it('returns 200 on success', async () => {
-      (PlatformAuthService as any).updatePassword = jest.fn().mockResolvedValue({
+      (PlatformAuthService as any).updatePassword = jest.fn<any>().mockResolvedValue({
         success: true,
         message: 'Contraseña actualizada',
       });
@@ -566,7 +566,7 @@ describe('PlatformAuthController (coverage)', () => {
     });
 
     it('returns 400 when password change fails', async () => {
-      (PlatformAuthService as any).updatePassword = jest.fn().mockResolvedValue({
+      (PlatformAuthService as any).updatePassword = jest.fn<any>().mockResolvedValue({
         success: false,
         message: 'Contraseña actual incorrecta',
       });
@@ -584,7 +584,7 @@ describe('PlatformAuthController (coverage)', () => {
     });
 
     it('returns 500 on error', async () => {
-      (PlatformAuthService as any).updatePassword = jest.fn().mockRejectedValue(new Error('crash'));
+      (PlatformAuthService as any).updatePassword = jest.fn<any>().mockRejectedValue(new Error('crash'));
 
       const req: any = {
         user: { userId: 1 },
@@ -640,8 +640,8 @@ describe('PlatformAuthController (coverage)', () => {
     };
 
     it('returns 200 on successful update', async () => {
-      (PlatformAuthService.getUserProfile as jest.Mock).mockResolvedValue(actorProfile);
-      (PlatformAuthService.updatePlatformUser as jest.Mock).mockResolvedValue({ id: 5, email: 'updated@x.com' });
+      (PlatformAuthService.getUserProfile as jest.Mock<any>).mockResolvedValue(actorProfile);
+      (PlatformAuthService.updatePlatformUser as jest.Mock<any>).mockResolvedValue({ id: 5, email: 'updated@x.com' });
 
       const req: any = {
         user: { userId: 10 },
@@ -657,7 +657,7 @@ describe('PlatformAuthController (coverage)', () => {
 
     it('returns 400 on validation errors', async () => {
       const { validationResult } = require('express-validator');
-      (validationResult as jest.Mock).mockReturnValue({
+      (validationResult as jest.Mock<any>).mockReturnValue({
         isEmpty: () => false,
         array: () => [{ msg: 'Invalid email' }],
       });
@@ -676,7 +676,7 @@ describe('PlatformAuthController (coverage)', () => {
 
     it('returns 401 when not authenticated', async () => {
       const { validationResult } = require('express-validator');
-      (validationResult as jest.Mock).mockReturnValue({
+      (validationResult as jest.Mock<any>).mockReturnValue({
         isEmpty: () => true,
         array: () => [],
       });
@@ -695,12 +695,12 @@ describe('PlatformAuthController (coverage)', () => {
 
     it('returns 500 on service error', async () => {
       const { validationResult } = require('express-validator');
-      (validationResult as jest.Mock).mockReturnValue({
+      (validationResult as jest.Mock<any>).mockReturnValue({
         isEmpty: () => true,
         array: () => [],
       });
-      (PlatformAuthService.getUserProfile as jest.Mock).mockResolvedValue(actorProfile);
-      (PlatformAuthService.updatePlatformUser as jest.Mock).mockRejectedValue(new Error('db fail'));
+      (PlatformAuthService.getUserProfile as jest.Mock<any>).mockResolvedValue(actorProfile);
+      (PlatformAuthService.updatePlatformUser as jest.Mock<any>).mockRejectedValue(new Error('db fail'));
 
       const req: any = {
         user: { userId: 10 },
@@ -729,7 +729,7 @@ describe('PlatformAuthController (coverage)', () => {
     });
 
     it('returns 401 when profile not found', async () => {
-      (PlatformAuthService.getUserProfile as jest.Mock).mockResolvedValue(null);
+      (PlatformAuthService.getUserProfile as jest.Mock<any>).mockResolvedValue(null);
 
       const req: any = { user: { userId: 999 }, params: { id: '5' } };
       const res = createRes();
@@ -744,8 +744,8 @@ describe('PlatformAuthController (coverage)', () => {
         id: 10, email: 'admin@b.com', role: 'ADMIN',
         empresaId: 1, createdAt: new Date(), updatedAt: new Date(),
       };
-      (PlatformAuthService.getUserProfile as jest.Mock).mockResolvedValue(actorProfile);
-      (PlatformAuthService.deletePlatformUser as jest.Mock).mockResolvedValue(undefined);
+      (PlatformAuthService.getUserProfile as jest.Mock<any>).mockResolvedValue(actorProfile);
+      (PlatformAuthService.deletePlatformUser as jest.Mock<any>).mockResolvedValue(undefined);
 
       const req: any = { user: { userId: 10 }, params: { id: '5' } };
       const res = createRes();
@@ -760,8 +760,8 @@ describe('PlatformAuthController (coverage)', () => {
         id: 10, email: 'admin@b.com', role: 'ADMIN',
         empresaId: 1, createdAt: new Date(), updatedAt: new Date(),
       };
-      (PlatformAuthService.getUserProfile as jest.Mock).mockResolvedValue(actorProfile);
-      (PlatformAuthService.deletePlatformUser as jest.Mock).mockRejectedValue(
+      (PlatformAuthService.getUserProfile as jest.Mock<any>).mockResolvedValue(actorProfile);
+      (PlatformAuthService.deletePlatformUser as jest.Mock<any>).mockRejectedValue(
         new Error('Solo superadmin puede realizar esta acción')
       );
 
@@ -795,7 +795,7 @@ describe('PlatformAuthController (coverage)', () => {
     });
 
     it('returns 500 on logout error', async () => {
-      (PlatformAuthService.revokeAllUserTokens as jest.Mock).mockRejectedValue(new Error('crash'));
+      (PlatformAuthService.revokeAllUserTokens as jest.Mock<any>).mockRejectedValue(new Error('crash'));
 
       const req: any = {
         headers: { authorization: 'Bearer tok' },
