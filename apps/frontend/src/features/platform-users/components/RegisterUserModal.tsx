@@ -1015,12 +1015,19 @@ export const RegisterUserModal: React.FC<RegisterUserModalProps> = ({ isOpen, on
                   <Button
                     type="button"
                     onClick={async () => {
-                      try { 
-                        await navigator.clipboard.writeText(tempPasswordToShow); 
+                      try {
+                        await navigator.clipboard.writeText(tempPasswordToShow);
                         showToast('Contraseña copiada', 'success');
-                      } catch { 
-                        // Clipboard no disponible - intentar fallback
-                        showToast('No se pudo copiar automáticamente', 'warning');
+                      } catch {
+                        const textarea = document.createElement('textarea');
+                        textarea.value = tempPasswordToShow;
+                        textarea.style.position = 'fixed';
+                        textarea.style.opacity = '0';
+                        document.body.appendChild(textarea);
+                        textarea.select();
+                        document.execCommand('copy');
+                        document.body.removeChild(textarea);
+                        showToast('Contraseña copiada', 'success');
                       }
                     }}
                   >
