@@ -364,12 +364,24 @@ export class ApprovalService {
       db.getClient().document.count({ where }),
     ]);
 
+    // Resolver nombres de dadores de carga en batch
+    const uniqueDadorIds = [...new Set(documents.map((d) => d.dadorCargaId).filter(Boolean))];
+    const dadorMap = new Map<number, string>();
+    if (uniqueDadorIds.length > 0) {
+      const dadores = await db.getClient().dadorCarga.findMany({
+        where: { id: { in: uniqueDadorIds } },
+        select: { id: true, razonSocial: true },
+      });
+      for (const d of dadores) dadorMap.set(d.id, d.razonSocial);
+    }
+
     // Enriquecer documentos
     const enrichedDocs = await Promise.all(
       documents.map(async (doc) => {
         const entityNaturalId = await getEntityNaturalId(doc.entityType, doc.entityId);
         const iaValidation = calculateIAValidation(doc.classification);
-        return { ...doc, entityNaturalId, iaValidation };
+        const dadorCargaNombre = dadorMap.get(doc.dadorCargaId) ?? null;
+        return { ...doc, entityNaturalId, iaValidation, dadorCargaNombre };
       })
     );
 

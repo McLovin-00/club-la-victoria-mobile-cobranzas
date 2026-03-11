@@ -138,6 +138,7 @@ export default function ApprovalQueuePage() {
             <thead className="text-left text-muted-foreground">
               <tr className="border-b">
                 <th className="py-2 pr-3">ID</th>
+                <th className="py-2 pr-3">Dador de Carga</th>
                 <th className="py-2 pr-3">Entidad</th>
                 <th className="py-2 pr-3">Identidad</th>
                 <th className="py-2 pr-3">Tipo Doc</th>
@@ -155,6 +156,7 @@ export default function ApprovalQueuePage() {
                 return (
                   <tr key={row.id} className="border-b hover:bg-muted/30 align-top">
                     <td className="py-3 pr-3">{row.id}</td>
+                    <td className="py-3 pr-3 text-xs">{(row as any).dadorCargaNombre ?? '—'}</td>
                     <td className="py-3 pr-3">{row.classification?.detectedEntityType ?? row.entityType}</td>
                     <td className="py-3 pr-3">{(row as any).entityNaturalId ?? row.classification?.detectedEntityId ?? row.entityId}</td>
                     <td className="py-3 pr-3">{row.classification?.detectedDocumentType ?? (row as any).template?.name ?? '-'}</td>
@@ -207,7 +209,7 @@ export default function ApprovalQueuePage() {
               })}
               {list.length === 0 && (
                 <tr>
-                  <td className="py-6 text-center text-muted-foreground" colSpan={8}>No hay documentos pendientes.</td>
+                  <td className="py-6 text-center text-muted-foreground" colSpan={9}>No hay documentos pendientes.</td>
                 </tr>
               )}
             </tbody>
