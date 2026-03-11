@@ -633,8 +633,10 @@ export class PlatformAuthService {
     for (const [key, table] of Object.entries(this.ENTITY_TABLE_MAP)) {
       const entityId = roleSpecificData[key];
       if (entityId === undefined || entityId === null) continue;
+      const hasDadorCol = table !== 'documentos.dadores_carga';
+      const cols = hasDadorCol ? 'id, dador_carga_id' : 'id';
       const rows = await prisma.$queryRawUnsafe<{ id: number; dador_carga_id?: number }[]>(
-        `SELECT id, dador_carga_id FROM ${table} WHERE id = $1 LIMIT 1`,
+        `SELECT ${cols} FROM ${table} WHERE id = $1 LIMIT 1`,
         Number(entityId)
       );
       if (rows.length === 0) {
