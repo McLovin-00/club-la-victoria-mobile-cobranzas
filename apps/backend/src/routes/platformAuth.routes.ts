@@ -83,7 +83,7 @@ function buildUserListConditions(
   user: any,
   query: { search?: string; role?: string; empresaId?: string }
 ): any[] {
-  const conditions: any[] = [];
+  const conditions: any[] = [{ deletedAt: null }];
 
   // Filtro por texto de búsqueda
   const search = query.search;
