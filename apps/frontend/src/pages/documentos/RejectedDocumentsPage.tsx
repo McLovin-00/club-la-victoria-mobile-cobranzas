@@ -178,15 +178,20 @@ export const RejectedDocumentsPage = () => {
                   {documents.map((doc: any) => (
                     <tr key={doc.id} className="hover:bg-gray-50 transition-colors">
                       <td className="px-4 py-3 whitespace-nowrap">
-                        <div className="flex items-center">
-                          <DocumentTextIcon className="h-5 w-5 text-gray-400 mr-2" />
+                        <a
+                          href={doc.previewUrl || '#'}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="flex items-center group"
+                        >
+                          <DocumentTextIcon className="h-5 w-5 text-gray-400 mr-2 group-hover:text-blue-500" />
                           <div>
-                            <div className="text-sm font-medium text-gray-900">
+                            <div className="text-sm font-medium text-gray-900 group-hover:text-blue-600 group-hover:underline">
                               {doc.template?.name || `Documento #${doc.id}`}
                             </div>
                             <div className="text-xs text-gray-500">ID: {doc.id}</div>
                           </div>
-                        </div>
+                        </a>
                       </td>
                       <td className="px-4 py-3 whitespace-nowrap">
                         <span className="text-sm text-gray-900">
