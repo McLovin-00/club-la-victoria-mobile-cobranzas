@@ -33,6 +33,7 @@ jest.mock('../../controllers/platformAuth.controller', () => ({
   PlatformAuthController: {
     login: jest.fn(),
     logout: jest.fn(),
+    refreshToken: jest.fn(),
     register: jest.fn(),
     registerClientWizard: jest.fn(),
     registerDadorWizard: jest.fn(),
@@ -43,6 +44,7 @@ jest.mock('../../controllers/platformAuth.controller', () => ({
     verifyToken: jest.fn(),
     updateUser: jest.fn(),
     deleteUser: jest.fn(),
+    toggleActivo: jest.fn(),
   },
   platformAuthValidation: {
     updateUser: jest.fn((req: any, res: any, next: any) => next()),
@@ -54,6 +56,7 @@ jest.mock('../../middlewares/platformAuth.middleware', () => ({
     req.user = { userId: 1, role: 'SUPERADMIN', empresaId: 1 };
     next();
   }),
+  optionalAuth: jest.fn((req: any, res: any, next: any) => next()),
   authorizeRoles: jest.fn(() => (req: any, res: any, next: any) => next()),
   logAction: jest.fn(() => (req: any, res: any, next: any) => next()),
 }));
@@ -61,6 +64,7 @@ jest.mock('../../middlewares/platformAuth.middleware', () => ({
 jest.mock('../../middlewares/rateLimit.middleware', () => ({
   loginRateLimiter: jest.fn((req: any, res: any, next: any) => next()),
   passwordChangeRateLimiter: jest.fn((req: any, res: any, next: any) => next()),
+  apiRateLimiter: jest.fn((req: any, res: any, next: any) => next()),
 }));
 
 jest.mock('../../middlewares/validation.middleware', () => ({

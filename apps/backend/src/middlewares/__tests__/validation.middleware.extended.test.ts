@@ -27,7 +27,7 @@ describe('ValidationMiddleware Extended Tests', () => {
         method: 'POST',
         originalUrl: '/api/test',
         ip: '127.0.0.1',
-        connection: { remoteAddress: '192.168.1.1' },
+        socket: { remoteAddress: '192.168.1.1' },
         ...overrides,
     });
 

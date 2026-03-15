@@ -309,7 +309,7 @@ describe('AuthService (coverage)', () => {
       prismaMock.user.update.mockResolvedValue({});
 
       await expect(
-        authService.changePassword(1, 'current', 'newpassword')
+        authService.changePassword(1, 'current', 'NewPass1x')
       ).resolves.toBeUndefined();
     });
 

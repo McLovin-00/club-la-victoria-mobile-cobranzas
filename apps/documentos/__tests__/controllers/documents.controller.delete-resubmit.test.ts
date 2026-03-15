@@ -86,7 +86,7 @@ describe('DocumentsController delete/resubmit', () => {
     const res = makeRes();
     prismaMock.document.findUnique.mockResolvedValueOnce({ id: 1, filePath: 'b/p.pdf', fileName: 'x', dadorCargaId: 2, template: { name: 'T' } } as any);
 
-    await expect(DocumentsController.deleteDocument(req, res)).rejects.toMatchObject({ code: 'DELETE_ACCESS_DENIED' });
+    await expect(DocumentsController.deleteDocument(req, res)).rejects.toMatchObject({ code: 'DOCUMENT_ACCESS_DENIED' });
   });
 
   it('deleteDocument: should cancel jobs, delete from MinIO + DB and audit', async () => {
@@ -105,6 +105,7 @@ describe('DocumentsController delete/resubmit', () => {
       filePath: 'bucket/path.pdf',
       fileName: 'x.pdf',
       dadorCargaId: 2,
+      tenantEmpresaId: 2,
       entityType: 'CHOFER',
       entityId: 10,
       template: { name: 'DNI' },

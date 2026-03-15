@@ -39,7 +39,7 @@ describe('EvolutionConfigController', () => {
     expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ success: false }));
 
     (SystemConfigService.getConfig as jest.Mock)
-      .mockResolvedValueOnce('http://localhost')
+      .mockResolvedValueOnce('http://evolution.example.com')
       .mockResolvedValueOnce('token')
       .mockResolvedValueOnce('inst');
 
@@ -71,7 +71,7 @@ describe('EvolutionConfigController', () => {
   it('testConnection root ok without message => success and 502 when all candidates fail', async () => {
     // root ok but JSON without "message"
     (SystemConfigService.getConfig as jest.Mock)
-      .mockResolvedValueOnce('localhost:3000')
+      .mockResolvedValueOnce('evolution.example.com:3000')
       .mockResolvedValueOnce('token')
       .mockResolvedValueOnce('inst');
 
@@ -82,7 +82,7 @@ describe('EvolutionConfigController', () => {
 
     // all fail => 502
     (SystemConfigService.getConfig as jest.Mock)
-      .mockResolvedValueOnce('http://localhost')
+      .mockResolvedValueOnce('http://evolution.example.com')
       .mockResolvedValueOnce('token')
       .mockResolvedValueOnce('inst');
 
@@ -104,7 +104,7 @@ describe('EvolutionConfigController', () => {
 
   it('testConnection covers inner catch and outer catch (500)', async () => {
     (SystemConfigService.getConfig as jest.Mock)
-      .mockResolvedValueOnce('http://localhost')
+      .mockResolvedValueOnce('http://evolution.example.com')
       .mockResolvedValueOnce('token')
       .mockResolvedValueOnce('inst');
 

@@ -30,25 +30,48 @@ interface PlatformUser {
   activo: boolean;
 }
 
+interface PlatformUserFilter {
+  empresa_id?: number;
+  role?: string;
+  dador_carga_id?: number;
+  empresa_transportista_id?: number;
+  chofer_id?: number;
+}
+
+const ALLOWED_FILTER_COLUMNS = new Set<keyof PlatformUserFilter>([
+  'empresa_id', 'role', 'dador_carga_id', 'empresa_transportista_id', 'chofer_id',
+]);
+
 export class UserNotificationResolverService {
-  /**
-   * Consulta usuarios desde el schema platform
-   */
   private static async queryPlatformUsers(
-    conditions: string,
-    params: any[]
+    filters: PlatformUserFilter
   ): Promise<PlatformUser[]> {
     try {
+      const conditions: string[] = [];
+      const params: any[] = [];
+      let paramIdx = 1;
+
+      for (const [col, value] of Object.entries(filters)) {
+        if (value === undefined || value === null) continue;
+        if (!ALLOWED_FILTER_COLUMNS.has(col as keyof PlatformUserFilter)) continue;
+        conditions.push(`${col} = $${paramIdx}`);
+        params.push(value);
+        paramIdx++;
+      }
+
+      const whereClause = conditions.length > 0
+        ? `activo = true AND ${conditions.join(' AND ')}`
+        : 'activo = true';
+
       const query = `
         SELECT 
           id, email, role, nombre, apellido, 
           empresa_id, dador_carga_id, empresa_transportista_id, chofer_id, activo
         FROM platform.platform_users
-        WHERE activo = true AND ${conditions}
+        WHERE ${whereClause}
       `;
 
-      const users = await prisma.$queryRawUnsafe<PlatformUser[]>(query, ...params);
-      return users;
+      return await prisma.$queryRawUnsafe<PlatformUser[]>(query, ...params);
     } catch (error) {
       AppLogger.error('Error consultando platform_users:', error);
       return [];
@@ -59,10 +82,10 @@ export class UserNotificationResolverService {
    * Obtiene usuarios Admin Interno del tenant
    */
   static async getAdminInternosForTenant(tenantEmpresaId: number): Promise<NotificationRecipient[]> {
-    const users = await this.queryPlatformUsers(
-      `empresa_id = $1 AND role = 'ADMIN_INTERNO'`,
-      [tenantEmpresaId]
-    );
+    const users = await this.queryPlatformUsers({
+      empresa_id: tenantEmpresaId,
+      role: 'ADMIN_INTERNO',
+    });
 
     return users.map(u => ({
       userId: u.id,
@@ -84,10 +107,11 @@ export class UserNotificationResolverService {
     const recipients: NotificationRecipient[] = [];
 
     // 1. Buscar usuario con rol CHOFER asociado a este choferId
-    const choferUsers = await this.queryPlatformUsers(
-      `empresa_id = $1 AND chofer_id = $2 AND role = 'CHOFER'`,
-      [tenantEmpresaId, choferId]
-    );
+    const choferUsers = await this.queryPlatformUsers({
+      empresa_id: tenantEmpresaId,
+      chofer_id: choferId,
+      role: 'CHOFER',
+    });
 
     for (const u of choferUsers) {
       recipients.push({
@@ -156,10 +180,11 @@ export class UserNotificationResolverService {
   ): Promise<NotificationRecipient[]> {
     const recipients: NotificationRecipient[] = [];
 
-    const transportistaUsers = await this.queryPlatformUsers(
-      `empresa_id = $1 AND empresa_transportista_id = $2 AND role = 'TRANSPORTISTA'`,
-      [tenantEmpresaId, empresaTransportistaId]
-    );
+    const transportistaUsers = await this.queryPlatformUsers({
+      empresa_id: tenantEmpresaId,
+      empresa_transportista_id: empresaTransportistaId,
+      role: 'TRANSPORTISTA',
+    });
 
     for (const u of transportistaUsers) {
       recipients.push({
@@ -203,10 +228,11 @@ export class UserNotificationResolverService {
     tenantEmpresaId: number,
     dadorCargaId: number
   ): Promise<NotificationRecipient[]> {
-    const users = await this.queryPlatformUsers(
-      `empresa_id = $1 AND dador_carga_id = $2 AND role = 'DADOR_DE_CARGA'`,
-      [tenantEmpresaId, dadorCargaId]
-    );
+    const users = await this.queryPlatformUsers({
+      empresa_id: tenantEmpresaId,
+      dador_carga_id: dadorCargaId,
+      role: 'DADOR_DE_CARGA',
+    });
 
     return users.map(u => ({
       userId: u.id,
@@ -354,10 +380,11 @@ export class UserNotificationResolverService {
     });
 
     for (const empresa of empresas) {
-      const transportistaUsers = await this.queryPlatformUsers(
-        `empresa_id = $1 AND empresa_transportista_id = $2 AND role = 'TRANSPORTISTA'`,
-        [tenantEmpresaId, empresa.id]
-      );
+      const transportistaUsers = await this.queryPlatformUsers({
+        empresa_id: tenantEmpresaId,
+        empresa_transportista_id: empresa.id,
+        role: 'TRANSPORTISTA',
+      });
 
       for (const u of transportistaUsers) {
         if (!addedUserIds.has(u.id)) {
@@ -380,10 +407,11 @@ export class UserNotificationResolverService {
     });
 
     for (const chofer of choferes) {
-      const choferUsers = await this.queryPlatformUsers(
-        `empresa_id = $1 AND chofer_id = $2 AND role = 'CHOFER'`,
-        [tenantEmpresaId, chofer.id]
-      );
+      const choferUsers = await this.queryPlatformUsers({
+        empresa_id: tenantEmpresaId,
+        chofer_id: chofer.id,
+        role: 'CHOFER',
+      });
 
       for (const u of choferUsers) {
         if (!addedUserIds.has(u.id)) {

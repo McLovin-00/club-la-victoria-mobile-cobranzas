@@ -64,6 +64,7 @@ export interface LoginResponse {
   success: boolean;
   data: UserResponse;
   token: string;
+  refreshToken?: string;
   message?: string;
   timestamp: string;
 }

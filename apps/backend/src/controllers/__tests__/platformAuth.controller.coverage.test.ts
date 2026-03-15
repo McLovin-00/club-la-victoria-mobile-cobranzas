@@ -436,9 +436,9 @@ describe('PlatformAuthController (coverage)', () => {
       expect(res.status).toHaveBeenCalledWith(400);
     });
 
-    it('returns 400 with error message on Error instance', async () => {
+    it('returns 500 with generic message on unexpected Error', async () => {
       (PlatformAuthService.getUserProfile as jest.Mock<any>).mockResolvedValue(actorProfile);
-      (PlatformAuthService as any).register = jest.fn<any>().mockRejectedValue(new Error('Validation failed'));
+      (PlatformAuthService as any).register = jest.fn<any>().mockRejectedValue(new Error('Unexpected DB error'));
 
       const req: any = {
         user: { userId: 10 },
@@ -449,9 +449,9 @@ describe('PlatformAuthController (coverage)', () => {
 
       await PlatformAuthController.register(req as any, res);
 
-      expect(res.status).toHaveBeenCalledWith(400);
+      expect(res.status).toHaveBeenCalledWith(500);
       expect(res.json).toHaveBeenCalledWith(
-        expect.objectContaining({ message: 'Validation failed' })
+        expect.objectContaining({ message: 'Error interno del servidor' })
       );
     });
 

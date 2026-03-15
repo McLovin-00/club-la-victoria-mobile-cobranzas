@@ -218,20 +218,23 @@ describe('DocumentsController (more)', () => {
 
   describe('renewDocument / getDocumentHistory', () => {
     it('renewDocument returns 201 and history returns rows', async () => {
+      prismaMock.document.findUnique.mockResolvedValueOnce({ tenantEmpresaId: 1 });
       const res = createRes();
-      await DocumentsController.renewDocument({ params: { id: '1' }, body: { expiresAt: '2026-01-01T00:00:00.000Z' }, user: { userId: 7 } } as any, res);
+      await DocumentsController.renewDocument({ params: { id: '1' }, body: { expiresAt: '2026-01-01T00:00:00.000Z' }, user: { userId: 7, role: 'SUPERADMIN', empresaId: 1 } } as any, res);
       expect(res.status).toHaveBeenCalledWith(201);
       expect(DocumentService.renew).toHaveBeenCalled();
 
+      prismaMock.document.findUnique.mockResolvedValueOnce({ tenantEmpresaId: 1 });
       const res2 = createRes();
-      await DocumentsController.getDocumentHistory({ params: { id: '1' } } as any, res2);
+      await DocumentsController.getDocumentHistory({ params: { id: '1' }, user: { role: 'SUPERADMIN', empresaId: 1 } } as any, res2);
       expect(res2.json).toHaveBeenCalledWith(expect.objectContaining({ success: true, data: [{ id: 1 }] }));
     });
 
     it('renewDocument throws DOCUMENT_RENEW_ERROR on failure', async () => {
+      prismaMock.document.findUnique.mockResolvedValueOnce({ tenantEmpresaId: 1 });
       (DocumentService.renew as jest.Mock).mockRejectedValueOnce(new Error('boom'));
       const res = createRes();
-      await expect(DocumentsController.renewDocument({ params: { id: '1' }, body: {}, user: { userId: 7 } } as any, res)).rejects.toMatchObject({
+      await expect(DocumentsController.renewDocument({ params: { id: '1' }, body: {}, user: { userId: 7, role: 'SUPERADMIN', empresaId: 1 } } as any, res)).rejects.toMatchObject({
         code: 'DOCUMENT_RENEW_ERROR',
       });
     });

@@ -1,0 +1,268 @@
+networks:
+  default:
+    name: bca_app_network
+    driver: bridge
+
+volumes:
+  flowise_data:
+
+services:
+  # =========================================================================
+  # Nginx - Punto de entrada (recibe trafico de NPM en 10.8.10.49)
+  # =========================================================================
+  nginx:
+    image: nginx:1.27-alpine
+    container_name: bca_nginx
+    restart: unless-stopped
+    ports:
+      - "80:80"
+    volumes:
+      - ./nginx/conf.d:/etc/nginx/conf.d:ro
+    depends_on:
+      frontend:
+        condition: service_healthy
+      backend:
+        condition: service_healthy
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: "0.5"
+    healthcheck:
+      test: ["CMD", "nginx", "-t"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+  # =========================================================================
+  # Frontend - React SPA (solo archivos estaticos)
+  # =========================================================================
+  frontend:
+    build:
+      context: ${MONOREPO_PATH:-./../..}
+      dockerfile: deploy/stack-iplan/vm1/Dockerfile.frontend
+      args:
+        VITE_API_URL: ""
+        VITE_API_BASE_URL: ""
+        VITE_DOCUMENTOS_API_URL: ""
+        VITE_DOCUMENTOS_WS_URL: ""
+        VITE_REMITOS_API_URL: ""
+        VITE_APP_TITLE: ${APP_TITLE:-BCA Group}
+    image: bca/frontend:latest
+    container_name: bca_frontend
+    restart: unless-stopped
+    expose:
+      - "8550"
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+          cpus: "0.3"
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:8550/health || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+  # =========================================================================
+  # Backend - API principal
+  # =========================================================================
+  backend:
+    build:
+      context: ${MONOREPO_PATH:-./../..}
+      dockerfile: deploy/stack-iplan/vm1/Dockerfile.backend
+    image: bca/backend:latest
+    container_name: bca_backend
+    restart: unless-stopped
+    expose:
+      - "4800"
+    environment:
+      NODE_ENV: production
+      BACKEND_PORT: 4800
+      NODE_OPTIONS: "--max-old-space-size=3072"
+      UV_THREADPOOL_SIZE: 16
+      DATABASE_URL: postgresql://bca_app:${DB_APP_PASSWORD}@${VM2_IP:-10.8.10.121}:5432/monorepo-bca?schema=platform
+      DB_HOST: ${VM2_IP:-10.8.10.121}
+      DB_PORT: "5432"
+      DB_NAME: monorepo-bca
+      DB_USER: bca_app
+      DB_PASSWORD: ${DB_APP_PASSWORD}
+      DB_ADMIN_DATABASE: monorepo-bca
+      DB_SCHEMA: platform
+      REDIS_URL: redis://:${REDIS_PASSWORD}@${VM2_IP:-10.8.10.121}:6379
+      JWT_PRIVATE_KEY_PATH: /run/secrets/jwt_private.pem
+      JWT_PUBLIC_KEY_PATH: /run/secrets/jwt_public.pem
+      FRONTEND_URLS: ${FRONTEND_URLS}
+      CORS_ORIGIN: ${CORS_ORIGIN}
+      ENABLE_BACKEND: "true"
+      ENABLE_FRONTEND: "true"
+      ENABLE_DOCUMENTOS: "true"
+    volumes:
+      - ./keys/jwt_private.pem:/run/secrets/jwt_private.pem:ro
+      - ./keys/jwt_public.pem:/run/secrets/jwt_public.pem:ro
+    deploy:
+      resources:
+        limits:
+          memory: 4G
+          cpus: "1.5"
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:4800/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # =========================================================================
+  # Documentos - Microservicio documental + WebSocket
+  # =========================================================================
+  documentos:
+    build:
+      context: ${MONOREPO_PATH:-./../..}
+      dockerfile: deploy/stack-iplan/vm1/Dockerfile.documentos
+    image: bca/documentos:latest
+    container_name: bca_documentos
+    restart: unless-stopped
+    expose:
+      - "4802"
+    environment:
+      NODE_ENV: production
+      ENABLE_DOCUMENTOS: "true"
+      DOCUMENTOS_PORT: 4802
+      NODE_OPTIONS: "--max-old-space-size=6144"
+      UV_THREADPOOL_SIZE: 20
+      DOCUMENTOS_DATABASE_URL: postgresql://bca_app:${DB_APP_PASSWORD}@${VM2_IP:-10.8.10.121}:5432/monorepo-bca?schema=documentos
+      DEFAULT_TENANT_ID: "1"
+      MINIO_ENDPOINT: ${VM2_IP:-10.8.10.121}:9000
+      MINIO_ACCESS_KEY: ${MINIO_ACCESS_KEY}
+      MINIO_SECRET_KEY: ${MINIO_SECRET_KEY}
+      MINIO_USE_SSL: "false"
+      MINIO_REGION: us-east-1
+      MINIO_BUCKET_PREFIX: documentos-empresa
+      MINIO_PUBLIC_BASE_URL: ${MINIO_PUBLIC_BASE_URL}
+      MINIO_INTERNAL_BASE_URL: http://${VM2_IP:-10.8.10.121}:9000
+      REDIS_URL: redis://:${REDIS_PASSWORD}@${VM2_IP:-10.8.10.121}:6379
+      SEED: "false"
+      FRONTEND_URLS: ${FRONTEND_URLS}
+      FLOWISE_ENDPOINT: http://flowise:3005/api/v1/extract
+      FLOWISE_API_KEY: ""
+      FLOWISE_VALIDATION_ENABLED: "true"
+      FLOWISE_VALIDATION_BASE_URL: http://flowise:3005
+      FLOWISE_VALIDATION_FLOW_ID: ${FLOWISE_DOCS_FLOW_ID}
+      FLOWISE_VALIDATION_TIMEOUT: "60000"
+      PDF_RASTERIZE_ENABLED: "true"
+      PDF_RASTERIZE_DPI: "300"
+      PDF_RASTERIZE_MAX_CONCURRENCY: "4"
+      PDF_RASTERIZE_TIMEOUT_MS: "120000"
+      PDF_RASTERIZE_MEMORY_LIMIT: "2048"
+      DOCS_MAX_DEPRECATED_VERSIONS: "5"
+      DOCS_DUE_SOON_DAYS: "30"
+      DOCS_BATCH_SIZE: "50"
+      DOCS_CONCURRENT_UPLOADS: "10"
+      WS_MAX_CONNECTIONS: "500"
+      WS_PING_INTERVAL: "25000"
+      WS_PING_TIMEOUT: "5000"
+      JWT_PUBLIC_KEY_PATH: /keys/jwt_public.pem
+      JWT_PRIVATE_KEY_PATH: /keys/jwt_private.pem
+      BACKEND_API_URL: http://backend:4800
+    volumes:
+      - ./keys:/keys:ro
+      - /tmp/documentos-processing:/tmp/processing
+    deploy:
+      resources:
+        limits:
+          memory: 8G
+          cpus: "2.0"
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:4802/health"]
+      interval: 30s
+      timeout: 10s
+      start_period: 20s
+      retries: 3
+
+  # =========================================================================
+  # Remitos - Microservicio de remitos
+  # =========================================================================
+  remitos:
+    build:
+      context: ${MONOREPO_PATH:-./../..}
+      dockerfile: deploy/stack-iplan/vm1/Dockerfile.remitos
+    image: bca/remitos:latest
+    container_name: bca_remitos
+    restart: unless-stopped
+    expose:
+      - "4803"
+    environment:
+      NODE_ENV: production
+      REMITOS_PORT: 4803
+      NODE_OPTIONS: "--max-old-space-size=2048"
+      UV_THREADPOOL_SIZE: 8
+      REMITOS_DATABASE_URL: postgresql://bca_app:${DB_APP_PASSWORD}@${VM2_IP:-10.8.10.121}:5432/monorepo-bca?schema=remitos
+      REDIS_HOST: ${VM2_IP:-10.8.10.121}
+      REDIS_PORT: 6379
+      REDIS_PASSWORD: ${REDIS_PASSWORD}
+      MINIO_ENDPOINT: ${VM2_IP:-10.8.10.121}
+      MINIO_PORT: 9000
+      MINIO_ACCESS_KEY: ${MINIO_ACCESS_KEY}
+      MINIO_SECRET_KEY: ${MINIO_SECRET_KEY}
+      MINIO_USE_SSL: "false"
+      MINIO_BUCKET: remitos
+      JWT_PUBLIC_KEY_PATH: /keys/jwt_public.pem
+      FRONTEND_URLS: ${FRONTEND_URLS}
+      FLOWISE_ENABLED: "true"
+      FLOWISE_BASE_URL: http://flowise:3005
+      FLOWISE_FLOW_ID: ${FLOWISE_REMITOS_FLOW_ID}
+      FLOWISE_TIMEOUT: "60000"
+    volumes:
+      - ./keys:/keys:ro
+      - /tmp/remitos-processing:/tmp/processing
+    deploy:
+      resources:
+        limits:
+          memory: 2G
+          cpus: "1.0"
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:4803/health"]
+      interval: 30s
+      timeout: 10s
+      start_period: 20s
+      retries: 3
+
+  # =========================================================================
+  # Flowise - AI/Workflow engine
+  # =========================================================================
+  flowise:
+    image: flowiseai/flowise:latest
+    container_name: bca_flowise
+    restart: unless-stopped
+    expose:
+      - "3005"
+    environment:
+      PORT: 3005
+      FLOWISE_USERNAME: admin
+      FLOWISE_PASSWORD: ${FLOWISE_PASSWORD}
+      OVERRIDE_DATABASE: "true"
+      DATABASE_TYPE: postgres
+      DATABASE_HOST: ${VM2_IP:-10.8.10.121}
+      DATABASE_PORT: 5432
+      DATABASE_NAME: monorepo-bca
+      DATABASE_SCHEMA: flowise
+      DATABASE_USER: bca_flowise
+      DATABASE_PASSWORD: ${DB_FLOWISE_PASSWORD}
+      NODE_ENV: production
+      NODE_OPTIONS: "--max-old-space-size=4096"
+      LANGCHAIN_TRACING_V2: "false"
+      FLOWISE_MAX_REQUEST_SIZE: "50mb"
+      FLOWISE_MAX_UPLOAD_SIZE: "50mb"
+      FLOWISE_SECRETKEY_OVERWRITE: ${FLOWISE_SECRET_KEY}
+      CORS_ORIGINS: "*"
+    volumes:
+      - flowise_data:/root/.flowise
+    deploy:
+      resources:
+        limits:
+          memory: 6G
+          cpus: "1.5"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3005/api/v1/ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 3

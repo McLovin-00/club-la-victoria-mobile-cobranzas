@@ -20,6 +20,24 @@ interface FlowiseConfig {
 // HELPERS
 // ============================================================================
 
+function assertSafeUrl(raw: string): void {
+  let parsed: URL;
+  try {
+    parsed = new URL(raw);
+  } catch {
+    throw createError('URL inválida', 400, 'VALIDATION_ERROR');
+  }
+  if (!['http:', 'https:'].includes(parsed.protocol)) {
+    throw createError('Solo se permiten URLs HTTP/HTTPS', 400, 'VALIDATION_ERROR');
+  }
+  const hostname = parsed.hostname.toLowerCase();
+  const privatePatterns = ['localhost', '127.', '0.0.0.0', '::1', '169.254.', '10.', '192.168.', 'metadata.google', 'metadata.aws'];
+  const isPrivate = privatePatterns.some(p => hostname.startsWith(p)) || /^172\.(1[6-9]|2\d|3[01])\./.test(hostname);
+  if (isPrivate) {
+    throw createError('No se permiten URLs a redes privadas', 400, 'VALIDATION_ERROR');
+  }
+}
+
 /** Verifica que el usuario sea SUPERADMIN */
 function requireSuperadmin(req: AuthRequest): void {
   if (req.user?.role !== 'SUPERADMIN') {
@@ -154,6 +172,8 @@ export class FlowiseConfigController {
 
       const { baseUrl, apiKey, flowId, timeout = 30000 } = req.body;
 
+      assertSafeUrl(baseUrl);
+
       const headers: Record<string, string> = {
         'Content-Type': 'application/json',
         'User-Agent': 'MKT-DocumentService/1.0',
@@ -185,8 +205,8 @@ export class FlowiseConfigController {
       });
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Error desconocido';
-      AppLogger.error('💥 Error en test de conexión Flowise:', { error: errorMessage, baseUrl: req.body?.baseUrl, testedBy: req.user?.userId });
-      res.status(400).json({ success: false, error: errorMessage });
+      AppLogger.error('Error en test de conexión Flowise:', { error: errorMessage, baseUrl: req.body?.baseUrl, testedBy: req.user?.userId });
+      res.status(400).json({ success: false, error: 'Error al conectar con el servicio' });
     }
   }
 

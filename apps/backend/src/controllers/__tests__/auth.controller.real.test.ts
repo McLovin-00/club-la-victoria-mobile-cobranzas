@@ -81,27 +81,6 @@ describe('auth.controller (real)', () => {
     expect(res2.status).toHaveBeenCalledWith(400);
   });
 
-  it('checkEmail: 200 exists true/false, 400 on zod, 500 on error', async () => {
-    authService.findByEmail.mockResolvedValueOnce({ id: 1 });
-    const res1 = createMockRes();
-    await controller.checkEmail({ body: { email: 'a@b.com' } } as any, res1 as any);
-    expect(res1.status).toHaveBeenCalledWith(200);
-
-    authService.findByEmail.mockResolvedValueOnce(null);
-    const res2 = createMockRes();
-    await controller.checkEmail({ body: { email: 'a@b.com' } } as any, res2 as any);
-    expect(res2.status).toHaveBeenCalledWith(200);
-
-    const res0 = createMockRes();
-    await controller.checkEmail({ body: { email: 'bad' } } as any, res0 as any);
-    expect(res0.status).toHaveBeenCalledWith(400);
-
-    authService.findByEmail.mockRejectedValueOnce(new Error('x'));
-    const res3 = createMockRes();
-    await controller.checkEmail({ body: { email: 'a@b.com' } } as any, res3 as any);
-    expect(res3.status).toHaveBeenCalledWith(500);
-  });
-
   it('refreshToken: 401 on missing token, 200 on success, 401 on error', async () => {
     const res0 = createMockRes();
     await controller.refreshToken({ headers: {} } as any, res0 as any);

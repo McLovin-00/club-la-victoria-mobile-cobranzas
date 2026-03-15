@@ -155,12 +155,12 @@ function getChoferCargadorData(req: AuthRequest): ChoferCargadorData {
 function sendError(res: Response, error: any): void {
   AppLogger.error('Error en RemitosController:', error);
   const status = error.statusCode || 500;
-  // Workaround Express 5 charset bug
+  const isClientError = status >= 400 && status < 500;
   res.setHeader('Content-Type', 'application/json; charset=utf-8');
   res.status(status).send(JSON.stringify({
     success: false,
     error: error.code || 'ERROR',
-    message: error.message,
+    message: isClientError ? (error.message || 'Error en la solicitud') : 'Error interno del servidor',
   }));
 }
 

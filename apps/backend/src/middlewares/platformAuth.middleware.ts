@@ -93,13 +93,10 @@ export const authorizeRoles = (allowedRoles: (UserRole | string)[]) => {
         return;
       }
 
-      // Debug: loguear siempre para diagnosticar (usando warn para que aparezca)
-      AppLogger.warn('🔍 Verificando rol', {
+      AppLogger.debug('Verificando rol', {
         userId: user.userId,
         userRole: user.role,
-        roleType: typeof user.role,
         allowedRoles: allowedRoles,
-        isIncluded: allowedRoles.includes(user.role),
       });
       
       if (!allowedRoles.includes(user.role)) {

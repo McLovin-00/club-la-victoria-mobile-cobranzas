@@ -20,9 +20,12 @@ describe('PlatformAuthController (real)', () => {
       registerChoferWithTempPassword: jest.fn(),
       getUserProfile: jest.fn(),
       updatePassword: jest.fn(),
+      revokeToken: jest.fn(),
+      revokeAllUserTokens: jest.fn(),
+      refreshAccessToken: jest.fn(),
+      toggleUserActivo: jest.fn(),
     };
 
-    // express-validator chain mock: devuelve un objeto chainable para cualquier método usado en validadores
     const chain: any = new Proxy(
       {},
       {
@@ -50,23 +53,28 @@ describe('PlatformAuthController (real)', () => {
     return { controller: mod.PlatformAuthController, PlatformAuthService };
   }
 
-  it('login -> 400 when validation errors', async () => {
-    const { controller } = await loadWith([{ msg: 'bad' }]);
-    const req: any = { body: {}, ip: '1', get: () => 'ua' };
-    const res: any = { ...createMockRes(), cookie: jest.fn() };
-    await controller.login(req, res);
-    expect(res.status).toHaveBeenCalledWith(400);
-  });
+  const MOCK_PROFILE = {
+    id: 1, email: 'test@test.com', role: 'SUPERADMIN', empresaId: 1,
+    dadorCargaId: null, empresaTransportistaId: null, choferId: null, clienteId: null,
+    nombre: 'Test', apellido: 'User', activo: true, mustChangePassword: false,
+    creadoPorId: null, createdAt: new Date(), updatedAt: new Date(),
+  };
 
-  it('login -> 200 sets cookie on success, 401 on failure', async () => {
+  it('login -> 500 on exception, 200 sets cookie on success, 401 on failure', async () => {
     const { controller, PlatformAuthService } = await loadWith([]);
-    PlatformAuthService.login.mockResolvedValueOnce({ success: true, token: 't', platformUser: { id: 1 } });
 
+    PlatformAuthService.login.mockRejectedValueOnce(new Error('fail'));
+    const req0: any = { body: {}, ip: '1', get: () => 'ua' };
+    const res0: any = { ...createMockRes(), cookie: jest.fn() };
+    await controller.login(req0, res0);
+    expect(res0.status).toHaveBeenCalledWith(500);
+
+    PlatformAuthService.login.mockResolvedValueOnce({ success: true, token: 't', platformUser: { id: 1 } });
     const req: any = { body: { email: 'a', password: 'b' }, ip: '1', get: () => 'ua' };
-    const res: any = { ...createMockRes(), cookie: jest.fn() };
-    await controller.login(req, res);
-    expect(res.cookie).toHaveBeenCalled();
-    expect(res.status).toHaveBeenCalledWith(200);
+    const res1: any = { ...createMockRes(), cookie: jest.fn() };
+    await controller.login(req, res1);
+    expect(res1.cookie).toHaveBeenCalled();
+    expect(res1.status).toHaveBeenCalledWith(200);
 
     PlatformAuthService.login.mockResolvedValueOnce({ success: false, message: 'nope' });
     const res2: any = { ...createMockRes(), cookie: jest.fn() };
@@ -81,12 +89,14 @@ describe('PlatformAuthController (real)', () => {
     await controller.register(reqNoUser, res0 as any);
     expect(res0.status).toHaveBeenCalledWith(401);
 
+    PlatformAuthService.getUserProfile.mockResolvedValueOnce(MOCK_PROFILE);
     PlatformAuthService.register.mockResolvedValueOnce({ success: true, message: 'ok', platformUser: { id: 1 } });
     const req: any = { body: { email: 'a' }, user: { userId: 9 }, ip: '1' };
     const res1 = createMockRes();
     await controller.register(req, res1 as any);
     expect(res1.status).toHaveBeenCalledWith(201);
 
+    PlatformAuthService.getUserProfile.mockResolvedValueOnce(MOCK_PROFILE);
     PlatformAuthService.register.mockResolvedValueOnce({ success: false, message: 'bad' });
     const res2 = createMockRes();
     await controller.register(req, res2 as any);
@@ -99,6 +109,7 @@ describe('PlatformAuthController (real)', () => {
     await controller.updateUser({ user: undefined, params: { id: '1' }, body: {} } as any, res0 as any);
     expect(res0.status).toHaveBeenCalledWith(401);
 
+    PlatformAuthService.getUserProfile.mockResolvedValueOnce(MOCK_PROFILE);
     PlatformAuthService.updatePlatformUser.mockResolvedValue({ id: 1 });
     const res1 = createMockRes();
     await controller.updateUser({ user: { userId: 1 }, params: { id: '1' }, body: {} } as any, res1 as any);
@@ -108,6 +119,7 @@ describe('PlatformAuthController (real)', () => {
     await controller.deleteUser({ user: undefined, params: { id: '1' } } as any, res2 as any);
     expect(res2.status).toHaveBeenCalledWith(401);
 
+    PlatformAuthService.getUserProfile.mockResolvedValueOnce(MOCK_PROFILE);
     PlatformAuthService.deletePlatformUser.mockResolvedValue(undefined);
     const res3 = createMockRes();
     await controller.deleteUser({ user: { userId: 1 }, params: { id: '1' } } as any, res3 as any);
@@ -120,37 +132,42 @@ describe('PlatformAuthController (real)', () => {
     await controller.registerClientWizard({ user: undefined, body: {}, params: {} } as any, res0 as any);
     expect(res0.status).toHaveBeenCalledWith(401);
 
+    PlatformAuthService.getUserProfile.mockResolvedValueOnce(MOCK_PROFILE);
     PlatformAuthService.registerClientWithTempPassword.mockResolvedValueOnce({ success: false, message: 'bad' });
     const res1 = createMockRes();
     await controller.registerClientWizard({ user: { userId: 1 }, body: { email: 'a', clienteId: 1 } } as any, res1 as any);
     expect(res1.status).toHaveBeenCalledWith(400);
 
+    PlatformAuthService.getUserProfile.mockResolvedValueOnce(MOCK_PROFILE);
     PlatformAuthService.registerClientWithTempPassword.mockResolvedValueOnce({ success: true, message: 'ok', platformUser: { id: 1 }, tempPassword: 'tmp' });
     const res2 = createMockRes();
     await controller.registerClientWizard({ user: { userId: 1 }, body: { email: 'a', clienteId: 1 } } as any, res2 as any);
     expect(res2.status).toHaveBeenCalledWith(201);
 
+    PlatformAuthService.getUserProfile.mockResolvedValueOnce(MOCK_PROFILE);
     PlatformAuthService.registerDadorWithTempPassword.mockResolvedValueOnce({ success: true, message: 'ok', platformUser: { id: 2 }, tempPassword: 'tmp' });
     const res3 = createMockRes();
-    await controller.registerDadorWizard({ user: { userId: 1 }, body: { email: 'a', dadorId: 1 } } as any, res3 as any);
+    await controller.registerDadorWizard({ user: { userId: 1 }, body: { email: 'a', dadorCargaId: 1 } } as any, res3 as any);
     expect(res3.status).toHaveBeenCalledWith(201);
 
+    PlatformAuthService.getUserProfile.mockResolvedValueOnce(MOCK_PROFILE);
     PlatformAuthService.registerTransportistaWithTempPassword.mockResolvedValueOnce({ success: true, message: 'ok', platformUser: { id: 3 }, tempPassword: 'tmp' });
     const res4 = createMockRes();
-    await controller.registerTransportistaWizard({ user: { userId: 1 }, body: { email: 'a', transportistaId: 1 } } as any, res4 as any);
+    await controller.registerTransportistaWizard({ user: { userId: 1 }, body: { email: 'a', empresaTransportistaId: 1 } } as any, res4 as any);
     expect(res4.status).toHaveBeenCalledWith(201);
 
+    PlatformAuthService.getUserProfile.mockResolvedValueOnce(MOCK_PROFILE);
     PlatformAuthService.registerChoferWithTempPassword.mockResolvedValueOnce({ success: true, message: 'ok', platformUser: { id: 4 }, tempPassword: 'tmp' });
     const res5 = createMockRes();
     await controller.registerChoferWizard({ user: { userId: 1 }, body: { email: 'a', choferId: 1 } } as any, res5 as any);
     expect(res5.status).toHaveBeenCalledWith(201);
   });
 
-  it('logout clears cookie; getProfile 401/404/200; changePassword 400/401/200; verifyToken 401/200', async () => {
+  it('logout clears cookie; getProfile 401/404/200; changePassword 401/200; verifyToken 401/200', async () => {
     const { controller, PlatformAuthService } = await loadWith([]);
 
     const resLogout: any = { ...createMockRes(), clearCookie: jest.fn() };
-    await controller.logout({ ip: '1', get: () => 'ua' } as any, resLogout);
+    await controller.logout({ headers: {}, cookies: undefined, ip: '1', get: () => 'ua' } as any, resLogout);
     expect(resLogout.clearCookie).toHaveBeenCalledWith('platformToken');
 
     const resP0 = createMockRes();
@@ -167,13 +184,6 @@ describe('PlatformAuthController (real)', () => {
     await controller.getProfile({ user: { userId: 1 } } as any, resP2 as any);
     expect(resP2.status).toHaveBeenCalledWith(200);
 
-    // changePassword validation error
-    const { controller: c2 } = await loadWith([{ msg: 'bad' }]);
-    const resC0 = createMockRes();
-    await c2.changePassword({ body: {} } as any, resC0 as any);
-    expect(resC0.status).toHaveBeenCalledWith(400);
-
-    // changePassword no user
     const resC1 = createMockRes();
     await controller.changePassword({ user: undefined, body: {} } as any, resC1 as any);
     expect(resC1.status).toHaveBeenCalledWith(401);
@@ -192,5 +202,3 @@ describe('PlatformAuthController (real)', () => {
     expect(resV1.status).toHaveBeenCalledWith(200);
   });
 });
-
-

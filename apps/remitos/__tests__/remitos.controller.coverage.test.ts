@@ -422,12 +422,8 @@ describe('RemitosController.create', () => {
     expect(sent.error).toBe('ERROR');
   });
 
-  it('uses fallback tenantId when user.tenantId is falsy', async () => {
+  it('returns 403 when user.tenantId is falsy', async () => {
     setupMediaForImages();
-    remitoService.create.mockResolvedValue({
-      remito: { id: 40, estado: 'PENDIENTE' },
-      imagenes: [],
-    } as any);
 
     const req = mockReq({
       user: { userId: 1, role: 'ADMIN_INTERNO', tenantId: undefined, dadorId: undefined },
@@ -437,9 +433,8 @@ describe('RemitosController.create', () => {
 
     await RemitosController.create(req, res);
 
-    const serviceInput = remitoService.create.mock.calls[0][0];
-    expect(serviceInput.tenantEmpresaId).toBe(1);
-    expect(serviceInput.dadorCargaId).toBe(1);
+    expect(mockCreateError).toHaveBeenCalledWith('Tenant no identificado', 403, 'TENANT_REQUIRED');
+    expect(res.status).toHaveBeenCalledWith(403);
   });
 
   it('getChoferCargadorData returns undefined fields when CHOFER has no chofer data', async () => {
@@ -630,13 +625,15 @@ describe('RemitosController.update', () => {
 
     await RemitosController.update(req, res);
 
-    const updateData = remitoService.updateManual.mock.calls[0][2];
+    const callArgs = remitoService.updateManual.mock.calls[0];
+    const updateData = callArgs[2];
     expect(updateData.pesoOrigenBruto).toBe(1000);
     expect(updateData.pesoOrigenTara).toBeNull();
     expect(updateData.pesoOrigenNeto).toBeNull();
     expect(updateData.pesoDestinoBruto).toBe(2000);
     expect(updateData.pesoDestinoTara).toBeUndefined();
     expect(updateData.pesoDestinoNeto).toBe(500);
+    expect(callArgs[3]).toBe(1);
 
     expect(res.status).toHaveBeenCalledWith(200);
     const sent = JSON.parse(res.send.mock.calls[0][0]);
@@ -671,7 +668,7 @@ describe('RemitosController.approve', () => {
 
     await RemitosController.approve(req, res);
 
-    expect(remitoService.approve).toHaveBeenCalledWith(1, 1);
+    expect(remitoService.approve).toHaveBeenCalledWith(1, 1, 1);
     expect(res.status).toHaveBeenCalledWith(200);
     const sent = JSON.parse(res.send.mock.calls[0][0]);
     expect(sent.message).toBe('Remito aprobado');
@@ -705,7 +702,7 @@ describe('RemitosController.reject', () => {
 
     await RemitosController.reject(req, res);
 
-    expect(remitoService.reject).toHaveBeenCalledWith(1, 1, 'Datos incorrectos en remito');
+    expect(remitoService.reject).toHaveBeenCalledWith(1, 1, 'Datos incorrectos en remito', 1);
     expect(res.status).toHaveBeenCalledWith(200);
   });
 
@@ -768,15 +765,14 @@ describe('RemitosController.stats', () => {
     expect(res.status).toHaveBeenCalledWith(200);
   });
 
-  it('uses fallback tenantId 1 when user.tenantId is falsy', async () => {
-    remitoService.getStats.mockResolvedValue({} as any);
-
+  it('returns 403 when user.tenantId is falsy', async () => {
     const req = mockReq({ user: { userId: 1, role: 'ADMIN_INTERNO', tenantId: undefined, dadorId: undefined } });
     const res = mockRes();
 
     await RemitosController.stats(req, res);
 
-    expect(remitoService.getStats).toHaveBeenCalledWith(1, undefined);
+    expect(mockCreateError).toHaveBeenCalledWith('Tenant no identificado', 403, 'TENANT_REQUIRED');
+    expect(res.status).toHaveBeenCalledWith(403);
   });
 
   it('handles error', async () => {
@@ -852,7 +848,7 @@ describe('RemitosController.reprocess', () => {
 
     await RemitosController.reprocess(req, res);
 
-    expect(remitoService.reprocess).toHaveBeenCalledWith(1, 1);
+    expect(remitoService.reprocess).toHaveBeenCalledWith(1, 1, 1);
     expect(res.status).toHaveBeenCalledWith(200);
     const sent = JSON.parse(res.send.mock.calls[0][0]);
     expect(sent.message).toBe('Remito encolado para reprocesamiento');

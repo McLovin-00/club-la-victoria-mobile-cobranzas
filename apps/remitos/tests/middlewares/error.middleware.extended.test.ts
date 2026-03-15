@@ -31,9 +31,13 @@ describe('error.middleware extended', () => {
 
     jsonMock = jest.fn();
     statusMock = jest.fn().mockReturnThis();
+    const sendMock = jest.fn().mockReturnThis();
+    const setHeaderMock = jest.fn().mockReturnThis();
     mockRes = {
       json: jsonMock,
       status: statusMock,
+      send: sendMock,
+      setHeader: setHeaderMock,
     };
   });
 
@@ -77,13 +81,10 @@ describe('error.middleware extended', () => {
       errorHandler(err, mockReq, mockRes, mockNext);
 
       expect(statusMock).toHaveBeenCalledWith(500);
-      expect(jsonMock).toHaveBeenCalledWith(
-        expect.objectContaining({
-          success: false,
-          error: 'INTERNAL_ERROR',
-          message: 'Server error',
-        })
-      );
+      const sent = JSON.parse(mockRes.send.mock.calls[0][0]);
+      expect(sent.success).toBe(false);
+      expect(sent.error).toBe('INTERNAL_ERROR');
+      expect(sent.message).toBe('Error interno del servidor');
       expect(AppLogger.error).toHaveBeenCalled();
     });
 
@@ -96,6 +97,8 @@ describe('error.middleware extended', () => {
       errorHandler(err, mockReq, mockRes, mockNext);
 
       expect(statusMock).toHaveBeenCalledWith(400);
+      const sent = JSON.parse(mockRes.send.mock.calls[0][0]);
+      expect(sent.message).toBe('Bad request');
       expect(AppLogger.error).not.toHaveBeenCalled();
     });
 
@@ -107,11 +110,8 @@ describe('error.middleware extended', () => {
       errorHandler(err, mockReq, mockRes, mockNext);
 
       expect(statusMock).toHaveBeenCalledWith(500);
-      expect(jsonMock).toHaveBeenCalledWith(
-        expect.objectContaining({
-          error: 'INTERNAL_ERROR',
-        })
-      );
+      const sent = JSON.parse(mockRes.send.mock.calls[0][0]);
+      expect(sent.error).toBe('INTERNAL_ERROR');
     });
 
     it('incluye timestamp en la respuesta', () => {
@@ -121,11 +121,9 @@ describe('error.middleware extended', () => {
 
       errorHandler(err, mockReq, mockRes, mockNext);
 
-      expect(jsonMock).toHaveBeenCalledWith(
-        expect.objectContaining({
-          timestamp: expect.any(String),
-        })
-      );
+      const sent = JSON.parse(mockRes.send.mock.calls[0][0]);
+      expect(sent.timestamp).toBeDefined();
+      expect(typeof sent.timestamp).toBe('string');
     });
   });
 
@@ -139,16 +137,13 @@ describe('error.middleware extended', () => {
       notFoundHandler(mockReq, mockRes);
 
       expect(statusMock).toHaveBeenCalledWith(404);
-      expect(jsonMock).toHaveBeenCalledWith(
-        expect.objectContaining({
-          success: false,
-          error: 'NOT_FOUND',
-          message: 'Ruta no encontrada: GET /api/unknown',
-        })
-      );
+      const sent = JSON.parse(mockRes.send.mock.calls[0][0]);
+      expect(sent.success).toBe(false);
+      expect(sent.error).toBe('NOT_FOUND');
+      expect(sent.message).toBe('Ruta no encontrada');
     });
 
-    it('maneja diferentes métodos HTTP', () => {
+    it('retorna mensaje estático sin importar el método HTTP', () => {
       const mockReq = {
         method: 'POST',
         path: '/api/test',
@@ -156,11 +151,8 @@ describe('error.middleware extended', () => {
 
       notFoundHandler(mockReq, mockRes);
 
-      expect(jsonMock).toHaveBeenCalledWith(
-        expect.objectContaining({
-          message: 'Ruta no encontrada: POST /api/test',
-        })
-      );
+      const sent = JSON.parse(mockRes.send.mock.calls[0][0]);
+      expect(sent.message).toBe('Ruta no encontrada');
     });
 
     it('incluye timestamp', () => {
@@ -168,11 +160,9 @@ describe('error.middleware extended', () => {
 
       notFoundHandler(mockReq, mockRes);
 
-      expect(jsonMock).toHaveBeenCalledWith(
-        expect.objectContaining({
-          timestamp: expect.any(String),
-        })
-      );
+      const sent = JSON.parse(mockRes.send.mock.calls[0][0]);
+      expect(sent.timestamp).toBeDefined();
+      expect(typeof sent.timestamp).toBe('string');
     });
   });
 });

@@ -105,14 +105,15 @@ const setupMiddlewares = (): void => {
   // Ensure preflight requests are handled explicitly
   app.options('*all', cors(corsOptions));
 
-  // Middlewares
-  app.use(express.json({ limit: '50mb' }));
-  app.use(express.urlencoded({ extended: true, limit: '50mb' }));
-  // Seguridad y performance
+  app.use(express.json({ limit: '5mb' }));
+  app.use(express.urlencoded({ extended: true, limit: '5mb' }));
+
   try {
     const helmet = require('helmet');
     app.use(helmet());
-  } catch { }
+  } catch {
+    AppLogger.error('helmet no disponible — la aplicación corre sin headers de seguridad');
+  }
   try {
     const compression = require('compression');
     app.use(compression());
@@ -122,7 +123,9 @@ const setupMiddlewares = (): void => {
     const windowMs = env.RATE_LIMIT_WINDOW_MS ?? 60_000;
     const max = env.RATE_LIMIT_MAX ?? 300;
     app.use(rateLimit({ windowMs, max, standardHeaders: true, legacyHeaders: false }));
-  } catch { }
+  } catch {
+    AppLogger.error('express-rate-limit no disponible — la aplicación corre sin rate limiting');
+  }
 
   // Middleware de logging para todas las peticiones
   app.use(httpLogger);

@@ -26,6 +26,9 @@ jest.mock('../../src/routes/audit.routes', () => ({ __esModule: true, default: r
 jest.mock('../../src/routes/portal-cliente.routes', () => ({ __esModule: true, default: require('express').Router() }));
 jest.mock('../../src/routes/portal-transportista.routes', () => ({ __esModule: true, default: require('express').Router() }));
 jest.mock('../../src/routes/entity-data.routes', () => ({ __esModule: true, default: require('express').Router() }));
+jest.mock('../../src/routes/transferencias.routes', () => ({ __esModule: true, default: require('express').Router() }));
+jest.mock('../../src/routes/plantillas.routes', () => ({ __esModule: true, default: require('express').Router(), clientPlantillasRoutes: require('express').Router(), equipoPlantillasRoutes: require('express').Router() }));
+jest.mock('../../src/routes/equipos-download.routes', () => ({ __esModule: true, default: require('express').Router() }));
 
 // Mock middleware functions (pass-through)
 jest.mock('../../src/middlewares/rateLimiter.middleware', () => ({
@@ -41,6 +44,8 @@ jest.mock('../../src/middlewares/audit.middleware', () => ({
 jest.mock('../../src/middlewares/auth.middleware', () => ({
   authenticate: (_req: any, _res: any, next: any) => next(),
   tenantResolver: (_req: any, _res: any, next: any) => next(),
+  authorize: () => (_req: any, _res: any, next: any) => next(),
+  validate: () => (_req: any, _res: any, next: any) => next(),
 }));
 jest.mock('../../src/middlewares/autoFilterByDador.middleware', () => ({
   autoFilterByDador: (_req: any, _res: any, next: any) => next(),

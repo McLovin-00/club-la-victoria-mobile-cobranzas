@@ -1,55 +1,40 @@
-import { describe, it, expect, jest, beforeEach } from '@jest/globals';
+import { describe, it, expect, jest } from '@jest/globals';
 
-let mockInjectEndpoints: jest.Mock;
+let capturedEndpoints: Record<string, any> = {};
 
-const loadEndpoints = async () => {
-  let captured: Record<string, any> = {};
-
-  mockInjectEndpoints = jest.fn();
-  mockInjectEndpoints.mockImplementation(({ endpoints }) => {
-    const builder = {
-      mutation: (config: unknown) => ({ type: 'mutation', config }),
-    };
-    captured = endpoints(builder);
-    return {
-      endpoints: captured,
-      useLoginMutation: jest.fn(),
-      useRegisterMutation: jest.fn(),
-      useLogoutMutation: jest.fn(),
-      useRefreshTokenMutation: jest.fn(),
-      useUpdateUserEmpresaMutation: jest.fn(),
-    };
-  });
-
-  await jest.unstable_mockModule('../../../../store/apiSlice', () => ({
-    apiSlice: {
-      injectEndpoints: mockInjectEndpoints,
-    },
-  }));
-
-  await import('../authApiSlice');
-  return captured;
+const builder = {
+  mutation: (config: unknown) => ({ type: 'mutation', config }),
 };
 
+jest.mock('../../../../store/apiSlice', () => ({
+  apiSlice: {
+    injectEndpoints: ({ endpoints }: { endpoints: (b: any) => any }) => {
+      capturedEndpoints = endpoints(builder);
+      return {
+        endpoints: capturedEndpoints,
+        useLoginMutation: () => [],
+        useRegisterMutation: () => [],
+        useLogoutMutation: () => [],
+        useRefreshTokenMutation: () => [],
+        useUpdateUserEmpresaMutation: () => [],
+      };
+    },
+  },
+}));
+
 describe('authApiSlice endpoints', () => {
-  beforeEach(() => {
-    jest.clearAllMocks();
-    jest.resetModules();
-  });
-
   it('defines core auth endpoints', async () => {
-    const endpoints = await loadEndpoints();
+    await import('../authApiSlice');
 
-    expect(endpoints).toHaveProperty('login');
-    expect(endpoints).toHaveProperty('register');
-    expect(endpoints).toHaveProperty('logout');
-    expect(endpoints).toHaveProperty('refreshToken');
-    expect(endpoints).toHaveProperty('updateUserEmpresa');
+    expect(capturedEndpoints).toHaveProperty('login');
+    expect(capturedEndpoints).toHaveProperty('register');
+    expect(capturedEndpoints).toHaveProperty('logout');
+    expect(capturedEndpoints).toHaveProperty('refreshToken');
+    expect(capturedEndpoints).toHaveProperty('updateUserEmpresa');
   });
 
-  it('builds login query and handles transformErrorResponse', async () => {
-    const endpoints = await loadEndpoints();
-    const loginConfig = endpoints.login.config;
+  it('builds login query and handles transformErrorResponse', () => {
+    const loginConfig = capturedEndpoints.login.config;
 
     const queryResult = loginConfig.query({
       email: 'test@test.com',
@@ -72,28 +57,27 @@ describe('authApiSlice endpoints', () => {
     consoleSpy.mockRestore();
   });
 
-  it('builds register, logout, refreshToken, and updateUserEmpresa queries', async () => {
-    const endpoints = await loadEndpoints();
-
+  it('builds register, logout, refreshToken, and updateUserEmpresa queries', () => {
     expect(
-      endpoints.register.config.query({ email: 'new@test.com', password: 'pass' })
+      capturedEndpoints.register.config.query({ email: 'new@test.com', password: 'pass' })
     ).toEqual({
       url: '/platform/auth/register',
       method: 'POST',
       body: { email: 'new@test.com', password: 'pass' },
     });
 
-    expect(endpoints.logout.config.query()).toEqual({
+    expect(capturedEndpoints.logout.config.query()).toEqual({
       url: '/platform/auth/logout',
       method: 'POST',
     });
 
-    expect(endpoints.refreshToken.config.query()).toEqual({
-      url: '/platform/auth/refresh-token',
+    expect(capturedEndpoints.refreshToken.config.query({ refreshToken: 'abc' })).toEqual({
+      url: '/platform/auth/refresh',
       method: 'POST',
+      body: { refreshToken: 'abc' },
     });
 
-    expect(endpoints.updateUserEmpresa.config.query({ empresaId: 12 })).toEqual({
+    expect(capturedEndpoints.updateUserEmpresa.config.query({ empresaId: 12 })).toEqual({
       url: '/usuarios/update-empresa',
       method: 'POST',
       body: { empresaId: 12 },

@@ -1,0 +1,36 @@
+# =============================================================================
+# Dockerfile.documentos - IPLAN Production (VM1 - 10.8.10.120)
+# =============================================================================
+# Basado en staging 10.3.0.243.
+# Multi-stage: builder compila con monorepo, runner tiene solo produccion.
+# =============================================================================
+# syntax=docker/dockerfile:1.7
+
+FROM node:20-alpine AS builder
+WORKDIR /app
+
+COPY . .
+RUN npm install && \
+    npx prisma generate --schema=apps/documentos/src/prisma/schema.prisma && \
+    npx tsc -p apps/documentos/tsconfig.standalone.json
+
+FROM node:20-alpine AS runner
+WORKDIR /app
+ENV NODE_ENV=production
+
+COPY apps/documentos/package.json ./
+RUN npm install --omit=dev --ignore-scripts && npm cache clean --force
+
+COPY --from=builder /app/apps/documentos/dist ./dist
+COPY --from=builder /app/apps/documentos/src/prisma ./src/prisma
+COPY --from=builder /app/apps/documentos/node_modules/.prisma ./node_modules/.prisma
+COPY apps/documentos/scripts/entrypoint.sh ./
+
+RUN chmod +x ./entrypoint.sh && rm -rf /tmp/* /root/.npm
+
+EXPOSE 4802
+
+HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \
+    CMD wget -qO- http://localhost:${DOCUMENTOS_PORT:-4802}/health/ready || exit 1
+
+ENTRYPOINT ["./entrypoint.sh"]

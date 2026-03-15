@@ -91,7 +91,7 @@ describe('DocumentsController uploadDocument (error/branch paths)', () => {
 
     const req: any = {
       tenantId: 1,
-      user: { role: 'DADOR_DE_CARGA', userId: 1, empresaId: 1 },
+      user: { role: 'CLIENTE', userId: 1, empresaId: 1, dadorCargaId: 1 },
       body: { templateId: '1', entityType: 'CHOFER', entityId: '1', dadorCargaId: '1' },
       files: { documents: [{ mimetype: 'application/pdf', buffer: Buffer.from('%PDF'), originalname: 'doc.pdf' }] },
     };

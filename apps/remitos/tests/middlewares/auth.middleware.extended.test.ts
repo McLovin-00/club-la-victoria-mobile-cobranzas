@@ -47,9 +47,13 @@ MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA2Z3qX2BTLE0FnmHy4bSi
 
     jsonMock = jest.fn();
     statusMock = jest.fn().mockReturnThis();
+    const sendMock = jest.fn().mockReturnThis();
+    const setHeaderMock = jest.fn().mockReturnThis();
     mockRes = {
       json: jsonMock,
       status: statusMock,
+      send: sendMock,
+      setHeader: setHeaderMock,
     };
     nextMock = jest.fn();
 
@@ -97,9 +101,8 @@ MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA2Z3qX2BTLE0FnmHy4bSi
       authenticate(req, mockRes as Response, nextMock);
       
       expect(statusMock).toHaveBeenCalledWith(401);
-      expect(jsonMock).toHaveBeenCalledWith(
-        expect.objectContaining({ error: 'INVALID_TOKEN' })
-      );
+      const sent = JSON.parse(mockRes.send.mock.calls[0][0]);
+      expect(sent.error).toBe('INVALID_TOKEN');
     });
   });
 
@@ -111,9 +114,8 @@ MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA2Z3qX2BTLE0FnmHy4bSi
       middleware(req, mockRes as Response, nextMock);
       
       expect(statusMock).toHaveBeenCalledWith(401);
-      expect(jsonMock).toHaveBeenCalledWith(
-        expect.objectContaining({ error: 'UNAUTHORIZED' })
-      );
+      const sent = JSON.parse(mockRes.send.mock.calls[0][0]);
+      expect(sent.error).toBe('UNAUTHORIZED');
     });
 
     it('rechaza si rol no está permitido', () => {
@@ -123,9 +125,8 @@ MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA2Z3qX2BTLE0FnmHy4bSi
       middleware(req, mockRes as Response, nextMock);
       
       expect(statusMock).toHaveBeenCalledWith(403);
-      expect(jsonMock).toHaveBeenCalledWith(
-        expect.objectContaining({ error: 'FORBIDDEN' })
-      );
+      const sent = JSON.parse(mockRes.send.mock.calls[0][0]);
+      expect(sent.error).toBe('FORBIDDEN');
     });
 
     it('permite si rol está en la lista', () => {

@@ -27,22 +27,22 @@ export function errorHandler(
   }
   
   // Set Content-Type explicitly to avoid Express 5 charset bug
+  const isClientError = statusCode >= 400 && statusCode < 500;
   res.setHeader('Content-Type', 'application/json; charset=utf-8');
   res.status(statusCode).send(JSON.stringify({
     success: false,
     error: code,
-    message: err.message,
+    message: isClientError ? err.message : 'Error interno del servidor',
     timestamp: new Date().toISOString(),
   }));
 }
 
-export function notFoundHandler(req: Request, res: Response): void {
-  // Set Content-Type explicitly to avoid Express 5 charset bug
+export function notFoundHandler(_req: Request, res: Response): void {
   res.setHeader('Content-Type', 'application/json; charset=utf-8');
   res.status(404).send(JSON.stringify({
     success: false,
     error: 'NOT_FOUND',
-    message: `Ruta no encontrada: ${req.method} ${req.path}`,
+    message: 'Ruta no encontrada',
     timestamp: new Date().toISOString(),
   }));
 }

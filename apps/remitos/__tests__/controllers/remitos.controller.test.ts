@@ -60,7 +60,9 @@ describe('RemitosController', () => {
     await RemitosController.create(req, res);
 
     expect(res.status).toHaveBeenCalledWith(400);
-    expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ success: false, error: 'FILE_REQUIRED' }));
+    const sent = JSON.parse(res.send.mock.calls[0][0]);
+    expect(sent.success).toBe(false);
+    expect(sent.error).toBe('FILE_REQUIRED');
   });
 
   it('create: rejects mixed pdf + images', async () => {
@@ -74,7 +76,8 @@ describe('RemitosController', () => {
     await RemitosController.create(req, res);
 
     expect(res.status).toHaveBeenCalledWith(400);
-    expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ error: 'MIXED_INPUT_ERROR' }));
+    const sent = JSON.parse(res.send.mock.calls[0][0]);
+    expect(sent.error).toBe('MIXED_INPUT_ERROR');
   });
 
   it('create: rejects invalid base64', async () => {
@@ -91,7 +94,8 @@ describe('RemitosController', () => {
     await RemitosController.create(req, res);
 
     expect(res.status).toHaveBeenCalledWith(400);
-    expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ error: 'INVALID_BASE64' }));
+    const sent = JSON.parse(res.send.mock.calls[0][0]);
+    expect(sent.error).toBe('INVALID_BASE64');
   });
 
   it('create: success with images -> composePdfFromImages', async () => {
@@ -117,7 +121,8 @@ describe('RemitosController', () => {
     const res = createMockRes();
     await RemitosController.reject(req, res);
     expect(res.status).toHaveBeenCalledWith(400);
-    expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ error: 'VALIDATION_ERROR' }));
+    const sent = JSON.parse(res.send.mock.calls[0][0]);
+    expect(sent.error).toBe('VALIDATION_ERROR');
   });
 
   it('getById: 404 when not found', async () => {
@@ -134,7 +139,8 @@ describe('RemitosController', () => {
     const req: any = { params: { id: '1' }, user: { userId: 1, role: 'ADMIN_INTERNO' } };
     const res = createMockRes();
     await RemitosController.getById(req, res);
-    expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ success: true }));
+    const sent = JSON.parse(res.send.mock.calls[0][0]);
+    expect(sent.success).toBe(true);
   });
 
   it('list: success', async () => {
@@ -147,7 +153,8 @@ describe('RemitosController', () => {
     const res = createMockRes();
     await RemitosController.list(req, res);
     expect(RemitoServiceMock.list).toHaveBeenCalled();
-    expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ success: true }));
+    const sent = JSON.parse(res.send.mock.calls[0][0]);
+    expect(sent.success).toBe(true);
   });
 
   it('update: parses weights and calls service', async () => {
@@ -167,9 +174,11 @@ describe('RemitosController', () => {
         pesoOrigenBruto: 100,
         pesoOrigenTara: null,
         pesoDestinoBruto: null,
-      })
+      }),
+      undefined
     );
-    expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ success: true }));
+    const sent = JSON.parse(res.send.mock.calls[0][0]);
+    expect(sent.success).toBe(true);
   });
 
   it('approve: calls service', async () => {
@@ -177,8 +186,9 @@ describe('RemitosController', () => {
     const req: any = { params: { id: '1' }, user: { userId: 10, role: 'ADMIN_INTERNO' } };
     const res = createMockRes();
     await RemitosController.approve(req, res);
-    expect(RemitoServiceMock.approve).toHaveBeenCalledWith(1, 10);
-    expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ success: true }));
+    expect(RemitoServiceMock.approve).toHaveBeenCalledWith(1, 10, undefined);
+    const sent = JSON.parse(res.send.mock.calls[0][0]);
+    expect(sent.success).toBe(true);
   });
 
   it('stats: calls service', async () => {
@@ -187,7 +197,8 @@ describe('RemitosController', () => {
     const res = createMockRes();
     await RemitosController.stats(req, res);
     expect(RemitoServiceMock.getStats).toHaveBeenCalledWith(1, 2);
-    expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ success: true }));
+    const sent = JSON.parse(res.send.mock.calls[0][0]);
+    expect(sent.success).toBe(true);
   });
 
   it('getImage: 404 when image not found', async () => {
@@ -196,6 +207,8 @@ describe('RemitosController', () => {
     const res = createMockRes();
     await RemitosController.getImage(req, res);
     expect(res.status).toHaveBeenCalledWith(404);
+    const sent = JSON.parse(res.send.mock.calls[0][0]);
+    expect(sent.error).toBe('IMAGE_NOT_FOUND');
   });
 
   it('getImage: returns signed url', async () => {
@@ -204,7 +217,8 @@ describe('RemitosController', () => {
     const req: any = { params: { id: '1', imagenId: '2' }, user: { userId: 1, role: 'ADMIN_INTERNO' } };
     const res = createMockRes();
     await RemitosController.getImage(req, res);
-    expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ success: true }));
+    const sent = JSON.parse(res.send.mock.calls[0][0]);
+    expect(sent.success).toBe(true);
   });
 
   it('reprocess: calls service', async () => {
@@ -212,8 +226,9 @@ describe('RemitosController', () => {
     const req: any = { params: { id: '1' }, user: { userId: 10, role: 'ADMIN_INTERNO' } };
     const res = createMockRes();
     await RemitosController.reprocess(req, res);
-    expect(RemitoServiceMock.reprocess).toHaveBeenCalledWith(1, 10);
-    expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ success: true }));
+    expect(RemitoServiceMock.reprocess).toHaveBeenCalledWith(1, 10, undefined);
+    const sent = JSON.parse(res.send.mock.calls[0][0]);
+    expect(sent.success).toBe(true);
   });
 });
 

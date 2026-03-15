@@ -35,7 +35,7 @@ export class ConfigController {
       sendJson(res, 500, {
         success: false,
         error: 'CONFIG_ERROR',
-        message: error.message,
+        message: 'Error al obtener configuración',
       });
     }
   }
@@ -47,7 +47,6 @@ export class ConfigController {
     try {
       const { enabled, baseUrl, apiKey, flowId, timeout, systemPrompt } = req.body;
       
-      // Si el apiKey viene con máscara, mantener el anterior
       const finalApiKey = apiKey?.startsWith('***') ? undefined : apiKey;
       
       await ConfigService.updateFlowiseConfig({
@@ -69,7 +68,7 @@ export class ConfigController {
       sendJson(res, 500, {
         success: false,
         error: 'UPDATE_CONFIG_ERROR',
-        message: error.message,
+        message: 'Error al actualizar configuración',
       });
     }
   }
@@ -91,7 +90,7 @@ export class ConfigController {
       sendJson(res, 500, {
         success: false,
         error: 'TEST_ERROR',
-        message: error.message,
+        message: 'Error al probar conexión',
       });
     }
   }

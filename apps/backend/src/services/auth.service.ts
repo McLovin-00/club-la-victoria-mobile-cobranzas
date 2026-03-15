@@ -58,7 +58,7 @@ class AuthService extends BaseService<User, UserCreateInput, UserUpdateInput> {
   private JWT_PRIVATE_KEY: string;
   private JWT_PUBLIC_KEY: string;
   private JWT_LEGACY_SECRET?: string;
-  private readonly JWT_EXPIRES_IN = '24h';
+  private readonly JWT_EXPIRES_IN = '1h';
   private readonly SALT_ROUNDS = 12;
 
   constructor() {
@@ -113,15 +113,20 @@ class AuthService extends BaseService<User, UserCreateInput, UserUpdateInput> {
       });
 
       if (!user) {
+        await bcrypt.compare(password, '$2b$12$Olf0Njlx54W8pdbeiNwgHui0yCmOqIkDO5dU3.x3UsY3JU5vRzwOm');
         AppLogger.warn('❌ Intento de login fallido: usuario no encontrado', { email });
         throw new Error('Credenciales inválidas');
       }
 
-      // Verificar contraseña
+      if (user.activo === false) {
+        AppLogger.info('Intento de login a cuenta desactivada', { email: user.email });
+        throw new Error('Credenciales inválidas');
+      }
+
       const isValidPassword = await this.verifyPassword(password, user.password);
 
       if (!isValidPassword) {
-        AppLogger.warn('❌ Intento de login fallido: contraseña incorrea', {
+        AppLogger.warn('❌ Intento de login fallido: contraseña incorrecta', {
           email,
           userId: user.id,
         });
@@ -294,22 +299,24 @@ class AuthService extends BaseService<User, UserCreateInput, UserUpdateInput> {
         throw new Error('Usuario no encontrado');
       }
 
-      // Verificar contraseña actual
       const isValidPassword = await this.verifyPassword(currentPassword, user.password);
       if (!isValidPassword) {
         throw new Error('Contraseña actual incorrecta');
       }
 
-      // Hashear nueva contraseña
+      const strengthErrors = this.validatePasswordStrength(newPassword);
+      if (strengthErrors.length > 0) {
+        throw new Error(strengthErrors.join('. '));
+      }
+
       const hashedNewPassword = await this.hashPassword(newPassword);
 
-      // Actualizar contraseña
       await prismaService.getClient().user.update({
         where: { id: userId },
         data: { password: hashedNewPassword },
       });
 
-      AppLogger.info('✅ Contraseña actualizada exitosamente', { userId });
+      AppLogger.info('Contraseña actualizada exitosamente', { userId });
     } catch (error) {
       AppLogger.error('❌ Error al cambiar contraseña:', error);
       throw error;
@@ -361,13 +368,19 @@ class AuthService extends BaseService<User, UserCreateInput, UserUpdateInput> {
   /**
    * Hashea una contraseña
    */
+  private validatePasswordStrength(password: string): string[] {
+    const errors: string[] = [];
+    if (password.length < 8) errors.push('La contraseña debe tener al menos 8 caracteres');
+    if (!/[A-Z]/.test(password)) errors.push('Debe contener al menos una letra mayúscula');
+    if (!/[a-z]/.test(password)) errors.push('Debe contener al menos una letra minúscula');
+    if (!/\d/.test(password)) errors.push('Debe contener al menos un número');
+    return errors;
+  }
+
   private async hashPassword(password: string): Promise<string> {
     return bcrypt.hash(password, this.SALT_ROUNDS);
   }
 
-  /**
-   * Verifica una contraseña contra su hash
-   */
   private async verifyPassword(password: string, hash: string): Promise<boolean> {
     return bcrypt.compare(password, hash);
   }
@@ -379,12 +392,14 @@ class AuthService extends BaseService<User, UserCreateInput, UserUpdateInput> {
     try {
       return jwt.verify(token, this.JWT_PUBLIC_KEY, { algorithms: ['RS256'] }) as TokenPayload;
     } catch (_error) {
-      // Fallback temporal HS256
+      if (process.env.NODE_ENV === 'production') {
+        return null;
+      }
       if (this.JWT_LEGACY_SECRET) {
+        AppLogger.warn('Verificando token con HS256 fallback (solo desarrollo)');
         try {
           return jwt.verify(token, this.JWT_LEGACY_SECRET, { algorithms: ['HS256'] }) as TokenPayload;
         } catch {
-          /* Fallback HS256 también falló */
           return null;
         }
       }

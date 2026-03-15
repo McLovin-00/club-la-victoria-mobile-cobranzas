@@ -78,7 +78,7 @@ export class PlatformAuthController {
           httpOnly: true,
           secure: process.env.NODE_ENV === 'production',
           sameSite: 'strict',
-          maxAge: 7 * 24 * 60 * 60 * 1000, // 7 días
+          maxAge: 60 * 60 * 1000,
         });
 
         res.status(200).json({
@@ -217,17 +217,12 @@ export class PlatformAuthController {
     } catch (error) {
       AppLogger.error('💥 Error en registro de plataforma:', error);
       
-      if (error instanceof Error) {
-        res.status(400).json({
-          success: false,
-          message: error.message,
-        });
-      } else {
-        res.status(500).json({
-          success: false,
-          message: 'Error interno del servidor',
-        });
-      }
+      const msg = error instanceof Error ? error.message : '';
+      const isBusinessError = msg.includes('ya existe') || msg.includes('registrado') || msg.includes('permisos') || msg.includes('no existe');
+      res.status(isBusinessError ? 400 : 500).json({
+        success: false,
+        message: isBusinessError ? msg : 'Error interno del servidor',
+      });
     }
   }
 

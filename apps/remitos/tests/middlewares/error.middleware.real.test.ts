@@ -3,7 +3,7 @@
  * @jest-environment node
  */
 
-import { createMockRes } from '../__tests__/helpers/testUtils';
+import { createMockRes } from '../../__tests__/helpers/testUtils';
 
 jest.mock('../../src/config/logger', () => ({
   AppLogger: {
@@ -27,7 +27,12 @@ describe('error.middleware', () => {
     const res = createMockRes();
     errorHandler(createError('boom', 500, 'X'), {} as any, res as any, jest.fn());
     expect(res.status).toHaveBeenCalledWith(500);
-    expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ success: false, error: 'X' }));
+    expect(res.send).toHaveBeenCalled();
+    const payload = JSON.parse((res.send as any).mock.calls[0][0]);
+    expect(payload.success).toBe(false);
+    expect(payload.error).toBe('X');
+    expect(payload.message).toBe('Error interno del servidor');
+    expect(payload.timestamp).toBeDefined();
   });
 
   it('notFoundHandler returns 404', () => {

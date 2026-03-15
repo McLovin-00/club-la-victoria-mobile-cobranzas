@@ -158,7 +158,7 @@ describe('authApiSlice', () => {
         json: async () => ({ success: true, token: 'new-jwt-token' }),
       });
 
-      await store.dispatch(authApiSlice.endpoints.refreshToken.initiate());
+      await store.dispatch(authApiSlice.endpoints.refreshToken.initiate({ refreshToken: 'old-token' }));
 
       expect(mockFetch).toHaveBeenCalled();
     });
@@ -249,15 +249,17 @@ describe('authApiSlice', () => {
       expect(result.method).toBe('POST');
     });
 
-    it('refreshToken usa POST a /platform/auth/refresh-token', () => {
-      const query = () => ({
-        url: '/platform/auth/refresh-token',
+    it('refreshToken usa POST a /platform/auth/refresh', () => {
+      const query = ({ refreshToken }: { refreshToken: string }) => ({
+        url: '/platform/auth/refresh',
         method: 'POST',
+        body: { refreshToken },
       });
 
-      const result = query();
-      expect(result.url).toBe('/platform/auth/refresh-token');
+      const result = query({ refreshToken: 'test-token' });
+      expect(result.url).toBe('/platform/auth/refresh');
       expect(result.method).toBe('POST');
+      expect(result.body).toEqual({ refreshToken: 'test-token' });
     });
 
     it('updateUserEmpresa usa POST a /usuarios/update-empresa', () => {

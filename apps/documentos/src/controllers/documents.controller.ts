@@ -33,6 +33,10 @@ export const uploadMiddleware = multer({
   storage: multer.memoryStorage(),
   limits: { fileSize: 50 * 1024 * 1024 }, // NOSONAR: Intentional 50MB limit for large documents
   fileFilter: (_req, file, cb) => {
+    const original = file.originalname || '';
+    const safeName = original.replace(/[^a-zA-Z0-9._-]/g, '_').slice(0, 128);
+    (file as any).originalname = safeName || 'upload.bin';
+
     const allowed = ['application/pdf', 'image/jpeg', 'image/png', 'image/gif', 'image/webp'];
     if (allowed.includes(file.mimetype)) {
       cb(null, true);
@@ -744,14 +748,15 @@ export class DocumentsController {
       const isInline = req.query.inline === '1';
       res.setHeader('Content-Type', document.mimeType);
       
+      const safeFileName = (document.fileName || 'documento').replace(/["\r\n\\]/g, '_').slice(0, 200);
+      const encodedFileName = encodeURIComponent(safeFileName);
+
       if (isInline) {
-        // Para vista previa: inline con headers que permiten embedding
-        res.setHeader('Content-Disposition', `inline; filename="${document.fileName}"`);
+        res.setHeader('Content-Disposition', `inline; filename="${safeFileName}"; filename*=UTF-8''${encodedFileName}`);
         res.setHeader('X-Frame-Options', 'SAMEORIGIN');
         res.setHeader('Content-Security-Policy', 'frame-ancestors \'self\' https://bca.microsyst.com.ar https://doc.microsyst.com.ar');
       } else {
-        // Para descarga: attachment
-        res.setHeader('Content-Disposition', `attachment; filename="${document.fileName}"`);
+        res.setHeader('Content-Disposition', `attachment; filename="${safeFileName}"; filename*=UTF-8''${encodedFileName}`);
       }
       
       res.setHeader('Cache-Control', 'no-cache');

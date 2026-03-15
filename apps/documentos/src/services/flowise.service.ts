@@ -244,7 +244,7 @@ async function getInternalFileUrl(fileUrl: string): Promise<string> {
 function extractFileName(fileUrl: string): string {
   try {
     const u = new URL(fileUrl);
-    return u.pathname.split('/').pop() || 'document';
+    return path.basename(u.pathname) || 'document';
   } catch {
     return 'document';
   }

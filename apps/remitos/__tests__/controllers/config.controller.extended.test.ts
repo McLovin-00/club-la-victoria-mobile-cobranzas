@@ -44,9 +44,13 @@ describe('ConfigController extended', () => {
 
     jsonMock = jest.fn();
     statusMock = jest.fn().mockReturnThis();
+    const sendMock = jest.fn().mockReturnThis();
+    const setHeaderMock = jest.fn().mockReturnThis();
     mockRes = {
       json: jsonMock,
       status: statusMock,
+      send: sendMock,
+      setHeader: setHeaderMock,
     };
   });
 
@@ -61,12 +65,9 @@ describe('ConfigController extended', () => {
 
       await ConfigController.getFlowiseConfig({} as any, mockRes as Response);
 
-      expect(jsonMock).toHaveBeenCalledWith({
-        success: true,
-        data: expect.objectContaining({
-          apiKey: '***1234',
-        }),
-      });
+      const sent = JSON.parse(mockRes.send.mock.calls[0][0]);
+      expect(sent.success).toBe(true);
+      expect(sent.data.apiKey).toBe('***1234');
     });
 
     it('retorna apiKey vacío si no hay apiKey', async () => {
@@ -77,12 +78,9 @@ describe('ConfigController extended', () => {
 
       await ConfigController.getFlowiseConfig({} as any, mockRes as Response);
 
-      expect(jsonMock).toHaveBeenCalledWith({
-        success: true,
-        data: expect.objectContaining({
-          apiKey: '',
-        }),
-      });
+      const sent = JSON.parse(mockRes.send.mock.calls[0][0]);
+      expect(sent.success).toBe(true);
+      expect(sent.data.apiKey).toBe('');
     });
 
     it('maneja errores y retorna 500', async () => {
@@ -91,11 +89,10 @@ describe('ConfigController extended', () => {
       await ConfigController.getFlowiseConfig({} as any, mockRes as Response);
 
       expect(statusMock).toHaveBeenCalledWith(500);
-      expect(jsonMock).toHaveBeenCalledWith({
-        success: false,
-        error: 'CONFIG_ERROR',
-        message: 'DB error',
-      });
+      const sent = JSON.parse(mockRes.send.mock.calls[0][0]);
+      expect(sent.success).toBe(false);
+      expect(sent.error).toBe('CONFIG_ERROR');
+      expect(sent.message).toBe('Error al obtener configuración');
     });
   });
 
@@ -117,10 +114,9 @@ describe('ConfigController extended', () => {
       await ConfigController.updateFlowiseConfig(mockReq as any, mockRes as Response);
 
       expect(mockConfigService.updateFlowiseConfig).toHaveBeenCalled();
-      expect(jsonMock).toHaveBeenCalledWith({
-        success: true,
-        message: 'Configuración actualizada',
-      });
+      const sent = JSON.parse(mockRes.send.mock.calls[0][0]);
+      expect(sent.success).toBe(true);
+      expect(sent.message).toBe('Configuración actualizada');
     });
 
     it('mantiene apiKey anterior si viene con máscara', async () => {
@@ -140,16 +136,15 @@ describe('ConfigController extended', () => {
     });
 
     it('maneja errores y retorna 500', async () => {
-      mockConfigService.getFlowiseConfig.mockRejectedValue(new Error('Update failed') as never);
+      mockConfigService.updateFlowiseConfig.mockRejectedValue(new Error('Update failed') as never);
 
       await ConfigController.updateFlowiseConfig(mockReq as any, mockRes as Response);
 
       expect(statusMock).toHaveBeenCalledWith(500);
-      expect(jsonMock).toHaveBeenCalledWith({
-        success: false,
-        error: 'UPDATE_CONFIG_ERROR',
-        message: 'Update failed',
-      });
+      const sent = JSON.parse(mockRes.send.mock.calls[0][0]);
+      expect(sent.success).toBe(false);
+      expect(sent.error).toBe('UPDATE_CONFIG_ERROR');
+      expect(sent.message).toBe('Error al actualizar configuración');
     });
   });
 
@@ -162,10 +157,9 @@ describe('ConfigController extended', () => {
 
       await ConfigController.testFlowise({} as any, mockRes as Response);
 
-      expect(jsonMock).toHaveBeenCalledWith({
-        success: true,
-        message: 'Conexión OK',
-      });
+      const sent = JSON.parse(mockRes.send.mock.calls[0][0]);
+      expect(sent.success).toBe(true);
+      expect(sent.message).toBe('Conexión OK');
     });
 
     it('retorna resultado de test fallido', async () => {
@@ -176,10 +170,9 @@ describe('ConfigController extended', () => {
 
       await ConfigController.testFlowise({} as any, mockRes as Response);
 
-      expect(jsonMock).toHaveBeenCalledWith({
-        success: false,
-        message: 'No se pudo conectar',
-      });
+      const sent = JSON.parse(mockRes.send.mock.calls[0][0]);
+      expect(sent.success).toBe(false);
+      expect(sent.message).toBe('No se pudo conectar');
     });
 
     it('maneja errores y retorna 500', async () => {
@@ -188,11 +181,10 @@ describe('ConfigController extended', () => {
       await ConfigController.testFlowise({} as any, mockRes as Response);
 
       expect(statusMock).toHaveBeenCalledWith(500);
-      expect(jsonMock).toHaveBeenCalledWith({
-        success: false,
-        error: 'TEST_ERROR',
-        message: 'Test error',
-      });
+      const sent = JSON.parse(mockRes.send.mock.calls[0][0]);
+      expect(sent.success).toBe(false);
+      expect(sent.error).toBe('TEST_ERROR');
+      expect(sent.message).toBe('Error al probar conexión');
     });
   });
 });

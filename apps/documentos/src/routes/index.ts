@@ -158,7 +158,7 @@ router.get('/test-templates', authenticate, async (_req: any, res) => {
     res.status(500).json({
       success: false,
       message: 'Error al obtener templates',
-      error: error instanceof Error ? error.message : 'Unknown error',
+      error: 'Error interno del servidor',
     });
   }
 });

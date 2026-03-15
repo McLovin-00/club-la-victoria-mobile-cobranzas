@@ -33,7 +33,7 @@ describe('src/config/database.ts', () => {
       },
     };
 
-    jest.doMock('../../node_modules/.prisma/remitos', () => ({
+    jest.doMock('.prisma/remitos', () => ({
       PrismaClient: jest.fn().mockImplementation(() => mockPrismaClient),
     }));
   });
@@ -62,7 +62,7 @@ describe('src/config/database.ts', () => {
   });
 
   it('U27a: db_connect_success_logs', async () => {
-    const { db, mockPrisma } = await import('../src/config/database');
+    const { db } = await import('../src/config/database');
     await db.connect();
     expect(mockPrismaClient.$connect).toHaveBeenCalled();
   });

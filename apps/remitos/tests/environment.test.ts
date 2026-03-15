@@ -105,8 +105,8 @@ describe('src/config/environment.ts - getEnvironment()', () => {
   it('environment_usesMinioDefaults', async () => {
     const { getEnvironment } = await import('../src/config/environment');
     const env = getEnvironment();
-    expect(env.MINIO_ACCESS_KEY).toBe('minioadmin');
-    expect(env.MINIO_SECRET_KEY).toBe('minioadmin');
+    expect(env.MINIO_ACCESS_KEY).toBe('');
+    expect(env.MINIO_SECRET_KEY).toBe('');
     expect(env.MINIO_REGION).toBe('us-east-1');
     expect(env.MINIO_BUCKET_PREFIX).toBe('remitos-empresa');
   });

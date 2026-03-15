@@ -20,6 +20,13 @@ jest.mock('../../src/middlewares/auth.middleware', () => ({
   authorize: jest.fn(() => (_req: Request, _res: Response, next: NextFunction) => next()),
   ROLES_UPLOAD: ['ADMIN'],
   ROLES_APPROVE: ['ADMIN'],
+  ROLES_VIEW_ALL: ['ADMIN'],
+  ROLES_CONFIG: ['ADMIN'],
+}));
+
+jest.mock('../../src/middlewares/validation.middleware', () => ({
+  validateBody: jest.fn(() => (_req: Request, _res: Response, next: NextFunction) => next()),
+  validateQuery: jest.fn(() => (_req: Request, _res: Response, next: NextFunction) => next()),
 }));
 
 jest.mock('../../src/controllers/remitos.controller', () => ({

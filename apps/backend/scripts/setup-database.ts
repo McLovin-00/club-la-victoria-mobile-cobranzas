@@ -247,7 +247,6 @@ class DatabaseSetupOrchestrator {
       
       const spawnOptions: SpawnOptions = {
         stdio: databaseConfig.isLoggingEnabled() ? 'inherit' : 'pipe',
-        shell: true,
         cwd: process.cwd()
       };
 

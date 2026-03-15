@@ -1,0 +1,46 @@
+# =============================================================================
+# Dockerfile.backend - IPLAN Production (VM1 - 10.8.10.120)
+# =============================================================================
+# Basado en staging 10.3.0.243.
+# Multi-stage build con monorepo completo para resolver workspaces.
+# =============================================================================
+# syntax=docker/dockerfile:1.7
+
+FROM node:20-alpine AS builder
+WORKDIR /app
+
+COPY package.json package-lock.json ./
+COPY apps ./apps
+COPY packages ./packages
+COPY tsconfig.json ./
+
+RUN --mount=type=cache,target=/root/.npm \
+    npm config set legacy-peer-deps true && \
+    npm install --include=dev
+
+RUN npx prisma generate --schema=apps/backend/prisma/schema.prisma && \
+    npm run -w apps/backend build
+
+FROM node:20-alpine AS runner
+WORKDIR /app
+ENV NODE_ENV=production
+
+COPY --from=builder /app/apps/backend/dist ./apps/backend/dist
+COPY --from=builder /app/apps/backend/prisma ./apps/backend/prisma
+COPY --from=builder /app/apps/backend/package.json ./apps/backend/
+COPY --from=builder /app/node_modules ./node_modules
+COPY --from=builder /app/package.json ./
+
+RUN rm -rf /root/.npm /tmp/* && \
+    find ./node_modules -name "*.md" -delete 2>/dev/null; \
+    find ./node_modules -name "test" -type d -exec rm -rf {} + 2>/dev/null; \
+    find ./node_modules -name "tests" -type d -exec rm -rf {} + 2>/dev/null; \
+    find ./node_modules -name "__tests__" -type d -exec rm -rf {} + 2>/dev/null; \
+    true
+
+EXPOSE 4800
+
+HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \
+    CMD wget -qO- http://localhost:4800/health || exit 1
+
+CMD ["node", "--max-old-space-size=3072", "apps/backend/dist/src/server.js"]

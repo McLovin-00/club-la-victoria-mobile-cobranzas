@@ -21,10 +21,6 @@ const changePasswordSchema = z.object({
   newPassword: z.string().min(6, 'La nueva contraseña debe tener al menos 6 caracteres'),
 });
 
-const checkEmailSchema = z.object({
-  email: z.string().email('Email inválido').min(1, 'Email es requerido'),
-});
-
 const updateEmpresaSchema = z.object({
   empresaId: z.number().int().positive().nullable(),
 });
@@ -51,9 +47,11 @@ export const login = async (req: Request, res: Response) => {
       });
     }
 
+    const msg = error instanceof Error ? error.message : '';
+    const isBusinessError = msg === 'Credenciales inválidas';
     res.status(401).json({
       success: false,
-      message: error instanceof Error ? error.message : 'Error en autenticación',
+      message: isBusinessError ? msg : 'Error en autenticación',
     });
   }
 };
@@ -85,7 +83,7 @@ export const register = async (req: Request, res: Response) => {
 
     res.status(400).json({
       success: false,
-      message: error instanceof Error ? error.message : 'Error en registro',
+      message: 'Error en registro',
     });
   }
 };
@@ -133,39 +131,11 @@ export const changePassword = async (req: Request, res: Response) => {
       });
     }
 
+    const pwMsg = error instanceof Error ? error.message : '';
+    const isKnownError = ['Contraseña actual incorrecta', 'Usuario no encontrado'].includes(pwMsg) || pwMsg.startsWith('La contraseña') || pwMsg.startsWith('Debe contener');
     res.status(400).json({
       success: false,
-      message: error instanceof Error ? error.message : 'Error al cambiar contraseña',
-    });
-  }
-};
-
-export const checkEmail = async (req: Request, res: Response) => {
-  try {
-    const validatedData = checkEmailSchema.parse(req.body);
-
-    // Buscar usuario por email
-    const user = await authService.findByEmail(validatedData.email);
-
-    res.status(200).json({
-      success: true,
-      exists: !!user,
-      message: user ? 'Email ya registrado' : 'Email disponible',
-    });
-  } catch (error) {
-    AppLogger.error('Error al verificar email:', error);
-
-    if (error instanceof z.ZodError) {
-      return res.status(400).json({
-        success: false,
-        message: 'Datos de entrada inválidos',
-        errors: error.errors,
-      });
-    }
-
-    res.status(500).json({
-      success: false,
-      message: 'Error interno del servidor',
+      message: isKnownError ? pwMsg : 'Error al cambiar contraseña',
     });
   }
 };
@@ -238,7 +208,7 @@ export const updateEmpresa = async (req: Request, res: Response) => {
 
     res.status(400).json({
       success: false,
-      message: error instanceof Error ? error.message : 'Error al actualizar empresa',
+      message: 'Error al actualizar empresa',
     });
   }
 };

@@ -10,7 +10,6 @@ const prisma = new PrismaClient();
 
 async function main() {
   console.log('--- Start seeding ---');
-  console.log(`Database URL: ${process.env.DATABASE_URL}`);
 
   // 1. Asegurar que existe una empresa
   const empresaExistente = await prisma.empresa.findFirst({ where: { nombre: 'Empresa de Prueba' } });
@@ -94,7 +93,7 @@ async function main() {
     const adminUser = await prisma.user.create({
       data: {
         email: 'admin@empresa.com',
-        password: hashSync('password123', 10),
+        password: hashSync('password123', 12),
         nombre: 'Admin User',
         role: UserRole.ADMIN,
         empresaId: empresa.id,
@@ -111,7 +110,7 @@ async function main() {
     const superAdminUser = await prisma.user.create({
       data: {
         email: 'superadmin@empresa.com',
-        password: hashSync('password123', 10),
+        password: hashSync('password123', 12),
         nombre: 'Super Admin User',
         role: 'SUPERADMIN',
         empresaId: empresa.id,
