@@ -1,14 +1,9 @@
 import { createApi, fetchBaseQuery } from '@reduxjs/toolkit/query/react';
 import { RootState } from '../../../store/store';
 import type { Remito, RemitoStats, RemitosListParams, RemitosListResponse } from '../types';
-import { getRuntimeEnv } from '../../../lib/runtimeEnv';
 
-// Base URL del microservicio de remitos
-// Usa la misma base que documentos pero apunta al puerto de remitos
-const documentosApiUrl = getRuntimeEnv('VITE_DOCUMENTOS_API_URL');
 const REMITOS_API_URL =
-  getRuntimeEnv('VITE_REMITOS_API_URL') ||
-  (documentosApiUrl ? documentosApiUrl.replace(/\/api\/docs$/, '/api/remitos') : undefined) ||
+  (import.meta as unknown as { env?: Record<string, string> })?.env?.VITE_REMITOS_API_URL ||
   '/api/remitos';
 
 export const remitosApiSlice = createApi({

@@ -12,6 +12,7 @@ export interface Environment {
   // Redis
   REDIS_HOST: string;
   REDIS_PORT: number;
+  REDIS_PASSWORD: string;
 
   // MinIO
   MINIO_ENDPOINT: string;
@@ -46,6 +47,7 @@ export function getEnvironment(): Environment {
     // Redis
     REDIS_HOST: (process.env.REDIS_HOST === 'redis' ? 'localhost' : process.env.REDIS_HOST) || 'localhost',
     REDIS_PORT: parseInt(process.env.REDIS_PORT || '6379', 10),
+    REDIS_PASSWORD: process.env.REDIS_PASSWORD || '',
 
     // MinIO
     MINIO_ENDPOINT: process.env.MINIO_ENDPOINT || 'localhost',
