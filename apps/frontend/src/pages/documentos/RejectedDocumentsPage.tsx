@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useGetRejectedDocumentsQuery, useGetRejectedStatsQuery } from '../../features/documentos/api/documentosApiSlice';
 import { formatDistanceToNow } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { ExclamationTriangleIcon, DocumentTextIcon, FunnelIcon, PhotoIcon } from '@heroicons/react/24/outline';
+import { ExclamationTriangleIcon, DocumentTextIcon, FunnelIcon } from '@heroicons/react/24/outline';
 
 export const RejectedDocumentsPage = () => {
   const [page, setPage] = useState(1);
@@ -154,9 +154,6 @@ export const RejectedDocumentsPage = () => {
               <table className="min-w-full divide-y divide-gray-200">
                 <thead className="bg-gray-50">
                   <tr>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-16">
-                      Imagen
-                    </th>
                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       Documento
                     </th>
@@ -180,32 +177,6 @@ export const RejectedDocumentsPage = () => {
                 <tbody className="bg-white divide-y divide-gray-200">
                   {documents.map((doc: any) => (
                     <tr key={doc.id} className="hover:bg-gray-50 transition-colors">
-                      {/* Miniatura de imagen */}
-                      <td className="px-4 py-3">
-                        {doc.previewUrl ? (
-                          <a 
-                            href={doc.previewUrl} 
-                            target="_blank" 
-                            rel="noopener noreferrer"
-                            className="block w-12 h-12 rounded-lg overflow-hidden border border-gray-200 hover:border-blue-400 transition-colors"
-                          >
-                            <img 
-                              src={doc.previewUrl}
-                              alt={doc.template?.name || 'Documento'}
-                              className="w-full h-full object-cover"
-                              onError={(e) => {
-                                (e.target as HTMLImageElement).style.display = 'none';
-                                (e.target as HTMLImageElement).parentElement!.innerHTML = '<div class="w-full h-full bg-gray-100 flex items-center justify-center"><svg class="w-6 h-6 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg></div>';
-                              }}
-                            />
-                          </a>
-                        ) : (
-                          <div className="w-12 h-12 rounded-lg bg-gray-100 flex items-center justify-center">
-                            <PhotoIcon className="w-6 h-6 text-gray-400" />
-                          </div>
-                        )}
-                      </td>
-                      {/* Nombre del documento */}
                       <td className="px-4 py-3 whitespace-nowrap">
                         <div className="flex items-center">
                           <DocumentTextIcon className="h-5 w-5 text-gray-400 mr-2" />
