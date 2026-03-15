@@ -100,10 +100,6 @@ export class EntityDataController {
 
       const { extractedData, extractedDataByDocument, disparidades, lastValidation } = processClassifications(documents);
 
-      if (Object.keys(extractedData).length === 0 && disparidades.length === 0) {
-        return sendError(res, 404, 'No hay datos extraídos para esta entidad', 'NOT_FOUND');
-      }
-
       res.json({
         success: true,
         data: { entityType, entityId, extractedData, extractedDataByDocument, disparidades, lastValidation, documentsCount: documents.length },
