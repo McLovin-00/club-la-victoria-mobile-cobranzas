@@ -642,7 +642,7 @@ export const EquiposPage: React.FC = () => {
                   size='sm'
                   onClick={async ()=> {
                     try {
-                      const url = `${getRuntimeEnv('VITE_DOCUMENTOS_API_URL') || ''}/api/docs/equipos/${eq.id}/zip`;
+                      const url = `${getRuntimeEnv('VITE_DOCUMENTOS_API_URL') || ''}/api/docs/clients/equipos/${eq.id}/zip`;
                       const resp = await fetch(url, { headers: { Authorization: `Bearer ${authToken}` } });
                       if (!resp.ok) throw new Error('ZIP');
                       const blob = await resp.blob();
