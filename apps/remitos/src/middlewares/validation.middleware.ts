@@ -26,7 +26,10 @@ export function validateBody(schema: ZodSchema) {
 export function validateQuery(schema: ZodSchema) {
   return (req: Request, res: Response, next: NextFunction): void => {
     try {
-      req.query = schema.parse(req.query) as any;
+      const parsed = schema.parse(req.query);
+      Object.keys(parsed as Record<string, unknown>).forEach(k => {
+        (req.query as Record<string, unknown>)[k] = (parsed as Record<string, unknown>)[k];
+      });
       next();
     } catch (error) {
       if (error instanceof ZodError) {
