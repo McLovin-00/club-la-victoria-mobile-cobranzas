@@ -30,12 +30,14 @@ export const verifyToken = (token: string): TokenPayload | null => {
   try {
     return jwt.verify(token, getPublicKey(), { algorithms: ['RS256'] }) as TokenPayload;
   } catch (_error) {
+    if (process.env.NODE_ENV === 'production') return null;
+
     const legacy = getLegacySecret();
     if (legacy) {
       try {
+        AppLogger.warn('Token verificado con HS256 (legacy) — deshabilitado en producción');
         return jwt.verify(token, legacy, { algorithms: ['HS256'] }) as TokenPayload;
       } catch {
-        /* Fallback HS256 también falló */
         return null;
       }
     }

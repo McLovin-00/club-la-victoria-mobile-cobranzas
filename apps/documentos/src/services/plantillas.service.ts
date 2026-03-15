@@ -293,17 +293,20 @@ export class PlantillasService {
   ): Promise<unknown> {
     const existing = await prisma.plantillaRequisitoTemplate.findUnique({
       where: { id: templateConfigId },
-      select: { plantillaRequisitoId: true },
+      select: { plantillaRequisitoId: true, plantillaRequisito: { select: { tenantEmpresaId: true } } },
     });
+
+    if (!existing) throw new Error('Template config no encontrada');
+    if (existing.plantillaRequisito.tenantEmpresaId !== tenantEmpresaId) {
+      throw new Error('No tiene permisos para modificar esta configuración');
+    }
 
     const result = await prisma.plantillaRequisitoTemplate.update({
       where: { id: templateConfigId },
       data,
     });
 
-    if (existing) {
-      reevaluarEquiposPorPlantilla(existing.plantillaRequisitoId).catch(() => {/* fire-and-forget */});
-    }
+    reevaluarEquiposPorPlantilla(existing.plantillaRequisitoId).catch(() => {/* fire-and-forget */});
     return result;
   }
 
@@ -313,14 +316,18 @@ export class PlantillasService {
   static async removeTemplate(tenantEmpresaId: number, templateConfigId: number): Promise<unknown> {
     const existing = await prisma.plantillaRequisitoTemplate.findUnique({
       where: { id: templateConfigId },
-      select: { plantillaRequisitoId: true },
+      select: { plantillaRequisitoId: true, plantillaRequisito: { select: { tenantEmpresaId: true } } },
     });
+
+    if (!existing) throw new Error('Template config no encontrada');
+    if (existing.plantillaRequisito.tenantEmpresaId !== tenantEmpresaId) {
+      throw new Error('No tiene permisos para eliminar esta configuración');
+    }
+
     const result = await prisma.plantillaRequisitoTemplate.delete({
       where: { id: templateConfigId },
     });
-    if (existing) {
-      reevaluarEquiposPorPlantilla(existing.plantillaRequisitoId).catch(() => {/* fire-and-forget */});
-    }
+    reevaluarEquiposPorPlantilla(existing.plantillaRequisitoId).catch(() => {/* fire-and-forget */});
     return result;
   }
 

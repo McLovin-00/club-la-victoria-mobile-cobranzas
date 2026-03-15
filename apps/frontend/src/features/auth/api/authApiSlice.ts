@@ -27,10 +27,11 @@ export const authApiSlice = apiSlice.injectEndpoints({
         method: 'POST',
       }),
     }),
-    refreshToken: builder.mutation<{ token: string }, void>({
-      query: () => ({
-        url: '/platform/auth/refresh-token',
+    refreshToken: builder.mutation<{ token: string; refreshToken: string }, { refreshToken: string }>({
+      query: ({ refreshToken }) => ({
+        url: '/platform/auth/refresh',
         method: 'POST',
+        body: { refreshToken },
       }),
     }),
     updateUserEmpresa: builder.mutation<LoginResponse, { empresaId: number | null }>({

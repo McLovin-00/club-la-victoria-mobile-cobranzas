@@ -148,7 +148,7 @@ describe('PlatformAuthService (coverage)', () => {
 
       const result = await PlatformAuthService.refreshAccessToken('rt');
 
-      expect(result).toEqual({ success: false, message: 'Usuario desactivado' });
+      expect(result).toEqual({ success: false, message: 'Refresh token inválido o expirado' });
     });
 
     it('rota el refresh token y devuelve un nuevo access token', async () => {

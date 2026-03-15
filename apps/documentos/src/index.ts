@@ -146,6 +146,7 @@ const main = async (): Promise<void> => {
 
     app.use(express.json({ limit: '10mb' }));
     app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+    try { app.use(require('helmet')()); } catch { /* helmet not available */ }
 
     // Exponer OpenAPI spec y Swagger UI
     setupOpenApiEndpoints(app);

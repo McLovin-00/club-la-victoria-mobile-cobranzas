@@ -34,36 +34,30 @@ export const errorHandler = (
   // Determinar código de estado
   const statusCode = error.statusCode || 500;
 
-  // Respuesta base
+  const friendlyMessages: Record<string, string> = {
+    FILE_TOO_LARGE: 'El archivo es demasiado grande. Máximo 10MB permitido.',
+    INVALID_FILE_TYPE: 'Tipo de archivo no permitido. Solo PDF, JPG, PNG.',
+    EMPRESA_NOT_ENABLED: 'Servicio de documentos no habilitado para este dador.',
+    DOCUMENT_NOT_FOUND: 'Documento no encontrado.',
+    VALIDATION_FAILED: 'Error en la validación del documento.',
+  };
+
+  const isClientError = statusCode >= 400 && statusCode < 500;
+  const clientMessage = error.code && friendlyMessages[error.code]
+    ? friendlyMessages[error.code]
+    : isClientError
+      ? (error.message || 'Error en la solicitud')
+      : 'Error interno del servidor';
+
   const errorResponse: any = {
     success: false,
-    message: error.message || 'Error interno del servidor',
+    message: clientMessage,
     code: error.code || 'INTERNAL_ERROR',
   };
 
-  // En desarrollo, incluir stack trace
   if (env.NODE_ENV === 'development') {
     errorResponse.stack = error.stack;
     errorResponse.details = error.details;
-  }
-
-  // Errores específicos con mensajes amigables
-  switch (error.code) {
-    case 'FILE_TOO_LARGE':
-      errorResponse.message = 'El archivo es demasiado grande. Máximo 10MB permitido.';
-      break;
-    case 'INVALID_FILE_TYPE':
-      errorResponse.message = 'Tipo de archivo no permitido. Solo PDF, JPG, PNG.';
-      break;
-    case 'EMPRESA_NOT_ENABLED':
-      errorResponse.message = 'Servicio de documentos no habilitado para este dador.';
-      break;
-    case 'DOCUMENT_NOT_FOUND':
-      errorResponse.message = 'Documento no encontrado.';
-      break;
-    case 'VALIDATION_FAILED':
-      errorResponse.message = 'Error en la validación del documento.';
-      break;
   }
 
   res.status(statusCode).json(errorResponse);

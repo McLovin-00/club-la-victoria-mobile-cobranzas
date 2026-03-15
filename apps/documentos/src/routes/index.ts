@@ -145,8 +145,7 @@ router.get('/', (req, res) => {
   });
 });
 
-// Test endpoint sin autenticación
-router.get('/test-templates', async (req, res) => {
+router.get('/test-templates', authenticate, async (_req: any, res) => {
   try {
     const { db } = await import('../config/database');
     const templates = await db.getClient().documentTemplate.findMany();
@@ -159,7 +158,7 @@ router.get('/test-templates', async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'Error al obtener templates',
-      error: error instanceof Error ? error.message : 'Unknown error',
+      error: 'Error interno del servidor',
     });
   }
 });

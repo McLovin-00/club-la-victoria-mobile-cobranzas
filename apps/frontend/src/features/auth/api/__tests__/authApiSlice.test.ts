@@ -3,50 +3,42 @@
  * 
  * Cubre el API slice de autenticación.
  */
-import { describe, it, expect, jest, beforeEach } from '@jest/globals';
+import { describe, it, expect, jest } from '@jest/globals';
 
-let mockInjectEndpoints: jest.Mock;
+let injectCalls: Array<{ endpoints: (b: any) => any }> = [];
+let capturedEndpoints: Record<string, any> = {};
 
-const setupApiSliceMock = async () => {
-  mockInjectEndpoints = jest.fn().mockReturnValue({ endpoints: {} });
-
-  await jest.unstable_mockModule('../../../../store/apiSlice', () => ({
-    apiSlice: {
-      injectEndpoints: mockInjectEndpoints,
-    },
-  }));
-};
-
-describe('authApiSlice', () => {
-  beforeEach(() => {
-    jest.clearAllMocks();
-    jest.resetModules();
-  });
-
-  it('debería inyectar los endpoints correctamente', async () => {
-    await setupApiSliceMock();
-    await import('../authApiSlice');
-    
-    expect(mockInjectEndpoints).toHaveBeenCalled();
-    const call = mockInjectEndpoints.mock.calls[0][0];
-    expect(call.endpoints).toBeDefined();
-  });
-
-  it('debería definir los endpoints de auth', async () => {
-    await setupApiSliceMock();
-    let capturedEndpoints: Record<string, unknown> = {};
-    
-    mockInjectEndpoints.mockImplementation(({ endpoints }) => {
+jest.mock('../../../../store/apiSlice', () => ({
+  apiSlice: {
+    injectEndpoints: (args: { endpoints: (b: any) => any }) => {
+      injectCalls.push(args);
       const builder = {
         query: (config: unknown) => ({ type: 'query', config }),
         mutation: (config: unknown) => ({ type: 'mutation', config }),
       };
-      capturedEndpoints = endpoints(builder);
-      return { endpoints: capturedEndpoints };
-    });
-    
+      capturedEndpoints = args.endpoints(builder);
+      return {
+        endpoints: capturedEndpoints,
+        useLoginMutation: () => [],
+        useRegisterMutation: () => [],
+        useLogoutMutation: () => [],
+        useRefreshTokenMutation: () => [],
+        useUpdateUserEmpresaMutation: () => [],
+      };
+    },
+  },
+}));
+
+describe('authApiSlice', () => {
+  it('debería inyectar los endpoints correctamente', async () => {
+    injectCalls = [];
     await import('../authApiSlice');
-    
+
+    expect(injectCalls.length).toBeGreaterThanOrEqual(1);
+    expect(injectCalls[0].endpoints).toBeDefined();
+  });
+
+  it('debería definir los endpoints de auth', () => {
     expect(capturedEndpoints).toHaveProperty('login');
     expect(capturedEndpoints).toHaveProperty('register');
     expect(capturedEndpoints).toHaveProperty('logout');
@@ -95,16 +87,18 @@ describe('authApiSlice endpoints configuration', () => {
     expect(result.method).toBe('POST');
   });
 
-  it('refreshToken debería usar POST /platform/auth/refresh-token', () => {
-    const queryFn = () => ({
-      url: '/platform/auth/refresh-token',
+  it('refreshToken debería usar POST /platform/auth/refresh', () => {
+    const queryFn = ({ refreshToken }: { refreshToken: string }) => ({
+      url: '/platform/auth/refresh',
       method: 'POST',
+      body: { refreshToken },
     });
     
-    const result = queryFn();
+    const result = queryFn({ refreshToken: 'test-token' });
     
-    expect(result.url).toBe('/platform/auth/refresh-token');
+    expect(result.url).toBe('/platform/auth/refresh');
     expect(result.method).toBe('POST');
+    expect(result.body).toEqual({ refreshToken: 'test-token' });
   });
 
   it('updateUserEmpresa debería usar POST /usuarios/update-empresa', () => {

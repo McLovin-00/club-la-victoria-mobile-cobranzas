@@ -65,12 +65,9 @@ describe('dashboard.controller error handling coverage', () => {
                 })
             );
             expect(res.status).toHaveBeenCalledWith(500);
-            expect(res.json).toHaveBeenCalledWith(
-                expect.objectContaining({
-                    message: 'Error al obtener dashboard',
-                    error: 'Database connection failed',
-                })
-            );
+            expect(res.json).toHaveBeenCalledWith({
+                message: 'Error al obtener dashboard',
+            });
         });
     });
 
@@ -282,12 +279,9 @@ describe('dashboard.controller error handling coverage', () => {
                 })
             );
             expect(res.status).toHaveBeenCalledWith(500);
-            expect(res.json).toHaveBeenCalledWith(
-                expect.objectContaining({
-                    message: 'Error al obtener dashboard',
-                    error: 'Refresh failed',
-                })
-            );
+            expect(res.json).toHaveBeenCalledWith({
+                message: 'Error al obtener dashboard',
+            });
         });
     });
 });

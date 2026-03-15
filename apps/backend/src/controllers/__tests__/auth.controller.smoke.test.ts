@@ -26,11 +26,6 @@ describe('AuthController - Smoke Tests', () => {
     expect(typeof authController.changePassword).toBe('function');
   });
 
-  it('should export checkEmail function', () => {
-    expect(authController.checkEmail).toBeDefined();
-    expect(typeof authController.checkEmail).toBe('function');
-  });
-
   it('should export refreshToken function', () => {
     expect(authController.refreshToken).toBeDefined();
     expect(typeof authController.refreshToken).toBe('function');

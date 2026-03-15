@@ -37,7 +37,7 @@ export const getDashboardUser = async (req: Request, res: Response) => {
       stack: error.stack,
       userId: ((req as any).platformUser as AuthPayload)?.userId,
     });
-    res.status(500).json({ message: 'Error al obtener dashboard', error: error.message });
+    res.status(500).json({ message: 'Error al obtener dashboard' });
   }
 };
 
@@ -61,6 +61,7 @@ export const getDashboardAdmin = async (req: Request, res: Response) => {
       whereClause.role = {
         not: 'SUPERADMIN',
       };
+      whereClause.empresaId = user.empresaId;
     }
 
     const users = await prisma.user.findMany({
@@ -114,7 +115,7 @@ export const getDashboardAdmin = async (req: Request, res: Response) => {
       stack: error.stack,
       userId: ((req as any).platformUser as AuthPayload)?.userId,
     });
-    res.status(500).json({ message: 'Error al obtener dashboard', error: error.message });
+    res.status(500).json({ message: 'Error al obtener dashboard' });
   }
 };
 
@@ -235,7 +236,7 @@ export const getDashboardSuperAdmin = async (req: Request, res: Response) => {
       stack: error.stack,
       userId: ((req as any).platformUser as AuthPayload)?.userId,
     });
-    res.status(500).json({ message: 'Error al obtener dashboard', error: error.message });
+    res.status(500).json({ message: 'Error al obtener dashboard' });
   }
 };
 
@@ -268,7 +269,7 @@ export const getDashboard = async (req: Request, res: Response) => {
       stack: error.stack,
       userId: (req as any).platformUser?.userId,
     });
-    res.status(500).json({ message: 'Error al obtener dashboard', error: error.message });
+    res.status(500).json({ message: 'Error al obtener dashboard' });
   }
 };
 
@@ -285,6 +286,6 @@ export const refreshDashboard = async (req: Request, res: Response) => {
       stack: error.stack,
       userId: (req as any).platformUser?.userId,
     });
-    res.status(500).json({ message: 'Error al refrescar dashboard', error: error.message });
+    res.status(500).json({ message: 'Error al refrescar dashboard' });
   }
 };

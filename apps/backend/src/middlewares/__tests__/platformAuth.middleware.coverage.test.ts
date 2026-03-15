@@ -325,7 +325,7 @@ describe('platformAuth.middleware - Coverage Tests', () => {
 
       authorizeRoles(['SUPERADMIN', 'ADMIN'])(req, res, next);
 
-      expect(mockAppLogger.warn).toHaveBeenCalledWith(
+      expect(mockAppLogger.debug).toHaveBeenCalledWith(
         expect.stringContaining('Verificando rol'),
         expect.objectContaining({
           userId: 5,

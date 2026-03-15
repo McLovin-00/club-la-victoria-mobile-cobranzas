@@ -41,8 +41,9 @@ describe('ConfigController', () => {
     const req: any = { user: { userId: 1 } };
     const res = createMockRes();
     await ConfigController.getFlowiseConfig(req, res);
-    expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ success: true }));
-    const payload = (res.json as any).mock.calls[0][0];
+    expect(res.send).toHaveBeenCalled();
+    const payload = JSON.parse((res.send as any).mock.calls[0][0]);
+    expect(payload.success).toBe(true);
     expect(payload.data.apiKey).toBe('***1234');
   });
 
@@ -59,7 +60,10 @@ describe('ConfigController', () => {
     const req: any = { user: { userId: 1 } };
     const res = createMockRes();
     await ConfigController.testFlowise(req, res);
-    expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ success: true, message: 'ok' }));
+    expect(res.send).toHaveBeenCalled();
+    const payload = JSON.parse((res.send as any).mock.calls[0][0]);
+    expect(payload.success).toBe(true);
+    expect(payload.message).toBe('ok');
   });
 });
 

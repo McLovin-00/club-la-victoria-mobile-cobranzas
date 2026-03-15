@@ -6,6 +6,28 @@
  */
 import { describe, it, expect, jest, beforeEach, afterEach } from '@jest/globals';
 
+jest.mock('../src/config/database', () => ({
+  db: {
+    connect: jest.fn<any>().mockResolvedValue(undefined),
+    disconnect: jest.fn<any>().mockResolvedValue(undefined),
+    getClient: jest.fn().mockReturnValue({
+      remitoSystemConfig: {
+        findFirst: jest.fn<any>().mockResolvedValue(null),
+        create: jest.fn<any>().mockResolvedValue({}),
+      },
+    }),
+  },
+}));
+
+jest.mock('../src/config/logger', () => ({
+  AppLogger: {
+    info: jest.fn(),
+    warn: jest.fn(),
+    error: jest.fn(),
+    debug: jest.fn(),
+  },
+}));
+
 describe('src/index.ts - Signal Handlers', () => {
   it('U18+U19: signalHandlers_registered', () => {
     const onSpy = jest.spyOn(process, 'on');

@@ -9,6 +9,7 @@ import {
 } from '../middlewares/platformAuth.middleware';
 import { AppLogger } from '../config/logger';
 import { UserRole } from '@prisma/client';
+import { prismaService } from '../config/prisma';
 
 const router = Router();
 
@@ -191,7 +192,21 @@ router.put(
       }
 
       const userId = parseInt(req.params.id);
-      const updateData = req.body;
+      const actor = req.user;
+
+      if (actor?.role !== 'SUPERADMIN') {
+        const target = await prismaService.getClient().endUser.findUnique({
+          where: { id: userId },
+          select: { empresaId: true },
+        });
+        if (target && actor?.empresaId && target.empresaId !== actor.empresaId) {
+          res.status(403).json({ success: false, message: 'No tiene permisos para modificar este usuario' });
+          return;
+        }
+      }
+
+      const { nombre, apellido, direccion, localidad, provincia, pais, metadata, isActive } = req.body;
+      const updateData = { nombre, apellido, direccion, localidad, provincia, pais, metadata, isActive };
 
       const endUser = await EndUserService.updateEndUser(userId, updateData);
 

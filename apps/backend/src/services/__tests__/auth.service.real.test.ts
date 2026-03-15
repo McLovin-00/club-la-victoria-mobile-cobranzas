@@ -219,7 +219,7 @@ describe('AuthService', () => {
       (bcrypt.compare as jest.Mock).mockResolvedValue(true);
       mockUser.update.mockResolvedValue({ id: 1 });
 
-      await expect(authService.changePassword(1, 'oldPassword', 'newPassword')).resolves.toBeUndefined();
+      await expect(authService.changePassword(1, 'oldPassword', 'NewPass1x')).resolves.toBeUndefined();
       expect(mockUser.update).toHaveBeenCalledWith({
         where: { id: 1 },
         data: { password: 'hashed_password' },
@@ -233,7 +233,7 @@ describe('AuthService', () => {
       });
       (bcrypt.compare as jest.Mock).mockResolvedValue(false);
 
-      await expect(authService.changePassword(1, 'wrongPassword', 'newPassword')).rejects.toThrow('Contraseña actual incorrecta');
+      await expect(authService.changePassword(1, 'wrongPassword', 'NewPass1x')).rejects.toThrow('Contraseña actual incorrecta');
     });
 
     it('should throw error for non-existent user', async () => {

@@ -336,7 +336,7 @@ describe('DocumentsController (coverage)', () => {
       mockDbClient.document.findFirst.mockResolvedValue(null);
       const req = baseReq({
         file: pdfFile,
-        user: { userId: 1, email: 'x@x.com', role: 'CLIENTE', empresaId: 5 },
+        user: { userId: 1, email: 'x@x.com', role: 'CLIENTE', empresaId: 5, dadorCargaId: 5 },
       });
       const res = mockRes();
       await expect(DocumentsController.uploadDocument(req, res)).rejects.toThrow('Alta inicial rechazada');
@@ -729,7 +729,7 @@ describe('DocumentsController (coverage)', () => {
       });
       const res = mockRes();
       await DocumentsController.downloadDocument(req, res);
-      expect(res.setHeader).toHaveBeenCalledWith('Content-Disposition', 'attachment; filename="file.pdf"');
+      expect(res.setHeader).toHaveBeenCalledWith('Content-Disposition', `attachment; filename="file.pdf"; filename*=UTF-8''file.pdf`);
     });
 
     it('streams file inline when inline=1', async () => {
@@ -746,7 +746,7 @@ describe('DocumentsController (coverage)', () => {
       });
       const res = mockRes();
       await DocumentsController.downloadDocument(req, res);
-      expect(res.setHeader).toHaveBeenCalledWith('Content-Disposition', 'inline; filename="file.pdf"');
+      expect(res.setHeader).toHaveBeenCalledWith('Content-Disposition', `inline; filename="file.pdf"; filename*=UTF-8''file.pdf`);
       expect(res.setHeader).toHaveBeenCalledWith('X-Frame-Options', 'SAMEORIGIN');
     });
 
@@ -839,10 +839,11 @@ describe('DocumentsController (coverage)', () => {
   // ── renewDocument ─────────────────────────────────────────────────────
   describe('renewDocument', () => {
     it('renews document with expiresAt', async () => {
+      mockDbClient.document.findUnique.mockResolvedValue({ tenantEmpresaId: 10 });
       const req = baseReq({
         params: { id: '1' },
         body: { expiresAt: '2025-12-31' },
-        user: { userId: 5 },
+        user: { userId: 5, role: 'SUPERADMIN', email: 'x@x.com', empresaId: 10 },
       });
       const res = mockRes();
       await DocumentsController.renewDocument(req, res);
@@ -850,10 +851,11 @@ describe('DocumentsController (coverage)', () => {
     });
 
     it('renews document without expiresAt', async () => {
+      mockDbClient.document.findUnique.mockResolvedValue({ tenantEmpresaId: 10 });
       const req = baseReq({
         params: { id: '1' },
         body: {},
-        user: { userId: 5 },
+        user: { userId: 5, role: 'SUPERADMIN', email: 'x@x.com', empresaId: 10 },
       });
       const res = mockRes();
       await DocumentsController.renewDocument(req, res);
@@ -861,8 +863,13 @@ describe('DocumentsController (coverage)', () => {
     });
 
     it('wraps error in DOCUMENT_RENEW_ERROR', async () => {
+      mockDbClient.document.findUnique.mockResolvedValue({ tenantEmpresaId: 10 });
       mockDocumentService.renew.mockRejectedValueOnce(new Error('renew fail'));
-      const req = baseReq({ params: { id: '1' }, body: {} });
+      const req = baseReq({
+        params: { id: '1' },
+        body: {},
+        user: { userId: 5, role: 'SUPERADMIN', email: 'x@x.com', empresaId: 10 },
+      });
       const res = mockRes();
       await expect(DocumentsController.renewDocument(req, res)).rejects.toThrow('Error al renovar documento');
     });
@@ -871,7 +878,11 @@ describe('DocumentsController (coverage)', () => {
   // ── getDocumentHistory ────────────────────────────────────────────────
   describe('getDocumentHistory', () => {
     it('returns history', async () => {
-      const req = baseReq({ params: { id: '1' } });
+      mockDbClient.document.findUnique.mockResolvedValue({ tenantEmpresaId: 10 });
+      const req = baseReq({
+        params: { id: '1' },
+        user: { userId: 1, role: 'SUPERADMIN', email: 'x@x.com', empresaId: 10 },
+      });
       const res = mockRes();
       await DocumentsController.getDocumentHistory(req, res);
       expect(res.json).toHaveBeenCalledWith(
@@ -880,8 +891,12 @@ describe('DocumentsController (coverage)', () => {
     });
 
     it('wraps error in DOCUMENT_HISTORY_ERROR', async () => {
+      mockDbClient.document.findUnique.mockResolvedValue({ tenantEmpresaId: 10 });
       mockDocumentService.getHistory.mockRejectedValueOnce(new Error('fail'));
-      const req = baseReq({ params: { id: '1' } });
+      const req = baseReq({
+        params: { id: '1' },
+        user: { userId: 1, role: 'SUPERADMIN', email: 'x@x.com', empresaId: 10 },
+      });
       const res = mockRes();
       await expect(DocumentsController.getDocumentHistory(req, res)).rejects.toThrow('Error al obtener historial');
     });
@@ -891,7 +906,7 @@ describe('DocumentsController (coverage)', () => {
   describe('deleteDocument', () => {
     const delDoc = {
       id: 1, filePath: 'bucket/path/file.pdf', fileName: 'file.pdf',
-      dadorCargaId: 5, entityType: 'CHOFER', entityId: 100,
+      dadorCargaId: 5, tenantEmpresaId: 10, entityType: 'CHOFER', entityId: 100,
       template: { name: 'DNI' },
     };
 
@@ -930,7 +945,7 @@ describe('DocumentsController (coverage)', () => {
       mockDbClient.document.delete.mockResolvedValue(delDoc);
       const req = baseReq({
         params: { id: '1' },
-        user: { userId: 1, role: 'ADMIN_INTERNO', email: 'x@x.com', empresaId: 5 },
+        user: { userId: 1, role: 'ADMIN_INTERNO', email: 'x@x.com', empresaId: 10 },
       });
       const res = mockRes();
       await DocumentsController.deleteDocument(req, res);
@@ -981,7 +996,7 @@ describe('DocumentsController (coverage)', () => {
       mockDbClient.documentClassification.deleteMany.mockResolvedValue({ count: 0 });
       const req = baseReq({
         params: { id: '1' },
-        files: { document: [imageFile] },
+        files: { document: [pdfFile] },
       });
       const res = mockRes();
       await DocumentsController.resubmitDocument(req, res);

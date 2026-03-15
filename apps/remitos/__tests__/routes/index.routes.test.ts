@@ -15,12 +15,18 @@ jest.mock('../../src/config/logger', () => ({
   },
 }));
 
-// Mock middlewares de auth para evitar dependencias
 jest.mock('../../src/middlewares/auth.middleware', () => ({
   authenticate: jest.fn((_req: any, _res: any, next: any) => next()),
   authorize: jest.fn(() => (_req: any, _res: any, next: any) => next()),
   ROLES_UPLOAD: ['ADMIN'],
   ROLES_APPROVE: ['ADMIN'],
+  ROLES_VIEW_ALL: ['ADMIN'],
+  ROLES_CONFIG: ['ADMIN'],
+}));
+
+jest.mock('../../src/middlewares/validation.middleware', () => ({
+  validateBody: jest.fn(() => (_req: any, _res: any, next: any) => next()),
+  validateQuery: jest.fn(() => (_req: any, _res: any, next: any) => next()),
 }));
 
 // Mock controllers

@@ -46,6 +46,7 @@ jest.mock('fs/promises', () => ({
   readFile: jest.fn().mockResolvedValue(Buffer.from('fake-image')),
   unlink: jest.fn().mockResolvedValue(undefined),
   rmdir: jest.fn().mockResolvedValue(undefined),
+  rm: jest.fn().mockResolvedValue(undefined),
 }));
 
 import { PdfService } from '../../src/services/pdf.service';
@@ -75,8 +76,7 @@ describe('PdfService', () => {
 
       await PdfService.pdfToImages(pdfBuffer);
 
-      expect(fs.unlink).toHaveBeenCalled();
-      expect(fs.rmdir).toHaveBeenCalled();
+      expect(fs.rm).toHaveBeenCalled();
     });
 
     it('should use environment variables for DPI', async () => {

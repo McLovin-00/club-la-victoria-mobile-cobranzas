@@ -12,6 +12,7 @@ interface RequestUser {
   userId: number | undefined;
   userRole: string | undefined;
   tenantEmpresaId: number;
+  dadorCargaId: number | undefined;
 }
 
 /**
@@ -23,6 +24,7 @@ function extractUserFromRequest(req: Request): RequestUser {
     userId: user?.id ?? user?.userId,
     userRole: user?.role,
     tenantEmpresaId: (req as any).tenantId as number,
+    dadorCargaId: user?.dadorCargaId ? Number(user.dadorCargaId) : undefined,
   };
 }
 
@@ -50,6 +52,9 @@ export class ApprovalController {
   static async getPendingDocuments(req: Request, res: Response): Promise<void> {
     try {
       const tenantEmpresaId = (req as any).tenantId as number;
+      const user = (req as any).user;
+      const userRole = user?.role as string | undefined;
+      const userDadorCargaId = user?.dadorCargaId ? Number(user.dadorCargaId) : undefined;
       const { entityType, minConfidence, maxConfidence, page, limit } = (req.query || {}) as any;
       const result = await ApprovalService.getPendingDocuments(tenantEmpresaId, {
         entityType,
@@ -57,6 +62,8 @@ export class ApprovalController {
         maxConfidence: maxConfidence ? parseFloat(maxConfidence) : undefined,
         page: page ? parseInt(page, 10) : undefined,
         limit: limit ? parseInt(limit, 10) : undefined,
+        userRole,
+        userDadorCargaId,
       });
       res.json({ success: true, ...result });
     } catch (error) {
@@ -79,6 +86,7 @@ export class ApprovalController {
         res.status(400).json({ success: false, message: 'Debe enviar ids[]', code: 'BAD_REQUEST' });
         return;
       }
+      const dadorFilter = user.userRole === 'DADOR_DE_CARGA' && user.dadorCargaId ? user.dadorCargaId : undefined;
       const results: Array<{ id: number; ok: boolean; error?: string }> = [];
       const chunkSize = 50;
       for (let i = 0; i < ids.length; i += chunkSize) {
@@ -91,7 +99,7 @@ export class ApprovalController {
               confirmedEntityId: overrides?.confirmedEntityId,
               confirmedExpiration: overrides?.confirmedExpiration ? new Date(overrides.confirmedExpiration) : undefined,
               reviewNotes: overrides?.reviewNotes,
-            });
+            }, dadorFilter);
             results.push({ id, ok: true });
           } catch (e: any) {
             results.push({ id, ok: false, error: e?.message || 'Error' });
@@ -123,8 +131,11 @@ export class ApprovalController {
   static async getPendingDocument(req: Request, res: Response): Promise<void> {
     try {
       const tenantEmpresaId = (req as any).tenantId as number;
+      const user = (req as any).user;
+      const userRole = user?.role as string | undefined;
+      const userDadorCargaId = user?.dadorCargaId ? Number(user.dadorCargaId) : undefined;
       const id = Number((req.params as any).id);
-      const document = await ApprovalService.getPendingDocument(id, tenantEmpresaId);
+      const document = await ApprovalService.getPendingDocument(id, tenantEmpresaId, { userRole, userDadorCargaId });
       if (!document) {
         res.status(404).json({ success: false, message: 'Documento no encontrado o no pendiente de aprobación', code: 'NOT_FOUND' });
         return;
@@ -152,6 +163,7 @@ export class ApprovalController {
       const id = Number(req.params.id);
       const { confirmedEntityType, confirmedEntityId, confirmedExpiration, confirmedTemplateId, reviewNotes } = req.body || {};
       
+      const dadorFilter = user.userRole === 'DADOR_DE_CARGA' && user.dadorCargaId ? user.dadorCargaId : undefined;
       const doc = await ApprovalService.approveDocument(id, user.tenantEmpresaId, {
         reviewedBy: user.userId!,
         confirmedEntityType,
@@ -159,7 +171,7 @@ export class ApprovalController {
         confirmedExpiration: confirmedExpiration ? new Date(confirmedExpiration) : undefined,
         confirmedTemplateId,
         reviewNotes,
-      });
+      }, dadorFilter);
       try {
         webSocketService.notifyDocumentApproved({ documentId: doc.id, empresaId: doc.dadorCargaId, expiresAt: doc.expiresAt ? new Date(doc.expiresAt).toISOString() : null });
       } catch { /* Notificación WS no crítica */ }
@@ -209,7 +221,9 @@ export class ApprovalController {
         });
         return;
       }
-      const doc = await ApprovalService.rejectDocument(id, tenantEmpresaId, { reviewedBy: userId, reason, reviewNotes });
+      const userDadorCargaId = (req as any).user?.dadorCargaId;
+      const dadorFilter = userRole === 'DADOR_DE_CARGA' && userDadorCargaId ? Number(userDadorCargaId) : undefined;
+      const doc = await ApprovalService.rejectDocument(id, tenantEmpresaId, { reviewedBy: userId, reason, reviewNotes }, dadorFilter);
       res.json({ success: true, data: doc, message: 'Documento rechazado' });
       // Audit best-effort
       void AuditService.log({
@@ -239,7 +253,11 @@ export class ApprovalController {
   static async getStats(req: Request, res: Response): Promise<void> {
     try {
       const tenantEmpresaId = (req as any).tenantId as number;
-      const stats = await ApprovalService.getApprovalStats(tenantEmpresaId);
+      const user = (req as any).user;
+      const userRole = user?.role as string | undefined;
+      const userDadorCargaId = user?.dadorCargaId ? Number(user.dadorCargaId) : undefined;
+      const dadorFilter = userRole === 'DADOR_DE_CARGA' && userDadorCargaId ? userDadorCargaId : undefined;
+      const stats = await ApprovalService.getApprovalStats(tenantEmpresaId, dadorFilter);
       res.json({ success: true, data: stats });
     } catch (error) {
       AppLogger.error('ApprovalController.getStats error:', error);

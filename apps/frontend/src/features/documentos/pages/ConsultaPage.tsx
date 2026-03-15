@@ -302,10 +302,13 @@ export const ConsultaPage: React.FC = () => {
       setTruckPlate(truckQ ?? '');
       setTrailerPlate(trailerQ ?? '');
       
-      // Solo ejecutar búsqueda si viene con flag explícito
       if (autoSearch) {
+        const adminRoles = ['SUPERADMIN', 'ADMIN', 'ADMIN_INTERNO'];
+        const isAdmin = Boolean(userRole && adminRoles.includes(userRole));
+        const resolvedFilterType = filterTypeQ ?? (empresaIdQ ? 'dador' : 'todos');
+        const skipDador = isAdmin && resolvedFilterType === 'todos';
         setParams({ 
-          empresaId: empresaIdQ, 
+          empresaId: skipDador ? undefined : empresaIdQ, 
           clienteId: clienteIdQ, 
           empresaTransportistaId: empresaTranspIdQ,
           dni: dniQ, 
@@ -918,11 +921,14 @@ export const ConsultaPage: React.FC = () => {
                   truckPlate: truckPlate ?? undefined,
                   trailerPlate: trailerPlate ?? undefined
                 };
+                const rolesWithoutDadorFilter = ['SUPERADMIN', 'ADMIN', 'ADMIN_INTERNO'];
+                const isAdminRole = Boolean(userRole && rolesWithoutDadorFilter.includes(userRole));
                 if (isChofer) {
                   // Para CHOFER el backend filtra automáticamente por choferId
                 } else if (filterType === 'todos') {
-                  // Para "todos", usar el dador por defecto o dejar sin filtro de entidad
-                  p.empresaId = dadorIdForSearch;
+                  if (!isAdminRole) {
+                    p.empresaId = dadorIdForSearch;
+                  }
                 } else if (filterType === 'dador') {
                   p.empresaId = selectedDadorId;
                 } else if (filterType === 'cliente') {

@@ -50,8 +50,8 @@ export function getEnvironment(): Environment {
     // MinIO
     MINIO_ENDPOINT: process.env.MINIO_ENDPOINT || 'localhost',
     MINIO_PORT: parseInt(process.env.MINIO_PORT || '9000', 10),
-    MINIO_ACCESS_KEY: process.env.MINIO_ACCESS_KEY || 'minioadmin',
-    MINIO_SECRET_KEY: process.env.MINIO_SECRET_KEY || 'minioadmin',
+    MINIO_ACCESS_KEY: process.env.MINIO_ACCESS_KEY || '',
+    MINIO_SECRET_KEY: process.env.MINIO_SECRET_KEY || '',
     MINIO_USE_SSL: process.env.MINIO_USE_SSL === 'true',
     MINIO_REGION: process.env.MINIO_REGION || 'us-east-1',
     MINIO_BUCKET_PREFIX: process.env.MINIO_BUCKET_PREFIX || 'remitos-empresa',

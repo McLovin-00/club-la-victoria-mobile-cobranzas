@@ -141,7 +141,7 @@ export class PlatformAuthService {
   // --- SOLUCIÓN DEFINITIVA AL ERROR DE TIPOS DE JWT ---
   // Manejamos tanto valores en segundos como strings como "7d", "1h", etc.
   private static getJwtExpiresIn(): string | number {
-    const expiresIn = (process.env.JWT_EXPIRES_IN || '7d'); // Default: 7 días
+    const expiresIn = (process.env.JWT_EXPIRES_IN || '1h');
     
     // Si es solo números, lo interpretamos como segundos
     if (/^\d+$/.test(expiresIn)) {
@@ -200,27 +200,15 @@ export class PlatformAuthService {
       return { success: false, message: 'Credenciales inválidas' };
     }
 
-    // Verificar si el usuario está activo
     if (platformUser.activo === false) {
-      return { success: false, message: 'Usuario desactivado. Contacte al administrador.' };
+      AppLogger.info('Intento de login a cuenta desactivada', { email: platformUser.email });
+      return { success: false, message: 'Credenciales inválidas' };
     }
 
-    // Normalización defensiva de contraseñas: algunos despliegues antiguos
-    // pudieron almacenar hashes truncados o sin prefijos de bcrypt.
-    // Si detectamos un formato inválido, solo auto-corregimos para cuentas semilla
-    // y cuando el usuario conoce la contraseña por defecto (evitamos un reset arbitrario).
     const isLikelyBcryptHash = (value: string | null | undefined): boolean => {
       if (!value) return false;
-      // Longitud típica 60 y prefijo $2a/$2b/$2y
       return value.length === 60 && /^\$2[aby]\$\d{2}\$/.test(value);
     };
-    const SEED_EMAILS = new Set([
-      'admin@bca.com',
-      'admin@empresa.com',
-      'superadmin@empresa.com',
-      'admin@mfh.com.ar',
-    ]);
-    const DEFAULT_PASSWORDS = new Set(['password123', 'admin123', 'Mfh@#2024A']);
 
     if (!isLikelyBcryptHash(platformUser.password)) {
       AppLogger.warn('Detectado hash de contraseña con formato inválido', {
@@ -229,11 +217,15 @@ export class PlatformAuthService {
         currentLength: platformUser.password?.length ?? 0,
       });
 
-      const isSeedAccount = SEED_EMAILS.has(platformUser.email.toLowerCase());
-      const isDefaultPassword = DEFAULT_PASSWORDS.has(password);
+      const seedEmailsCsv = process.env.SEED_REPAIR_EMAILS || '';
+      const seedPasswordsCsv = process.env.SEED_REPAIR_PASSWORDS || '';
+      const seedEmails = new Set(seedEmailsCsv.split(',').map(e => e.trim().toLowerCase()).filter(Boolean));
+      const seedPasswords = new Set(seedPasswordsCsv.split(',').map(p => p.trim()).filter(Boolean));
 
-      if (isSeedAccount && isDefaultPassword) {
-        // Solo para cuentas semilla con password conocido: re-hashear y corregir
+      const isSeedAccount = seedEmails.has(platformUser.email.toLowerCase());
+      const isKnownPassword = seedPasswords.has(password);
+
+      if (isSeedAccount && isKnownPassword) {
         const repairedHash = await bcrypt.hash(password, this.SALT_ROUNDS);
         await prisma.user.update({
           where: { id: platformUser.id },
@@ -245,15 +237,10 @@ export class PlatformAuthService {
           email: platformUser.email,
         });
       } else {
-        // No auto-corregir cuentas normales para no permitir resets silenciosos
-        AppLogger.error(
-          'Formato de hash inválido para usuario no-semilla; solicitar reset de contraseña'
-        );
-        return {
-          success: false,
-          message:
-            'Credenciales inválidas. Contacte al administrador para restablecer su contraseña.',
-        };
+        AppLogger.error('Formato de hash inválido; solicitar reset de contraseña', {
+          userId: platformUser.id,
+        });
+        return { success: false, message: 'Credenciales inválidas' };
       }
     }
 
@@ -349,9 +336,15 @@ export class PlatformAuthService {
     try {
       return jwt.verify(token, this.getPublicKey(), { algorithms: ['RS256'] }) as AuthPayload;
     } catch (error) {
+      if (process.env.NODE_ENV === 'production') {
+        AppLogger.warn('Token RS256 inválido (HS256 deshabilitado en producción)');
+        return null;
+      }
+
       const secret = this.getLegacySecret();
       if (secret) {
         try {
+          AppLogger.warn('Token verificado con HS256 (legacy) — deshabilitado en producción');
           return jwt.verify(token, secret, { algorithms: ['HS256'] }) as AuthPayload;
         } catch (e2) {
           AppLogger.warn('Error al verificar token JWT (legacy HS256)', { error: e2 });
@@ -377,7 +370,7 @@ export class PlatformAuthService {
     const prisma = prismaService.getClient();
     const user = await prisma.user.findUnique({ where: { id: userId } });
     if (!user || user.activo === false) {
-      return { success: false, message: 'Usuario desactivado' };
+      return { success: false, message: 'Refresh token inválido o expirado' };
     }
 
     const payload: AuthPayload = {
@@ -425,7 +418,17 @@ export class PlatformAuthService {
 
   static async updatePlatformUser(id: number, data: Partial<RegisterData & { role: UserRole }>, actor: PlatformUserProfile): Promise<PlatformUserProfile> {
     const prisma = prismaService.getClient();
-    // Reglas: ADMIN no puede elevar roles ni modificar fuera de su empresa
+
+    if (actor.role !== 'SUPERADMIN') {
+      const targetUser = await prisma.user.findUnique({ where: { id }, select: { empresaId: true } });
+      if (!targetUser) {
+        throw new Error('Usuario no encontrado');
+      }
+      if (targetUser.empresaId !== actor.empresaId) {
+        throw new Error('No tiene permisos para modificar este usuario');
+      }
+    }
+
     if (actor.role === 'ADMIN') {
       if (data.role && data.role !== 'OPERATOR') {
         throw new Error('Un administrador no puede cambiar el rol a ADMIN o SUPERADMIN');
@@ -435,8 +438,22 @@ export class PlatformAuthService {
       }
     }
 
+    if (actor.role === 'ADMIN_INTERNO') {
+      const forbiddenRoles: UserRole[] = ['SUPERADMIN' as UserRole, 'ADMIN' as UserRole];
+      if (data.role && forbiddenRoles.includes(data.role)) {
+        throw new Error('ADMIN_INTERNO no puede asignar rol SUPERADMIN ni ADMIN');
+      }
+      if (data.empresaId && data.empresaId !== actor.empresaId) {
+        throw new Error('No puede asignar otra empresa');
+      }
+    }
+
     const update: any = { ...data };
     if (data.password) {
+      const strengthErrors = this.validatePasswordStrength(data.password);
+      if (strengthErrors.length > 0) {
+        throw new Error(strengthErrors.join('. '));
+      }
       update.password = await this.hashPassword(data.password);
     }
     if (data.email) {
@@ -540,6 +557,11 @@ export class PlatformAuthService {
   }
 
   static async updatePassword(userId: number, currentPassword: string, newPassword: string): Promise<{ success: boolean; message: string }> {
+    const strengthErrors = this.validatePasswordStrength(newPassword);
+    if (strengthErrors.length > 0) {
+      return { success: false, message: strengthErrors.join('. ') };
+    }
+
     const prisma = prismaService.getClient();
     const user = await prisma.user.findUnique({ where: { id: userId } });
 
@@ -558,7 +580,19 @@ export class PlatformAuthService {
       data: { password: hashedNewPassword, mustChangePassword: false, passwordChangedAt: new Date() },
     });
 
+    await this.revokeAllUserTokens(userId);
+    AppLogger.info('Contraseña actualizada y tokens revocados', { userId });
+
     return { success: true, message: 'Contraseña actualizada exitosamente' };
+  }
+
+  private static validatePasswordStrength(password: string): string[] {
+    const errors: string[] = [];
+    if (password.length < 8) errors.push('La contraseña debe tener al menos 8 caracteres');
+    if (!/[A-Z]/.test(password)) errors.push('Debe contener al menos una letra mayúscula');
+    if (!/[a-z]/.test(password)) errors.push('Debe contener al menos una letra minúscula');
+    if (!/\d/.test(password)) errors.push('Debe contener al menos un número');
+    return errors;
   }
 
   private static generateToken(payload: AuthPayload): string {
@@ -606,7 +640,23 @@ export class PlatformAuthService {
     return base.join('');
   }
 
+  private static readonly ENTITY_TABLE_MAP: Record<string, string> = {
+    clienteId: 'documentos.clientes',
+    dadorCargaId: 'documentos.dadores_carga',
+    empresaTransportistaId: 'documentos.empresas_transportistas',
+    choferId: 'documentos.choferes',
+  };
+
+  private static readonly ALLOWED_TABLES = new Set(Object.values(PlatformAuthService.ENTITY_TABLE_MAP));
+
+  private static assertAllowedTable(table: string): void {
+    if (!this.ALLOWED_TABLES.has(table)) {
+      throw new Error('Tabla no permitida para consulta de entidad');
+    }
+  }
+
   private static async resolveDadorFromEntity(table: string, entityId: number, errorMsg: string): Promise<number> {
+    this.assertAllowedTable(table);
     const prisma = prismaService.getClient();
     const rows = await prisma.$queryRawUnsafe<{ dador_carga_id: number | null }[]>(
       `SELECT dador_carga_id FROM ${table} WHERE id = $1 LIMIT 1`,
@@ -618,13 +668,6 @@ export class PlatformAuthService {
     return rows[0].dador_carga_id;
   }
 
-  private static readonly ENTITY_TABLE_MAP: Record<string, string> = {
-    clienteId: 'documentos.clientes',
-    dadorCargaId: 'documentos.dadores_carga',
-    empresaTransportistaId: 'documentos.empresas_transportistas',
-    choferId: 'documentos.choferes',
-  };
-
   private static async validateEntityExists(
     roleSpecificData: Record<string, any>,
     createdBy: PlatformUserProfile
@@ -633,6 +676,7 @@ export class PlatformAuthService {
     for (const [key, table] of Object.entries(this.ENTITY_TABLE_MAP)) {
       const entityId = roleSpecificData[key];
       if (entityId === undefined || entityId === null) continue;
+      this.assertAllowedTable(table);
       const hasDadorCol = table !== 'documentos.dadores_carga';
       const cols = hasDadorCol ? 'id, dador_carga_id' : 'id';
       const rows = await prisma.$queryRawUnsafe<{ id: number; dador_carga_id?: number }[]>(

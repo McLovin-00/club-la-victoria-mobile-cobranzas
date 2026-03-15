@@ -6,12 +6,12 @@
 
 import { describe, it, expect, jest, beforeEach, afterEach } from '@jest/globals';
 
-const mockClientEnd = jest.fn().mockResolvedValue(undefined as never);
-const mockClientQuery = jest.fn();
-const mockClientConnect = jest.fn().mockResolvedValue(undefined as never);
+const mockClientEnd = jest.fn<any>().mockResolvedValue(undefined);
+const mockClientQuery = jest.fn<any>();
+const mockClientConnect = jest.fn<any>().mockResolvedValue(undefined);
 
 jest.mock('pg', () => ({
-  Client: jest.fn().mockImplementation(() => ({
+  Client: jest.fn<any>().mockImplementation(() => ({
     connect: mockClientConnect,
     query: mockClientQuery,
     end: mockClientEnd,
@@ -20,14 +20,14 @@ jest.mock('pg', () => ({
 
 jest.mock('../../config/logger', () => ({
   AppLogger: {
-    info: jest.fn(),
-    warn: jest.fn(),
-    error: jest.fn(),
-    debug: jest.fn(),
+    info: jest.fn<any>(),
+    warn: jest.fn<any>(),
+    error: jest.fn<any>(),
+    debug: jest.fn<any>(),
   },
 }));
 
-const mockRunSeeds = jest.fn().mockResolvedValue(undefined as never);
+const mockRunSeeds = jest.fn<any>().mockResolvedValue(undefined);
 jest.mock('../../seed/index', () => ({
   runSeeds: mockRunSeeds,
 }));
@@ -45,19 +45,19 @@ jest.mock('../../config/database', () => ({
       connectionTimeout: 5000,
       commandTimeout: 10000,
     }),
-    getApplicationUrl: jest.fn().mockReturnValue(
+    getApplicationUrl: jest.fn<any>().mockReturnValue(
       'postgresql://test_user:test_pass@localhost:5432/test_db?schema=public'
     ),
   },
 }));
 
 jest.mock('child_process', () => ({
-  exec: jest.fn(),
+  exec: jest.fn<any>(),
 }));
 
 jest.mock('util', () => ({
   ...jest.requireActual<typeof import('util')>('util'),
-  promisify: jest.fn(() => jest.fn()),
+  promisify: jest.fn<any>(() => jest.fn<any>()),
 }));
 
 import { DatabaseInitializationService } from '../database-initialization.service';
@@ -68,10 +68,10 @@ describe('DatabaseInitializationService (coverage)', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
-    mockClientConnect.mockReset().mockResolvedValue(undefined as never);
+    mockClientConnect.mockReset().mockResolvedValue(undefined);
     mockClientQuery.mockReset();
-    mockClientEnd.mockReset().mockResolvedValue(undefined as never);
-    mockRunSeeds.mockReset().mockResolvedValue(undefined as never);
+    mockClientEnd.mockReset().mockResolvedValue(undefined);
+    mockRunSeeds.mockReset().mockResolvedValue(undefined);
     process.env = { ...originalEnv };
     service = new DatabaseInitializationService();
   });
@@ -97,7 +97,7 @@ describe('DatabaseInitializationService (coverage)', () => {
       else delete process.env.FORCE_SEED;
 
       // NOSONAR: required to inject mock into private member for unit test isolation
-      (service as any).execAsync = jest.fn().mockResolvedValue({ stdout: '', stderr: '' });
+      (service as any).execAsync = jest.fn<any>().mockResolvedValue({ stdout: '', stderr: '' });
       (service as any).connectionRetries = 1;
       (service as any).connectionRetryDelay = 0;
 
@@ -621,7 +621,7 @@ describe('DatabaseInitializationService (coverage)', () => {
   describe('getOptimalLocaleConfig', () => {
     it('returns detected locale when rows are found', async () => {
       const mockClient = {
-        query: jest.fn().mockResolvedValue({
+        query: jest.fn<any>().mockResolvedValue({
           rows: [{ collate: 'en_US.UTF-8', ctype: 'en_US.UTF-8' }],
         }),
       };
@@ -632,7 +632,7 @@ describe('DatabaseInitializationService (coverage)', () => {
 
     it('returns default C locale when no rows found', async () => {
       const mockClient = {
-        query: jest.fn().mockResolvedValue({ rows: [] }),
+        query: jest.fn<any>().mockResolvedValue({ rows: [] }),
       };
 
       const result = await (service as any).getOptimalLocaleConfig(mockClient);
@@ -641,7 +641,7 @@ describe('DatabaseInitializationService (coverage)', () => {
 
     it('returns default C locale when query throws', async () => {
       const mockClient = {
-        query: jest.fn().mockRejectedValue(new Error('Query fail')),
+        query: jest.fn<any>().mockRejectedValue(new Error('Query fail')),
       };
 
       const result = await (service as any).getOptimalLocaleConfig(mockClient);
@@ -751,7 +751,7 @@ describe('DatabaseInitializationService (coverage)', () => {
   describe('runPrismaMigrations', () => {
     it('succeeds and logs short stdout (<=15 lines)', async () => {
       // NOSONAR: injecting mock for private execAsync
-      (service as any).execAsync = jest.fn().mockResolvedValue({
+      (service as any).execAsync = jest.fn<any>().mockResolvedValue({
         stdout: 'Migration applied\nDone',
         stderr: '',
       });
@@ -761,7 +761,7 @@ describe('DatabaseInitializationService (coverage)', () => {
 
     it('logs warning when stderr contains non-warn content', async () => {
       // NOSONAR: injecting mock for private execAsync
-      (service as any).execAsync = jest.fn().mockResolvedValue({
+      (service as any).execAsync = jest.fn<any>().mockResolvedValue({
         stdout: '',
         stderr: 'ERROR: something went wrong',
       });
@@ -771,7 +771,7 @@ describe('DatabaseInitializationService (coverage)', () => {
 
     it('does not warn when stderr only contains warn text', async () => {
       // NOSONAR: injecting mock for private execAsync
-      (service as any).execAsync = jest.fn().mockResolvedValue({
+      (service as any).execAsync = jest.fn<any>().mockResolvedValue({
         stdout: '',
         stderr: 'warn: already up to date',
       });
@@ -782,7 +782,7 @@ describe('DatabaseInitializationService (coverage)', () => {
     it('truncates stdout when more than 15 lines', async () => {
       const longOutput = Array.from({ length: 20 }, (_, i) => `Line ${i + 1}`).join('\n');
       // NOSONAR: injecting mock for private execAsync
-      (service as any).execAsync = jest.fn().mockResolvedValue({
+      (service as any).execAsync = jest.fn<any>().mockResolvedValue({
         stdout: longOutput,
         stderr: '',
       });
@@ -792,7 +792,7 @@ describe('DatabaseInitializationService (coverage)', () => {
 
     it('skips stdout logging when stdout is empty', async () => {
       // NOSONAR: injecting mock for private execAsync
-      (service as any).execAsync = jest.fn().mockResolvedValue({
+      (service as any).execAsync = jest.fn<any>().mockResolvedValue({
         stdout: '',
         stderr: '',
       });
@@ -802,7 +802,7 @@ describe('DatabaseInitializationService (coverage)', () => {
 
     it('throws wrapped error on exec failure (Error)', async () => {
       // NOSONAR: injecting mock for private execAsync
-      (service as any).execAsync = jest.fn().mockRejectedValue(new Error('exec failed'));
+      (service as any).execAsync = jest.fn<any>().mockRejectedValue(new Error('exec failed'));
 
       await expect((service as any).runPrismaMigrations()).rejects.toThrow(
         'Error en migraciones: exec failed'
@@ -811,7 +811,7 @@ describe('DatabaseInitializationService (coverage)', () => {
 
     it('throws "Error desconocido" on non-Error rejection', async () => {
       // NOSONAR: injecting mock for private execAsync
-      (service as any).execAsync = jest.fn().mockRejectedValue('string-error');
+      (service as any).execAsync = jest.fn<any>().mockRejectedValue('string-error');
 
       await expect((service as any).runPrismaMigrations()).rejects.toThrow(
         'Error en migraciones: Error desconocido'
@@ -925,7 +925,7 @@ describe('DatabaseInitializationService (coverage)', () => {
       // NOSONAR: injecting mocks for private members
       (service as any).connectionRetries = 1;
       (service as any).connectionRetryDelay = 0;
-      (service as any).execAsync = jest.fn().mockResolvedValue({ stdout: 'ok', stderr: '' });
+      (service as any).execAsync = jest.fn<any>().mockResolvedValue({ stdout: 'ok', stderr: '' });
 
       let pgDbCallCount = 0;
 

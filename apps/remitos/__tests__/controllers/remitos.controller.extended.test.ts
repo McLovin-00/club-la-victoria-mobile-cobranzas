@@ -61,9 +61,13 @@ describe('RemitosController extended', () => {
 
     jsonMock = jest.fn();
     statusMock = jest.fn().mockReturnThis();
+    const sendMock = jest.fn().mockReturnThis();
+    const setHeaderMock = jest.fn().mockReturnThis();
     mockRes = {
       json: jsonMock,
       status: statusMock,
+      send: sendMock,
+      setHeader: setHeaderMock,
     };
   });
 
@@ -164,7 +168,8 @@ describe('RemitosController extended', () => {
           pesoOrigenBruto: 100,
           pesoOrigenTara: null,
           pesoOrigenNeto: null,
-        })
+        }),
+        undefined
       );
     });
 
@@ -190,11 +195,10 @@ describe('RemitosController extended', () => {
 
       await RemitosController.approve(req as any, mockRes as Response);
 
-      expect(jsonMock).toHaveBeenCalledWith({
-        success: true,
-        message: 'Remito aprobado',
-        data: { id: 1, estado: 'APROBADO' },
-      });
+      const sent = JSON.parse(mockRes.send.mock.calls[0][0]);
+      expect(sent.success).toBe(true);
+      expect(sent.message).toBe('Remito aprobado');
+      expect(sent.data).toEqual({ id: 1, estado: 'APROBADO' });
     });
 
     it('maneja errores en approve', async () => {
@@ -214,11 +218,10 @@ describe('RemitosController extended', () => {
 
       await RemitosController.reject(req as any, mockRes as Response);
 
-      expect(jsonMock).toHaveBeenCalledWith({
-        success: true,
-        message: 'Remito rechazado',
-        data: { id: 1, estado: 'RECHAZADO' },
-      });
+      const sent = JSON.parse(mockRes.send.mock.calls[0][0]);
+      expect(sent.success).toBe(true);
+      expect(sent.message).toBe('Remito rechazado');
+      expect(sent.data).toEqual({ id: 1, estado: 'RECHAZADO' });
     });
 
     it('lanza error si motivo es muy corto', async () => {
@@ -246,10 +249,9 @@ describe('RemitosController extended', () => {
 
       await RemitosController.stats(req as any, mockRes as Response);
 
-      expect(jsonMock).toHaveBeenCalledWith({
-        success: true,
-        data: { total: 10, pendientes: 5 },
-      });
+      const sent = JSON.parse(mockRes.send.mock.calls[0][0]);
+      expect(sent.success).toBe(true);
+      expect(sent.data).toEqual({ total: 10, pendientes: 5 });
     });
 
     it('maneja errores en stats', async () => {
@@ -273,10 +275,9 @@ describe('RemitosController extended', () => {
 
       await RemitosController.getImage(req as any, mockRes as Response);
 
-      expect(jsonMock).toHaveBeenCalledWith({
-        success: true,
-        data: { url: 'http://signed.url' },
-      });
+      const sent = JSON.parse(mockRes.send.mock.calls[0][0]);
+      expect(sent.success).toBe(true);
+      expect(sent.data).toEqual({ url: 'http://signed.url' });
     });
 
     it('lanza error si remito no existe', async () => {
@@ -305,11 +306,10 @@ describe('RemitosController extended', () => {
 
       await RemitosController.reprocess(req as any, mockRes as Response);
 
-      expect(jsonMock).toHaveBeenCalledWith({
-        success: true,
-        message: 'Remito encolado para reprocesamiento',
-        data: { jobId: 'job123' },
-      });
+      const sent = JSON.parse(mockRes.send.mock.calls[0][0]);
+      expect(sent.success).toBe(true);
+      expect(sent.message).toBe('Remito encolado para reprocesamiento');
+      expect(sent.data).toEqual({ jobId: 'job123' });
     });
 
     it('maneja errores en reprocess', async () => {

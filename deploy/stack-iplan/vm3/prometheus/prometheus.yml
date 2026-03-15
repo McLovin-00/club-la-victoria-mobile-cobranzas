@@ -1,0 +1,43 @@
+global:
+  scrape_interval: 30s
+  evaluation_interval: 30s
+
+rule_files:
+  - "alerts/*.yml"
+
+scrape_configs:
+  - job_name: 'node-vm1'
+    static_configs:
+      - targets: ['10.8.10.120:9100']
+        labels:
+          vm: 'vm1-app'
+
+  - job_name: 'node-vm2'
+    static_configs:
+      - targets: ['10.8.10.121:9100']
+        labels:
+          vm: 'vm2-data'
+
+  - job_name: 'node-vm3'
+    static_configs:
+      - targets: ['localhost:9100']
+        labels:
+          vm: 'vm3-monitor'
+
+  - job_name: 'postgres'
+    static_configs:
+      - targets: ['localhost:9187']
+
+  - job_name: 'bca-backend'
+    metrics_path: /health
+    static_configs:
+      - targets: ['10.8.10.120:80']
+        labels:
+          service: 'backend'
+
+  - job_name: 'bca-documentos'
+    metrics_path: /api/docs-health
+    static_configs:
+      - targets: ['10.8.10.120:80']
+        labels:
+          service: 'documentos'

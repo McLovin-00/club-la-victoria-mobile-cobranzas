@@ -246,7 +246,7 @@ export class ErrorMiddleware {
       userAgent: req.get('User-Agent'),
       userId: (req as any).user?.id,
       userEmail: (req as any).user?.email,
-      body: req.method !== 'GET' ? req.body : undefined,
+      body: req.method !== 'GET' ? ErrorMiddleware.sanitizeBody(req.body) : undefined,
       query: req.query,
       params: req.params,
       errorName: error.constructor.name,
@@ -259,6 +259,17 @@ export class ErrorMiddleware {
     } else {
       AppLogger.error('Error del servidor', errorContext);
     }
+  }
+
+  private static readonly SENSITIVE_KEYS = /^(password|currentPassword|newPassword|token|secret|apiKey|authorization)$/i;
+
+  private static sanitizeBody(body: any): any {
+    if (!body || typeof body !== 'object') return body;
+    const sanitized: Record<string, any> = {};
+    for (const key of Object.keys(body)) {
+      sanitized[key] = ErrorMiddleware.SENSITIVE_KEYS.test(key) ? '[REDACTED]' : body[key];
+    }
+    return sanitized;
   }
 
   /**

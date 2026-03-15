@@ -69,30 +69,34 @@ export class DocumentosAuthService {
       const decoded = jwt.verify(token, this.getJwtPublicKey(), { algorithms: ['RS256'] }) as any;
       const payload = extractAuthPayload(decoded);
       if (!payload) {
-        AppLogger.warn('⚠️ Token JWT con estructura inválida');
+        AppLogger.warn('Token JWT con estructura inválida');
         return null;
       }
-      AppLogger.debug('✅ Token JWT verificado exitosamente', { userId: payload.userId, email: payload.email, role: payload.role });
+      AppLogger.debug('Token JWT verificado exitosamente', { userId: payload.userId, email: payload.email, role: payload.role });
       return payload;
     } catch (err) {
-      // Fallback transitorio: aceptar tokens HS256 si está configurado JWT_LEGACY_SECRET
+      if (process.env.NODE_ENV === 'production') {
+        AppLogger.warn('Token RS256 inválido (HS256 deshabilitado en producción)');
+        return null;
+      }
+
       const secret = this.getLegacySecret();
       if (secret) {
         try {
           const decoded: any = jwt.verify(token, secret, { algorithms: ['HS256'] });
           const payload = extractAuthPayload(decoded);
           if (!payload) {
-            AppLogger.warn('⚠️ Token JWT (legacy) con estructura inválida');
+            AppLogger.warn('Token JWT (legacy) con estructura inválida');
             return null;
           }
-          AppLogger.warn('⚠️ Token HS256 aceptado por compatibilidad temporal');
+          AppLogger.warn('Token HS256 aceptado por compatibilidad temporal — deshabilitado en producción');
           return payload;
         } catch (e2) {
-          AppLogger.warn('⚠️ Token JWT inválido:', e2);
+          AppLogger.warn('Token JWT inválido:', e2);
           return null;
         }
       }
-      AppLogger.warn('⚠️ Token JWT inválido:', err);
+      AppLogger.warn('Token JWT inválido:', err);
       return null;
     }
   }

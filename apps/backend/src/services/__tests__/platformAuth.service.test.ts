@@ -10,6 +10,14 @@ const mockPrismaClient = {
     count: jest.fn(),
     delete: jest.fn(),
   },
+  refreshToken: {
+    create: jest.fn(),
+    findUnique: jest.fn(),
+    updateMany: jest.fn(),
+  },
+  $queryRawUnsafe: jest.fn(),
+  $executeRawUnsafe: jest.fn(),
+  $transaction: jest.fn(),
 };
 
 jest.mock('../../config/prisma', () => ({
@@ -76,22 +84,30 @@ describe('PlatformAuthService registerClientWithTempPassword', () => {
     const prisma = prismaService.getClient() as any;
 
     prisma.user.findUnique.mockResolvedValue(null);
-    prisma.user.create.mockImplementation(async ({ data }: any) => ({
-      id: 123,
-      email: data.email,
-      password: data.password,
-      role: data.role,
-      empresaId: data.empresaId ?? null,
-      nombre: data.nombre ?? null,
-      apellido: data.apellido ?? null,
-      dadorCargaId: null,
-      empresaTransportistaId: null,
-      choferId: null,
-      clienteId: data.clienteId,
-      mustChangePassword: data.mustChangePassword,
-      createdAt: new Date(),
-      updatedAt: new Date(),
-    }));
+    prisma.$queryRawUnsafe.mockResolvedValue([{ id: 55, dador_carga_id: 1 }]);
+
+    const txMock = {
+      user: {
+        findUnique: jest.fn().mockResolvedValue(null),
+        create: jest.fn().mockImplementation(async ({ data }: any) => ({
+          id: 123,
+          email: data.email,
+          password: data.password,
+          role: data.role,
+          empresaId: data.empresaId ?? null,
+          nombre: data.nombre ?? null,
+          apellido: data.apellido ?? null,
+          dadorCargaId: null,
+          empresaTransportistaId: null,
+          choferId: null,
+          clienteId: data.clienteId,
+          mustChangePassword: data.mustChangePassword,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        })),
+      },
+    };
+    prisma.$transaction.mockImplementation(async (cb: any) => cb(txMock));
 
     const { PlatformAuthService } = await import('../platformAuth.service');
     const actor = { id: 1, email: 'admin@x.com', role: 'ADMIN_INTERNO', empresaId: 1 } as any;
@@ -105,7 +121,7 @@ describe('PlatformAuthService registerClientWithTempPassword', () => {
     expect(res.tempPassword).toBeTruthy();
     expect(res.platformUser?.role).toBe('CLIENTE');
     expect(res.platformUser?.mustChangePassword).toBe(true);
-    expect(prisma.user.create).toHaveBeenCalled();
+    expect(prisma.$transaction).toHaveBeenCalled();
   });
 });
 

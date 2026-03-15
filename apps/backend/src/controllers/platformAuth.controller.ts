@@ -26,12 +26,19 @@ function handleWizardRegisterResult(
   return true;
 }
 
+function isWizardBusinessError(msg: string): boolean {
+  return msg.includes('permisos') || msg.includes('no existe') || msg.includes('No tiene');
+}
+
 function handleWizardError(res: Response, error: unknown, context: string): void {
+  const msg = error instanceof Error ? error.message : 'Error interno del servidor';
+  if (error instanceof Error && isWizardBusinessError(msg)) {
+    AppLogger.warn(`Wizard ${context} rechazado: ${msg}`);
+    res.status(400).json({ success: false, message: msg });
+    return;
+  }
   AppLogger.error(`Error en wizard ${context}:`, error);
-  res.status(500).json({
-    success: false,
-    message: error instanceof Error ? error.message : 'Error interno del servidor',
-  });
+  res.status(500).json({ success: false, message: 'Error interno del servidor' });
 }
 
 async function resolveActorProfile(req: AuthRequest, res: Response): Promise<PlatformUserProfile | null> {
@@ -71,7 +78,7 @@ export class PlatformAuthController {
           httpOnly: true,
           secure: process.env.NODE_ENV === 'production',
           sameSite: 'strict',
-          maxAge: 7 * 24 * 60 * 60 * 1000, // 7 días
+          maxAge: 60 * 60 * 1000,
         });
 
         res.status(200).json({
@@ -111,7 +118,10 @@ export class PlatformAuthController {
       if (!actorProfile) return;
 
       const id = parseInt(req.params.id, 10);
-      const data = req.body;
+      const { email, nombre, apellido, role, password, empresaId,
+              dadorCargaId, empresaTransportistaId, choferId, clienteId } = req.body;
+      const data = { email, nombre, apellido, role, password, empresaId,
+                     dadorCargaId, empresaTransportistaId, choferId, clienteId };
 
       const result = await PlatformAuthService.updatePlatformUser(id, data, actorProfile);
       res.status(200).json({ success: true, user: result });
@@ -207,17 +217,12 @@ export class PlatformAuthController {
     } catch (error) {
       AppLogger.error('💥 Error en registro de plataforma:', error);
       
-      if (error instanceof Error) {
-        res.status(400).json({
-          success: false,
-          message: error.message,
-        });
-      } else {
-        res.status(500).json({
-          success: false,
-          message: 'Error interno del servidor',
-        });
-      }
+      const msg = error instanceof Error ? error.message : '';
+      const isBusinessError = msg.includes('ya existe') || msg.includes('registrado') || msg.includes('permisos') || msg.includes('no existe');
+      res.status(isBusinessError ? 400 : 500).json({
+        success: false,
+        message: isBusinessError ? msg : 'Error interno del servidor',
+      });
     }
   }
 

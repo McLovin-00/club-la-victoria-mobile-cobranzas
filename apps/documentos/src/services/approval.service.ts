@@ -334,9 +334,9 @@ export class ApprovalService {
 
   static async getPendingDocuments(
     tenantEmpresaId: number,
-    filters: { entityType?: string; minConfidence?: number; maxConfidence?: number; page?: number; limit?: number } = {}
+    filters: { entityType?: string; minConfidence?: number; maxConfidence?: number; page?: number; limit?: number; userRole?: string; userDadorCargaId?: number } = {}
   ): Promise<{ data: any[]; pagination: { page: number; limit: number; total: number; pages: number } }> {
-    const { entityType, minConfidence, maxConfidence, page = 1, limit = 20 } = filters;
+    const { entityType, minConfidence, maxConfidence, page = 1, limit = 20, userRole, userDadorCargaId } = filters;
     const skip = (page - 1) * limit;
 
     const confidenceFilter: any = {};
@@ -346,6 +346,7 @@ export class ApprovalService {
     const where: Prisma.DocumentWhereInput = {
       tenantEmpresaId,
       status: 'PENDIENTE_APROBACION' as DocumentStatus,
+      ...(userRole === 'DADOR_DE_CARGA' && userDadorCargaId ? { dadorCargaId: userDadorCargaId } : {}),
       classification: {
         ...(entityType && { detectedEntityType: entityType as any }),
         ...(Object.keys(confidenceFilter).length > 0 && { confidence: confidenceFilter }),
@@ -388,9 +389,18 @@ export class ApprovalService {
     return { data: enrichedDocs, pagination: { page, limit, total, pages: Math.ceil(total / limit) } };
   }
 
-  static async getPendingDocument(documentId: number, tenantEmpresaId: number): Promise<any | null> {
+  static async getPendingDocument(
+    documentId: number,
+    tenantEmpresaId: number,
+    opts: { userRole?: string; userDadorCargaId?: number } = {}
+  ): Promise<any | null> {
     const document = await db.getClient().document.findFirst({
-      where: { id: documentId, tenantEmpresaId, status: 'PENDIENTE_APROBACION' },
+      where: {
+        id: documentId,
+        tenantEmpresaId,
+        status: 'PENDIENTE_APROBACION',
+        ...(opts.userRole === 'DADOR_DE_CARGA' && opts.userDadorCargaId ? { dadorCargaId: opts.userDadorCargaId } : {}),
+      },
       include: { template: true, classification: true },
     });
 
@@ -403,12 +413,17 @@ export class ApprovalService {
   static async approveDocument(
     documentId: number,
     tenantEmpresaId: number,
-    reviewData: ReviewData
+    reviewData: ReviewData,
+    dadorCargaIdFilter?: number
   ): Promise<any> {
     const result = await db.getClient().$transaction(async (tx) => {
-      // 1. Obtener documento
       const document = await tx.document.findFirst({
-        where: { id: documentId, tenantEmpresaId, status: 'PENDIENTE_APROBACION' as DocumentStatus },
+        where: {
+          id: documentId,
+          tenantEmpresaId,
+          status: 'PENDIENTE_APROBACION' as DocumentStatus,
+          ...(dadorCargaIdFilter ? { dadorCargaId: dadorCargaIdFilter } : {}),
+        },
         include: { classification: true, template: true },
       });
 
@@ -501,7 +516,8 @@ export class ApprovalService {
   static async rejectDocument(
     documentId: number,
     tenantEmpresaId: number,
-    reviewData: { reviewedBy: number; reason: string; reviewNotes?: string }
+    reviewData: { reviewedBy: number; reason: string; reviewNotes?: string },
+    dadorCargaIdFilter?: number
   ): Promise<any> {
     if (!reviewData.reason || reviewData.reason.trim().length < 3) {
       throw new Error('Debe especificar un motivo de rechazo');
@@ -509,7 +525,12 @@ export class ApprovalService {
 
     const updatedDocument = await db.getClient().$transaction(async (tx) => {
       const document = await tx.document.findFirst({
-        where: { id: documentId, tenantEmpresaId, status: 'PENDIENTE_APROBACION' as DocumentStatus },
+        where: {
+          id: documentId,
+          tenantEmpresaId,
+          status: 'PENDIENTE_APROBACION' as DocumentStatus,
+          ...(dadorCargaIdFilter ? { dadorCargaId: dadorCargaIdFilter } : {}),
+        },
         include: { classification: true },
       });
 
@@ -566,10 +587,14 @@ export class ApprovalService {
     return updatedDocument;
   }
 
-  static async getApprovalStats(tenantEmpresaId: number) {
+  static async getApprovalStats(tenantEmpresaId: number, dadorCargaIdFilter?: number) {
+    const where: Prisma.DocumentWhereInput = {
+      tenantEmpresaId,
+      ...(dadorCargaIdFilter ? { dadorCargaId: dadorCargaIdFilter } : {}),
+    };
     const stats = await db.getClient().document.groupBy({
       by: ['status'],
-      where: { tenantEmpresaId },
+      where,
       _count: { status: true }
     });
 

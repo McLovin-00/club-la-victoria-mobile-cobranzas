@@ -202,14 +202,16 @@ describe('instance.routes inline handlers (real)', () => {
   it('PUT/DELETE /:instanceId/permisos/:permisoId stubs respond', async () => {
     const router = (await import('../instance.routes')).default;
 
+    instanceSvc.findById.mockResolvedValueOnce({ id: 1, empresaId: 1 });
     const putHandlers = getRouteHandlers(router, 'put', '/:instanceId/permisos/:permisoId');
     const res1 = createMockRes();
-    await runMiddlewares(putHandlers, { params: { instanceId: '1', permisoId: '9' }, body: { esWhitelist: true } }, res1);
+    await runMiddlewares(putHandlers, { params: { instanceId: '1', permisoId: '9' }, body: { esWhitelist: true }, user: { userId: 1, role: UserRole.SUPERADMIN } }, res1);
     expect(res1.json).toHaveBeenCalledWith(expect.objectContaining({ success: true }));
 
+    instanceSvc.findById.mockResolvedValueOnce({ id: 1, empresaId: 1 });
     const delHandlers = getRouteHandlers(router, 'delete', '/:instanceId/permisos/:permisoId');
     const res2: any = { ...createMockRes(), send: jest.fn().mockReturnThis() };
-    await runMiddlewares(delHandlers, { params: { instanceId: '1', permisoId: '9' } }, res2);
+    await runMiddlewares(delHandlers, { params: { instanceId: '1', permisoId: '9' }, user: { userId: 1, role: UserRole.SUPERADMIN } }, res2);
     expect(res2.status).toHaveBeenCalledWith(204);
   });
 });

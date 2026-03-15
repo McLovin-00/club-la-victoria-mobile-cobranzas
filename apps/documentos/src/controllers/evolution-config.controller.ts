@@ -1,12 +1,30 @@
 import { Response } from 'express';
 import { AuthRequest } from '../middlewares/auth.middleware';
+import { AppLogger } from '../config/logger';
 import { SystemConfigService } from '../services/system-config.service';
 
 const KEY_SERVER = 'evolution.server';
 const KEY_TOKEN = 'evolution.token';
 const KEY_INSTANCE = 'evolution.instance';
 
-// Helper: normalizar URL del servidor
+function assertSafeUrl(raw: string): void {
+  let parsed: URL;
+  try {
+    parsed = new URL(raw);
+  } catch {
+    throw new Error('URL inválida');
+  }
+  if (!['http:', 'https:'].includes(parsed.protocol)) {
+    throw new Error('Solo se permiten URLs HTTP/HTTPS');
+  }
+  const hostname = parsed.hostname.toLowerCase();
+  const privatePatterns = ['localhost', '127.', '0.0.0.0', '::1', '169.254.', '10.', '192.168.', 'metadata.google', 'metadata.aws'];
+  const isPrivate = privatePatterns.some(p => hostname.startsWith(p)) || /^172\.(1[6-9]|2\d|3[01])\./.test(hostname);
+  if (isPrivate) {
+    throw new Error('No se permiten URLs a redes privadas');
+  }
+}
+
 function normalizeServerUrl(raw: string): string {
   let server = raw.trim();
   server = server.replace(/^https?:\/\/https?:\/\//, 'http://');
@@ -66,6 +84,8 @@ export class EvolutionConfigController {
     }
 
     const server = normalizeServerUrl(String(serverRaw));
+    assertSafeUrl(server);
+
     const headers: Record<string, string> = {
       Authorization: `Bearer ${String(token)}`,
       apikey: String(token),
@@ -100,7 +120,8 @@ export class EvolutionConfigController {
       return res.status(502).json({ success: false, message: `No se pudo contactar Evolution API` });
     } catch (e: any) {
       clearTimeout(timeout);
-      return res.status(500).json({ success: false, message: e?.message || 'Error desconocido' });
+      AppLogger.error('Error en test de conexión Evolution:', e);
+      return res.status(500).json({ success: false, message: 'Error al conectar con el servicio' });
     }
   }
 }

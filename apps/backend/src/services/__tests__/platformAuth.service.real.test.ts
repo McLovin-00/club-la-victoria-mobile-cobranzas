@@ -26,14 +26,27 @@ const jwt = {
 };
 jest.mock('jsonwebtoken', () => jwt);
 
-const prisma = {
+const prisma: any = {
   user: {
     findUnique: jest.fn(),
     update: jest.fn(),
     create: jest.fn(),
     delete: jest.fn(),
   },
+  refreshToken: {
+    create: jest.fn(),
+    findUnique: jest.fn(),
+    updateMany: jest.fn(),
+  },
+  $queryRawUnsafe: jest.fn(),
+  $transaction: jest.fn(),
 };
+prisma.$transaction.mockImplementation((fn: any) => fn({
+  user: {
+    findUnique: prisma.user.findUnique,
+    create: prisma.user.create,
+  },
+}));
 jest.mock('../../config/prisma', () => ({
   prismaService: { getClient: () => prisma },
 }));
@@ -45,6 +58,12 @@ describe('PlatformAuthService (real)', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     delete process.env.JWT_EXPIRES_IN;
+    prisma.$transaction.mockImplementation((fn: any) => fn({
+      user: {
+        findUnique: prisma.user.findUnique,
+        create: prisma.user.create,
+      },
+    }));
   });
 
   describe('verifyToken', () => {
@@ -77,27 +96,33 @@ describe('PlatformAuthService (real)', () => {
       prisma.user.findUnique.mockResolvedValueOnce({ id: 1, email: 'a', role: 'ADMIN', password: 'hashed', activo: false });
       const out = await PlatformAuthService.login({ email: 'a', password: 'b' });
       expect(out.success).toBe(false);
-      expect(out.message).toContain('desactivado');
+      expect(out.message).toContain('Credenciales inválidas');
     });
 
     it('repairs invalid hash only for seed + default password', async () => {
-      // invalid hash length -> triggers repair path for seed account if default password
-      prisma.user.findUnique.mockResolvedValueOnce({ id: 1, email: 'admin@empresa.com', role: 'ADMIN', password: 'bad', activo: true });
-      prisma.user.update.mockResolvedValueOnce({});
-      const out = await PlatformAuthService.login({ email: 'admin@empresa.com', password: 'admin123' });
-      expect(out.success).toBe(true);
-      expect(prisma.user.update).toHaveBeenCalled();
+      process.env.SEED_REPAIR_EMAILS = 'admin@bca.com';
+      process.env.SEED_REPAIR_PASSWORDS = 'password123';
+      try {
+        prisma.user.findUnique.mockResolvedValueOnce({ id: 1, email: 'admin@bca.com', role: 'ADMIN', password: 'bad', activo: true });
+        prisma.user.update.mockResolvedValueOnce({});
+        prisma.refreshToken.create.mockResolvedValueOnce({});
+        const out = await PlatformAuthService.login({ email: 'admin@bca.com', password: 'password123' });
+        expect(out.success).toBe(true);
+        expect(prisma.user.update).toHaveBeenCalled();
+      } finally {
+        delete process.env.SEED_REPAIR_EMAILS;
+        delete process.env.SEED_REPAIR_PASSWORDS;
+      }
     });
 
     it('rejects invalid hash for non-seed user', async () => {
       prisma.user.findUnique.mockResolvedValueOnce({ id: 2, email: 'user@x.com', role: 'ADMIN', password: 'bad', activo: true });
       const out = await PlatformAuthService.login({ email: 'user@x.com', password: 'x' });
       expect(out.success).toBe(false);
-      expect(out.message).toContain('Contacte al administrador');
+      expect(out.message).toContain('Credenciales inválidas');
     });
 
     it('returns token + profile on success', async () => {
-      // usar hash bcrypt válido para no disparar rama de "hash inválido"
       prisma.user.findUnique.mockResolvedValueOnce({
         id: 1,
         email: 'a',
@@ -108,6 +133,7 @@ describe('PlatformAuthService (real)', () => {
         createdAt: new Date(),
         updatedAt: new Date(),
       });
+      prisma.refreshToken.create.mockResolvedValueOnce({});
       const out = await PlatformAuthService.login({ email: 'a', password: 'b' });
       expect(out.success).toBe(true);
       expect(out.token).toBe('token');
@@ -135,54 +161,60 @@ describe('PlatformAuthService (real)', () => {
 
   describe('updatePlatformUser / deletePlatformUser / updatePassword', () => {
     it('updatePlatformUser enforces ADMIN rules and normalizes email/password', async () => {
-      prisma.user.update.mockResolvedValueOnce({ id: 1, email: 'x', role: 'OPERATOR', empresaId: 1, createdAt: new Date(), updatedAt: new Date() });
-
+      prisma.user.findUnique.mockResolvedValueOnce({ empresaId: 1 });
       await expect(
         PlatformAuthService.updatePlatformUser(1, { role: 'ADMIN' as any }, { id: 1, role: 'ADMIN' as any, empresaId: 1 } as any)
       ).rejects.toThrow('no puede cambiar el rol');
 
+      prisma.user.findUnique.mockResolvedValueOnce({ empresaId: 1 });
       await expect(
         PlatformAuthService.updatePlatformUser(1, { empresaId: 2 }, { id: 1, role: 'ADMIN' as any, empresaId: 1 } as any)
       ).rejects.toThrow('No puede asignar otra empresa');
 
+      prisma.user.update.mockResolvedValueOnce({ id: 1, email: 'a@b.com', role: 'OPERATOR', empresaId: 1, createdAt: new Date(), updatedAt: new Date() });
       const out = await PlatformAuthService.updatePlatformUser(
         1,
-        { email: '  A@B.COM ', password: 'p' },
+        { email: '  A@B.COM ', password: 'NewPass1x' },
         { id: 1, role: 'SUPERADMIN' as any } as any
       );
       expect(out.id).toBe(1);
       const call = prisma.user.update.mock.calls[0][0];
       expect(call.data.email).toBe('a@b.com');
       expect(typeof call.data.password).toBe('string');
-      expect(call.data.password).not.toBe('p');
+      expect(call.data.password).not.toBe('NewPass1x');
     });
 
     it('deletePlatformUser only for SUPERADMIN', async () => {
       await expect(
         PlatformAuthService.deletePlatformUser(1, { id: 1, role: 'ADMIN' as any } as any)
       ).rejects.toThrow('Solo superadmin');
-      prisma.user.delete.mockResolvedValueOnce({});
+      prisma.user.update.mockResolvedValueOnce({});
+      prisma.refreshToken.updateMany.mockResolvedValueOnce({});
       await PlatformAuthService.deletePlatformUser(1, { id: 1, role: 'SUPERADMIN' as any } as any);
-      expect(prisma.user.delete).toHaveBeenCalled();
+      expect(prisma.user.update).toHaveBeenCalled();
     });
 
     it('updatePassword returns not found / wrong current / success', async () => {
       prisma.user.findUnique.mockResolvedValueOnce(null);
-      expect((await PlatformAuthService.updatePassword(1, 'a', 'b')).success).toBe(false);
+      expect((await PlatformAuthService.updatePassword(1, 'OldPass1x', 'NewPass1x')).success).toBe(false);
 
-      prisma.user.findUnique.mockResolvedValueOnce({ id: 1, password: await bcrypt.hash('right', 12) });
-      expect((await PlatformAuthService.updatePassword(1, 'a', 'b')).message).toContain('incorrecta');
+      prisma.user.findUnique.mockResolvedValueOnce({ id: 1, password: await bcrypt.hash('RightPass1', 12) });
+      expect((await PlatformAuthService.updatePassword(1, 'WrongPass1', 'NewPass1x')).message).toContain('incorrecta');
 
-      prisma.user.findUnique.mockResolvedValueOnce({ id: 1, password: await bcrypt.hash('a', 12) });
+      prisma.user.findUnique.mockResolvedValueOnce({ id: 1, password: await bcrypt.hash('OldPass1x', 12) });
       prisma.user.update.mockResolvedValueOnce({});
-      const out = await PlatformAuthService.updatePassword(1, 'a', 'b');
+      prisma.refreshToken.updateMany.mockResolvedValueOnce({});
+      const out = await PlatformAuthService.updatePassword(1, 'OldPass1x', 'NewPass1x');
       expect(out.success).toBe(true);
       expect(prisma.user.update).toHaveBeenCalled();
     });
   });
 
   describe('wizard registrations', () => {
-    async function runWizard(fn: any, role: any) {
+    async function runWizard(fn: any, role: any, queryRawCalls = 1) {
+      for (let i = 0; i < queryRawCalls; i++) {
+        prisma.$queryRawUnsafe.mockResolvedValueOnce([{ id: 1, dador_carga_id: 1 }]);
+      }
       prisma.user.findUnique.mockResolvedValueOnce(null);
       prisma.user.create.mockResolvedValueOnce({ id: 1, email: 'a', role, createdAt: new Date(), updatedAt: new Date() });
       return fn({ email: 'a', empresaId: null, nombre: 'n', apellido: 'a', clienteId: 1, dadorCargaId: 1, empresaTransportistaId: 1, choferId: 1 }, { id: 9, role: 'SUPERADMIN', empresaId: 2 } as any);
@@ -193,6 +225,7 @@ describe('PlatformAuthService (real)', () => {
         PlatformAuthService.registerClientWithTempPassword({ email: 'a', clienteId: 1 }, { id: 1, role: 'OPERATOR' as any } as any)
       ).rejects.toThrow('permisos');
 
+      prisma.$queryRawUnsafe.mockResolvedValueOnce([{ id: 1 }]);
       prisma.user.findUnique.mockResolvedValueOnce({ id: 1 });
       const out1 = await PlatformAuthService.registerClientWithTempPassword({ email: 'a', clienteId: 1 }, { id: 1, role: 'SUPERADMIN' as any, empresaId: 2 } as any);
       expect(out1.success).toBe(false);
@@ -205,9 +238,9 @@ describe('PlatformAuthService (real)', () => {
     it('other wizard methods execute and return success', async () => {
       const outD = await runWizard(PlatformAuthService.registerDadorWithTempPassword.bind(PlatformAuthService), 'DADOR_DE_CARGA');
       expect(outD.success).toBe(true);
-      const outT = await runWizard(PlatformAuthService.registerTransportistaWithTempPassword.bind(PlatformAuthService), 'TRANSPORTISTA');
+      const outT = await runWizard(PlatformAuthService.registerTransportistaWithTempPassword.bind(PlatformAuthService), 'TRANSPORTISTA', 3);
       expect(outT.success).toBe(true);
-      const outC = await runWizard(PlatformAuthService.registerChoferWithTempPassword.bind(PlatformAuthService), 'CHOFER');
+      const outC = await runWizard(PlatformAuthService.registerChoferWithTempPassword.bind(PlatformAuthService), 'CHOFER', 3);
       expect(outC.success).toBe(true);
     });
   });

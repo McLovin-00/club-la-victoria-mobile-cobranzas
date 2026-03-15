@@ -37,7 +37,6 @@ describe('auth.middleware extended', () => {
   let nextMock: jest.Mock<any>;
   let jsonMock: jest.Mock<any>;
   let statusMock: jest.Mock<any>;
-  let sendMock: jest.Mock<any>;
 
   beforeEach(async () => {
     jest.clearAllMocks();
@@ -47,13 +46,14 @@ MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA2Z3qX2BTLE0FnmHy4bSi
 -----END PUBLIC KEY-----`;
 
     jsonMock = jest.fn();
-    sendMock = jest.fn().mockReturnThis();
     statusMock = jest.fn().mockReturnThis();
+    const sendMock = jest.fn().mockReturnThis();
+    const setHeaderMock = jest.fn().mockReturnThis();
     mockRes = {
-      setHeader: jest.fn(),
       json: jsonMock,
       status: statusMock,
       send: sendMock,
+      setHeader: setHeaderMock,
     };
     nextMock = jest.fn();
 
@@ -101,7 +101,8 @@ MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA2Z3qX2BTLE0FnmHy4bSi
       authenticate(req, mockRes as Response, nextMock);
       
       expect(statusMock).toHaveBeenCalledWith(401);
-      expect(sendMock).toHaveBeenCalledWith(expect.stringContaining('"error":"INVALID_TOKEN"'));
+      const sent = JSON.parse(mockRes.send.mock.calls[0][0]);
+      expect(sent.error).toBe('INVALID_TOKEN');
     });
   });
 
@@ -113,7 +114,8 @@ MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA2Z3qX2BTLE0FnmHy4bSi
       middleware(req, mockRes as Response, nextMock);
       
       expect(statusMock).toHaveBeenCalledWith(401);
-      expect(sendMock).toHaveBeenCalledWith(expect.stringContaining('"error":"UNAUTHORIZED"'));
+      const sent = JSON.parse(mockRes.send.mock.calls[0][0]);
+      expect(sent.error).toBe('UNAUTHORIZED');
     });
 
     it('rechaza si rol no está permitido', () => {
@@ -123,7 +125,8 @@ MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA2Z3qX2BTLE0FnmHy4bSi
       middleware(req, mockRes as Response, nextMock);
       
       expect(statusMock).toHaveBeenCalledWith(403);
-      expect(sendMock).toHaveBeenCalledWith(expect.stringContaining('"error":"FORBIDDEN"'));
+      const sent = JSON.parse(mockRes.send.mock.calls[0][0]);
+      expect(sent.error).toBe('FORBIDDEN');
     });
 
     it('permite si rol está en la lista', () => {

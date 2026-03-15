@@ -6,18 +6,20 @@ import { describe, it, expect, beforeEach } from '@jest/globals';
 import { Request, Response } from 'express';
 
 describe('src/middlewares/error.middleware.ts', () => {
-  let mockRequest: Partial<Request>;
-  let mockResponse: Partial<Response>;
+  let mockRequest: any;
+  let mockResponse: any;
   let mockNext: jest.Mock;
 
   beforeEach(() => {
     mockRequest = {
       method: 'GET',
-    } as any; // Usamos 'as any' para evitar error de propiedad readonly de path
-    (mockRequest as any).path = '/test/path';
+      path: '/test/path',
+    };
     mockResponse = {
       status: jest.fn().mockReturnThis(),
       json: jest.fn().mockReturnThis(),
+      send: jest.fn().mockReturnThis(),
+      setHeader: jest.fn().mockReturnThis(),
     };
     mockNext = jest.fn();
   });
@@ -39,27 +41,21 @@ describe('src/middlewares/error.middleware.ts', () => {
 
   it('U30: notFoundHandler_returns404', () => {
     const { notFoundHandler } = require('../../src/middlewares/error.middleware');
-    notFoundHandler(mockRequest as Request, mockResponse as Response);
+    notFoundHandler(mockRequest, mockResponse);
     expect(mockResponse.status).toHaveBeenCalledWith(404);
-    expect(mockResponse.json).toHaveBeenCalledWith(
-      expect.objectContaining({
-        success: false,
-        error: 'NOT_FOUND',
-        message: expect.stringContaining('/test/path'),
-      })
-    );
+    const sent = JSON.parse(mockResponse.send.mock.calls[0][0]);
+    expect(sent.success).toBe(false);
+    expect(sent.error).toBe('NOT_FOUND');
+    expect(sent.message).toBe('Ruta no encontrada');
   });
 
-  it('notFoundHandler_includesMethodAndPath', () => {
+  it('notFoundHandler_returnsStaticMessage', () => {
     mockRequest.method = 'POST';
     mockRequest.path = '/api/remitos';
     const { notFoundHandler } = require('../../src/middlewares/error.middleware');
-    notFoundHandler(mockRequest as Request, mockResponse as Response);
-    expect(mockResponse.json).toHaveBeenCalledWith(
-      expect.objectContaining({
-        message: 'Ruta no encontrada: POST /api/remitos',
-      })
-    );
+    notFoundHandler(mockRequest, mockResponse);
+    const sent = JSON.parse(mockResponse.send.mock.calls[0][0]);
+    expect(sent.message).toBe('Ruta no encontrada');
   });
 
   it('U29: errorHandler_4xx_noLogStack', () => {
@@ -70,15 +66,12 @@ describe('src/middlewares/error.middleware.ts', () => {
       stack: 'Error stack trace',
     };
     const { errorHandler } = require('../../src/middlewares/error.middleware');
-    errorHandler(mockError as any, mockRequest as Request, mockResponse as Response, mockNext);
+    errorHandler(mockError, mockRequest, mockResponse, mockNext);
     expect(mockResponse.status).toHaveBeenCalledWith(400);
-    expect(mockResponse.json).toHaveBeenCalledWith(
-      expect.objectContaining({
-        success: false,
-        error: 'BAD_REQUEST',
-        message: 'Bad request',
-      })
-    );
+    const sent = JSON.parse(mockResponse.send.mock.calls[0][0]);
+    expect(sent.success).toBe(false);
+    expect(sent.error).toBe('BAD_REQUEST');
+    expect(sent.message).toBe('Bad request');
   });
 
   it('U28: errorHandler_5xx_logsError', () => {
@@ -89,8 +82,10 @@ describe('src/middlewares/error.middleware.ts', () => {
       stack: 'Error stack trace\n    at line 1',
     };
     const { errorHandler } = require('../../src/middlewares/error.middleware');
-    errorHandler(mockError as any, mockRequest as Request, mockResponse as Response, mockNext);
+    errorHandler(mockError, mockRequest, mockResponse, mockNext);
     expect(mockResponse.status).toHaveBeenCalledWith(500);
+    const sent = JSON.parse(mockResponse.send.mock.calls[0][0]);
+    expect(sent.message).toBe('Error interno del servidor');
   });
 
   it('errorHandler_missingStatusCode_uses500', () => {
@@ -99,13 +94,10 @@ describe('src/middlewares/error.middleware.ts', () => {
       stack: 'stack',
     };
     const { errorHandler } = require('../../src/middlewares/error.middleware');
-    errorHandler(mockError as any, mockRequest as Request, mockResponse as Response, mockNext);
+    errorHandler(mockError, mockRequest, mockResponse, mockNext);
     expect(mockResponse.status).toHaveBeenCalledWith(500);
-    expect(mockResponse.json).toHaveBeenCalledWith(
-      expect.objectContaining({
-        error: 'INTERNAL_ERROR',
-      })
-    );
+    const sent = JSON.parse(mockResponse.send.mock.calls[0][0]);
+    expect(sent.error).toBe('INTERNAL_ERROR');
   });
 
   it('errorHandler_missingCode_usesDefault', () => {
@@ -115,12 +107,9 @@ describe('src/middlewares/error.middleware.ts', () => {
       stack: 'stack',
     };
     const { errorHandler } = require('../../src/middlewares/error.middleware');
-    errorHandler(mockError as any, mockRequest as Request, mockResponse as Response, mockNext);
-    expect(mockResponse.json).toHaveBeenCalledWith(
-      expect.objectContaining({
-        error: 'INTERNAL_ERROR',
-      })
-    );
+    errorHandler(mockError, mockRequest, mockResponse, mockNext);
+    const sent = JSON.parse(mockResponse.send.mock.calls[0][0]);
+    expect(sent.error).toBe('INTERNAL_ERROR');
   });
 
   it('errorHandler_includesTimestamp', () => {
@@ -130,11 +119,9 @@ describe('src/middlewares/error.middleware.ts', () => {
       code: 'TEST',
     };
     const { errorHandler } = require('../../src/middlewares/error.middleware');
-    errorHandler(mockError as any, mockRequest as Request, mockResponse as Response, mockNext);
-    expect(mockResponse.json).toHaveBeenCalledWith(
-      expect.objectContaining({
-        timestamp: expect.any(String),
-      })
-    );
+    errorHandler(mockError, mockRequest, mockResponse, mockNext);
+    const sent = JSON.parse(mockResponse.send.mock.calls[0][0]);
+    expect(sent.timestamp).toBeDefined();
+    expect(typeof sent.timestamp).toBe('string');
   });
 });

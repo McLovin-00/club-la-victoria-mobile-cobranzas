@@ -14,11 +14,17 @@ import {
 
 const router: ReturnType<typeof Router> = Router();
 
-// Normalizar expiración a +100 años para documentos sin fecha (ADMIN/SUPERADMIN)
-router.post('/normalize-expirations', authenticate, authorize([UserRole.ADMIN, UserRole.SUPERADMIN]), async (req, res) => {
+router.post('/normalize-expirations', authenticate, authorize([UserRole.ADMIN, UserRole.SUPERADMIN]), async (req: any, res) => {
+  const tenantEmpresaId = req.tenantId;
+  if (!tenantEmpresaId) {
+    return res.status(403).json({ success: false, message: 'Tenant no identificado' });
+  }
   const now = Date.now();
   const farFuture = new Date(now + 100 * 365 * 24 * 60 * 60 * 1000);
-  const r = await db.getClient().document.updateMany({ where: { expiresAt: null }, data: { expiresAt: farFuture } });
+  const r = await db.getClient().document.updateMany({
+    where: { expiresAt: null, tenantEmpresaId },
+    data: { expiresAt: farFuture },
+  });
   res.json({ success: true, data: { updated: (r as any)?.count || 0 } });
 });
 

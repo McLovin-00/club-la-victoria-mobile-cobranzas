@@ -54,7 +54,7 @@ const authSlice = createSlice({
   initialState,
   reducers: {
     setCredentials: (state, action: PayloadAction<LoginResponse>) => {
-      const { token, data: user } = action.payload;
+      const { token, refreshToken, data: user } = action.payload;
       if (!token || !user) {
         Logger.error('AuthSlice: intento de guardar credenciales vacías');
         return;
@@ -68,6 +68,9 @@ const authSlice = createSlice({
 
       localStorage.setItem('token', token);
       localStorage.setItem('user', JSON.stringify(user));
+      if (refreshToken) {
+        localStorage.setItem('refreshToken', refreshToken);
+      }
     },
     logout: state => {
       state.token = null;
@@ -79,6 +82,7 @@ const authSlice = createSlice({
 
       localStorage.removeItem('token');
       localStorage.removeItem('user');
+      localStorage.removeItem('refreshToken');
     },
     initializeAuth: state => {
       const loadedState = loadAuthState();

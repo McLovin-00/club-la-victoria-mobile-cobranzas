@@ -8,7 +8,7 @@ import { createPrismaMock } from '../__tests__/helpers/prismaMock';
 const prismaInstance = createPrismaMock();
 const PrismaClientCtor = jest.fn(() => prismaInstance);
 
-jest.mock('../../node_modules/.prisma/remitos', () => ({
+jest.mock('.prisma/remitos', () => ({
   PrismaClient: function MockPrismaClient(this: any, ...args: any[]) {
     // No nos interesan los args en tests; evitar error de TS con spread.
     return PrismaClientCtor();

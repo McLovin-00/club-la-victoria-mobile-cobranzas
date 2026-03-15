@@ -9,13 +9,14 @@ import {
   logAction,
   AuthRequest
 } from '../middlewares/platformAuth.middleware';
-import { loginRateLimiter, passwordChangeRateLimiter } from '../middlewares/rateLimit.middleware';
+import { loginRateLimiter, passwordChangeRateLimiter, apiRateLimiter } from '../middlewares/rateLimit.middleware';
 import { prismaService } from '../config/prisma';
 import { AppLogger } from '../config/logger';
 
 // NOSONAR: express-rate-limit devuelve RateLimitRequestHandler incompatible con @types/express-serve-static-core
 const loginLimiter = loginRateLimiter as unknown as RequestHandler; // NOSONAR
 const passwordLimiter = passwordChangeRateLimiter as unknown as RequestHandler; // NOSONAR
+const registerLimiter = apiRateLimiter as unknown as RequestHandler; // NOSONAR
 
 // ============================================================================
 // HELPERS
@@ -82,7 +83,7 @@ function buildUserListConditions(
   user: any,
   query: { search?: string; role?: string; empresaId?: string }
 ): any[] {
-  const conditions: any[] = [];
+  const conditions: any[] = [{ deletedAt: null }];
 
   // Filtro por texto de búsqueda
   const search = query.search;
@@ -164,6 +165,7 @@ router.post(
  */
 router.post(
   '/register',
+  registerLimiter,
   authenticateUser,
   authorizeRoles(['SUPERADMIN', 'ADMIN', 'ADMIN_INTERNO', 'DADOR_DE_CARGA', 'TRANSPORTISTA']),
   ValidationMiddleware.validateBody(z.object({
@@ -205,6 +207,7 @@ router.post(
  */
 router.post(
   '/wizard/register-client',
+  registerLimiter,
   authenticateUser,
   authorizeRoles(['SUPERADMIN', 'ADMIN', 'ADMIN_INTERNO']),
   ValidationMiddleware.validateBody(z.object({
@@ -225,6 +228,7 @@ router.post(
  */
 router.post(
   '/wizard/register-dador',
+  registerLimiter,
   authenticateUser,
   authorizeRoles(['SUPERADMIN', 'ADMIN', 'ADMIN_INTERNO']),
   ValidationMiddleware.validateBody(z.object({
@@ -245,6 +249,7 @@ router.post(
  */
 router.post(
   '/wizard/register-transportista',
+  registerLimiter,
   authenticateUser,
   authorizeRoles(['SUPERADMIN', 'ADMIN', 'ADMIN_INTERNO', 'DADOR_DE_CARGA']),
   ValidationMiddleware.validateBody(z.object({
@@ -265,6 +270,7 @@ router.post(
  */
 router.post(
   '/wizard/register-chofer',
+  registerLimiter,
   authenticateUser,
   authorizeRoles(['SUPERADMIN', 'ADMIN', 'ADMIN_INTERNO', 'DADOR_DE_CARGA', 'TRANSPORTISTA']),
   ValidationMiddleware.validateBody(z.object({

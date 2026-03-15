@@ -1,0 +1,142 @@
+networks:
+  default:
+    name: bca_monitoring_network
+    driver: bridge
+
+volumes:
+  pg_replica_data:
+  prometheus_data:
+  grafana_data:
+  loki_data:
+
+services:
+  # =========================================================================
+  # PostgreSQL Read Replica (hot standby para failover)
+  # =========================================================================
+  postgres-replica:
+    image: postgres:16
+    container_name: bca_postgres_replica
+    restart: unless-stopped
+    ports:
+      - "5433:5432"
+    environment:
+      POSTGRES_USER: evo
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    volumes:
+      - pg_replica_data:/var/lib/postgresql/data
+    command: >
+      postgres
+        -c shared_buffers=2GB
+        -c effective_cache_size=6GB
+        -c hot_standby=on
+        -c max_connections=50
+        -c primary_conninfo='host=${VM2_IP:-10.8.10.121} port=5432 user=replicator password=${REPL_PASSWORD}'
+        -c primary_slot_name=replica_slot_1
+    deploy:
+      resources:
+        limits:
+          memory: 6G
+          cpus: "1.0"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U evo -d monorepo-bca"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+
+  # =========================================================================
+  # Prometheus - Metricas
+  # =========================================================================
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: bca_prometheus
+    restart: unless-stopped
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./prometheus/alerts:/etc/prometheus/alerts:ro
+      - prometheus_data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.retention.time=60d'
+      - '--storage.tsdb.retention.size=30GB'
+    deploy:
+      resources:
+        limits:
+          memory: 2G
+          cpus: "0.5"
+
+  # =========================================================================
+  # Grafana - Dashboards
+  # =========================================================================
+  grafana:
+    image: grafana/grafana:latest
+    container_name: bca_grafana
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_PASSWORD}
+      GF_INSTALL_PLUGINS: grafana-clock-panel,grafana-piechart-panel
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./grafana/provisioning:/etc/grafana/provisioning:ro
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+          cpus: "0.5"
+
+  # =========================================================================
+  # Loki - Agregacion de logs
+  # =========================================================================
+  loki:
+    image: grafana/loki:latest
+    container_name: bca_loki
+    restart: unless-stopped
+    ports:
+      - "3100:3100"
+    volumes:
+      - loki_data:/loki
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+          cpus: "0.3"
+
+  # =========================================================================
+  # Exporters
+  # =========================================================================
+  postgres-exporter:
+    image: prometheuscommunity/postgres-exporter:latest
+    container_name: bca_pg_exporter
+    restart: unless-stopped
+    ports:
+      - "9187:9187"
+    environment:
+      DATA_SOURCE_NAME: postgresql://bca_readonly:${DB_READONLY_PASSWORD}@${VM2_IP:-10.8.10.121}:5432/monorepo-bca?sslmode=disable
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+          cpus: "0.1"
+
+  node-exporter:
+    image: prom/node-exporter:latest
+    container_name: bca_node_exporter
+    restart: unless-stopped
+    ports:
+      - "9100:9100"
+    volumes:
+      - /proc:/host/proc:ro
+      - /sys:/host/sys:ro
+      - /:/rootfs:ro
+    command:
+      - '--path.procfs=/host/proc'
+      - '--path.sysfs=/host/sys'
+      - '--path.rootfs=/rootfs'
+    deploy:
+      resources:
+        limits:
+          memory: 128M
+          cpus: "0.1"

@@ -53,9 +53,9 @@ const baseQueryWithReauth: BaseQueryFn<string | FetchArgs, unknown, FetchBaseQue
       
       AppLogger.warn('Sesión expirada - redirigiendo al login');
       
-      // Limpiar localStorage
       localStorage.removeItem('token');
       localStorage.removeItem('user');
+      localStorage.removeItem('refreshToken');
       
       // Redirigir al login después de un pequeño delay para mostrar mensaje
       setTimeout(() => {

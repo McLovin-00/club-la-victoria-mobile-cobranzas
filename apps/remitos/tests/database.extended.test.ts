@@ -19,7 +19,7 @@ const mockPrismaInstance = {
   $disconnect: jest.fn().mockResolvedValue(undefined as never),
 };
 
-jest.mock('../../node_modules/.prisma/remitos', () => ({
+jest.mock('.prisma/remitos', () => ({
   PrismaClient: jest.fn().mockImplementation(() => mockPrismaInstance),
 }));
 
@@ -41,7 +41,7 @@ describe('Database extended', () => {
       },
     }));
     
-    jest.doMock('../../node_modules/.prisma/remitos', () => ({
+    jest.doMock('.prisma/remitos', () => ({
       PrismaClient: jest.fn().mockImplementation(() => mockPrismaInstance),
     }));
 

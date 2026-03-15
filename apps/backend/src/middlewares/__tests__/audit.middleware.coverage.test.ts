@@ -240,13 +240,13 @@ describe('audit.middleware - Coverage Tests', () => {
       expect(next).toHaveBeenCalled();
     });
 
-    it('debe capturar IP de connection.remoteAddress cuando disponible', async () => {
+    it('debe capturar IP de socket.remoteAddress cuando disponible (connection deprecated)', async () => {
       const { auditMiddleware } = await import('../audit.middleware');
       const req = {
         method: 'GET',
         path: '/api/conn',
         headers: {},
-        connection: { remoteAddress: '192.168.2.50' },
+        socket: { remoteAddress: '192.168.2.50' },
         get: jest.fn(() => 'UA'),
       } as any;
       const res = createMockRes();
@@ -555,14 +555,14 @@ describe('audit.middleware - Coverage Tests', () => {
       );
     });
 
-    it('debe usar IP de connection.remoteAddress como fallback', async () => {
+    it('debe usar IP de socket.remoteAddress como fallback (connection deprecated)', async () => {
       const { auditAccessDenied } = await import('../audit.middleware');
       const req = {
         method: 'GET',
         path: '/api/connection',
         get: jest.fn(() => 'UA'),
         headers: {},
-        connection: { remoteAddress: '172.16.10.5' },
+        socket: { remoteAddress: '172.16.10.5' },
         user: { id: 9 },
       } as any;
       const res = createMockRes();

@@ -270,7 +270,7 @@ export class RemitoService {
   /**
    * Obtener remito por ID
    */
-  static async getById(id: number, userId?: number, userRole?: string): Promise<(Remito & { imagenes: RemitoImagen[]; historial: RemitoHistory[] }) | null> {
+  static async getById(id: number, userId?: number, userRole?: string, tenantEmpresaId?: number): Promise<(Remito & { imagenes: RemitoImagen[]; historial: RemitoHistory[] }) | null> {
     const prisma = db.getClient();
 
     const remito = await prisma.remito.findUnique({
@@ -279,6 +279,10 @@ export class RemitoService {
     });
 
     if (!remito) return null;
+
+    if (tenantEmpresaId && remito.tenantEmpresaId !== tenantEmpresaId) {
+      return null;
+    }
 
     if (userRole && !['SUPERADMIN', 'ADMIN_INTERNO'].includes(userRole) && remito.cargadoPorUserId !== userId) {
       return null;
@@ -350,12 +354,16 @@ export class RemitoService {
       pesoDestinoBruto?: number | null;
       pesoDestinoTara?: number | null;
       pesoDestinoNeto?: number | null;
-    }
+    },
+    tenantEmpresaId?: number
   ): Promise<Remito> {
     const prisma = db.getClient();
 
     const remito = await prisma.remito.findUnique({ where: { id } });
     if (!remito) throw new Error('Remito no encontrado');
+    if (tenantEmpresaId && remito.tenantEmpresaId !== tenantEmpresaId) {
+      throw new Error('Remito no encontrado');
+    }
     if (remito.estado === 'APROBADO') throw new Error('No se puede editar un remito aprobado');
 
     // Solo incluir campos que fueron enviados (incluyendo null para borrar)
@@ -413,11 +421,14 @@ export class RemitoService {
   /**
    * Aprobar remito
    */
-  static async approve(id: number, userId: number): Promise<Remito> {
+  static async approve(id: number, userId: number, tenantEmpresaId?: number): Promise<Remito> {
     const prisma = db.getClient();
 
     const existing = await prisma.remito.findUnique({ where: { id } });
     if (!existing) throw new Error('Remito no encontrado');
+    if (tenantEmpresaId && existing.tenantEmpresaId !== tenantEmpresaId) {
+      throw new Error('Remito no encontrado');
+    }
     if (existing.estado !== 'PENDIENTE_APROBACION') {
       throw new Error(`No se puede aprobar un remito en estado ${existing.estado}`);
     }
@@ -442,11 +453,14 @@ export class RemitoService {
   /**
    * Rechazar remito
    */
-  static async reject(id: number, userId: number, motivo: string): Promise<Remito> {
+  static async reject(id: number, userId: number, motivo: string, tenantEmpresaId?: number): Promise<Remito> {
     const prisma = db.getClient();
 
     const existing = await prisma.remito.findUnique({ where: { id } });
     if (!existing) throw new Error('Remito no encontrado');
+    if (tenantEmpresaId && existing.tenantEmpresaId !== tenantEmpresaId) {
+      throw new Error('Remito no encontrado');
+    }
 
     const REJECTABLE_STATES: string[] = ['PENDIENTE_APROBACION', 'EN_ANALISIS', 'ERROR_ANALISIS'];
     if (!REJECTABLE_STATES.includes(existing.estado)) {
@@ -484,7 +498,7 @@ export class RemitoService {
   /**
    * Reprocesar remito con IA
    */
-  static async reprocess(id: number, userId: number): Promise<{ id: number; estado: string; jobId: string }> {
+  static async reprocess(id: number, userId: number, tenantEmpresaId?: number): Promise<{ id: number; estado: string; jobId: string }> {
     const prisma = db.getClient();
 
     const remito = await prisma.remito.findUnique({
@@ -493,6 +507,9 @@ export class RemitoService {
     });
 
     if (!remito) throw new Error('Remito no encontrado');
+    if (tenantEmpresaId && remito.tenantEmpresaId !== tenantEmpresaId) {
+      throw new Error('Remito no encontrado');
+    }
     if (remito.estado === 'APROBADO') throw new Error('No se puede reprocesar un remito aprobado');
 
     const imagenPrincipal = remito.imagenes[0];

@@ -84,7 +84,7 @@ describe('PlatformAuthService.login (smoke)', () => {
     const result = await PlatformAuthService.login({ email: 'a@b.com', password: 'x' });
 
     expect(result.success).toBe(false);
-    expect(result.message).toMatch(/Usuario desactivado/i);
+    expect(result.message).toMatch(/Credenciales inválidas/i);
   });
 
   it('retorna error si el hash es inválido y no es cuenta semilla', async () => {
@@ -104,43 +104,51 @@ describe('PlatformAuthService.login (smoke)', () => {
     const result = await PlatformAuthService.login({ email: 'usuario@empresa.com', password: 'password123' });
 
     expect(result.success).toBe(false);
-    expect(result.message).toMatch(/Contacte al administrador/i);
+    expect(result.message).toMatch(/Credenciales inválidas/i);
     expect((prismaMock.user.update as any)).not.toHaveBeenCalled();
   });
 
   it('repara hash para cuenta semilla con password default y luego autentica', async () => {
-    const seedUser: any = {
-      id: 3,
-      email: 'admin@bca.com',
-      password: 'hash-malo',
-      role: UserRole.SUPERADMIN,
-      activo: true,
-      empresaId: 1,
-      dadorCargaId: null,
-      empresaTransportistaId: null,
-      choferId: null,
-      clienteId: null,
-      mustChangePassword: false,
-      nombre: null,
-      apellido: null,
-      createdAt: new Date(),
-      updatedAt: new Date(),
-    };
-    (prismaMock.user.findUnique as any).mockResolvedValueOnce(seedUser);
+    process.env.SEED_REPAIR_EMAILS = 'admin@bca.com,admin@empresa.com,superadmin@empresa.com,admin@mfh.com.ar';
+    process.env.SEED_REPAIR_PASSWORDS = 'password123,admin123,Mfh@#2024A';
 
-    const repairedHash = '$2b$12$' + 'b'.repeat(53); // 60 chars, formato bcrypt
-    (bcrypt.hash as any).mockResolvedValueOnce(repairedHash);
-    (bcrypt.compare as any).mockResolvedValueOnce(true);
-    (prismaMock.user.update as any).mockResolvedValueOnce({ ...seedUser, password: repairedHash });
+    try {
+      const seedUser: any = {
+        id: 3,
+        email: 'admin@bca.com',
+        password: 'hash-malo',
+        role: UserRole.SUPERADMIN,
+        activo: true,
+        empresaId: 1,
+        dadorCargaId: null,
+        empresaTransportistaId: null,
+        choferId: null,
+        clienteId: null,
+        mustChangePassword: false,
+        nombre: null,
+        apellido: null,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      };
+      (prismaMock.user.findUnique as any).mockResolvedValueOnce(seedUser);
 
-    const result = await PlatformAuthService.login({ email: 'admin@bca.com', password: 'password123' });
+      const repairedHash = '$2b$12$' + 'b'.repeat(53); // 60 chars, formato bcrypt
+      (bcrypt.hash as any).mockResolvedValueOnce(repairedHash);
+      (bcrypt.compare as any).mockResolvedValueOnce(true);
+      (prismaMock.user.update as any).mockResolvedValueOnce({ ...seedUser, password: repairedHash });
 
-    expect((prismaMock.user.update as any)).toHaveBeenCalledWith({
-      where: { id: 3 },
-      data: { password: repairedHash },
-    });
-    expect(result.success).toBe(true);
-    expect(result.token).toBe('mock-token');
+      const result = await PlatformAuthService.login({ email: 'admin@bca.com', password: 'password123' });
+
+      expect((prismaMock.user.update as any)).toHaveBeenCalledWith({
+        where: { id: 3 },
+        data: { password: repairedHash },
+      });
+      expect(result.success).toBe(true);
+      expect(result.token).toBe('mock-token');
+    } finally {
+      delete process.env.SEED_REPAIR_EMAILS;
+      delete process.env.SEED_REPAIR_PASSWORDS;
+    }
   });
 
   it('retorna credenciales inválidas si bcrypt.compare=false', async () => {

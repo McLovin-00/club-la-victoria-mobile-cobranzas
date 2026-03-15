@@ -47,14 +47,14 @@ describe('PlatformAuthController (smoke)', () => {
     jest.clearAllMocks();
   });
 
-  it('login retorna 400 si validationResult trae errores', async () => {
-    (validationResult as unknown as jest.Mock).mockReturnValue({ isEmpty: () => false, array: () => [{ msg: 'x' }] });
+  it('login retorna 500 si el servicio lanza error', async () => {
+    (PlatformAuthService.login as jest.Mock).mockRejectedValue(new Error('fail'));
     const req = { body: {}, ip: '1.1.1.1', get: () => '' } as unknown as Request;
     const res = createRes();
 
     await PlatformAuthController.login(req, res);
 
-    expect(res.status).toHaveBeenCalledWith(400);
+    expect(res.status).toHaveBeenCalledWith(500);
   });
 
   it('login retorna 200 si el servicio autentica', async () => {

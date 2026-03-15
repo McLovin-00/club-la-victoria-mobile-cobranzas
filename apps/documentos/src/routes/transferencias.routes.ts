@@ -113,7 +113,7 @@ router.post('/', validate(crearSolicitudSchema), async (req: any, res) => {
     return res.status(201).json({ success: true, data: resultado });
   } catch (error: any) {
     AppLogger.error('💥 Error creando solicitud de transferencia', error);
-    return res.status(400).json({ success: false, message: error.message || 'Error creando solicitud' });
+    return res.status(400).json({ success: false, message: 'Error creando solicitud de transferencia' });
   }
 });
 

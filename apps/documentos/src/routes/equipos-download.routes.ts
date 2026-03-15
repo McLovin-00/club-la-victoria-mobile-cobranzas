@@ -25,7 +25,7 @@ interface ExcelRow {
   acopladoPatente: string;
 }
 
-async function buildExcelRowsOnly(equipoIds: number[]): Promise<ExcelRow[]> {
+async function buildExcelRowsOnly(equipoIds: number[], tenantEmpresaId?: number): Promise<ExcelRow[]> {
   const rows: ExcelRow[] = [];
   for (const equipoId of equipoIds) {
     const equipo = await prisma.equipo.findUnique({
@@ -33,6 +33,7 @@ async function buildExcelRowsOnly(equipoIds: number[]): Promise<ExcelRow[]> {
       include: { empresaTransportista: { select: { cuit: true, razonSocial: true } } },
     });
     if (!equipo) continue;
+    if (tenantEmpresaId && equipo.tenantEmpresaId !== tenantEmpresaId) continue;
 
     const [chofer, camion, acoplado] = await Promise.all([
       prisma.chofer.findUnique({ where: { id: equipo.driverId }, select: { dni: true, nombre: true, apellido: true } }),
@@ -169,7 +170,8 @@ router.post('/excel-form', async (req: Request, res: Response) => {
   try {
     AppLogger.info('📊 Generando Excel de equipos', { totalEquipos: equipos.ids.length, user: auth.decoded?.email });
     
-    const excelRows = await buildExcelRowsOnly(equipos.ids);
+    const tenantEmpresaId = auth.decoded?.empresaId;
+    const excelRows = await buildExcelRowsOnly(equipos.ids, tenantEmpresaId);
     
     if (excelRows.length === 0) {
       AppLogger.warn('📊 No hay equipos para generar Excel');

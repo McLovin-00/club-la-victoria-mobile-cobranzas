@@ -174,7 +174,7 @@ describe('AuthService', () => {
       const { authService } = await import('../auth.service');
 
       await expect(
-        authService.changePassword(1, 'currentpass', 'newpass')
+        authService.changePassword(1, 'currentpass', 'NewPass1x')
       ).resolves.toBeUndefined();
 
       expect(mockPrisma.user.update).toHaveBeenCalledWith({
@@ -196,7 +196,7 @@ describe('AuthService', () => {
       const { authService } = await import('../auth.service');
 
       await expect(
-        authService.changePassword(1, 'wrongpass', 'newpass')
+        authService.changePassword(1, 'wrongpass', 'NewPass1x')
       ).rejects.toThrow('Contraseña actual incorrecta');
     });
   });

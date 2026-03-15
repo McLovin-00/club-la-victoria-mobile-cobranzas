@@ -9,12 +9,12 @@ import { describe, it, expect, jest, beforeEach } from '@jest/globals';
 
 const prismaMock = {
   user: {
-    findUnique: jest.fn(),
-    create: jest.fn(),
-    update: jest.fn(),
-    delete: jest.fn(),
-    findMany: jest.fn(),
-    count: jest.fn(),
+    findUnique: jest.fn<any>(),
+    create: jest.fn<any>(),
+    update: jest.fn<any>(),
+    delete: jest.fn<any>(),
+    findMany: jest.fn<any>(),
+    count: jest.fn<any>(),
   },
 };
 
@@ -26,12 +26,12 @@ jest.mock('../../config/prisma', () => ({
 
 jest.mock('../../config/logger', () => ({
   AppLogger: {
-    info: jest.fn(),
-    warn: jest.fn(),
-    error: jest.fn(),
-    debug: jest.fn(),
-    logDatabaseOperation: jest.fn(),
-    logError: jest.fn(),
+    info: jest.fn<any>(),
+    warn: jest.fn<any>(),
+    error: jest.fn<any>(),
+    debug: jest.fn<any>(),
+    logDatabaseOperation: jest.fn<any>(),
+    logError: jest.fn<any>(),
   },
 }));
 
@@ -48,13 +48,13 @@ jest.mock('../../config/environment', () => ({
 }));
 
 jest.mock('bcryptjs', () => ({
-  hash: jest.fn(),
-  compare: jest.fn(),
+  hash: jest.fn<any>(),
+  compare: jest.fn<any>(),
 }));
 
 jest.mock('jsonwebtoken', () => ({
-  sign: jest.fn(() => 'mock-jwt-token'),
-  verify: jest.fn(),
+  sign: jest.fn<any>(() => 'mock-jwt-token'),
+  verify: jest.fn<any>(),
 }));
 
 import * as bcrypt from 'bcryptjs';
@@ -96,7 +96,7 @@ describe('AuthService (coverage)', () => {
     it('returns auth response on valid credentials', async () => {
       const user = makeUser();
       prismaMock.user.findUnique.mockResolvedValue(user);
-      (bcrypt.compare as jest.Mock).mockResolvedValue(true);
+      (bcrypt.compare as jest.Mock<any>).mockResolvedValue(true);
 
       const result = await authService.login({
         email: 'test@example.com',
@@ -118,7 +118,7 @@ describe('AuthService (coverage)', () => {
 
     it('throws when password is invalid', async () => {
       prismaMock.user.findUnique.mockResolvedValue(makeUser());
-      (bcrypt.compare as jest.Mock).mockResolvedValue(false);
+      (bcrypt.compare as jest.Mock<any>).mockResolvedValue(false);
 
       await expect(
         authService.login({ email: 'test@example.com', password: 'wrong' })
@@ -134,7 +134,7 @@ describe('AuthService (coverage)', () => {
 
     it('registers operator by admin', async () => {
       prismaMock.user.findUnique.mockResolvedValue(null);
-      (bcrypt.hash as jest.Mock).mockResolvedValue('hashed');
+      (bcrypt.hash as jest.Mock<any>).mockResolvedValue('hashed');
       prismaMock.user.create.mockResolvedValue(makeUser({ id: 2, email: 'new@x.com', role: 'OPERATOR' }));
 
       const result = await authService.register(
@@ -147,7 +147,7 @@ describe('AuthService (coverage)', () => {
 
     it('registers admin by admin', async () => {
       prismaMock.user.findUnique.mockResolvedValue(null);
-      (bcrypt.hash as jest.Mock).mockResolvedValue('hashed');
+      (bcrypt.hash as jest.Mock<any>).mockResolvedValue('hashed');
       prismaMock.user.create.mockResolvedValue(makeUser({ id: 3, role: 'ADMIN' }));
 
       const result = await authService.register(
@@ -170,7 +170,7 @@ describe('AuthService (coverage)', () => {
     it('allows superadmin to create admin', async () => {
       const saUser = { userId: 1, email: 'sa@x.com', role: 'SUPERADMIN', empresaId: undefined };
       prismaMock.user.findUnique.mockResolvedValue(null);
-      (bcrypt.hash as jest.Mock).mockResolvedValue('hashed');
+      (bcrypt.hash as jest.Mock<any>).mockResolvedValue('hashed');
       prismaMock.user.create.mockResolvedValue(makeUser({ id: 4, role: 'ADMIN' }));
 
       const result = await authService.register(
@@ -225,7 +225,7 @@ describe('AuthService (coverage)', () => {
 
     it('inherits empresa from admin creator when empresaId not provided', async () => {
       prismaMock.user.findUnique.mockResolvedValue(null);
-      (bcrypt.hash as jest.Mock).mockResolvedValue('hashed');
+      (bcrypt.hash as jest.Mock<any>).mockResolvedValue('hashed');
       prismaMock.user.create.mockResolvedValue(makeUser({ id: 5, empresaId: 10 }));
 
       const result = await authService.register(
@@ -239,7 +239,7 @@ describe('AuthService (coverage)', () => {
     it('superadmin user gets null empresaId', async () => {
       const saUser = { userId: 1, email: 'sa@x.com', role: 'SUPERADMIN' };
       prismaMock.user.findUnique.mockResolvedValue(null);
-      (bcrypt.hash as jest.Mock).mockResolvedValue('hashed');
+      (bcrypt.hash as jest.Mock<any>).mockResolvedValue('hashed');
       prismaMock.user.create.mockResolvedValue(makeUser({ id: 6, role: 'ADMIN', empresaId: 10 }));
 
       const result = await authService.register(
@@ -304,12 +304,12 @@ describe('AuthService (coverage)', () => {
   describe('changePassword', () => {
     it('changes password successfully', async () => {
       prismaMock.user.findUnique.mockResolvedValue(makeUser());
-      (bcrypt.compare as jest.Mock).mockResolvedValue(true);
-      (bcrypt.hash as jest.Mock).mockResolvedValue('new-hashed');
+      (bcrypt.compare as jest.Mock<any>).mockResolvedValue(true);
+      (bcrypt.hash as jest.Mock<any>).mockResolvedValue('new-hashed');
       prismaMock.user.update.mockResolvedValue({});
 
       await expect(
-        authService.changePassword(1, 'current', 'newpassword')
+        authService.changePassword(1, 'current', 'NewPass1x')
       ).resolves.toBeUndefined();
     });
 
@@ -323,7 +323,7 @@ describe('AuthService (coverage)', () => {
 
     it('throws when current password is wrong', async () => {
       prismaMock.user.findUnique.mockResolvedValue(makeUser());
-      (bcrypt.compare as jest.Mock).mockResolvedValue(false);
+      (bcrypt.compare as jest.Mock<any>).mockResolvedValue(false);
 
       await expect(
         authService.changePassword(1, 'wrong', 'new')
@@ -336,7 +336,7 @@ describe('AuthService (coverage)', () => {
   // ==========================================================================
   describe('refreshToken', () => {
     it('returns new token on valid token', async () => {
-      (jwt.verify as jest.Mock).mockReturnValue({ userId: 1, email: 'test@x.com', role: 'ADMIN' });
+      (jwt.verify as jest.Mock<any>).mockReturnValue({ userId: 1, email: 'test@x.com', role: 'ADMIN' });
       prismaMock.user.findUnique.mockResolvedValue(makeUser());
 
       const result = await authService.refreshToken('valid-token');
@@ -346,7 +346,7 @@ describe('AuthService (coverage)', () => {
     });
 
     it('returns null on invalid token', async () => {
-      (jwt.verify as jest.Mock).mockImplementation(() => { throw new Error('invalid'); });
+      (jwt.verify as jest.Mock<any>).mockImplementation(() => { throw new Error('invalid'); });
 
       const result = await authService.refreshToken('invalid-token');
 
@@ -360,7 +360,7 @@ describe('AuthService (coverage)', () => {
   describe('verifyToken', () => {
     it('verifies RS256 token', () => {
       const payload = { userId: 1, email: 'x@x.com', role: 'ADMIN' };
-      (jwt.verify as jest.Mock).mockReturnValue(payload);
+      (jwt.verify as jest.Mock<any>).mockReturnValue(payload);
 
       const result = authService.verifyToken('rs256-token');
 
@@ -369,7 +369,7 @@ describe('AuthService (coverage)', () => {
 
     it('falls back to HS256 when RS256 fails', () => {
       const payload = { userId: 1, email: 'x@x.com', role: 'ADMIN' };
-      (jwt.verify as jest.Mock)
+      (jwt.verify as jest.Mock<any>)
         .mockImplementationOnce(() => { throw new Error('RS256 fail'); })
         .mockReturnValueOnce(payload);
 
@@ -379,7 +379,7 @@ describe('AuthService (coverage)', () => {
     });
 
     it('returns null when both RS256 and HS256 fail', () => {
-      (jwt.verify as jest.Mock).mockImplementation(() => { throw new Error('fail'); });
+      (jwt.verify as jest.Mock<any>).mockImplementation(() => { throw new Error('fail'); });
 
       const result = authService.verifyToken('bad-token');
 

@@ -1,0 +1,36 @@
+# =============================================================================
+# Dockerfile.remitos - IPLAN Production (VM1 - 10.8.10.120)
+# =============================================================================
+# Basado en staging 10.3.0.243.
+# Multi-stage: builder compila con monorepo, runner minimo con poppler-utils.
+# =============================================================================
+# syntax=docker/dockerfile:1.7
+
+FROM node:20-alpine AS builder
+WORKDIR /app
+
+COPY . .
+RUN npm install && \
+    npx prisma generate --schema=apps/remitos/src/prisma/schema.prisma && \
+    npx tsc -p apps/remitos/tsconfig.standalone.json
+
+FROM node:20-alpine AS runner
+RUN apk add --no-cache poppler-utils && rm -rf /var/cache/apk/*
+WORKDIR /app
+ENV NODE_ENV=production
+
+COPY apps/remitos/package.json ./
+RUN npm install --omit=dev --ignore-scripts && npm cache clean --force
+
+COPY --from=builder /app/apps/remitos/dist ./dist
+COPY --from=builder /app/apps/remitos/src/prisma ./src/prisma
+COPY --from=builder /app/apps/remitos/node_modules/.prisma ./node_modules/.prisma
+
+RUN rm -rf /tmp/* /root/.npm
+
+EXPOSE 4803
+
+HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
+    CMD wget -qO- http://127.0.0.1:${REMITOS_PORT:-4803}/health || exit 1
+
+CMD ["node", "--max-old-space-size=2048", "dist/index.js"]

@@ -90,8 +90,8 @@ export class PlatformUserController {
         userId: user.userId, userRole: user.role, page, limit, search, role, empresaId,
       });
 
-      // Construir filtros de consulta
-      const where: any = {};
+      // Construir filtros de consulta (excluir usuarios con soft delete)
+      const where: any = { deletedAt: null };
       addSearchFilter(where, search as string);
       addRoleFilter(where, role as string);
       addEmpresaFilter(where, empresaId as string);
@@ -202,8 +202,8 @@ export class PlatformUserController {
         requestingUserRole: user.role,
       });
 
-      // Construir filtros según permisos
-      const where: any = { id: userId };
+      // Construir filtros según permisos (excluir usuarios con soft delete)
+      const where: any = { id: userId, deletedAt: null };
 
       if (user.role === 'ADMIN') {
         // Los administradores solo pueden ver usuarios de su empresa

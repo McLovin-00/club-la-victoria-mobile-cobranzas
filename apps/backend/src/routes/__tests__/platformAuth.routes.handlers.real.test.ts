@@ -8,30 +8,50 @@ import { createMockRes } from '../../__tests__/helpers/testUtils';
 import { getRouteHandlers } from '../../__tests__/helpers/routerTestUtils';
 import { UserRole } from '@prisma/client';
 
-// Mock de controlador
-jest.mock('../../controllers/platformAuth.controller', () => ({
-    PlatformAuthController: {
-        login: jest.fn(),
-        logout: jest.fn(),
-        register: jest.fn(),
-        registerClientWizard: jest.fn(),
-        registerDadorWizard: jest.fn(),
-        registerTransportistaWizard: jest.fn(),
-        registerChoferWizard: jest.fn(),
-        getProfile: jest.fn(),
-        changePassword: jest.fn(),
+// Mock del servicio para que toggleActivo real funcione
+const mockGetUserProfile = jest.fn();
+const mockToggleUserActivo = jest.fn();
+jest.mock('../../services/platformAuth.service', () => ({
+    PlatformAuthService: {
+        getUserProfile: (...args: any[]) => mockGetUserProfile(...args),
+        toggleUserActivo: (...args: any[]) => mockToggleUserActivo(...args),
         verifyToken: jest.fn(),
-        updateUser: jest.fn(),
-        deleteUser: jest.fn(),
+        login: jest.fn(),
+        register: jest.fn(),
     },
-    platformAuthValidation: {
-        updateUser: (_req: any, _res: any, next: any) => next(),
-    },
+    __esModule: true,
 }));
+
+// Mock de controlador - toggleActivo usa la implementación real
+jest.mock('../../controllers/platformAuth.controller', () => {
+    const actual = jest.requireActual('../../controllers/platformAuth.controller');
+    return {
+        PlatformAuthController: {
+            login: jest.fn(),
+            logout: jest.fn(),
+            refreshToken: jest.fn(),
+            register: jest.fn(),
+            registerClientWizard: jest.fn(),
+            registerDadorWizard: jest.fn(),
+            registerTransportistaWizard: jest.fn(),
+            registerChoferWizard: jest.fn(),
+            getProfile: jest.fn(),
+            changePassword: jest.fn(),
+            verifyToken: jest.fn(),
+            updateUser: jest.fn(),
+            deleteUser: jest.fn(),
+            toggleActivo: actual.PlatformAuthController.toggleActivo,
+        },
+        platformAuthValidation: {
+            updateUser: (_req: any, _res: any, next: any) => next(),
+        },
+    };
+});
 
 // Mock de middlewares
 jest.mock('../../middlewares/platformAuth.middleware', () => ({
     authenticateUser: (_req: any, _res: any, next: any) => next(),
+    optionalAuth: (_req: any, _res: any, next: any) => next(),
     authorizeRoles: () => (_req: any, _res: any, next: any) => next(),
     logAction: () => (_req: any, _res: any, next: any) => next(),
 }));
@@ -45,6 +65,7 @@ jest.mock('../../middlewares/validation.middleware', () => ({
 jest.mock('../../middlewares/rateLimit.middleware', () => ({
     loginRateLimiter: (_req: any, _res: any, next: any) => next(),
     passwordChangeRateLimiter: (_req: any, _res: any, next: any) => next(),
+    apiRateLimiter: (_req: any, _res: any, next: any) => next(),
 }));
 
 jest.mock('../../config/logger', () => ({
@@ -83,7 +104,11 @@ describe('platformAuth.routes inline handlers (real)', () => {
     });
 
     describe('PATCH /users/:id/toggle-activo', () => {
+        const actorProfile = { id: 1, email: 'admin@test.com', role: 'SUPERADMIN', empresaId: 1 };
+
         it('should return 400 if activo is not boolean', async () => {
+            mockGetUserProfile.mockResolvedValueOnce(actorProfile);
+
             const router = (await import('../platformAuth.routes')).default;
             const handlers = getRouteHandlers(router, 'patch', '/users/:id/toggle-activo');
 
@@ -108,10 +133,11 @@ describe('platformAuth.routes inline handlers (real)', () => {
         });
 
         it('should return 404 if user not found', async () => {
+            mockGetUserProfile.mockResolvedValueOnce(actorProfile);
+            mockToggleUserActivo.mockRejectedValueOnce(new Error('Usuario no encontrado'));
+
             const router = (await import('../platformAuth.routes')).default;
             const handlers = getRouteHandlers(router, 'patch', '/users/:id/toggle-activo');
-
-            prisma.user.findUnique.mockResolvedValueOnce(null);
 
             const res = createMockRes();
             await runMiddlewares(
@@ -134,15 +160,12 @@ describe('platformAuth.routes inline handlers (real)', () => {
         });
 
         it('should return 403 if user cannot modify target', async () => {
+            const adminProfile = { id: 1, email: 'admin@test.com', role: 'ADMIN', empresaId: 1 };
+            mockGetUserProfile.mockResolvedValueOnce(adminProfile);
+            mockToggleUserActivo.mockRejectedValueOnce(new Error('No tiene permisos para modificar este usuario'));
+
             const router = (await import('../platformAuth.routes')).default;
             const handlers = getRouteHandlers(router, 'patch', '/users/:id/toggle-activo');
-
-            prisma.user.findUnique.mockResolvedValueOnce({
-                id: 2,
-                email: 'other@test.com',
-                role: UserRole.ADMIN,
-                empresaId: 999, // Different empresa
-            });
 
             const res = createMockRes();
             await runMiddlewares(
@@ -164,16 +187,12 @@ describe('platformAuth.routes inline handlers (real)', () => {
             );
         });
 
-        it('should return 400 if user tries to deactivate themselves', async () => {
+        it('should return 403 if user tries to deactivate themselves', async () => {
+            mockGetUserProfile.mockResolvedValueOnce(actorProfile);
+            mockToggleUserActivo.mockRejectedValueOnce(new Error('No puede desactivarse a sí mismo'));
+
             const router = (await import('../platformAuth.routes')).default;
             const handlers = getRouteHandlers(router, 'patch', '/users/:id/toggle-activo');
-
-            prisma.user.findUnique.mockResolvedValueOnce({
-                id: 1,
-                email: 'admin@test.com',
-                role: UserRole.SUPERADMIN,
-                empresaId: 1,
-            });
 
             const res = createMockRes();
             await runMiddlewares(
@@ -186,7 +205,7 @@ describe('platformAuth.routes inline handlers (real)', () => {
                 res
             );
 
-            expect(res.status).toHaveBeenCalledWith(400);
+            expect(res.status).toHaveBeenCalledWith(403);
             expect(res.json).toHaveBeenCalledWith(
                 expect.objectContaining({
                     success: false,
@@ -196,21 +215,15 @@ describe('platformAuth.routes inline handlers (real)', () => {
         });
 
         it('should successfully toggle user active status', async () => {
-            const router = (await import('../platformAuth.routes')).default;
-            const handlers = getRouteHandlers(router, 'patch', '/users/:id/toggle-activo');
-
-            prisma.user.findUnique.mockResolvedValueOnce({
-                id: 2,
-                email: 'user@test.com',
-                role: UserRole.OPERATOR,
-                empresaId: 1,
-            });
-
-            prisma.user.update.mockResolvedValueOnce({
+            mockGetUserProfile.mockResolvedValueOnce(actorProfile);
+            mockToggleUserActivo.mockResolvedValueOnce({
                 id: 2,
                 email: 'user@test.com',
                 activo: false,
             });
+
+            const router = (await import('../platformAuth.routes')).default;
+            const handlers = getRouteHandlers(router, 'patch', '/users/:id/toggle-activo');
 
             const res = createMockRes();
             await runMiddlewares(
@@ -233,10 +246,11 @@ describe('platformAuth.routes inline handlers (real)', () => {
         });
 
         it('should handle errors gracefully', async () => {
+            mockGetUserProfile.mockResolvedValueOnce(actorProfile);
+            mockToggleUserActivo.mockRejectedValueOnce(new Error('Database error'));
+
             const router = (await import('../platformAuth.routes')).default;
             const handlers = getRouteHandlers(router, 'patch', '/users/:id/toggle-activo');
-
-            prisma.user.findUnique.mockRejectedValueOnce(new Error('Database error'));
 
             const res = createMockRes();
             await runMiddlewares(

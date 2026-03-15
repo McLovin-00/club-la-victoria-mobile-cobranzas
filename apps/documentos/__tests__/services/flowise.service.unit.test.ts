@@ -18,7 +18,15 @@ jest.mock('../../src/controllers/flowise-config.controller', () => ({
 jest.mock('axios');
 import axios from 'axios';
 
-jest.mock('fs', () => ({ promises: { rm: jest.fn() } }));
+jest.mock('fs', () => ({
+  promises: {
+    rm: jest.fn(),
+    mkdtemp: jest.fn(async () => '/tmp/dir'),
+    writeFile: jest.fn(async () => undefined),
+    readdir: jest.fn(async () => ['page-1.png']),
+    readFile: jest.fn(async (_p: string) => Buffer.from('img')),
+  },
+}));
 jest.mock('os', () => ({ tmpdir: () => '/tmp' }));
 
 const mockExecFile = jest.fn((_c: any, _a: any, _o: any, cb: any) => cb(null, { stdout: '', stderr: '' }));
@@ -50,10 +58,6 @@ describe('FlowiseService', () => {
   beforeEach(() => {
     resetPrismaMock();
     jest.clearAllMocks();
-    // Crear nueva instancia del servicio para cada test
-    mockGetCurrentFlowiseConfig.mockResolvedValue(mockFlowiseConfig);
-    svc = FlowiseService.getInstance();
-    // Reset instance para evitar estado compartido
     (FlowiseService as any).instance = null;
     mockGetCurrentFlowiseConfig.mockResolvedValue(mockFlowiseConfig);
     svc = FlowiseService.getInstance();
@@ -90,6 +94,7 @@ describe('FlowiseService', () => {
       (FlowiseService as any).instance = null;
       mockGetCurrentFlowiseConfig.mockResolvedValue({ enabled: true, baseUrl: 'http://flowise/', flowId: 'fid', apiKey: 'k' });
       const svcWithSlash = FlowiseService.getInstance();
+      await new Promise(r => setTimeout(r, 0));
       mockedAxios.get.mockResolvedValueOnce({ status: 200 } as any);
       await svcWithSlash.healthCheck();
       expect(mockedAxios.get).toHaveBeenCalledWith(expect.stringContaining('/health'), expect.any(Object));
@@ -99,6 +104,7 @@ describe('FlowiseService', () => {
       (FlowiseService as any).instance = null;
       mockGetCurrentFlowiseConfig.mockResolvedValue({ enabled: true, baseUrl: 'http://flowise', flowId: 'fid', apiKey: 'k' });
       const svcNoSlash = FlowiseService.getInstance();
+      await new Promise(r => setTimeout(r, 0));
       mockedAxios.get.mockResolvedValueOnce({ status: 200 } as any);
       await svcNoSlash.healthCheck();
       expect(mockedAxios.get).toHaveBeenCalledWith(expect.stringContaining('/health'), expect.any(Object));
@@ -463,11 +469,10 @@ describe('FlowiseService', () => {
       mockedAxios.get.mockResolvedValueOnce({ data: Buffer.from('img'), headers: { 'content-type': 'image/png' } } as any);
       mockedAxios.post.mockResolvedValueOnce({
         status: 200,
-        data: { text: 'Entidad:\nId_Entidad:\nComprobante:\nVencimiento:' },
+        data: { text: 'Some text without any tagged fields at all' },
       } as any);
       const out = await svc.classifyDocument('http://file.png');
       expect(out.success).toBe(true);
-      // Empty string becomes 'DESCONOCIDO' after .toUpperCase()
       expect(out.entityType).toBe('DESCONOCIDO');
       expect(out.documentType).toBe('Desconocido');
     });

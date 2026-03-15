@@ -65,8 +65,11 @@ router.put(
   authenticateUser,
   authorizeRoles(['ADMIN', 'SUPERADMIN']),
   async (req: Request, res: Response) => {
-    const body = req.body || {};
-    defaultsState = { ...defaultsState, ...body };
+    const { defaultClienteId, defaultDadorId, missingCheckDelayMinutes, noExpiryHorizonYears } = req.body || {};
+    if (defaultClienteId !== undefined) defaultsState.defaultClienteId = defaultClienteId;
+    if (defaultDadorId !== undefined) defaultsState.defaultDadorId = defaultDadorId;
+    if (missingCheckDelayMinutes !== undefined) defaultsState.missingCheckDelayMinutes = missingCheckDelayMinutes;
+    if (noExpiryHorizonYears !== undefined) defaultsState.noExpiryHorizonYears = noExpiryHorizonYears;
     return res.json({ success: true, data: defaultsState, timestamp: new Date().toISOString() });
   }
 );
@@ -109,7 +112,11 @@ router.put(
     const id = Number(req.params.id);
     const idx = dadores.findIndex((d) => d.id === id);
     if (idx === -1) return res.status(404).json({ success: false, message: 'Dador no encontrado' });
-    dadores[idx] = { ...dadores[idx], ...(req.body || {}) };
+    const { razonSocial, cuit, activo, notas } = req.body || {};
+    if (razonSocial !== undefined) dadores[idx].razonSocial = razonSocial;
+    if (cuit !== undefined) dadores[idx].cuit = cuit;
+    if (activo !== undefined) dadores[idx].activo = Boolean(activo);
+    if (notas !== undefined) dadores[idx].notas = notas;
     return res.json({ success: true, data: dadores[idx], timestamp: new Date().toISOString() });
   }
 );
@@ -211,7 +218,11 @@ router.put(
     const id = Number(req.params.id);
     const idx = clients.findIndex((c) => c.id === id);
     if (idx === -1) return res.status(404).json({ success: false, message: 'Cliente no encontrado' });
-    clients[idx] = { ...clients[idx], ...(req.body || {}) };
+    const { razonSocial: rs, cuit: ct, activo: ac, notas: nt } = req.body || {};
+    if (rs !== undefined) clients[idx].razonSocial = rs;
+    if (ct !== undefined) clients[idx].cuit = ct;
+    if (ac !== undefined) clients[idx].activo = Boolean(ac);
+    if (nt !== undefined) clients[idx].notas = nt;
     return res.json({ success: true, data: clients[idx], timestamp: new Date().toISOString() });
   }
 );
@@ -245,7 +256,8 @@ router.post(
   async (req: Request, res: Response) => {
     const clienteId = Number(req.params.clienteId);
     const arr = clientRequirements[clienteId] || (clientRequirements[clienteId] = []);
-    const next = { id: Date.now(), ...(req.body || {}), template: { id: (req.body?.templateId || 0), name: 'Template', entityType: req.body?.entityType || '' } };
+    const { templateId, entityType, obligatorio, diasAnticipacion, visibleChofer } = req.body || {};
+    const next = { id: Date.now(), templateId, entityType, obligatorio, diasAnticipacion, visibleChofer: visibleChofer ?? false, template: { id: (templateId || 0), name: 'Template', entityType: entityType || '' } };
     arr.push(next);
     return res.json({ success: true, data: next, timestamp: new Date().toISOString() });
   }
