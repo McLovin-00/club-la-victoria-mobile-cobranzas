@@ -519,10 +519,18 @@ router.get('/:id/summary.xlsx', ownsEquipo(), validate(equipoSummarySchema), asy
     if (equipo.truckId) clauses.push({ entityType: 'CAMION', entityId: equipo.truckId });
     if (equipo.trailerId) clauses.push({ entityType: 'ACOPLADO', entityId: equipo.trailerId });
 
-    const docs = await prisma.document.findMany({
+    const allDocs = await prisma.document.findMany({
       where: { tenantEmpresaId: equipo.tenantEmpresaId, dadorCargaId: equipo.dadorCargaId, ...(clauses.length ? { OR: clauses } : {}) } as any,
       include: { template: { select: { name: true, entityType: true } } },
       orderBy: { uploadedAt: 'desc' },
+    });
+
+    const seen = new Set<string>();
+    const docs = allDocs.filter((d) => {
+      const key = `${d.entityType}:${d.entityId}:${d.templateId ?? d.template?.name ?? ''}`;
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
     });
 
     const ExcelJS = (await import('exceljs')).default;
