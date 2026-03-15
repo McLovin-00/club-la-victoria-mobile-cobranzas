@@ -192,7 +192,7 @@ export const EstadoEquipoPage: React.FC = () => {
 
   const downloadZipVigentes = async () => {
     try {
-      const url = `${getRuntimeEnv('VITE_DOCUMENTOS_API_URL') || ''}/api/docs/equipos/${equipoId}/zip`;
+      const url = `${getRuntimeEnv('VITE_DOCUMENTOS_API_URL') || ''}/api/docs/clients/equipos/${equipoId}/zip`;
       const resp = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
       if (!resp.ok) throw new Error(`Error ${resp.status}`);
       const blob = await resp.blob();
