@@ -76,7 +76,8 @@ class MinIOService {
   }
   
   async getSignedUrl(bucketName: string, objectKey: string, expiry = 3600): Promise<string> {
-    return this.client.presignedGetObject(bucketName, objectKey, expiry);
+    const url = await this.client.presignedGetObject(bucketName, objectKey, expiry);
+    return url.replace(/^https?:\/\/[^/]+/, '');
   }
   
   async getObject(bucketName: string, objectKey: string, timeoutMs = 30_000): Promise<Buffer> {
