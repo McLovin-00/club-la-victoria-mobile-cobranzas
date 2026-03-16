@@ -736,6 +736,10 @@ enum InternalNotificationType {
   // Clientes/Requisitos
   NUEVO_REQUISITO_CLIENTE // Cliente agregó nuevo tipo de documento requerido
 
+  // Remitos
+  REMITO_RECHAZADO
+  REMITO_APROBADO
+
   // Sistema
   SYSTEM_ALERT
 }

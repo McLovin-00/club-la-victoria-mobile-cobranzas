@@ -2,6 +2,7 @@ import { db } from '../config/database';
 import { AppLogger } from '../config/logger';
 import { minioService } from './minio.service';
 import { queueService } from './queue.service';
+import { RemitoNotificationService } from './remito-notification.service';
 import { FlowiseRemitoResponse } from '../types';
 import type { Remito, RemitoImagen, RemitoHistory, RemitoAction } from '.prisma/remitos';
 
@@ -447,6 +448,21 @@ export class RemitoService {
 
     await logRemitoHistory(id, 'APROBADO', userId, 'ADMIN_INTERNO');
     AppLogger.info('✅ Remito aprobado', { id, userId });
+
+    setImmediate(() => {
+      RemitoNotificationService.notifyApproval({
+        remitoId: id,
+        tenantEmpresaId: remito.tenantEmpresaId,
+        dadorCargaId: remito.dadorCargaId,
+        cargadoPorUserId: remito.cargadoPorUserId,
+        cargadoPorRol: remito.cargadoPorRol,
+        actionUserId: userId,
+        numeroRemito: remito.numeroRemito,
+        choferId: remito.choferId,
+        empresaTransportistaId: remito.empresaTransportistaId,
+      });
+    });
+
     return remito;
   }
 
@@ -474,6 +490,22 @@ export class RemitoService {
 
     await logRemitoHistory(id, 'RECHAZADO', userId, 'ADMIN_INTERNO', { motivo });
     AppLogger.info('Remito rechazado', { id, userId, motivo });
+
+    setImmediate(() => {
+      RemitoNotificationService.notifyRejection({
+        remitoId: id,
+        tenantEmpresaId: remito.tenantEmpresaId,
+        dadorCargaId: remito.dadorCargaId,
+        cargadoPorUserId: remito.cargadoPorUserId,
+        cargadoPorRol: remito.cargadoPorRol,
+        actionUserId: userId,
+        numeroRemito: remito.numeroRemito,
+        choferId: remito.choferId,
+        empresaTransportistaId: remito.empresaTransportistaId,
+        motivo,
+      });
+    });
+
     return remito;
   }
 

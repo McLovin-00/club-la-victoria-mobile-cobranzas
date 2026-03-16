@@ -561,20 +561,7 @@ export class ApprovalService {
       });
     });
 
-    // Enviar notificaciones de rechazo (best-effort, no bloquea la transacción)
-    setImmediate(async () => {
-      try {
-        const { RejectionNotificationService } = await import('./rejection-notification.service');
-        await RejectionNotificationService.notifyDocumentRejection(
-          documentId,
-          reviewData.reason
-        );
-      } catch (error) {
-        AppLogger.error('Error enviando notificaciones de rechazo:', error);
-      }
-    });
-
-    // Disparar event handlers para re-evaluar equipos (async, no bloquea)
+    // Disparar event handlers para notificaciones + re-evaluación de equipos (async, no bloquea)
     setImmediate(async () => {
       try {
         const { DocumentEventHandlers } = await import('./document-event-handlers.service');
