@@ -141,7 +141,7 @@ export class ApprovalController {
       const results = await processBatchApproval(ids, user, overrides);
       const approved = results.filter(r => r.ok).length;
       res.json({ success: true, approved, failed: results.length - approved, results });
-      void logBatchAudit(req, res, user, ids, overrides);
+      logBatchAudit(req, res, user, ids, overrides);
       try { (await import('../services/performance.service')).performanceService.refreshMaterializedView(); } catch { /* Refresh async */ }
     } catch (error) {
       AppLogger.error('ApprovalController.batchApprove error:', error);
