@@ -15,7 +15,7 @@ export default function EmpresaTransportistaDetailPage() {
       <header className="flex items-center justify-between">
         <div className="flex items-center gap-3">
           <Link 
-            className="inline-flex items-center gap-2 border border-gray-300 text-gray-600 hover:bg-gray-50 font-medium px-4 py-2 rounded-lg transition-all duration-200"
+            className="inline-flex items-center gap-2 border border-border text-muted-foreground hover:bg-accent font-medium px-4 py-2 rounded-lg transition-all duration-200"
             to="/documentos/empresas-transportistas"
           >
             ← Atrás

@@ -12,15 +12,15 @@ type EntityType = 'DADOR' | 'EMPRESA_TRANSPORTISTA' | 'CHOFER' | 'CAMION' | 'ACO
 type SeveridadType = 'critica' | 'advertencia' | 'info';
 
 const SEVERIDAD_BG_CLASSES: Record<SeveridadType, string> = {
-  critica: 'bg-red-50 border-red-200',
-  advertencia: 'bg-amber-50 border-amber-200',
-  info: 'bg-blue-50 border-blue-200',
+  critica: 'bg-red-50 dark:bg-red-950/30 border-red-200 dark:border-red-800',
+  advertencia: 'bg-amber-50 dark:bg-amber-950/30 border-amber-200 dark:border-amber-800',
+  info: 'bg-blue-50 dark:bg-blue-950/30 border-blue-200 dark:border-blue-800',
 };
 
 const SEVERIDAD_TEXT_CLASSES: Record<SeveridadType, string> = {
-  critica: 'text-red-700',
-  advertencia: 'text-amber-700',
-  info: 'text-blue-700',
+  critica: 'text-red-700 dark:text-red-400',
+  advertencia: 'text-amber-700 dark:text-amber-400',
+  info: 'text-blue-700 dark:text-blue-400',
 };
 
 function getSeveridadBgClass(severidad: string | undefined): string {
@@ -91,7 +91,7 @@ export default function ApprovalQueuePage() {
         <div className="flex items-center gap-3">
           <button
             onClick={() => navigate(getBackRoute())}
-            className="inline-flex items-center gap-2 px-3 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 transition-colors"
+            className="inline-flex items-center gap-2 px-3 py-2 border border-border rounded-md text-sm font-medium text-muted-foreground bg-card hover:bg-accent transition-colors"
           >
             <ArrowLeftIcon className="h-4 w-4" />
             Volver
@@ -108,9 +108,9 @@ export default function ApprovalQueuePage() {
       </header>
 
       {pendingError && (
-        <div className="bg-red-50 border border-red-200 rounded-lg p-4 flex items-center justify-between">
-          <span className="text-red-700 text-sm font-medium">Error al cargar documentos pendientes. Verifique su conexión e intente nuevamente.</span>
-          <button onClick={() => refetch()} className="ml-4 px-3 py-1 text-sm font-medium text-red-700 bg-red-100 rounded-md hover:bg-red-200 transition-colors">Reintentar</button>
+        <div className="bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-800 rounded-lg p-4 flex items-center justify-between">
+          <span className="text-red-700 dark:text-red-400 text-sm font-medium">Error al cargar documentos pendientes. Verifique su conexión e intente nuevamente.</span>
+          <button onClick={() => refetch()} className="ml-4 px-3 py-1 text-sm font-medium text-red-700 dark:text-red-400 bg-red-100 dark:bg-red-900/30 rounded-md hover:bg-red-200 dark:hover:bg-red-900/50 transition-colors">Reintentar</button>
         </div>
       )}
 
@@ -131,7 +131,7 @@ export default function ApprovalQueuePage() {
           </div>
           <div className="flex items-center gap-2">
             <button 
-              className="border border-blue-300 text-blue-600 hover:bg-blue-50 font-medium px-4 py-2 rounded-lg transition-all duration-200 disabled:opacity-50"
+              className="border border-blue-300 dark:border-blue-700 text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-950/30 font-medium px-4 py-2 rounded-lg transition-all duration-200 disabled:opacity-50"
               onClick={() => refetch()} 
               disabled={isFetching}
             >
@@ -192,8 +192,8 @@ export default function ApprovalQueuePage() {
                               <div className={`font-semibold ${getSeveridadTextClass(d.severidad)}`}>
                                 {d.severidad?.toUpperCase()} - {d.campo}
                               </div>
-                              <div className="text-gray-600 mt-0.5">{d.mensaje}</div>
-                              <div className="text-[11px] text-gray-500 mt-0.5">
+                              <div className="text-muted-foreground mt-0.5">{d.mensaje}</div>
+                              <div className="text-[11px] text-muted-foreground/70 mt-0.5">
                                 Sistema: <strong>{String(d.valorEnSistema ?? '-')}</strong> | Doc: <strong>{String(d.valorEnDocumento ?? '-')}</strong>
                               </div>
                             </div>
@@ -251,7 +251,7 @@ function IAValidationBadge({ iaValidation }: { iaValidation: IAValidation | null
   // Si no hay iaValidation o validationStatus es null, está pendiente
   if (!iaValidation || !iaValidation.validationStatus) {
     return (
-      <span className="inline-flex items-center gap-1.5 px-2 py-1 rounded-md bg-gray-100 text-gray-500 text-xs font-medium" title="Pendiente de validación IA">
+      <span className="inline-flex items-center gap-1.5 px-2 py-1 rounded-md bg-muted text-muted-foreground text-xs font-medium" title="Pendiente de validación IA">
         <MinusCircleIcon className="h-4 w-4" />
         Pendiente
       </span>
@@ -261,7 +261,7 @@ function IAValidationBadge({ iaValidation }: { iaValidation: IAValidation | null
   // Si hubo error
   if (iaValidation.validationStatus === 'error') {
     return (
-      <span className="inline-flex items-center gap-1.5 px-2 py-1 rounded-md bg-red-50 text-red-600 text-xs font-medium border border-red-200" title="Error en validación IA">
+      <span className="inline-flex items-center gap-1.5 px-2 py-1 rounded-md bg-red-50 dark:bg-red-950/30 text-red-600 dark:text-red-400 text-xs font-medium border border-red-200 dark:border-red-800" title="Error en validación IA">
         <XCircleIcon className="h-4 w-4" />
         Error
       </span>
@@ -271,7 +271,7 @@ function IAValidationBadge({ iaValidation }: { iaValidation: IAValidation | null
   // Si fue validado y NO tiene disparidades = OK
   if (!iaValidation.hasDisparities) {
     return (
-      <span className="inline-flex items-center gap-1.5 px-2 py-1 rounded-md bg-green-50 text-green-600 text-xs font-medium border border-green-200" title="Validado por IA - Sin incongruencias">
+      <span className="inline-flex items-center gap-1.5 px-2 py-1 rounded-md bg-green-50 dark:bg-green-950/30 text-green-600 dark:text-green-400 text-xs font-medium border border-green-200 dark:border-green-800" title="Validado por IA - Sin incongruencias">
         <CheckCircleIcon className="h-4 w-4" />
         OK
       </span>

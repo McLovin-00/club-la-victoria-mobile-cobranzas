@@ -14,21 +14,21 @@ const toInt = (s: string | null, def: number): number => {
 const TextInput: React.FC<{ label: string; name: string; value?: string; onChange: (v: string) => void; placeholder?: string; type?: string }> = ({ label, name, value, onChange, placeholder, type }) => (
   <div className='flex flex-col gap-1'>
     <label htmlFor={name} className='text-sm text-muted-foreground'>{label}</label>
-    <input id={name} name={name} value={value ?? ''} onChange={(e) => onChange(e.target.value)} placeholder={placeholder} className='border rounded px-2 py-1 text-sm' type={type || 'text'} />
+    <input id={name} name={name} value={value ?? ''} onChange={(e) => onChange(e.target.value)} placeholder={placeholder} className='border rounded px-2 py-1 text-sm bg-background text-foreground' type={type || 'text'} />
   </div>
 );
 
 const NumberInput: React.FC<{ label: string; name: string; value?: number | undefined; onChange: (v: string) => void; placeholder?: string }> = ({ label, name, value, onChange, placeholder }) => (
   <div className='flex flex-col gap-1'>
     <label htmlFor={name} className='text-sm text-muted-foreground'>{label}</label>
-    <input id={name} name={name} value={value ?? ''} onChange={(e) => onChange(e.target.value)} placeholder={placeholder} className='border rounded px-2 py-1 text-sm' inputMode='numeric' />
+    <input id={name} name={name} value={value ?? ''} onChange={(e) => onChange(e.target.value)} placeholder={placeholder} className='border rounded px-2 py-1 text-sm bg-background text-foreground' inputMode='numeric' />
   </div>
 );
 
 const SelectInput: React.FC<{ label: string; name: string; value?: string; onChange: (v: string) => void; options: Array<{ value: string; label: string }> }> = ({ label, name, value, onChange, options }) => (
   <div className='flex flex-col gap-1'>
     <label htmlFor={name} className='text-sm text-muted-foreground'>{label}</label>
-    <select id={name} name={name} value={value ?? ''} onChange={(e) => onChange(e.target.value)} className='border rounded px-2 py-1 text-sm'>
+    <select id={name} name={name} value={value ?? ''} onChange={(e) => onChange(e.target.value)} className='border rounded px-2 py-1 text-sm bg-background text-foreground'>
       <option value=''>Todos</option>
       {options.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
     </select>
@@ -128,7 +128,7 @@ const AuditLogsPage: React.FC = () => {
       <div className='flex items-center gap-3 mb-4'>
         <button
           onClick={() => navigate(getBackRoute())}
-          className='inline-flex items-center gap-2 px-3 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 transition-colors'
+          className='inline-flex items-center gap-2 px-3 py-2 border border-border rounded-md text-sm font-medium text-muted-foreground bg-card hover:bg-accent transition-colors'
         >
           <ArrowLeftIcon className='h-4 w-4' />
           Volver
@@ -153,7 +153,7 @@ const AuditLogsPage: React.FC = () => {
         <Pager page={data?.page ?? 1} totalPages={data?.totalPages ?? 1} onPage={(p) => set('page', p)} />
         <div className='flex items-center gap-2'>
           <span className='text-sm text-muted-foreground'>Límite</span>
-          <select className='border rounded px-2 py-1 text-sm' value={String(limit)} onChange={(e) => set('limit', e.target.value)}>
+          <select className='border rounded px-2 py-1 text-sm bg-background text-foreground' value={String(limit)} onChange={(e) => set('limit', e.target.value)}>
             {['10','20','50','100'].map((n) => <option key={n} value={n}>{n}</option>)}
           </select>
           <button className='border rounded px-2 py-1 text-sm disabled:opacity-60' disabled={downloading !== null} onClick={() => download('csv')}>
@@ -209,7 +209,7 @@ const AuditLogsPage: React.FC = () => {
                   {visibleCols.entidad && <td className='px-2 py-2'>
                     {row.entityType}{row.entityId ? `#${row.entityId}` : ''}
                     {String(row.entityType ?? '').toUpperCase() === 'EQUIPO' && row.entityId ? (
-                      <a href={`/documentos/equipos/${row.entityId}/estado`} className='ml-2 underline text-blue-600'>ver</a>
+                      <a href={`/documentos/equipos/${row.entityId}/estado`} className='ml-2 underline text-blue-600 dark:text-blue-400'>ver</a>
                     ) : null}
                   </td>}
                   {visibleCols.ruta && <td className='px-2 py-2'>{row.path}</td>}

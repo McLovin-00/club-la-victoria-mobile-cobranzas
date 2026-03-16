@@ -127,32 +127,32 @@ export const NotificationBell = () => {
     switch (priority) {
       case 'urgent':
         return {
-          bg: 'bg-red-50 border-l-4 border-red-500',
-          badge: 'bg-red-100 text-red-800 border-red-300',
+          bg: 'bg-red-50 dark:bg-red-950/30 border-l-4 border-red-500',
+          badge: 'bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-400 border-red-300 dark:border-red-800',
           label: '🔴 Urgente',
         };
       case 'high':
         return {
-          bg: 'bg-orange-50 border-l-4 border-orange-400',
-          badge: 'bg-orange-100 text-orange-800 border-orange-300',
+          bg: 'bg-orange-50 dark:bg-orange-950/30 border-l-4 border-orange-400',
+          badge: 'bg-orange-100 dark:bg-orange-900/30 text-orange-800 dark:text-orange-400 border-orange-300 dark:border-orange-800',
           label: '🟠 Alta',
         };
       case 'normal':
         return {
           bg: '',
-          badge: 'bg-blue-100 text-blue-800 border-blue-300',
+          badge: 'bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-400 border-blue-300 dark:border-blue-800',
           label: '🔵 Normal',
         };
       case 'low':
         return {
           bg: '',
-          badge: 'bg-gray-100 text-gray-600 border-gray-300',
+          badge: 'bg-muted text-muted-foreground border-border',
           label: '⚪ Baja',
         };
       default:
         return {
           bg: '',
-          badge: 'bg-gray-100 text-gray-600 border-gray-300',
+          badge: 'bg-muted text-muted-foreground border-border',
           label: priority,
         };
     }
@@ -165,8 +165,8 @@ export const NotificationBell = () => {
         onClick={handleToggle}
         className={`relative p-2 rounded-full transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500 ${
           unreadCount > 0 
-            ? 'text-blue-600 hover:bg-blue-50' 
-            : 'text-gray-500 hover:text-gray-700 hover:bg-gray-100'
+            ? 'text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-950/30' 
+            : 'text-muted-foreground hover:text-foreground hover:bg-accent'
         }`}
         aria-label={`Notificaciones${unreadCount > 0 ? ` (${unreadCount} sin leer)` : ''}`}
       >
@@ -186,14 +186,14 @@ export const NotificationBell = () => {
 
       {/* Dropdown */}
       {isOpen && (
-        <div className="absolute right-0 mt-2 w-96 bg-white rounded-xl shadow-2xl border border-gray-200 z-50 max-h-[70vh] flex flex-col overflow-hidden">
+        <div className="absolute right-0 mt-2 w-96 bg-card rounded-xl shadow-2xl border border-border z-50 max-h-[70vh] flex flex-col overflow-hidden">
           {/* Header */}
-          <div className="px-4 py-3 border-b border-gray-100 flex items-center justify-between bg-gradient-to-r from-blue-50 to-white">
+          <div className="px-4 py-3 border-b border-border flex items-center justify-between bg-gradient-to-r from-blue-50 to-white dark:from-blue-950/30 dark:to-card">
             <div className="flex items-center gap-2">
               <BellIcon className="h-5 w-5 text-blue-600" />
-              <h3 className="text-lg font-semibold text-gray-900">Notificaciones</h3>
+              <h3 className="text-lg font-semibold text-foreground">Notificaciones</h3>
               {unreadCount > 0 && (
-                <span className="px-2 py-0.5 text-xs font-medium text-blue-700 bg-blue-100 rounded-full">
+                <span className="px-2 py-0.5 text-xs font-medium text-blue-700 dark:text-blue-400 bg-blue-100 dark:bg-blue-900/30 rounded-full">
                   {unreadCount} nuevas
                 </span>
               )}
@@ -212,12 +212,12 @@ export const NotificationBell = () => {
           <div className="overflow-y-auto flex-1">
             {notifications.length === 0 ? (
               <div className="px-4 py-12 text-center">
-                <BellIcon className="h-16 w-16 mx-auto mb-3 text-gray-200" />
-                <p className="text-gray-500 font-medium">No hay notificaciones</p>
-                <p className="text-gray-400 text-sm mt-1">Te avisaremos cuando haya novedades</p>
+                <BellIcon className="h-16 w-16 mx-auto mb-3 text-muted-foreground/30" />
+                <p className="text-muted-foreground font-medium">No hay notificaciones</p>
+                <p className="text-muted-foreground/70 text-sm mt-1">Te avisaremos cuando haya novedades</p>
               </div>
             ) : (
-              <ul className="divide-y divide-gray-100">
+              <ul className="divide-y divide-border">
                 {notifications.map((notification: any) => {
                   const priorityStyles = getPriorityStyles(notification.priority);
                   const icon = getNotificationIcon(notification.type);
@@ -225,8 +225,8 @@ export const NotificationBell = () => {
                   return (
                     <li
                       key={notification.id}
-                      className={`relative hover:bg-gray-50 cursor-pointer transition-colors ${
-                        !notification.read ? 'bg-blue-50/50' : ''
+                      className={`relative hover:bg-accent cursor-pointer transition-colors ${
+                        !notification.read ? 'bg-blue-50/50 dark:bg-blue-950/20' : ''
                       } ${priorityStyles.bg}`}
                       onClick={() => handleNotificationClick(notification)}
                       onKeyDown={(e) => e.key === 'Enter' && handleNotificationClick(notification)}
@@ -261,7 +261,7 @@ export const NotificationBell = () => {
 
           {/* Footer */}
           {notifications.length > 0 && (
-            <div className="px-4 py-3 border-t border-gray-100 bg-gray-50/50">
+            <div className="px-4 py-3 border-t border-border bg-muted/50">
               <Link
                 to="/notificaciones"
                 className="flex items-center justify-center gap-2 text-sm text-blue-600 hover:text-blue-800 font-medium"
@@ -299,20 +299,20 @@ const NotificationContent = ({ notification, icon, priorityStyles, handleDelete 
       <div className="flex items-start justify-between gap-2">
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 mb-0.5">
-            <h4 className={`text-sm font-semibold truncate ${!notification.read ? 'text-gray-900' : 'text-gray-700'}`}>
+            <h4 className={`text-sm font-semibold truncate ${!notification.read ? 'text-foreground' : 'text-muted-foreground'}`}>
               {notification.title}
             </h4>
             {!notification.read && (
               <span className="flex-shrink-0 w-2 h-2 bg-blue-500 rounded-full"></span>
             )}
           </div>
-          <p className="text-sm text-gray-600 line-clamp-2">{notification.message}</p>
+          <p className="text-sm text-muted-foreground line-clamp-2">{notification.message}</p>
         </div>
         
         {/* Botón eliminar */}
         <button
           onClick={(e) => handleDelete(notification.id, e)}
-          className="flex-shrink-0 p-1 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded transition-colors"
+          className="flex-shrink-0 p-1 text-muted-foreground/50 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-950/30 rounded transition-colors"
           aria-label="Eliminar notificación"
         >
           <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -326,7 +326,7 @@ const NotificationContent = ({ notification, icon, priorityStyles, handleDelete 
         <span className={`text-xs px-2 py-0.5 rounded-full border ${priorityStyles.badge}`}>
           {priorityStyles.label}
         </span>
-        <span className="text-xs text-gray-400">
+        <span className="text-xs text-muted-foreground/70">
           {formatDistanceToNow(new Date(notification.createdAt), { addSuffix: true, locale: es })}
         </span>
       </div>

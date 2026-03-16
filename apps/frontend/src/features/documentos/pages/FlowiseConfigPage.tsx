@@ -275,7 +275,7 @@ export const FlowiseConfigPage: React.FC = () => {
       return <ExclamationTriangleIcon className="h-5 w-5 text-red-600" />;
     }
     
-    return <SignalIcon className="h-5 w-5 text-gray-400" />;
+    return <SignalIcon className="h-5 w-5 text-muted-foreground" />;
   };
 
   const getStatusText = () => {
@@ -374,7 +374,7 @@ export const FlowiseConfigPage: React.FC = () => {
                   type="button"
                   onClick={() => handleConfigChange('enabled', !config.enabled)}
                   className={`relative inline-flex h-8 w-14 items-center rounded-full transition-colors ${
-                    config.enabled ? 'bg-blue-600' : 'bg-gray-200'
+                    config.enabled ? 'bg-blue-600' : 'bg-gray-200 dark:bg-gray-700'
                   }`}
                 >
                   <span
@@ -397,7 +397,7 @@ export const FlowiseConfigPage: React.FC = () => {
                       value={config.baseUrl}
                       onChange={(e) => handleConfigChange('baseUrl', e.target.value)}
                       placeholder="https://flowise.empresa.com"
-                      className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all text-lg bg-background text-foreground"
+                      className="w-full px-4 py-3 border border-border rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all text-lg bg-background text-foreground"
                     />
                     <p className="text-sm text-muted-foreground">
                       URL completa de tu instancia Flowise
@@ -415,7 +415,7 @@ export const FlowiseConfigPage: React.FC = () => {
                       onChange={(e) => handleConfigChange('apiKey', e.target.value)}
                       placeholder="Clave API si es requerida"
                       autoComplete="off"
-                      className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all bg-background text-foreground"
+                      className="w-full px-4 py-3 border border-border rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all bg-background text-foreground"
                     />
                   </div>
 
@@ -429,7 +429,7 @@ export const FlowiseConfigPage: React.FC = () => {
                       value={config.flowId}
                       onChange={(e) => handleConfigChange('flowId', e.target.value)}
                       placeholder="doc-validator-flow-123"
-                      className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all bg-background text-foreground"
+                      className="w-full px-4 py-3 border border-border rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all bg-background text-foreground"
                     />
                     <p className="text-sm text-muted-foreground">
                       ID del flujo específico para validación de documentos
@@ -448,7 +448,7 @@ export const FlowiseConfigPage: React.FC = () => {
                       min="5000"
                       max="120000"
                       step="1000"
-                      className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all bg-background text-foreground"
+                      className="w-full px-4 py-3 border border-border rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all bg-background text-foreground"
                     />
                     <p className="text-sm text-muted-foreground">
                       Tiempo máximo de espera para validaciones
