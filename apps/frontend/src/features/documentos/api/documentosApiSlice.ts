@@ -1,4 +1,4 @@
-import { createApi, fetchBaseQuery } from '@reduxjs/toolkit/query/react';
+import { createApi, fetchBaseQuery, BaseQueryFn, FetchArgs, FetchBaseQueryError } from '@reduxjs/toolkit/query/react';
 import { RootState } from '../../../store/store';
 import type { EmpresaTransportista, ApprovalPendingDocument, ApprovalStats, EquipoWithExtras, EquipoDocumento } from '../types/entities';
 import { getRuntimeEnv } from '../../../lib/runtimeEnv';
@@ -73,19 +73,40 @@ export interface DashboardData {
 // API SLICE - Microservicio Documentos
 // =================================
 
+const docsBaseQuery = fetchBaseQuery({
+  baseUrl: `${getRuntimeEnv('VITE_DOCUMENTOS_API_URL') ?? ''}/api/docs`,
+  prepareHeaders: (headers, { getState }) => {
+    const state = getState() as RootState;
+    const token = state.auth?.token;
+    const empresaId = state.auth?.user?.empresaId;
+    if (token) headers.set('authorization', `Bearer ${token}`);
+    if (empresaId) headers.set('x-tenant-id', String(empresaId));
+    return headers;
+  },
+});
+
+let docsIsRedirecting = false;
+
+const docsBaseQueryWithReauth: BaseQueryFn<string | FetchArgs, unknown, FetchBaseQueryError> = async (
+  args, api, extraOptions
+) => {
+  const result = await docsBaseQuery(args, api, extraOptions);
+  if (result.error?.status === 401 && !docsIsRedirecting) {
+    docsIsRedirecting = true;
+    localStorage.removeItem('token');
+    localStorage.removeItem('user');
+    localStorage.removeItem('refreshToken');
+    setTimeout(() => {
+      window.location.href = '/login?expired=true';
+      setTimeout(() => { docsIsRedirecting = false; }, 2000);
+    }, 100);
+  }
+  return result;
+};
+
 export const documentosApiSlice = createApi({
   reducerPath: 'documentosApi',
-  baseQuery: fetchBaseQuery({
-    baseUrl: `${getRuntimeEnv('VITE_DOCUMENTOS_API_URL') ?? ''}/api/docs`,
-    prepareHeaders: (headers, { getState }) => {
-      const state = getState() as RootState;
-      const token = state.auth?.token;
-      const empresaId = state.auth?.user?.empresaId;
-      if (token) headers.set('authorization', `Bearer ${token}`);
-      if (empresaId) headers.set('x-tenant-id', String(empresaId));
-      return headers;
-    },
-  }),
+  baseQuery: docsBaseQueryWithReauth,
   tagTypes: ['DocumentTemplate', 'Document', 'Dashboard', 'Clients', 'Equipos', 'Search', 'ClientRequirements', 'PlantillasRequisito', 'Maestros', 'Approval', 'EmpresasTransportistas', 'ExtractedData', 'Notifications', 'Transferencias'],
   endpoints: (builder) => ({
     // =================================
@@ -1105,10 +1126,6 @@ export const documentosApiSlice = createApi({
     getPendingSummary: builder.query<{ total: number; top: Array<{ templateId: number; templateName: string; count: number }>; lastUploads: Array<{ id: number; uploadedAt: string; fileName: string; dadorCargaId: number }> }, void>({
       query: () => '/dashboard/pending/summary',
       transformResponse: (r: any) => r?.data ?? { total: 0, top: [], lastUploads: [] },
-      transformErrorResponse: (_error: any) => {
-        console.warn('getPendingSummary endpoint not available, using fallback');
-        return { total: 0, top: [], lastUploads: [] };
-      },
       providesTags: ['Dashboard'],
     }),
     getDashboardStats: builder.query<
@@ -1157,10 +1174,6 @@ export const documentosApiSlice = createApi({
         return { url: `/approval/pending${qs ? `?${qs}` : ''}` };
       },
       transformResponse: (r: any) => ({ data: r?.data ?? [], pagination: r?.pagination }),
-      transformErrorResponse: (_error: any) => {
-        console.warn('getApprovalPending endpoint not available, using fallback');
-        return { data: [], pagination: { page: 1, limit: 20, total: 0, pages: 0 } };
-      },
       providesTags: ['Approval'],
     }),
     getApprovalPendingById: builder.query<ApprovalPendingDocument, { id: number }>({
@@ -1203,10 +1216,6 @@ export const documentosApiSlice = createApi({
     getApprovalKpis: builder.query<any, void>({
       query: () => ({ url: `/dashboard/approval-kpis` }),
       transformResponse: (r: any) => r?.data ?? r,
-      transformErrorResponse: (_error: any) => {
-        console.warn('getApprovalKpis endpoint not available, using fallback');
-        return { pending: 0, approvedToday: 0, asOf: new Date().toISOString() };
-      },
       providesTags: ['Approval', 'Dashboard'],
     }),
 

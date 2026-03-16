@@ -22,6 +22,7 @@ import {
   useReprocessRemitoMutation,
   useUpdateRemitoMutation,
 } from '../api/remitosApiSlice';
+import { showToast } from '../../../components/ui/Toast.utils';
 
 interface RemitoDetailProps {
   remito: Remito;
@@ -130,7 +131,7 @@ export function RemitoDetail({ remito: initialRemito, onBack, canApprove = false
     try {
       await approve(remito.id).unwrap();
     } catch (err) {
-      console.error('Error aprobando:', err);
+      showToast('Error al aprobar el remito. Intente nuevamente.', 'error');
     }
   };
   
@@ -141,17 +142,16 @@ export function RemitoDetail({ remito: initialRemito, onBack, canApprove = false
       setShowRejectModal(false);
       setRejectMotivo('');
     } catch (err) {
-      console.error('Error rechazando:', err);
+      showToast('Error al rechazar el remito. Intente nuevamente.', 'error');
     }
   };
   
   const handleReprocess = async () => {
     try {
       await reprocess(remito.id).unwrap();
-      // Volver a la lista después de reprocesar
       onBack();
     } catch (err) {
-      console.error('Error reprocesando:', err);
+      showToast('Error al reprocesar el remito. Intente nuevamente.', 'error');
     }
   };
   
@@ -181,8 +181,7 @@ export function RemitoDetail({ remito: initialRemito, onBack, canApprove = false
       }).unwrap();
       setIsEditing(false);
     } catch (err) {
-      console.error('Error guardando edición:', err);
-      alert('Error al guardar los cambios');
+      showToast('Error al guardar los cambios. Intente nuevamente.', 'error');
     }
   };
   
