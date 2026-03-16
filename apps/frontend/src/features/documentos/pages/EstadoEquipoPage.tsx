@@ -14,19 +14,19 @@ const getStatusConfig = (state?: string) => {
   switch (v) {
     case 'OK':
     case 'VIGENTE':
-      return { label: 'Vigente', color: 'bg-green-100 text-green-800 border-green-200', icon: CheckCircleIcon };
+      return { label: 'Vigente', color: 'bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-400 border-green-200 dark:border-green-800', icon: CheckCircleIcon };
     case 'PROXIMO':
-      return { label: 'Por vencer', color: 'bg-yellow-100 text-yellow-800 border-yellow-200', icon: ClockIcon };
+      return { label: 'Por vencer', color: 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-400 border-yellow-200 dark:border-yellow-800', icon: ClockIcon };
     case 'FALTANTE':
-      return { label: 'Faltante', color: 'bg-red-100 text-red-800 border-red-200', icon: XCircleIcon };
+      return { label: 'Faltante', color: 'bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-400 border-red-200 dark:border-red-800', icon: XCircleIcon };
     case 'VENCIDO':
-      return { label: 'Vencido', color: 'bg-orange-100 text-orange-800 border-orange-200', icon: ExclamationTriangleIcon };
+      return { label: 'Vencido', color: 'bg-orange-100 dark:bg-orange-900/30 text-orange-800 dark:text-orange-400 border-orange-200 dark:border-orange-800', icon: ExclamationTriangleIcon };
     case 'PENDIENTE':
-      return { label: 'Pendiente', color: 'bg-blue-100 text-blue-800 border-blue-200', icon: ClockIcon };
+      return { label: 'Pendiente', color: 'bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-400 border-blue-200 dark:border-blue-800', icon: ClockIcon };
     case 'RECHAZADO':
-      return { label: 'Rechazado', color: 'bg-red-100 text-red-800 border-red-200', icon: XCircleIcon };
+      return { label: 'Rechazado', color: 'bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-400 border-red-200 dark:border-red-800', icon: XCircleIcon };
     default:
-      return { label: v || '-', color: 'bg-gray-100 text-gray-800 border-gray-200', icon: DocumentTextIcon };
+      return { label: v || '-', color: 'bg-muted text-muted-foreground border-border', icon: DocumentTextIcon };
   }
 };
 
@@ -52,16 +52,16 @@ const Section: React.FC<{ title: string; items: Array<{ templateId: number; temp
 
   return (
     <Card className='overflow-hidden'>
-      <div className='bg-gradient-to-r from-blue-50 to-indigo-50 px-3 sm:px-6 py-4 border-b'>
+      <div className='bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-950/30 dark:to-indigo-950/30 px-3 sm:px-6 py-4 border-b'>
         <div className='flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between'>
-          <h3 className='font-semibold text-lg text-gray-900'>{title}</h3>
+          <h3 className='font-semibold text-lg text-foreground'>{title}</h3>
           <div className='flex flex-wrap items-center gap-2'>
             {totalCount > 0 && (
               <>
-                {vigentes > 0 && <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200 text-xs sm:text-sm">{vigentes} vigentes</Badge>}
-                {porVencer > 0 && <Badge variant="outline" className="bg-yellow-50 text-yellow-700 border-yellow-200 text-xs sm:text-sm">{porVencer} por vencer</Badge>}
-                {vencidos > 0 && <Badge variant="outline" className="bg-orange-50 text-orange-700 border-orange-200 text-xs sm:text-sm">{vencidos} vencidos</Badge>}
-                {faltantes > 0 && <Badge variant="outline" className="bg-red-50 text-red-700 border-red-200 text-xs sm:text-sm">{faltantes} faltantes</Badge>}
+                {vigentes > 0 && <Badge variant="outline" className="bg-green-50 dark:bg-green-900/30 text-green-700 dark:text-green-400 border-green-200 dark:border-green-800 text-xs sm:text-sm">{vigentes} vigentes</Badge>}
+                {porVencer > 0 && <Badge variant="outline" className="bg-yellow-50 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-400 border-yellow-200 dark:border-yellow-800 text-xs sm:text-sm">{porVencer} por vencer</Badge>}
+                {vencidos > 0 && <Badge variant="outline" className="bg-orange-50 dark:bg-orange-900/30 text-orange-700 dark:text-orange-400 border-orange-200 dark:border-orange-800 text-xs sm:text-sm">{vencidos} vencidos</Badge>}
+                {faltantes > 0 && <Badge variant="outline" className="bg-red-50 dark:bg-red-900/30 text-red-700 dark:text-red-400 border-red-200 dark:border-red-800 text-xs sm:text-sm">{faltantes} faltantes</Badge>}
               </>
             )}
           </div>
@@ -71,7 +71,7 @@ const Section: React.FC<{ title: string; items: Array<{ templateId: number; temp
       <div className='p-3 sm:p-6'>
         {items.length === 0 ? (
           <div className='text-center py-8'>
-            <DocumentTextIcon className='h-8 w-8 sm:h-12 sm:w-12 text-gray-300 mx-auto mb-3' />
+            <DocumentTextIcon className='h-8 w-8 sm:h-12 sm:w-12 text-muted-foreground/30 mx-auto mb-3' />
             <p className='text-xs sm:text-sm text-muted-foreground'>Sin documentos requeridos</p>
           </div>
         ) : (
@@ -83,13 +83,13 @@ const Section: React.FC<{ title: string; items: Array<{ templateId: number; temp
               const canPreview = docId && item.state?.toUpperCase() !== 'FALTANTE';
               
               return (
-                <div key={`doc-${item.templateId || item.id || idx}`} className='group flex flex-col sm:flex-row sm:items-center justify-between p-3 sm:p-4 rounded-lg border hover:shadow-sm transition-all duration-200 hover:border-blue-200 gap-3'>
+                <div key={`doc-${item.templateId || item.id || idx}`} className='group flex flex-col sm:flex-row sm:items-center justify-between p-3 sm:p-4 rounded-lg border hover:shadow-sm transition-all duration-200 hover:border-blue-200 dark:hover:border-blue-800 gap-3'>
                   <div className='flex items-center gap-3 min-w-0 flex-1'>
                     <div className={`p-1.5 sm:p-2 rounded-full flex-shrink-0 ${config.color.replace('text-', 'text-').replace('bg-', 'bg-').replace('border-', '')}`}>
                       <Icon className='h-3 w-3 sm:h-4 sm:w-4' />
                     </div>
                     <div className='min-w-0 flex-1'>
-                      <div className='font-medium text-gray-900 text-sm sm:text-base truncate'>{item.templateName || `Plantilla #${item.templateId}`}</div>
+                      <div className='font-medium text-foreground text-sm sm:text-base truncate'>{item.templateName || `Plantilla #${item.templateId}`}</div>
                       {item.expiresAt && (
                         <div className='text-xs text-muted-foreground mt-1'>
                           Vencimiento: {formatDate(item.expiresAt)}
@@ -299,7 +299,7 @@ export const EstadoEquipoPage: React.FC = () => {
             <ArrowLeftIcon className='h-4 w-4 mr-2' /> Volver
           </Button>
           <div className='flex-1'>
-            <h1 className='text-2xl sm:text-3xl font-bold text-gray-900'>Estado Documental del Equipo</h1>
+            <h1 className='text-2xl sm:text-3xl font-bold text-foreground'>Estado Documental del Equipo</h1>
             <p className='text-sm sm:text-base text-muted-foreground mt-1'>Resumen completo de la documentación requerida</p>
           </div>
           <div className='flex gap-2 self-start sm:self-auto'>
@@ -337,12 +337,12 @@ export const EstadoEquipoPage: React.FC = () => {
         )}
         
         {error && (
-          <Card className='p-6 border-red-200 bg-red-50'>
+          <Card className='p-6 border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-950/30'>
             <div className='flex items-center gap-3'>
               <XCircleIcon className='h-6 w-6 text-red-600' />
               <div>
-                <h3 className='font-medium text-red-900'>Error al cargar</h3>
-                <p className='text-sm text-red-700 mt-1'>No se pudo obtener la información del equipo</p>
+                <h3 className='font-medium text-red-900 dark:text-red-400'>Error al cargar</h3>
+                <p className='text-sm text-red-700 dark:text-red-400 mt-1'>No se pudo obtener la información del equipo</p>
               </div>
             </div>
           </Card>
@@ -357,21 +357,21 @@ export const EstadoEquipoPage: React.FC = () => {
             </div>
             <div className='p-4 sm:p-6'>
               <div className='grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4'>
-                <div className='text-center p-3 sm:p-4 rounded-lg bg-green-50 border border-green-200'>
-                  <div className='text-xl sm:text-2xl font-bold text-green-700'>{vigentesTotal}</div>
-                  <div className='text-xs sm:text-sm text-green-600'>Vigentes</div>
+                <div className='text-center p-3 sm:p-4 rounded-lg bg-green-50 dark:bg-green-950/30 border border-green-200 dark:border-green-800'>
+                  <div className='text-xl sm:text-2xl font-bold text-green-700 dark:text-green-400'>{vigentesTotal}</div>
+                  <div className='text-xs sm:text-sm text-green-600 dark:text-green-500'>Vigentes</div>
                 </div>
-                <div className='text-center p-3 sm:p-4 rounded-lg bg-yellow-50 border border-yellow-200'>
-                  <div className='text-xl sm:text-2xl font-bold text-yellow-700'>{porVencerTotal}</div>
-                  <div className='text-xs sm:text-sm text-yellow-600'>Por vencer</div>
+                <div className='text-center p-3 sm:p-4 rounded-lg bg-yellow-50 dark:bg-yellow-950/30 border border-yellow-200 dark:border-yellow-800'>
+                  <div className='text-xl sm:text-2xl font-bold text-yellow-700 dark:text-yellow-400'>{porVencerTotal}</div>
+                  <div className='text-xs sm:text-sm text-yellow-600 dark:text-yellow-500'>Por vencer</div>
                 </div>
-                <div className='text-center p-3 sm:p-4 rounded-lg bg-orange-50 border border-orange-200'>
-                  <div className='text-xl sm:text-2xl font-bold text-orange-700'>{vencidosTotal}</div>
-                  <div className='text-xs sm:text-sm text-orange-600'>Vencidos</div>
+                <div className='text-center p-3 sm:p-4 rounded-lg bg-orange-50 dark:bg-orange-950/30 border border-orange-200 dark:border-orange-800'>
+                  <div className='text-xl sm:text-2xl font-bold text-orange-700 dark:text-orange-400'>{vencidosTotal}</div>
+                  <div className='text-xs sm:text-sm text-orange-600 dark:text-orange-500'>Vencidos</div>
                 </div>
-                <div className='text-center p-3 sm:p-4 rounded-lg bg-red-50 border border-red-200'>
-                  <div className='text-xl sm:text-2xl font-bold text-red-700'>{faltantesTotal}</div>
-                  <div className='text-xs sm:text-sm text-red-600'>Faltantes</div>
+                <div className='text-center p-3 sm:p-4 rounded-lg bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-800'>
+                  <div className='text-xl sm:text-2xl font-bold text-red-700 dark:text-red-400'>{faltantesTotal}</div>
+                  <div className='text-xs sm:text-sm text-red-600 dark:text-red-500'>Faltantes</div>
                 </div>
               </div>
             </div>
@@ -391,19 +391,19 @@ export const EstadoEquipoPage: React.FC = () => {
         {/* Modal de vista previa simple por ID */}
         {previewDocId && (
           <div className='fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4' onClick={() => setPreviewDocId(null)} onKeyDown={(e) => e.key === 'Escape' && setPreviewDocId(null)} role="button" tabIndex={0} aria-label="Cerrar preview">
-            <div className='bg-white rounded-lg shadow-xl max-w-5xl w-full h-[85vh] flex flex-col' onClick={(e) => e.stopPropagation()} onKeyDown={(e) => e.stopPropagation()} role="dialog">
-              <div className='flex items-center justify-between p-4 border-b bg-gray-50'>
-                <h2 className='font-semibold text-gray-900'>Vista Previa del Documento</h2>
-                <button onClick={() => setPreviewDocId(null)} className='p-2 hover:bg-gray-200 rounded-full text-xl'>
+            <div className='bg-card rounded-lg shadow-xl max-w-5xl w-full h-[85vh] flex flex-col' onClick={(e) => e.stopPropagation()} onKeyDown={(e) => e.stopPropagation()} role="dialog">
+              <div className='flex items-center justify-between p-4 border-b bg-muted'>
+                <h2 className='font-semibold text-foreground'>Vista Previa del Documento</h2>
+                <button onClick={() => setPreviewDocId(null)} className='p-2 hover:bg-accent rounded-full text-xl'>
                   ✕
                 </button>
               </div>
-              <div className='flex-1 overflow-hidden bg-gray-100'>
+              <div className='flex-1 overflow-hidden bg-muted'>
                 {previewLoading && (
                   <div className='flex items-center justify-center h-full'>
                     <div className='text-center'>
                       <div className='animate-spin rounded-full h-10 w-10 border-b-2 border-blue-600 mx-auto mb-3'></div>
-                      <p className='text-gray-600'>Cargando documento...</p>
+                      <p className='text-muted-foreground'>Cargando documento...</p>
                     </div>
                   </div>
                 )}
@@ -416,7 +416,7 @@ export const EstadoEquipoPage: React.FC = () => {
                 )}
                 {!previewLoading && !previewUrl && (
                   <div className='flex items-center justify-center h-full'>
-                    <p className='text-gray-600'>No se pudo cargar el documento</p>
+                    <p className='text-muted-foreground'>No se pudo cargar el documento</p>
                   </div>
                 )}
               </div>
@@ -426,8 +426,8 @@ export const EstadoEquipoPage: React.FC = () => {
 
         {!isLoading && data && totalDocs === 0 && (
           <Card className='p-8 sm:p-12 text-center'>
-            <DocumentTextIcon className='h-12 w-12 sm:h-16 sm:w-16 text-gray-300 mx-auto mb-4' />
-            <h3 className='text-base sm:text-lg font-medium text-gray-900 mb-2'>Sin documentos configurados</h3>
+            <DocumentTextIcon className='h-12 w-12 sm:h-16 sm:w-16 text-muted-foreground/30 mx-auto mb-4' />
+            <h3 className='text-base sm:text-lg font-medium text-foreground mb-2'>Sin documentos configurados</h3>
             <p className='text-sm sm:text-base text-muted-foreground'>No hay documentos requeridos para este equipo</p>
           </Card>
         )}

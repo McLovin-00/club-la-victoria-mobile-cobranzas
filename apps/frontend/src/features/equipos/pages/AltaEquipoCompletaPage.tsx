@@ -22,9 +22,9 @@ import { showToast } from '../../../components/ui/Toast.utils';
 
 /** Helper para clases CSS de badge de entidad en precheck (evita ternarios anidados) */
 function getEntityBadgeClass(existe: boolean, perteneceSolicitante: boolean): string {
-  if (!existe) return 'bg-blue-100 text-blue-800';
-  if (perteneceSolicitante) return 'bg-green-100 text-green-800';
-  return 'bg-yellow-100 text-yellow-800';
+  if (!existe) return 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400';
+  if (perteneceSolicitante) return 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400';
+  return 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400';
 }
 
 /** Helper para texto del botón de submit (evita ternarios anidados) */
@@ -837,7 +837,7 @@ const AltaEquipoCompletaPage: React.FC = () => {
   if (!canUpload) {
     return (
       <div className='container mx-auto px-4 py-6'>
-        <div className='bg-yellow-50 border border-yellow-200 rounded p-4 text-sm text-yellow-800'>
+        <div className='bg-yellow-50 dark:bg-yellow-950/30 border border-yellow-200 dark:border-yellow-800 rounded p-4 text-sm text-yellow-800 dark:text-yellow-400'>
           ⚠️ Tu rol no permite cargar documentación desde este portal.
         </div>
       </div>
@@ -861,12 +861,12 @@ const AltaEquipoCompletaPage: React.FC = () => {
       <div className='mb-6 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg p-4'>
         <div className='flex items-center justify-between mb-2'>
           <span className='text-sm font-medium text-gray-700 dark:text-gray-300'>Progreso de selección</span>
-          <span className='text-sm text-gray-600'>
+          <span className='text-sm text-muted-foreground'>
             {templateIdsObligatorios.filter((id) => selectedFiles.has(id)).length} /{' '}
             {templateIdsObligatorios.length} documentos ({progreso}%)
           </span>
         </div>
-        <div className='w-full h-3 bg-gray-200 rounded-full overflow-hidden'>
+        <div className='w-full h-3 bg-muted rounded-full overflow-hidden'>
           <div
             className='h-full bg-gradient-to-r from-blue-500 to-blue-600 transition-all duration-500'
             style={{ width: `${progreso}%` }}
@@ -876,7 +876,7 @@ const AltaEquipoCompletaPage: React.FC = () => {
 
       {/* Alerta: sesión desactualizada para DADOR_DE_CARGA */}
       {dadorCargaIdMissing && (
-        <div className='mb-4 p-4 rounded-lg bg-amber-50 border-2 border-amber-400 text-amber-800'>
+        <div className='mb-4 p-4 rounded-lg bg-amber-50 border-2 border-amber-400 text-amber-800 dark:bg-amber-950/30 dark:border-amber-700 dark:text-amber-400'>
           <div className='flex items-start gap-3'>
             <span className='text-2xl'>⚠️</span>
             <div>
@@ -895,8 +895,8 @@ const AltaEquipoCompletaPage: React.FC = () => {
         <div
           className={`mb-4 p-4 rounded-lg ${
             message.type === 'success'
-              ? 'bg-green-50 border border-green-200 text-green-800'
-              : 'bg-red-50 border border-red-200 text-red-800'
+              ? 'bg-green-50 border border-green-200 text-green-800 dark:bg-green-950/30 dark:border-green-800 dark:text-green-400'
+              : 'bg-red-50 border border-red-200 text-red-800 dark:bg-red-950/30 dark:border-red-800 dark:text-red-400'
           }`}
         >
           {message.text}
@@ -905,20 +905,20 @@ const AltaEquipoCompletaPage: React.FC = () => {
 
       {/* SELECTOR DE DADOR DE CARGA (solo para ADMIN_INTERNO) */}
       {isAdminInterno && (
-        <div className='bg-gradient-to-r from-purple-50 to-purple-100 border-2 border-purple-300 rounded-lg p-6 mb-4'>
-          <h2 className='text-xl font-semibold text-purple-900 mb-4 flex items-center'>
-            <span className='bg-purple-200 text-purple-900 rounded-full w-8 h-8 flex items-center justify-center mr-3 text-sm font-bold'>📋</span>
+        <div className='bg-gradient-to-r from-purple-50 to-purple-100 dark:from-purple-950/30 dark:to-purple-900/20 border-2 border-purple-300 dark:border-purple-700 rounded-lg p-6 mb-4'>
+          <h2 className='text-xl font-semibold text-purple-900 dark:text-purple-400 mb-4 flex items-center'>
+            <span className='bg-purple-200 text-purple-900 dark:text-purple-400 rounded-full w-8 h-8 flex items-center justify-center mr-3 text-sm font-bold'>📋</span>
             Dador de Carga *
           </h2>
           <div className='grid grid-cols-1 gap-4'>
             <div>
-              <label className='block text-sm font-medium text-gray-700 mb-1'>
+              <label className='block text-sm font-medium text-muted-foreground mb-1'>
                 Seleccionar Dador de Carga *
               </label>
               <select
                 value={dadorCargaId ?? ''}
                 onChange={(e) => setDadorCargaId(e.target.value ? Number(e.target.value) : null)}
-                className='w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500'
+                className='w-full border border-border rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500'
               >
                 <option value=''>-- Seleccionar Dador --</option>
                 {dadoresList.map((dador: any) => (
@@ -936,19 +936,19 @@ const AltaEquipoCompletaPage: React.FC = () => {
       )}
 
       {/* SELECTOR DE PLANTILLAS DE REQUISITOS */}
-      <div className='bg-gradient-to-r from-blue-50 to-blue-100 border-2 border-blue-300 rounded-lg p-6 mb-4'>
-        <h2 className='text-xl font-semibold text-blue-900 mb-4 flex items-center'>
-          <span className='bg-blue-200 text-blue-900 rounded-full w-8 h-8 flex items-center justify-center mr-3 text-sm font-bold'>📋</span>
+      <div className='bg-gradient-to-r from-blue-50 to-blue-100 dark:from-blue-950/30 dark:to-blue-900/20 border-2 border-blue-300 dark:border-blue-700 rounded-lg p-6 mb-4'>
+        <h2 className='text-xl font-semibold text-blue-900 dark:text-blue-400 mb-4 flex items-center'>
+          <span className='bg-blue-200 text-blue-900 dark:text-blue-400 rounded-full w-8 h-8 flex items-center justify-center mr-3 text-sm font-bold'>📋</span>
           Plantillas de Requisitos (Opcional)
         </h2>
         <div className='grid grid-cols-1 gap-4'>
           <div>
-            <label className='block text-sm font-medium text-gray-700 mb-2'>
+            <label className='block text-sm font-medium text-muted-foreground mb-2'>
               Seleccionar Plantillas de Requisitos (puede seleccionar múltiples)
             </label>
-            <div className='max-h-60 overflow-y-auto border border-gray-300 rounded-md p-3 bg-white'>
+            <div className='max-h-60 overflow-y-auto border border-border rounded-md p-3 bg-card'>
               {plantillasData.length === 0 ? (
-                <p className='text-sm text-gray-500'>No hay plantillas de requisitos disponibles</p>
+                <p className='text-sm text-muted-foreground/70'>No hay plantillas de requisitos disponibles</p>
               ) : (
                 // Agrupar por cliente
                 Object.entries(
@@ -960,18 +960,18 @@ const AltaEquipoCompletaPage: React.FC = () => {
                   }, {})
                 ).map(([clienteName, plantillas]: [string, any[]]) => (
                   <div key={clienteName} className='mb-3'>
-                    <div className='text-xs font-semibold text-gray-500 uppercase mb-1 px-2'>{clienteName}</div>
+                    <div className='text-xs font-semibold text-muted-foreground/70 uppercase mb-1 px-2'>{clienteName}</div>
                     {plantillas.map((plantilla: any) => (
-                      <label key={plantilla.id} className='flex items-center gap-2 p-2 hover:bg-gray-50 rounded cursor-pointer'>
+                      <label key={plantilla.id} className='flex items-center gap-2 p-2 hover:bg-accent rounded cursor-pointer'>
                         <input
                           type='checkbox'
                           checked={plantillaIds.includes(plantilla.id)}
                           onChange={(e) => handlePlantillaToggle(plantilla.id, plantilla.clienteId, e.target.checked)}
-                          className='w-4 h-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded'
+                          className='w-4 h-4 text-blue-600 focus:ring-blue-500 border-border rounded'
                         />
-                        <span className='text-sm text-gray-700'>
+                        <span className='text-sm text-muted-foreground'>
                           {plantilla.nombre}
-                          <span className='text-xs text-gray-500 ml-2'>
+                          <span className='text-xs text-muted-foreground/70 ml-2'>
                             ({plantilla._count?.templates || 0} docs)
                           </span>
                         </span>
@@ -987,7 +987,7 @@ const AltaEquipoCompletaPage: React.FC = () => {
                   ✓ {plantillaIds.length} plantilla{plantillaIds.length > 1 ? 's' : ''} seleccionada{plantillaIds.length > 1 ? 's' : ''}
                 </p>
                 {loadingConsolidatedPlantillas ? (
-                  <p className='text-xs text-gray-500 mt-1'>⏳ Cargando documentos requeridos...</p>
+                  <p className='text-xs text-muted-foreground/70 mt-1'>⏳ Cargando documentos requeridos...</p>
                 ) : consolidatedPlantillasData?.templates && consolidatedPlantillasData.templates.length > 0 ? (
                   <p className='text-xs text-green-600 mt-1'>
                     📋 {consolidatedPlantillasData.templates.length} documentos requeridos por {plantillaIds.length > 1 ? 'estas plantillas' : 'esta plantilla'}
@@ -1007,8 +1007,8 @@ const AltaEquipoCompletaPage: React.FC = () => {
       {/* DATOS BÁSICOS AGRUPADOS POR ENTIDAD */}
       
       {/* EMPRESA TRANSPORTISTA */}
-      <div className={`border rounded-lg p-6 mb-4 ${isTransportista ? 'bg-blue-50 border-blue-300' : 'bg-white border-gray-300'}`}>
-        <h2 className='text-xl font-semibold text-gray-900 mb-4 flex items-center'>
+      <div className={`border rounded-lg p-6 mb-4 ${isTransportista ? 'bg-blue-50 border-blue-300' : 'bg-card border-border'}`}>
+        <h2 className='text-xl font-semibold text-foreground mb-4 flex items-center'>
           <span className='bg-blue-100 text-blue-800 rounded-full w-8 h-8 flex items-center justify-center mr-3 text-sm font-bold'>1</span>
           🏢 Empresa Transportista
           {isTransportista && (
@@ -1019,14 +1019,14 @@ const AltaEquipoCompletaPage: React.FC = () => {
         </h2>
         
         {isTransportista && (
-          <div className='mb-4 bg-blue-100 border border-blue-200 rounded p-3 text-sm text-blue-800'>
+          <div className='mb-4 bg-blue-100 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800 rounded p-3 text-sm text-blue-800 dark:text-blue-400'>
             ℹ️ Los datos de tu empresa transportista se completan automáticamente y no pueden modificarse.
           </div>
         )}
         
         <div className='grid grid-cols-1 md:grid-cols-2 gap-4'>
           <div>
-            <label className='block text-sm font-medium text-gray-700 mb-1'>
+            <label className='block text-sm font-medium text-muted-foreground mb-1'>
               Razón Social *
             </label>
             <input
@@ -1037,10 +1037,10 @@ const AltaEquipoCompletaPage: React.FC = () => {
               disabled={isTransportista}
               className={`w-full border rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${
                 isTransportista 
-                  ? 'bg-gray-100 border-gray-300 text-gray-700 cursor-not-allowed' 
+                  ? 'bg-muted border-border text-muted-foreground cursor-not-allowed' 
                   : touchedFields.has('empresaTransportista') && empresaTransportista.trim().length <= 1
                     ? 'border-red-400'
-                    : 'border-gray-300'
+                    : 'border-border'
               }`}
               placeholder='Ej: Transportes del Norte S.A.'
             />
@@ -1050,7 +1050,7 @@ const AltaEquipoCompletaPage: React.FC = () => {
           </div>
 
           <div>
-            <label className='block text-sm font-medium text-gray-700 mb-1'>
+            <label className='block text-sm font-medium text-muted-foreground mb-1'>
               CUIT * (11 dígitos)
             </label>
             <input
@@ -1062,8 +1062,8 @@ const AltaEquipoCompletaPage: React.FC = () => {
               disabled={isTransportista}
               className={`w-full border rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${
                 isTransportista 
-                  ? 'bg-gray-100 border-gray-300 text-gray-700 cursor-not-allowed' 
-                  : 'border-gray-300'
+                  ? 'bg-muted border-border text-muted-foreground cursor-not-allowed' 
+                  : 'border-border'
               }`}
               placeholder='30123456789'
               maxLength={11}
@@ -1079,15 +1079,15 @@ const AltaEquipoCompletaPage: React.FC = () => {
       </div>
 
       {/* CHOFER */}
-      <div className='bg-white border border-gray-300 rounded-lg p-6 mb-4'>
-        <h2 className='text-xl font-semibold text-gray-900 mb-4 flex items-center'>
+      <div className='bg-card border border-border rounded-lg p-6 mb-4'>
+        <h2 className='text-xl font-semibold text-foreground mb-4 flex items-center'>
           <span className='bg-green-100 text-green-800 rounded-full w-8 h-8 flex items-center justify-center mr-3 text-sm font-bold'>2</span>
           👤 Chofer
         </h2>
         
         <div className='grid grid-cols-1 md:grid-cols-3 gap-4'>
           <div>
-            <label className='block text-sm font-medium text-gray-700 mb-1'>
+            <label className='block text-sm font-medium text-muted-foreground mb-1'>
               DNI *
             </label>
             <input
@@ -1097,7 +1097,7 @@ const AltaEquipoCompletaPage: React.FC = () => {
               onBlur={() => { markTouched('choferDni'); handleVerifyDni(); }}
               onKeyDown={(e) => e.key === 'Enter' && handleVerifyDni()}
               className={`w-full border rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                touchedFields.has('choferDni') && choferDni.trim().length < 6 ? 'border-red-400' : 'border-gray-300'
+                touchedFields.has('choferDni') && choferDni.trim().length < 6 ? 'border-red-400' : 'border-border'
               }`}
               placeholder='12345678'
             />
@@ -1110,7 +1110,7 @@ const AltaEquipoCompletaPage: React.FC = () => {
           </div>
 
           <div>
-            <label className='block text-sm font-medium text-gray-700 mb-1'>
+            <label className='block text-sm font-medium text-muted-foreground mb-1'>
               Nombre *
             </label>
             <input
@@ -1119,7 +1119,7 @@ const AltaEquipoCompletaPage: React.FC = () => {
               onChange={(e) => setChoferNombre(e.target.value)}
               onBlur={() => markTouched('choferNombre')}
               className={`w-full border rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                touchedFields.has('choferNombre') && choferNombre.trim().length < 1 ? 'border-red-400' : 'border-gray-300'
+                touchedFields.has('choferNombre') && choferNombre.trim().length < 1 ? 'border-red-400' : 'border-border'
               }`}
               placeholder='Juan'
             />
@@ -1129,7 +1129,7 @@ const AltaEquipoCompletaPage: React.FC = () => {
           </div>
 
           <div>
-            <label className='block text-sm font-medium text-gray-700 mb-1'>
+            <label className='block text-sm font-medium text-muted-foreground mb-1'>
               Apellido *
             </label>
             <input
@@ -1138,7 +1138,7 @@ const AltaEquipoCompletaPage: React.FC = () => {
               onChange={(e) => setChoferApellido(e.target.value)}
               onBlur={() => markTouched('choferApellido')}
               className={`w-full border rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                touchedFields.has('choferApellido') && choferApellido.trim().length < 1 ? 'border-red-400' : 'border-gray-300'
+                touchedFields.has('choferApellido') && choferApellido.trim().length < 1 ? 'border-red-400' : 'border-border'
               }`}
               placeholder='Pérez'
             />
@@ -1149,30 +1149,30 @@ const AltaEquipoCompletaPage: React.FC = () => {
         </div>
 
         <div className='mt-4'>
-          <label className='block text-sm font-medium text-gray-700 mb-1'>
+          <label className='block text-sm font-medium text-muted-foreground mb-1'>
             Teléfono(s) (opcional)
           </label>
           <input
             type='text'
             value={choferPhones}
             onChange={(e) => setChoferPhones(e.target.value)}
-            className='w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500'
+            className='w-full border border-border rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500'
             placeholder='+5491112345678, +5491187654321'
           />
-          <p className='text-xs text-gray-500 mt-1'>💡 Separar con comas si hay varios números</p>
+          <p className='text-xs text-muted-foreground/70 mt-1'>💡 Separar con comas si hay varios números</p>
         </div>
       </div>
 
       {/* TRACTOR */}
-      <div className='bg-white border border-gray-300 rounded-lg p-6 mb-4'>
-        <h2 className='text-xl font-semibold text-gray-900 mb-4 flex items-center'>
+      <div className='bg-card border border-border rounded-lg p-6 mb-4'>
+        <h2 className='text-xl font-semibold text-foreground mb-4 flex items-center'>
           <span className='bg-orange-100 text-orange-800 rounded-full w-8 h-8 flex items-center justify-center mr-3 text-sm font-bold'>3</span>
           🚛 Tractor
         </h2>
         
         <div className='grid grid-cols-1 md:grid-cols-3 gap-4'>
           <div>
-            <label className='block text-sm font-medium text-gray-700 mb-1'>
+            <label className='block text-sm font-medium text-muted-foreground mb-1'>
               Patente *
             </label>
             <input
@@ -1182,7 +1182,7 @@ const AltaEquipoCompletaPage: React.FC = () => {
               onBlur={() => { markTouched('tractorPatente'); handleVerifyPatenteCamion(); }}
               onKeyDown={(e) => e.key === 'Enter' && handleVerifyPatenteCamion()}
               className={`w-full border rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono ${
-                touchedFields.has('tractorPatente') && tractorPatente.trim().length < 5 ? 'border-red-400' : 'border-gray-300'
+                touchedFields.has('tractorPatente') && tractorPatente.trim().length < 5 ? 'border-red-400' : 'border-border'
               }`}
               placeholder='ABC123'
             />
@@ -1195,7 +1195,7 @@ const AltaEquipoCompletaPage: React.FC = () => {
           </div>
 
           <div>
-            <label className='block text-sm font-medium text-gray-700 mb-1'>
+            <label className='block text-sm font-medium text-muted-foreground mb-1'>
               Marca *
             </label>
             <input
@@ -1204,7 +1204,7 @@ const AltaEquipoCompletaPage: React.FC = () => {
               onChange={(e) => setTractorMarca(e.target.value)}
               onBlur={() => markTouched('tractorMarca')}
               className={`w-full border rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                touchedFields.has('tractorMarca') && tractorMarca.trim().length < 1 ? 'border-red-400' : 'border-gray-300'
+                touchedFields.has('tractorMarca') && tractorMarca.trim().length < 1 ? 'border-red-400' : 'border-border'
               }`}
               placeholder='Mercedes-Benz'
             />
@@ -1214,7 +1214,7 @@ const AltaEquipoCompletaPage: React.FC = () => {
           </div>
 
           <div>
-            <label className='block text-sm font-medium text-gray-700 mb-1'>
+            <label className='block text-sm font-medium text-muted-foreground mb-1'>
               Modelo *
             </label>
             <input
@@ -1223,7 +1223,7 @@ const AltaEquipoCompletaPage: React.FC = () => {
               onChange={(e) => setTractorModelo(e.target.value)}
               onBlur={() => markTouched('tractorModelo')}
               className={`w-full border rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                touchedFields.has('tractorModelo') && tractorModelo.trim().length < 1 ? 'border-red-400' : 'border-gray-300'
+                touchedFields.has('tractorModelo') && tractorModelo.trim().length < 1 ? 'border-red-400' : 'border-border'
               }`}
               placeholder='Actros 2046'
             />
@@ -1235,15 +1235,15 @@ const AltaEquipoCompletaPage: React.FC = () => {
       </div>
 
       {/* SEMI (OPCIONAL) */}
-      <div className='bg-white border border-gray-300 rounded-lg p-6 mb-6'>
-        <h2 className='text-xl font-semibold text-gray-900 mb-4 flex items-center'>
+      <div className='bg-card border border-border rounded-lg p-6 mb-6'>
+        <h2 className='text-xl font-semibold text-foreground mb-4 flex items-center'>
           <span className='bg-purple-100 text-purple-800 rounded-full w-8 h-8 flex items-center justify-center mr-3 text-sm font-bold'>4</span>
           🚚 Semi / Acoplado
         </h2>
         
         <div className='grid grid-cols-1 md:grid-cols-2 gap-4'>
           <div>
-            <label className='block text-sm font-medium text-gray-700 mb-1'>
+            <label className='block text-sm font-medium text-muted-foreground mb-1'>
               Patente
             </label>
             <input
@@ -1252,7 +1252,7 @@ const AltaEquipoCompletaPage: React.FC = () => {
               onChange={(e) => handlePatenteAcopladoChange(e.target.value)}
               onBlur={handleVerifyPatenteAcoplado}
               onKeyDown={(e) => e.key === 'Enter' && handleVerifyPatenteAcoplado()}
-              className='w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono'
+              className='w-full border border-border rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono'
               placeholder='DEF456'
             />
             {semiPatente.length >= 5 && (
@@ -1261,7 +1261,7 @@ const AltaEquipoCompletaPage: React.FC = () => {
           </div>
 
           <div>
-            <label className='block text-sm font-medium text-gray-700 mb-1'>
+            <label className='block text-sm font-medium text-muted-foreground mb-1'>
               Tipo {semiPatente && semiPatente.trim().length >= 5 ? '*' : ''}
             </label>
             <input
@@ -1272,7 +1272,7 @@ const AltaEquipoCompletaPage: React.FC = () => {
               className={`w-full border rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${
                 touchedFields.has('semiTipo') && semiPatente.trim().length >= 5 && semiTipo.trim().length < 1
                   ? 'border-red-400'
-                  : 'border-gray-300'
+                  : 'border-border'
               }`}
               placeholder='Ej: Caja seca, Cisterna, etc.'
             />
@@ -1283,19 +1283,19 @@ const AltaEquipoCompletaPage: React.FC = () => {
         </div>
         
         {semiPatente && semiPatente.trim().length > 0 && (
-          <div className='mt-3 bg-purple-50 border border-purple-200 rounded p-3 text-sm text-purple-800'>
+          <div className='mt-3 bg-purple-50 dark:bg-purple-950/30 border border-purple-200 dark:border-purple-800 rounded p-3 text-sm text-purple-800 dark:text-purple-400'>
             ℹ️ Al completar los datos básicos, aparecerá la sección de documentos del semi (5 documentos obligatorios)
           </div>
         )}
       </div>
 
       {!datosBasicosCompletos && (
-        <div className='mb-6 bg-yellow-50 border-l-4 border-yellow-400 p-4'>
+        <div className='mb-6 bg-yellow-50 dark:bg-yellow-950/30 border-l-4 border-yellow-400 p-4'>
           <div className='flex items-center'>
             <span className='text-2xl mr-3'>⚠️</span>
             <div>
-              <p className='font-semibold text-yellow-800'>Completá todos los campos obligatorios (*)</p>
-              <p className='text-sm text-yellow-700 mt-1'>
+              <p className='font-semibold text-yellow-800 dark:text-yellow-400'>Completá todos los campos obligatorios (*)</p>
+              <p className='text-sm text-yellow-700 dark:text-yellow-400 mt-1'>
                 Se requiere: Razón Social, CUIT, DNI, Nombre y Apellido del Chofer, Patente, Marca y Modelo del Tractor
                 {semiPatente && semiPatente.trim().length >= 5 ? ', y Tipo del Acoplado' : ''}
               </p>
@@ -1367,11 +1367,11 @@ const AltaEquipoCompletaPage: React.FC = () => {
 
       {/* INDICADOR DE PRE-CHECK PASADO */}
       {preCheckPassed && preCheckResult && (
-        <div className='mt-6 bg-green-50 border border-green-200 rounded-lg p-4'>
+        <div className='mt-6 bg-green-50 dark:bg-green-950/30 border border-green-200 dark:border-green-800 rounded-lg p-4'>
           <div className='flex items-start gap-3'>
             <span className='text-2xl'>✓</span>
             <div className='flex-1'>
-              <p className='font-medium text-green-800'>Entidades verificadas</p>
+              <p className='font-medium text-green-800 dark:text-green-400'>Entidades verificadas</p>
               <div className='mt-2 flex flex-wrap gap-2'>
                 {preCheckResult.entidades.map((e: any) => (
                   <span 
@@ -1402,7 +1402,7 @@ const AltaEquipoCompletaPage: React.FC = () => {
           <button
             onClick={handleInitPreCheck}
             disabled={isSubmitting}
-            className='px-6 py-2 text-sm font-medium text-blue-700 bg-blue-50 border border-blue-300 rounded-lg hover:bg-blue-100 disabled:opacity-50 disabled:cursor-not-allowed transition-colors'
+            className='px-6 py-2 text-sm font-medium text-blue-700 dark:text-blue-400 bg-blue-50 dark:bg-blue-950/30 border border-blue-300 dark:border-blue-700 rounded-lg hover:bg-blue-100 disabled:opacity-50 disabled:cursor-not-allowed transition-colors'
           >
             🔍 Verificar disponibilidad de entidades
           </button>
@@ -1425,7 +1425,7 @@ const AltaEquipoCompletaPage: React.FC = () => {
               ⚠️ {documentosSinVencimiento.length} documento(s) sin fecha de vencimiento. Todos los documentos requieren fecha de vencimiento.
             </p>
           ) : (
-            <p className='text-sm text-gray-600'>
+            <p className='text-sm text-muted-foreground'>
               Seleccioná {templateIdsObligatorios.length - templateIdsObligatorios.filter((id) => selectedFiles.has(id)).length} documentos más para habilitar la creación del equipo
             </p>
           )}

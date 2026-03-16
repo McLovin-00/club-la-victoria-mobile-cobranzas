@@ -17,9 +17,9 @@ type FilterType = 'todos' | 'dador' | 'cliente' | 'empresa';
 type ComplianceFilter = 'all' | 'faltantes' | 'vencidos' | 'por_vencer';
 
 const SEVERIDAD_CLASSES: Record<string, string> = {
-  critica: 'bg-red-50 text-red-700',
-  advertencia: 'bg-yellow-50 text-yellow-700',
-  default: 'bg-blue-50 text-blue-700',
+  critica: 'bg-red-50 text-red-700 dark:bg-red-900/30 dark:text-red-400',
+  advertencia: 'bg-yellow-50 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400',
+  default: 'bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400',
 };
 
 function getSeveridadClass(severidad: string | undefined): string {
@@ -486,19 +486,19 @@ export const ConsultaPage: React.FC = () => {
     return (
       <div className='border rounded-lg p-4'>
         <div className='flex items-center justify-between mb-2'>
-          <h4 className='font-medium text-sm text-gray-600'>{icon} {title} ({identifier})</h4>
+          <h4 className='font-medium text-sm text-muted-foreground'>{icon} {title} ({identifier})</h4>
           {hasData && (
             <div className='flex gap-1'>
               <button
                 onClick={() => startEditing(entityType, entityId, data)}
-                className='text-xs px-2 py-1 bg-blue-50 text-blue-600 rounded hover:bg-blue-100'
+                className='text-xs px-2 py-1 bg-blue-50 text-blue-600 rounded hover:bg-blue-100 dark:bg-blue-900/30 dark:text-blue-400 dark:hover:bg-blue-900/50'
                 title='Editar datos'
               >
                 ✏️ Editar
               </button>
               <button
                 onClick={() => setConfirmDelete({ entityType, entityId })}
-                className='text-xs px-2 py-1 bg-red-50 text-red-600 rounded hover:bg-red-100'
+                className='text-xs px-2 py-1 bg-red-50 text-red-600 rounded hover:bg-red-100 dark:bg-red-900/30 dark:text-red-400 dark:hover:bg-red-900/50'
                 title='Borrar datos IA'
               >
                 🗑️ Borrar
@@ -513,11 +513,11 @@ export const ConsultaPage: React.FC = () => {
             {data.extractedDataByDocument && data.extractedDataByDocument.length > 0 ? (
               <div className='space-y-3'>
                 {data.extractedDataByDocument.map((docData: any) => (
-                  <div key={`${docData.templateName || 'doc'}-${docData.uploadedAt || docData.id || ''}`} className='bg-gray-50 rounded p-2'>
-                    <p className='text-xs font-semibold text-blue-700 mb-1 border-b border-blue-200 pb-1'>
+                  <div key={`${docData.templateName || 'doc'}-${docData.uploadedAt || docData.id || ''}`} className='bg-muted rounded p-2'>
+                    <p className='text-xs font-semibold text-blue-700 dark:text-blue-400 mb-1 border-b border-blue-200 dark:border-blue-800 pb-1'>
                       📄 {docData.templateName || 'Documento sin plantilla'}
                       {docData.uploadedAt && (
-                        <span className='text-gray-500 font-normal ml-2'>
+                        <span className='text-muted-foreground font-normal ml-2'>
                           ({new Date(docData.uploadedAt).toLocaleDateString()})
                         </span>
                       )}
@@ -569,13 +569,13 @@ export const ConsultaPage: React.FC = () => {
             )}
             
             {data.lastValidation && (
-              <p className='text-xs text-gray-400 mt-2'>
+              <p className='text-xs text-muted-foreground mt-2'>
                 Última validación: {new Date(data.lastValidation).toLocaleString()}
               </p>
             )}
           </div>
         ) : (
-          <p className='text-gray-400 text-sm'>No hay datos extraídos por IA para esta entidad</p>
+          <p className='text-muted-foreground text-sm'>No hay datos extraídos por IA para esta entidad</p>
         )}
       </div>
     );
@@ -840,7 +840,7 @@ export const ConsultaPage: React.FC = () => {
               <div>
                 <Label className='text-sm mb-1 block'>Dador de Carga</Label>
                 <select
-                  className='w-full border rounded px-3 py-2 text-sm'
+                  className='w-full border border-border rounded px-3 py-2 text-sm bg-background text-foreground'
                   value={selectedDadorId ?? ''}
                   onChange={(e) => setSelectedDadorId(e.target.value ? Number(e.target.value) : undefined)}
                   disabled={isDadorDeCarga}
@@ -861,7 +861,7 @@ export const ConsultaPage: React.FC = () => {
               <div>
                 <Label className='text-sm mb-1 block'>Cliente</Label>
                 <select
-                  className='w-full border rounded px-3 py-2 text-sm'
+                  className='w-full border border-border rounded px-3 py-2 text-sm bg-background text-foreground'
                   value={selectedClienteId ?? ''}
                   onChange={(e) => setSelectedClienteId(e.target.value ? Number(e.target.value) : undefined)}
                 >
@@ -884,7 +884,7 @@ export const ConsultaPage: React.FC = () => {
                   className='mb-2'
                 />
                 <select
-                  className='w-full border rounded px-3 py-2 text-sm'
+                  className='w-full border border-border rounded px-3 py-2 text-sm bg-background text-foreground'
                   value={selectedEmpresaTranspId ?? ''}
                   onChange={(e) => setSelectedEmpresaTranspId(e.target.value ? Number(e.target.value) : undefined)}
                 >
@@ -1012,7 +1012,7 @@ export const ConsultaPage: React.FC = () => {
                   Ingrese uno o más DNIs de choferes o patentes de camiones, separados por coma, espacio o salto de línea.
                 </p>
                 <textarea
-                  className='w-full h-32 border rounded-md p-3 text-sm resize-none'
+                  className='w-full h-32 border border-border rounded-md p-3 text-sm resize-none bg-background text-foreground'
                   placeholder='Ej: 40219122, 35123456&#10;o: MHB277, ABC123'
                   value={searchText}
                   onChange={(e) => setSearchText(e.target.value)}
@@ -1036,7 +1036,7 @@ export const ConsultaPage: React.FC = () => {
       {isFetching && displayResults.length === 0 && (
         <div className='flex flex-col items-center justify-center py-12'>
           <div className='animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mb-4'></div>
-          <div className='text-lg font-medium text-gray-600'>Buscando equipos...</div>
+          <div className='text-lg font-medium text-muted-foreground'>Buscando equipos...</div>
           <div className='text-sm text-muted-foreground'>Calculando estado de compliance</div>
         </div>
       )}
@@ -1050,50 +1050,50 @@ export const ConsultaPage: React.FC = () => {
         <div className='grid grid-cols-2 md:grid-cols-4 gap-3 mb-4'>
           <button
             onClick={() => { setComplianceFilter('all'); setPage(1); }}
-            className={`p-4 rounded-lg border-2 transition-all ${complianceFilter === 'all' ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20' : 'border-gray-200 hover:border-blue-300 bg-white dark:bg-slate-800'}`}
+            className={`p-4 rounded-lg border-2 transition-all ${complianceFilter === 'all' ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20' : 'border-border hover:border-blue-300 bg-white dark:bg-slate-800'}`}
           >
             <div className='flex items-center gap-2 mb-1'>
               <DocumentTextIcon className='h-5 w-5 text-blue-600' />
               <span className='text-sm font-medium text-gray-600 dark:text-gray-300'>Total</span>
             </div>
             <div className='text-2xl font-bold text-blue-600'>{dashboardStats.total}</div>
-            <div className='text-xs text-gray-500'>equipos</div>
+            <div className='text-xs text-muted-foreground'>equipos</div>
           </button>
           
           <button
             onClick={() => { setComplianceFilter(complianceFilter === 'faltantes' ? 'all' : 'faltantes'); setPage(1); }}
-            className={`p-4 rounded-lg border-2 transition-all ${complianceFilter === 'faltantes' ? 'border-red-500 bg-red-50 dark:bg-red-900/20' : 'border-gray-200 hover:border-red-300 bg-white dark:bg-slate-800'}`}
+            className={`p-4 rounded-lg border-2 transition-all ${complianceFilter === 'faltantes' ? 'border-red-500 bg-red-50 dark:bg-red-900/20' : 'border-border hover:border-red-300 bg-white dark:bg-slate-800'}`}
           >
             <div className='flex items-center gap-2 mb-1'>
               <ExclamationTriangleIcon className='h-5 w-5 text-red-600' />
               <span className='text-sm font-medium text-gray-600 dark:text-gray-300'>Faltantes</span>
             </div>
             <div className='text-2xl font-bold text-red-600'>{dashboardStats.conFaltantes}</div>
-            <div className='text-xs text-gray-500'>con doc. faltante</div>
+            <div className='text-xs text-muted-foreground'>con doc. faltante</div>
           </button>
           
           <button
             onClick={() => { setComplianceFilter(complianceFilter === 'vencidos' ? 'all' : 'vencidos'); setPage(1); }}
-            className={`p-4 rounded-lg border-2 transition-all ${complianceFilter === 'vencidos' ? 'border-orange-500 bg-orange-50 dark:bg-orange-900/20' : 'border-gray-200 hover:border-orange-300 bg-white dark:bg-slate-800'}`}
+            className={`p-4 rounded-lg border-2 transition-all ${complianceFilter === 'vencidos' ? 'border-orange-500 bg-orange-50 dark:bg-orange-900/20' : 'border-border hover:border-orange-300 bg-white dark:bg-slate-800'}`}
           >
             <div className='flex items-center gap-2 mb-1'>
               <ClockIcon className='h-5 w-5 text-orange-600' />
               <span className='text-sm font-medium text-gray-600 dark:text-gray-300'>Vencidos</span>
             </div>
             <div className='text-2xl font-bold text-orange-600'>{dashboardStats.conVencidos}</div>
-            <div className='text-xs text-gray-500'>con doc. vencida</div>
+            <div className='text-xs text-muted-foreground'>con doc. vencida</div>
           </button>
           
           <button
             onClick={() => { setComplianceFilter(complianceFilter === 'por_vencer' ? 'all' : 'por_vencer'); setPage(1); }}
-            className={`p-4 rounded-lg border-2 transition-all ${complianceFilter === 'por_vencer' ? 'border-yellow-500 bg-yellow-50 dark:bg-yellow-900/20' : 'border-gray-200 hover:border-yellow-300 bg-white dark:bg-slate-800'}`}
+            className={`p-4 rounded-lg border-2 transition-all ${complianceFilter === 'por_vencer' ? 'border-yellow-500 bg-yellow-50 dark:bg-yellow-900/20' : 'border-border hover:border-yellow-300 bg-white dark:bg-slate-800'}`}
           >
             <div className='flex items-center gap-2 mb-1'>
               <ClockIcon className='h-5 w-5 text-yellow-600' />
               <span className='text-sm font-medium text-gray-600 dark:text-gray-300'>Por Vencer</span>
             </div>
             <div className='text-2xl font-bold text-yellow-600'>{dashboardStats.conPorVencer}</div>
-            <div className='text-xs text-gray-500'>con doc. por vencer</div>
+            <div className='text-xs text-muted-foreground'>con doc. por vencer</div>
           </button>
         </div>
       )}
@@ -1101,11 +1101,11 @@ export const ConsultaPage: React.FC = () => {
       {/* Indicador de filtro activo */}
       {complianceFilter !== 'all' && (
         <div className='mb-3 flex items-center gap-2'>
-          <span className='text-sm text-gray-600'>Filtrando por:</span>
+          <span className='text-sm text-muted-foreground'>Filtrando por:</span>
           <span className={`px-2 py-1 rounded text-sm font-medium ${
-            complianceFilter === 'faltantes' ? 'bg-red-100 text-red-700' :
-            complianceFilter === 'vencidos' ? 'bg-orange-100 text-orange-700' :
-            'bg-yellow-100 text-yellow-700'
+            complianceFilter === 'faltantes' ? 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400' :
+            complianceFilter === 'vencidos' ? 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400' :
+            'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400'
           }`}>
             {complianceFilter === 'faltantes' ? 'Doc. Faltante' :
              complianceFilter === 'vencidos' ? 'Doc. Vencida' : 'Doc. Por Vencer'}
@@ -1119,7 +1119,7 @@ export const ConsultaPage: React.FC = () => {
       {/* Barra de paginación (solo para resultados del servidor, no para búsqueda masiva) */}
       {hasSearched && csvResults.length === 0 && displayResults.length > 0 && (
         <div className='flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4 p-3 bg-gray-50 dark:bg-slate-800 rounded-lg'>
-          <div className='text-sm text-gray-600 dark:text-gray-400'>
+          <div className='text-sm text-gray-600 dark:text-muted-foreground'>
             Mostrando {((pagination.page - 1) * pagination.limit) + 1} - {Math.min(pagination.page * pagination.limit, pagination.total)} de {pagination.total} equipos
           </div>
           
@@ -1159,7 +1159,7 @@ export const ConsultaPage: React.FC = () => {
                 <SparklesIcon className='h-5 w-5 text-purple-600' />
                 Datos Extraídos por IA - Equipo #{iaDataEquipo?.id}
               </h3>
-              <button onClick={() => setShowIADataModal(false)} className='p-1 hover:bg-gray-100 rounded'>
+              <button onClick={() => setShowIADataModal(false)} className='p-1 hover:bg-accent rounded'>
                 <XMarkIcon className='h-5 w-5' />
               </button>
             </div>
@@ -1167,7 +1167,7 @@ export const ConsultaPage: React.FC = () => {
             {iaDataLoading ? (
               <div className='text-center py-8'>
                 <div className='animate-spin rounded-full h-8 w-8 border-b-2 border-purple-600 mx-auto mb-2'></div>
-                <p className='text-sm text-gray-500'>Cargando datos extraídos...</p>
+                <p className='text-sm text-muted-foreground'>Cargando datos extraídos...</p>
               </div>
             ) : (
               <div className='space-y-4'>
@@ -1214,7 +1214,7 @@ export const ConsultaPage: React.FC = () => {
                 )}
                 
                 {!iaData.empresaTransportista && !iaData.chofer && !iaData.camion && !iaData.acoplado && (
-                  <div className='text-center py-4 text-gray-500'>
+                  <div className='text-center py-4 text-muted-foreground'>
                     <SparklesIcon className='h-12 w-12 mx-auto mb-2 opacity-30' />
                     <p>No hay datos extraídos por IA disponibles para este equipo.</p>
                     <p className='text-sm'>Los datos se extraen automáticamente cuando se procesan documentos con IA.</p>
@@ -1237,7 +1237,7 @@ export const ConsultaPage: React.FC = () => {
         <div className='fixed inset-0 bg-black/60 flex items-center justify-center z-[60]' onClick={() => setConfirmDelete(null)} onKeyDown={(e) => e.key === 'Escape' && setConfirmDelete(null)} role='button' tabIndex={0}>
           <div className='bg-white dark:bg-slate-900 rounded-lg p-6 w-full max-w-md shadow-xl' onClick={(e) => e.stopPropagation()} onKeyDown={(e) => e.stopPropagation()} role='dialog'>
             <h4 className='text-lg font-semibold mb-4 text-red-600'>⚠️ Confirmar eliminación</h4>
-            <p className='text-sm text-gray-600 mb-4'>
+            <p className='text-sm text-muted-foreground mb-4'>
               ¿Estás seguro de que deseas eliminar todos los datos extraídos por IA de esta entidad?
               Esta acción no se puede deshacer.
             </p>
@@ -1261,25 +1261,25 @@ export const ConsultaPage: React.FC = () => {
         <div className='fixed inset-0 bg-black/60 flex items-center justify-center z-[60]' onClick={() => setEditingEntity(null)} onKeyDown={(e) => e.key === 'Escape' && setEditingEntity(null)} role='button' tabIndex={0}>
           <div className='bg-white dark:bg-slate-900 rounded-lg p-6 w-full max-w-lg shadow-xl max-h-[80vh] overflow-y-auto' onClick={(e) => e.stopPropagation()} onKeyDown={(e) => e.stopPropagation()} role='dialog'>
             <h4 className='text-lg font-semibold mb-4'>✏️ Editar datos extraídos</h4>
-            <p className='text-xs text-gray-500 mb-4'>
+            <p className='text-xs text-muted-foreground mb-4'>
               {editingEntity.entityType} #{editingEntity.entityId}
             </p>
             <div className='space-y-3'>
               {Object.entries(editFormData).map(([key, value]) => (
                 <div key={key}>
-                  <label className='block text-sm font-medium text-gray-700 mb-1 capitalize'>
+                  <label className='block text-sm font-medium text-muted-foreground mb-1 capitalize'>
                     {key.replace(/([A-Z])/g, ' $1').trim()}
                   </label>
                   <input
                     type='text'
                     value={value ?? ''}
                     onChange={(e) => setEditFormData(prev => ({ ...prev, [key]: e.target.value }))}
-                    className='w-full px-3 py-2 border rounded-md text-sm focus:ring-2 focus:ring-blue-500'
+                    className='w-full px-3 py-2 border border-border rounded-md text-sm focus:ring-2 focus:ring-blue-500 bg-background text-foreground'
                   />
                 </div>
               ))}
               {Object.keys(editFormData).length === 0 && (
-                <p className='text-gray-500 text-sm'>No hay datos para editar.</p>
+                <p className='text-muted-foreground text-sm'>No hay datos para editar.</p>
               )}
             </div>
             <div className='flex justify-end gap-2 mt-4'>
@@ -1317,7 +1317,7 @@ export const ConsultaPage: React.FC = () => {
                   <span className='text-xs px-2 py-0.5 rounded-full border bg-gray-50 dark:bg-slate-800/60 text-muted-foreground'>
                     {eq.estado || 'activa'}
                   </span>
-                  <span className={`text-xs px-2 py-0.5 rounded-full ${eq.activo !== false ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
+                  <span className={`text-xs px-2 py-0.5 rounded-full ${eq.activo !== false ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400' : 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400'}`}>
                     {eq.activo !== false ? 'Activo' : 'Inactivo'}
                   </span>
                 </div>
@@ -1345,7 +1345,7 @@ export const ConsultaPage: React.FC = () => {
                     variant='outline'
                     size='sm'
                     onClick={() => fetchIAData(eq)}
-                    className='text-purple-600 border-purple-300 hover:bg-purple-50'
+                    className='text-purple-600 border-purple-300 hover:bg-purple-50 dark:hover:bg-purple-900/30'
                     title='Ver datos extraídos por IA'
                   >
                     <SparklesIcon className='h-4 w-4 mr-1' />

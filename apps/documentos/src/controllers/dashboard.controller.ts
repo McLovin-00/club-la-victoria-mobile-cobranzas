@@ -5,7 +5,8 @@ import { DocumentService } from '../services/document.service';
 import { queueService } from '../services/queue.service';
 import { AppLogger } from '../config/logger';
 import { UserRole } from '../types/roles';
-import { minioService } from '../services/minio.service';
+import { createDownloadToken } from '../utils/download-token.utils';
+
 
 // ============================================================================
 // HELPERS para stats por rol
@@ -679,24 +680,20 @@ export class DashboardController {
         prisma.document.count({ where: whereBase }),
       ]);
 
-      // Enriquecer con nombres de entidad y URLs firmadas
+      const protocol = req.get('X-Forwarded-Proto') || req.protocol;
+      const host = req.get('host');
+      const userId = user.userId!;
+      const userRole = String(user.role);
+      const userEmpresaId = user.empresaId ?? null;
+
       const enrichedDocs = await Promise.all(
         documents.map(async (doc) => {
           const entityNaturalId = await getEntityNaturalId(doc.entityType, doc.entityId);
-          
-          // Generar URL firmada para la imagen (válida por 1 hora)
           let previewUrl: string | null = null;
           if (doc.filePath) {
-            try {
-              const [bucketName, ...pathParts] = doc.filePath.split('/');
-              if (bucketName && pathParts.length > 0) {
-                previewUrl = await minioService.getSignedUrl(bucketName, pathParts.join('/'), 3600);
-              }
-            } catch (err) {
-              AppLogger.warn(`No se pudo generar URL firmada para documento ${doc.id}:`, err);
-            }
+            const dlToken = createDownloadToken(doc.id, req.tenantId!, userId, userRole, userEmpresaId);
+            previewUrl = `${protocol}://${host}/api/docs/documents/${doc.id}/download?inline=1&dl_token=${dlToken}`;
           }
-          
           return {
             ...doc,
             entityNaturalId,

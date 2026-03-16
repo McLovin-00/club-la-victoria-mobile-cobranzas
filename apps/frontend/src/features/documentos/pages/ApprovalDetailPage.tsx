@@ -296,7 +296,7 @@ export default function ApprovalDetailPage() {
         <div className="flex items-center gap-3">
           <button 
             onClick={goBack} 
-            className="inline-flex items-center gap-2 border border-gray-300 text-gray-600 hover:bg-gray-50 font-medium px-4 py-2 rounded-lg transition-all duration-200"
+            className="inline-flex items-center gap-2 border border-border text-muted-foreground hover:bg-accent font-medium px-4 py-2 rounded-lg transition-all duration-200"
           >
             ← Volver
           </button>
@@ -309,7 +309,7 @@ export default function ApprovalDetailPage() {
           <button
             onClick={onRecheck}
             disabled={rechecking}
-            className="inline-flex items-center gap-2 px-4 py-2 rounded-lg border border-blue-300 bg-blue-50 text-blue-700 hover:bg-blue-100 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            className="inline-flex items-center gap-2 px-4 py-2 rounded-lg border border-blue-300 dark:border-blue-700 bg-blue-50 dark:bg-blue-950/30 text-blue-700 dark:text-blue-400 hover:bg-blue-100 dark:hover:bg-blue-900/30 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             title="Rechequear con IA"
           >
             <ArrowPathIcon className={`h-5 w-5 ${rechecking ? 'animate-spin' : ''}`} />
@@ -359,8 +359,8 @@ export default function ApprovalDetailPage() {
 
             {/* Panel de disparidades */}
             {tieneDisparidades && (
-              <div className="mt-4 p-3 rounded-lg border border-amber-200 bg-amber-50">
-                <div className="flex items-center gap-2 mb-2 text-amber-800 font-medium">
+              <div className="mt-4 p-3 rounded-lg border border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-950/30">
+                <div className="flex items-center gap-2 mb-2 text-amber-800 dark:text-amber-400 font-medium">
                   <ExclamationTriangleIcon className="h-5 w-5" />
                   Disparidades detectadas
                 </div>
@@ -499,24 +499,24 @@ function DisparidadItem({ disparidad }: { disparidad: Disparidad }) {
   const severidadConfig = {
     critica: {
       icon: ShieldExclamationIcon,
-      bg: 'bg-red-50',
-      border: 'border-red-200',
-      text: 'text-red-700',
-      badge: 'bg-red-100 text-red-800',
+      bg: 'bg-red-50 dark:bg-red-950/30',
+      border: 'border-red-200 dark:border-red-800',
+      text: 'text-red-700 dark:text-red-400',
+      badge: 'bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-400',
     },
     advertencia: {
       icon: ExclamationTriangleIcon,
-      bg: 'bg-amber-50',
-      border: 'border-amber-200',
-      text: 'text-amber-700',
-      badge: 'bg-amber-100 text-amber-800',
+      bg: 'bg-amber-50 dark:bg-amber-950/30',
+      border: 'border-amber-200 dark:border-amber-800',
+      text: 'text-amber-700 dark:text-amber-400',
+      badge: 'bg-amber-100 dark:bg-amber-900/30 text-amber-800 dark:text-amber-400',
     },
     info: {
       icon: InformationCircleIcon,
-      bg: 'bg-blue-50',
-      border: 'border-blue-200',
-      text: 'text-blue-700',
-      badge: 'bg-blue-100 text-blue-800',
+      bg: 'bg-blue-50 dark:bg-blue-950/30',
+      border: 'border-blue-200 dark:border-blue-800',
+      text: 'text-blue-700 dark:text-blue-400',
+      badge: 'bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-400',
     },
   };
   
@@ -538,16 +538,16 @@ function DisparidadItem({ disparidad }: { disparidad: Disparidad }) {
             <span className={`text-xs font-medium px-1.5 py-0.5 rounded ${config.badge}`}>
               {disparidad.severidad.toUpperCase()}
             </span>
-            <span className="text-xs font-medium text-gray-700">{disparidad.campo}</span>
+            <span className="text-xs font-medium text-foreground">{disparidad.campo}</span>
           </div>
           <p className={`text-xs ${config.text}`}>{disparidad.mensaje}</p>
           <div className="mt-1 grid grid-cols-2 gap-2 text-xs">
             <div>
-              <span className="text-gray-500">En sistema:</span>
+              <span className="text-muted-foreground">En sistema:</span>
               <span className="ml-1 font-mono">{formatValue(disparidad.valorEnSistema)}</span>
             </div>
             <div>
-              <span className="text-gray-500">En documento:</span>
+              <span className="text-muted-foreground">En documento:</span>
               <span className="ml-1 font-mono">{formatValue(disparidad.valorEnDocumento)}</span>
             </div>
           </div>

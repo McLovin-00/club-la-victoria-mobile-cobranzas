@@ -2,6 +2,7 @@ import { Request, Response, NextFunction } from 'express';
 import { UserRole } from '../types/roles';
 import { DocumentosAuthService, AuthPayload } from '../config/auth';
 import { AppLogger } from '../config/logger';
+import { verifyDownloadToken } from '../utils/download-token.utils';
 
 export interface AuthRequest extends Request {
   user?: AuthPayload;
@@ -39,6 +40,36 @@ function extractToken(req: Request): string | null {
 }
 
 /**
+ * Verificar download token HMAC en query param `dl_token`.
+ * Solo aplica a GET en rutas /download.
+ * Retorna un AuthPayload sintético si el token es válido, null si no.
+ */
+function tryDownloadToken(req: Request): AuthPayload | null {
+  if (req.method !== 'GET') return null;
+  const dlToken = req.query.dl_token as string | undefined;
+  if (!dlToken) return null;
+
+  const url = String(req.originalUrl || req.url || '');
+  if (!url.includes('/download')) return null;
+
+  const payload = verifyDownloadToken(dlToken);
+  if (!payload) return null;
+
+  const docIdParam = Number(req.params?.id);
+  if (docIdParam && docIdParam !== payload.documentId) {
+    AppLogger.warn('dl_token documentId mismatch', { expected: payload.documentId, got: docIdParam });
+    return null;
+  }
+
+  return {
+    userId: payload.userId,
+    email: `dl-token-${payload.userId}`,
+    role: payload.role as UserRole,
+    empresaId: payload.empresaId,
+  };
+}
+
+/**
  * Middleware de autenticación - Simplicidad y Seguridad
  */
 export const authenticate = async (
@@ -58,27 +89,24 @@ export const authenticate = async (
     }
 
     const token = extractToken(req);
-    if (!token) {
-      res.status(401).json({
-        success: false,
-        message: 'Token de autenticación requerido',
-        code: 'MISSING_TOKEN',
-      });
-      return;
+    let payload: AuthPayload | null = null;
+
+    if (token) {
+      payload = await DocumentosAuthService.verifyToken(token);
     }
 
-    const payload = await DocumentosAuthService.verifyToken(token);
+    // Fallback: download token HMAC para descargas directas en nueva pestaña
+    if (!payload) {
+      payload = tryDownloadToken(req);
+    }
 
     if (!payload) {
-      res.status(401).json({
-        success: false,
-        message: 'Token inválido o expirado',
-        code: 'INVALID_TOKEN',
-      });
+      const code = token ? 'INVALID_TOKEN' : 'MISSING_TOKEN';
+      const message = token ? 'Token inválido o expirado' : 'Token de autenticación requerido';
+      res.status(401).json({ success: false, message, code });
       return;
     }
 
-    // Adjuntar usuario autenticado a la request
     req.user = payload;
 
     AppLogger.debug('✅ Usuario autenticado en microservicio documentos', {

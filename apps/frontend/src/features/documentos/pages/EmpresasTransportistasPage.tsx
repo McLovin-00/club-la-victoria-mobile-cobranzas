@@ -78,7 +78,7 @@ export default function EmpresasTransportistasPage() {
         <div className="flex items-center gap-3">
           <button 
             onClick={goBack}
-            className="inline-flex items-center gap-2 border border-gray-300 text-gray-600 hover:bg-gray-50 font-medium px-4 py-2 rounded-lg transition-all duration-200"
+            className="inline-flex items-center gap-2 border border-border text-muted-foreground hover:bg-accent font-medium px-4 py-2 rounded-lg transition-all duration-200"
           >
             ← Volver
           </button>
@@ -108,7 +108,7 @@ export default function EmpresasTransportistasPage() {
               {dadores.map((d) => <option key={d.id} value={d.id}>{d.razonSocial}</option>)}
             </select>
             <button 
-              className="border border-blue-300 text-blue-600 hover:bg-blue-50 font-medium px-4 py-2 rounded-lg transition-all duration-200"
+              className="border border-blue-300 dark:border-blue-700 text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-950 font-medium px-4 py-2 rounded-lg transition-all duration-200"
               onClick={() => refetch()} 
               disabled={isFetching}
             >
@@ -212,7 +212,7 @@ export default function EmpresasTransportistasPage() {
             </div>
             <div className="mt-4 flex items-center justify-end gap-2">
               <button 
-                className="border border-gray-300 text-gray-600 hover:bg-gray-50 font-medium px-6 py-2 rounded-lg transition-all duration-200"
+                className="border border-border text-muted-foreground hover:bg-accent font-medium px-6 py-2 rounded-lg transition-all duration-200"
                 onClick={() => { setShowModal(false); setEditing(null); }}
               >
                 Cancelar
@@ -236,7 +236,7 @@ export default function EmpresasTransportistasPage() {
             <p className="text-sm text-muted-foreground">¿Seguro que querés eliminar la empresa #{confirmDeleteId}? Esta acción no se puede deshacer.</p>
             <div className="mt-4 flex items-center justify-end gap-2">
               <button 
-                className="border border-gray-300 text-gray-600 hover:bg-gray-50 font-medium px-6 py-2 rounded-lg transition-all duration-200"
+                className="border border-border text-muted-foreground hover:bg-accent font-medium px-6 py-2 rounded-lg transition-all duration-200"
                 onClick={() => setConfirmDeleteId(null)}
               >
                 Cancelar
