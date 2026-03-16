@@ -43,11 +43,9 @@ export const errorHandler = (
   };
 
   const isClientError = statusCode >= 400 && statusCode < 500;
-  const clientMessage = error.code && friendlyMessages[error.code]
-    ? friendlyMessages[error.code]
-    : isClientError
-      ? (error.message || 'Error en la solicitud')
-      : 'Error interno del servidor';
+  const friendlyMatch = error.code ? friendlyMessages[error.code] : undefined;
+  const fallbackMessage = isClientError ? (error.message || 'Error en la solicitud') : 'Error interno del servidor';
+  const clientMessage = friendlyMatch || fallbackMessage;
 
   const errorResponse: any = {
     success: false,

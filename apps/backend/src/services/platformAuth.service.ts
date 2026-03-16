@@ -416,50 +416,49 @@ export class PlatformAuthService {
     return user ? this.formatUserProfile(user) : null;
   }
 
-  static async updatePlatformUser(id: number, data: Partial<RegisterData & { role: UserRole }>, actor: PlatformUserProfile): Promise<PlatformUserProfile> {
-    const prisma = prismaService.getClient();
+  private static async validateUpdatePermissions(
+    prisma: ReturnType<typeof prismaService.getClient>,
+    id: number,
+    data: Partial<RegisterData & { role: UserRole }>,
+    actor: PlatformUserProfile,
+  ): Promise<void> {
+    if (actor.role === 'SUPERADMIN') return;
 
-    if (actor.role !== 'SUPERADMIN') {
-      const targetUser = await prisma.user.findUnique({ where: { id }, select: { empresaId: true } });
-      if (!targetUser) {
-        throw new Error('Usuario no encontrado');
-      }
-      if (targetUser.empresaId !== actor.empresaId) {
-        throw new Error('No tiene permisos para modificar este usuario');
-      }
+    const targetUser = await prisma.user.findUnique({ where: { id }, select: { empresaId: true } });
+    if (!targetUser) throw new Error('Usuario no encontrado');
+    if (targetUser.empresaId !== actor.empresaId) throw new Error('No tiene permisos para modificar este usuario');
+
+    if (data.empresaId && data.empresaId !== actor.empresaId) {
+      throw new Error('No puede asignar otra empresa');
     }
 
-    if (actor.role === 'ADMIN') {
-      if (data.role && data.role !== 'OPERATOR') {
-        throw new Error('Un administrador no puede cambiar el rol a ADMIN o SUPERADMIN');
-      }
-      if (data.empresaId && data.empresaId !== actor.empresaId) {
-        throw new Error('No puede asignar otra empresa');
-      }
+    if (actor.role === 'ADMIN' && data.role && data.role !== 'OPERATOR') {
+      throw new Error('Un administrador no puede cambiar el rol a ADMIN o SUPERADMIN');
     }
 
-    if (actor.role === 'ADMIN_INTERNO') {
-      const forbiddenRoles: UserRole[] = ['SUPERADMIN' as UserRole, 'ADMIN' as UserRole];
-      if (data.role && forbiddenRoles.includes(data.role)) {
-        throw new Error('ADMIN_INTERNO no puede asignar rol SUPERADMIN ni ADMIN');
-      }
-      if (data.empresaId && data.empresaId !== actor.empresaId) {
-        throw new Error('No puede asignar otra empresa');
-      }
+    const forbiddenForInterno: UserRole[] = ['SUPERADMIN' as UserRole, 'ADMIN' as UserRole];
+    if (actor.role === 'ADMIN_INTERNO' && data.role && forbiddenForInterno.includes(data.role)) {
+      throw new Error('ADMIN_INTERNO no puede asignar rol SUPERADMIN ni ADMIN');
     }
+  }
 
+  private static async prepareUpdateData(data: Partial<RegisterData & { role: UserRole }>): Promise<any> {
     const update: any = { ...data };
     if (data.password) {
       const strengthErrors = this.validatePasswordStrength(data.password);
-      if (strengthErrors.length > 0) {
-        throw new Error(strengthErrors.join('. '));
-      }
+      if (strengthErrors.length > 0) throw new Error(strengthErrors.join('. '));
       update.password = await this.hashPassword(data.password);
     }
     if (data.email) {
       update.email = data.email.toLowerCase().trim();
     }
+    return update;
+  }
 
+  static async updatePlatformUser(id: number, data: Partial<RegisterData & { role: UserRole }>, actor: PlatformUserProfile): Promise<PlatformUserProfile> {
+    const prisma = prismaService.getClient();
+    await this.validateUpdatePermissions(prisma, id, data, actor);
+    const update = await this.prepareUpdateData(data);
     const user = await prisma.user.update({ where: { id }, data: update });
     return this.formatUserProfile(user);
   }

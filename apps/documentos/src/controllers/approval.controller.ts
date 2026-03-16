@@ -46,6 +46,57 @@ function validateCanApprove(user: RequestUser): { status: number; message: strin
   return undefined;
 }
 
+interface BatchOverrides {
+  confirmedEntityType?: string;
+  confirmedEntityId?: number;
+  confirmedExpiration?: string;
+  reviewNotes?: string;
+}
+
+async function processBatchApproval(
+  ids: number[],
+  user: RequestUser,
+  overrides?: BatchOverrides,
+): Promise<Array<{ id: number; ok: boolean; error?: string }>> {
+  const dadorFilter = user.userRole === 'DADOR_DE_CARGA' && user.dadorCargaId ? user.dadorCargaId : undefined;
+  const results: Array<{ id: number; ok: boolean; error?: string }> = [];
+  const chunkSize = 50;
+
+  for (let i = 0; i < ids.length; i += chunkSize) {
+    const chunk = ids.slice(i, i + chunkSize);
+    const ops = chunk.map(async (id) => {
+      try {
+        await ApprovalService.approveDocument(id, user.tenantEmpresaId, {
+          reviewedBy: user.userId!,
+          confirmedEntityType: overrides?.confirmedEntityType,
+          confirmedEntityId: overrides?.confirmedEntityId,
+          confirmedExpiration: overrides?.confirmedExpiration ? new Date(overrides.confirmedExpiration) : undefined,
+          reviewNotes: overrides?.reviewNotes,
+        }, dadorFilter);
+        results.push({ id, ok: true });
+      } catch (e: any) {
+        results.push({ id, ok: false, error: e?.message || 'Error' });
+      }
+    });
+    await Promise.all(ops);
+  }
+  return results;
+}
+
+function logBatchAudit(req: Request, res: Response, user: RequestUser, ids: number[], overrides?: BatchOverrides): void {
+  void AuditService.log({
+    tenantEmpresaId: user.tenantEmpresaId,
+    userId: user.userId,
+    userRole: user.userRole,
+    method: req.method,
+    path: req.originalUrl || req.path,
+    statusCode: res.statusCode,
+    action: 'APPROVAL_BATCH_APPROVE',
+    entityType: 'DOCUMENT',
+    details: { ids, overrides },
+  });
+}
+
 // ============================================================================
 
 export class ApprovalController {
@@ -86,42 +137,11 @@ export class ApprovalController {
         res.status(400).json({ success: false, message: 'Debe enviar ids[]', code: 'BAD_REQUEST' });
         return;
       }
-      const dadorFilter = user.userRole === 'DADOR_DE_CARGA' && user.dadorCargaId ? user.dadorCargaId : undefined;
-      const results: Array<{ id: number; ok: boolean; error?: string }> = [];
-      const chunkSize = 50;
-      for (let i = 0; i < ids.length; i += chunkSize) {
-        const chunk = ids.slice(i, i + chunkSize);
-        const ops = chunk.map(async (id) => {
-          try {
-            await ApprovalService.approveDocument(id, user.tenantEmpresaId, {
-              reviewedBy: user.userId!,
-              confirmedEntityType: overrides?.confirmedEntityType,
-              confirmedEntityId: overrides?.confirmedEntityId,
-              confirmedExpiration: overrides?.confirmedExpiration ? new Date(overrides.confirmedExpiration) : undefined,
-              reviewNotes: overrides?.reviewNotes,
-            }, dadorFilter);
-            results.push({ id, ok: true });
-          } catch (e: any) {
-            results.push({ id, ok: false, error: e?.message || 'Error' });
-          }
-        });
-        await Promise.all(ops);
-      }
+
+      const results = await processBatchApproval(ids, user, overrides);
       const approved = results.filter(r => r.ok).length;
       res.json({ success: true, approved, failed: results.length - approved, results });
-      // Audit best-effort
-      void AuditService.log({
-        tenantEmpresaId: user.tenantEmpresaId,
-        userId: user.userId,
-        userRole: user.userRole,
-        method: req.method,
-        path: req.originalUrl || req.path,
-        statusCode: res.statusCode,
-        action: 'APPROVAL_BATCH_APPROVE',
-        entityType: 'DOCUMENT',
-        details: { ids, overrides },
-      });
-      // Refrescar vista materializada (best-effort)
+      void logBatchAudit(req, res, user, ids, overrides);
       try { (await import('../services/performance.service')).performanceService.refreshMaterializedView(); } catch { /* Refresh async */ }
     } catch (error) {
       AppLogger.error('ApprovalController.batchApprove error:', error);

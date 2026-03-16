@@ -32,24 +32,21 @@ export interface Environment {
 
 let cachedEnv: Environment | null = null;
 
-export function getEnvironment(): Environment {
-  if (cachedEnv) return cachedEnv;
+function resolveDatabaseUrl(): string {
+  if (process.env.REMITOS_DATABASE_URL) return process.env.REMITOS_DATABASE_URL;
+  const docUrl = process.env.DOCUMENTOS_DATABASE_URL;
+  if (docUrl) return docUrl.replace('schema=documentos', 'schema=remitos');
+  return 'postgresql://localhost:5432/monorepo-bca?schema=remitos';
+}
 
-  cachedEnv = {
-    NODE_ENV: process.env.NODE_ENV || 'development',
-    REMITOS_PORT: parseInt(process.env.REMITOS_PORT || '4803', 10),
+function resolveRedisHost(): string {
+  const host = process.env.REDIS_HOST;
+  if (!host) return 'localhost';
+  return host === 'redis' ? 'localhost' : host;
+}
 
-    // Database
-    REMITOS_DATABASE_URL: process.env.REMITOS_DATABASE_URL ||
-      process.env.DOCUMENTOS_DATABASE_URL?.replace('schema=documentos', 'schema=remitos') ||
-      'postgresql://localhost:5432/monorepo-bca?schema=remitos',
-
-    // Redis
-    REDIS_HOST: (process.env.REDIS_HOST === 'redis' ? 'localhost' : process.env.REDIS_HOST) || 'localhost',
-    REDIS_PORT: parseInt(process.env.REDIS_PORT || '6379', 10),
-    REDIS_PASSWORD: process.env.REDIS_PASSWORD || '',
-
-    // MinIO
+function buildMinioConfig() {
+  return {
     MINIO_ENDPOINT: process.env.MINIO_ENDPOINT || 'localhost',
     MINIO_PORT: parseInt(process.env.MINIO_PORT || '9000', 10),
     MINIO_ACCESS_KEY: process.env.MINIO_ACCESS_KEY || '',
@@ -57,11 +54,21 @@ export function getEnvironment(): Environment {
     MINIO_USE_SSL: process.env.MINIO_USE_SSL === 'true',
     MINIO_REGION: process.env.MINIO_REGION || 'us-east-1',
     MINIO_BUCKET_PREFIX: process.env.MINIO_BUCKET_PREFIX || 'remitos-empresa',
+  };
+}
 
-    // CORS
+export function getEnvironment(): Environment {
+  if (cachedEnv) return cachedEnv;
+
+  cachedEnv = {
+    NODE_ENV: process.env.NODE_ENV || 'development',
+    REMITOS_PORT: parseInt(process.env.REMITOS_PORT || '4803', 10),
+    REMITOS_DATABASE_URL: resolveDatabaseUrl(),
+    REDIS_HOST: resolveRedisHost(),
+    REDIS_PORT: parseInt(process.env.REDIS_PORT || '6379', 10),
+    REDIS_PASSWORD: process.env.REDIS_PASSWORD || '',
+    ...buildMinioConfig(),
     FRONTEND_URLS: process.env.FRONTEND_URLS || process.env.FRONTEND_URL || 'http://localhost:8550',
-
-    // Tenant
     DEFAULT_TENANT_ID: parseInt(process.env.DEFAULT_TENANT_ID || '1', 10),
   };
 
