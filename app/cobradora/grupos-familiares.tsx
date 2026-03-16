@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import {
   Text,
   View,
@@ -45,10 +45,9 @@ export default function GruposFamiliaresScreen() {
     void loadGrupos();
   }, [loadGrupos]);
 
-  // Inicializar
-  useState(() => {
+  useEffect(() => {
     void loadGrupos();
-  });
+  }, [loadGrupos]);
 
   // Filtrar grupos por búsqueda
   const gruposFiltrados = busqueda.trim()

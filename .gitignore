@@ -11,3 +11,4 @@ dist/
 *.orig.*
 web-build/
 .DS_Store
+coverage/

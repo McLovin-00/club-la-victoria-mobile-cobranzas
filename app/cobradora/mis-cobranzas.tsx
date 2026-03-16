@@ -77,6 +77,59 @@ export default function MisCobranzasScreen() {
     });
   };
 
+  const getLineaTitle = (linea: OperacionCompleta["lineas"][number], idx: number) => {
+    if (linea.tipoLinea === "CUOTA") {
+      if (linea.cuota?.periodo) {
+        return `Cuota ${linea.cuota.periodo}`;
+      }
+
+      if (linea.cuotaId) {
+        return `Cuota #${linea.cuotaId}`;
+      }
+
+      return "Cuota";
+    }
+
+    if (linea.tipoLinea === "CONCEPTO") {
+      return linea.concepto?.trim() || "Concepto";
+    }
+
+    return `Ítem #${idx + 1}`;
+  };
+
+  const getLineaSubtitle = (linea: OperacionCompleta["lineas"][number]) => {
+    if (linea.tipoLinea === "CONCEPTO") {
+      return linea.descripcion?.trim() || null;
+    }
+
+    if (linea.tipoLinea === "CUOTA") {
+      return linea.descripcion?.trim() || "Cobro de cuota";
+    }
+
+    return null;
+  };
+
+  const getOperacionSocio = (op: OperacionCompleta) => {
+    if (!op.socio) {
+      return "Socio no informado";
+    }
+
+    return `${op.socio.nombre} ${op.socio.apellido}`.trim();
+  };
+
+  const getOperacionMetodo = (op: OperacionCompleta) => {
+    return op.metodoPago?.nombre?.trim() || "Metodo no informado";
+  };
+
+  const getOperacionItems = (op: OperacionCompleta) => {
+    const cantidad = op.lineas?.length ?? 0;
+    return `${cantidad} ${cantidad === 1 ? "item" : "items"}`;
+  };
+
+  const getOperacionResumen = (op: OperacionCompleta) => {
+    return `${getOperacionSocio(op)} • ${getOperacionMetodo(op)} • ${getOperacionItems(op)}`;
+  };
+
 
   const openDetail = (op: OperacionCompleta) => {
     setSelectedOp(op);
@@ -242,7 +295,7 @@ export default function MisCobranzasScreen() {
                   className="bg-card rounded-3xl p-4 border border-border/40 shadow-sm flex-row items-center gap-4 active:opacity-80 active:scale-[0.98]"
                   onPress={() => openDetail(op)}
                   accessibilityRole="button"
-                  accessibilityLabel={`${formatDate(op.fechaHoraServidor)} a las ${formatTime(op.fechaHoraServidor)}, operación número ${op.id}, monto $${op.total.toLocaleString("es-AR")}. Toca para ver detalle.`}
+                  accessibilityLabel={`${formatDate(op.fechaHoraServidor)} a las ${formatTime(op.fechaHoraServidor)}, operación número ${op.id}, ${getOperacionResumen(op)}, monto $${op.total.toLocaleString("es-AR")}. Toca para ver detalle.`}
                 >
                   {/* Avatar Circle */}
                   <View
@@ -257,6 +310,9 @@ export default function MisCobranzasScreen() {
                     <Text className="text-foreground font-bold text-base leading-tight">
                       {formatDate(op.fechaHoraServidor)}
                     </Text>
+                    <Text className="text-muted-foreground text-xs" numberOfLines={1}>
+                      {getOperacionSocio(op)}
+                    </Text>
                     <View className="flex-row items-center gap-2" accessibilityElementsHidden>
                       <Text className="text-muted-foreground text-xs font-medium">
                         {formatTime(op.fechaHoraServidor)}
@@ -264,6 +320,15 @@ export default function MisCobranzasScreen() {
                       <View className="w-1 h-1 rounded-full bg-border" />
                       <Text className="text-muted-foreground text-xs font-medium">
                         Op #{op.id}
+                      </Text>
+                    </View>
+                    <View className="flex-row items-center gap-2" accessibilityElementsHidden>
+                      <Text className="text-muted-foreground text-xs" numberOfLines={1}>
+                        {getOperacionMetodo(op)}
+                      </Text>
+                      <View className="w-1 h-1 rounded-full bg-border" />
+                      <Text className="text-muted-foreground text-xs font-medium">
+                        {getOperacionItems(op)}
                       </Text>
                     </View>
                   </View>
@@ -317,7 +382,7 @@ export default function MisCobranzasScreen() {
       <Modal
         visible={modalVisible}
         onClose={closeDetail}
-        title="Detalle del Cobro"
+        title={selectedOp ? `Detalle Op #${selectedOp.id}` : "Detalle del Cobro"}
       >
         {selectedOp && (
           <View className="gap-4">
@@ -377,47 +442,40 @@ export default function MisCobranzasScreen() {
                 </View>
 
                 <View className="gap-2">
-                  {selectedOp.lineas.map((linea, idx) => (
-                    <View
-                      key={linea.id || idx}
-                      className="flex-row items-center justify-between p-3 bg-muted/20 rounded-xl border border-border/30"
-                    >
-                      <View className="flex-1 flex-row items-center gap-2">
-                        <View className="w-8 h-8 rounded-full bg-primary/10 items-center justify-center">
+                  {selectedOp.lineas.map((linea, idx) => {
+                    const lineaTitle = getLineaTitle(linea, idx);
+                    const lineaSubtitle = getLineaSubtitle(linea);
+
+                    return (
+                      <View
+                        key={linea.id || idx}
+                        className="flex-row items-start justify-between p-3 bg-muted/20 rounded-xl border border-border/30 gap-3"
+                      >
+                        <View className="flex-1 min-w-0 flex-row items-start gap-2">
+                          <View className="w-8 h-8 rounded-full bg-primary/10 items-center justify-center">
+                            <Text className="text-primary text-xs font-bold">
+                              {idx + 1}
+                            </Text>
+                          </View>
+                          <View className="flex-1 min-w-0">
+                            <Text className="text-foreground font-medium text-sm">
+                              {lineaTitle}
+                            </Text>
+                            {lineaSubtitle && (
+                              <Text className="text-muted-foreground text-xs mt-0.5">
+                                {lineaSubtitle}
+                              </Text>
+                            )}
+                          </View>
+                        </View>
+                        <View className="bg-primary/10 px-3 py-1.5 rounded-full shrink-0 self-start">
                           <Text className="text-primary text-xs font-bold">
-                            {idx + 1}
+                            ${linea.monto.toLocaleString("es-AR")}
                           </Text>
                         </View>
-                        <View className="flex-1">
-                          {linea.tipoLinea === 'CUOTA' && linea.cuota ? (
-                            <Text className="text-foreground font-medium text-sm">
-                              Cuota {linea.cuota.periodo}
-                            </Text>
-                          ) : linea.tipoLinea === 'CONCEPTO' ? (
-                            <View>
-                              <Text className="text-foreground font-medium text-sm">
-                                {linea.concepto || 'Concepto'}
-                              </Text>
-                              {linea.descripcion && (
-                                <Text className="text-muted-foreground text-xs mt-0.5">
-                                  {linea.descripcion}
-                                </Text>
-                              )}
-                            </View>
-                          ) : (
-                            <Text className="text-foreground font-medium text-sm">
-                              Ítem #{idx + 1}
-                            </Text>
-                          )}
-                        </View>
                       </View>
-                      <View className="bg-primary/10 px-3 py-1.5 rounded-full">
-                        <Text className="text-primary text-xs font-bold">
-                          ${linea.monto.toLocaleString("es-AR")}
-                        </Text>
-                      </View>
-                    </View>
-                  ))}
+                    );
+                  })}
                 </View>
 
                 {/* Total al final */}

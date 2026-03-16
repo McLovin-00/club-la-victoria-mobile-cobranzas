@@ -614,7 +614,7 @@ export default function PagoGrupoScreen() {
                   })}
                 </View>
               ) : (
-                <View className="bg-card rounded-3xl p-4 border border-border/40 shadow-sm gap-3">
+                <View className="bg-card rounded-3xl p-4 gap-3" style={{ borderWidth: 1, borderColor: 'rgba(0, 0, 0, 0.08)', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.05, shadowRadius: 2, elevation: 1 }}>
                   <View className="gap-2">
                     <Input
                       label="Efectivo"

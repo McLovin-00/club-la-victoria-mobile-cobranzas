@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Text, View, ScrollView, Pressable, TextInput, ActivityIndicator } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
@@ -26,7 +26,8 @@ export default function HomeCobradoraScreen() {
   const [socios, setSocios] = useState<SocioItem[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [cobradorNombre, setCobradorNombre] = useState<string>("");
-  
+  const [hasSearched, setHasSearched] = useState(false);
+  const searchTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   // Load all socios on mount
   useEffect(() => {
     const loadInitialData = async () => {
@@ -37,13 +38,42 @@ export default function HomeCobradoraScreen() {
     };
     void loadInitialData();
     
-    // Load all socios by default
     void cargarSocios();
   }, []);
+
+  // Debounced search - busca automáticamente después de 500ms sin escribir
+  useEffect(() => {
+    // Si el campo está vacío, cargar todos los socios
+    if (busqueda.trim() === "") {
+      setHasSearched(false);
+      void cargarSocios("");
+      return;
+    }
+
+    // Limpiar timeout anterior
+    if (searchTimeoutRef.current) {
+      clearTimeout(searchTimeoutRef.current);
+    }
+
+    // Esperar 500ms antes de buscar
+    searchTimeoutRef.current = setTimeout(() => {
+      void cargarSocios(busqueda);
+      setHasSearched(true);
+    }, 500);
+
+    return () => {
+      if (searchTimeoutRef.current) {
+        clearTimeout(searchTimeoutRef.current);
+      }
+    };
+  }, [busqueda]);
 
   const cargarSocios = async (query?: string) => {
     setError(null);
     setLoading(true);
+    if (query !== undefined) {
+      setHasSearched(true);
+    }
     try {
       const data = await mobileApi.buscarSocios(query ?? "");
       setSocios(data);
@@ -89,14 +119,14 @@ export default function HomeCobradoraScreen() {
             <ScreenBackButton onPress={() => router.replace("/")} tone="light" />
             <View className="flex-1" />
             <Pressable
-              className="flex-row items-center gap-2 bg-primary-foreground/20 px-4 py-2.5 rounded-2xl border border-primary-foreground/30"
+              className="flex-row items-center gap-2 bg-primary-foreground/20 px-4 py-3 rounded-2xl border border-primary-foreground/30"
               onPress={() => router.push("/cobradora/grupos-familiares")}
               accessibilityRole="button"
-              accessibilityLabel="Ver grupos familiares"
-              accessibilityHint="Navega a la lista de grupos familiares"
+              accessibilityLabel="Ver grupos familiares - Cobra a toda la familia junta"
+              accessibilityHint="Navega a la lista de grupos familiares para cobrar a varias personas de una familia"
             >
-              <Users size={16} color="white" />
-              <Text className="text-primary-foreground font-bold text-sm">Grupos</Text>
+              <Users size={18} color="white" />
+              <Text className="text-primary-foreground font-bold text-sm">Familias</Text>
             </Pressable>
           </View>
 
@@ -136,32 +166,20 @@ export default function HomeCobradoraScreen() {
             <Search size={22} color="hsl(var(--muted-foreground))" className="opacity-80" />
             <TextInput
               className="flex-1 text-base font-medium text-foreground ml-3 py-3"
-              placeholder="Buscar socio, apellido o DNI..."
+              placeholder="Escribí nombre, apellido o DNI..."
               placeholderTextColor="hsl(var(--muted-foreground))"
               value={busqueda}
               onChangeText={setBusqueda}
-              onSubmitEditing={() => void cargarSocios(busqueda)}
-              returnKeyType="search"
-              accessibilityLabel="Buscar socio, apellido o DNI"
-              accessibilityHint="Escribe el nombre, apellido o DNI del socio y presiona buscar"
+              returnKeyType="done"
+              accessibilityLabel="Buscar socio"
+              accessibilityHint="La búsqueda se hace automáticamente mientras escribís"
             />
-            <Pressable
-              className={`h-12 w-12 rounded-2xl items-center justify-center ml-2 bg-primary shadow-soft ${
-                busqueda.trim() ? "opacity-100" : "opacity-50"
-              }`}
-              onPress={() => void cargarSocios(busqueda)}
-              disabled={loading || !busqueda.trim()}
-              accessibilityRole="button"
-              accessibilityLabel="Buscar"
-              accessibilityHint="Realiza la búsqueda con el texto ingresado"
-              accessibilityState={{ disabled: loading || !busqueda.trim() }}
-            >
-              {loading ? (
-                <ActivityIndicator color="white" />
-              ) : (
-                <Search size={20} color="white" />
-              )}
-            </Pressable>
+            {/* Indicador de búsqueda en progreso */}
+            {loading && (
+              <View className="h-10 w-10 rounded-full items-center justify-center ml-2">
+                <ActivityIndicator color="hsl(var(--primary))" size="small" />
+              </View>
+            )}
           </View>
         </View>
 
@@ -262,7 +280,7 @@ export default function HomeCobradoraScreen() {
                       className={`w-12 h-12 rounded-full items-center justify-center border ${avatarTone}`}
                       accessibilityElementsHidden
                     >
-                      <Text className={`font-bold text-sm tracking-wider ${avatarTextTone}`}>
+                      <Text className={`font-bold text-xs tracking-wider ${avatarTextTone}`}>
                         {getInitials(socio.nombre, socio.apellido)}
                       </Text>
                     </View>
@@ -305,10 +323,10 @@ export default function HomeCobradoraScreen() {
 
                     {/* Action Button */}
                     <View 
-                      className="bg-primary/10 px-3 py-2 rounded-full border border-primary/20"
+                      className="bg-primary/10 px-4 py-2 rounded-full border border-primary/20"
                       accessibilityElementsHidden
                     >
-                      <Text className="text-primary text-[10px] font-bold tracking-widest uppercase">
+                      <Text className="text-primary text-xs font-bold">
                         Cobrar
                       </Text>
                     </View>

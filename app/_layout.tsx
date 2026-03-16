@@ -27,6 +27,9 @@ export default function RootLayout() {
           <Stack.Screen name="cobradora/pago" />
           <Stack.Screen name="cobradora/mis-cobranzas" />
           <Stack.Screen name="cobradora/configuracion" />
+          <Stack.Screen name="cobradora/grupos-familiares" />
+          <Stack.Screen name="cobradora/grupo-familiar/[id]" />
+          <Stack.Screen name="cobradora/pago-grupo" />
         </Stack>
       </ToastProvider>
     </SafeAreaProvider>

@@ -375,13 +375,13 @@ export default function PagoCobradoraScreen() {
             <View
               className="flex-row gap-2"
               accessibilityRole="radiogroup"
-              accessibilityLabel="Cantidad de métodos de pago"
+              accessibilityLabel="¿Cómo vas a cobrar?"
             >
               <Pressable
                 onPress={() => setUsarDosMetodos(false)}
                 className="flex-1"
                 accessibilityRole="radio"
-                accessibilityLabel="Un método de pago"
+                accessibilityLabel="Un solo método de pago (todo en efectivo o todo por transferencia)"
                 accessibilityState={{ selected: !usarDosMetodos }}
               >
                 <View className={cn(
@@ -394,7 +394,7 @@ export default function PagoCobradoraScreen() {
                       !usarDosMetodos ? "text-primary-foreground" : "text-foreground"
                     )}
                   >
-                    1 método
+                    Un solo pago
                   </Text>
                 </View>
               </Pressable>
@@ -403,7 +403,7 @@ export default function PagoCobradoraScreen() {
                 onPress={() => setUsarDosMetodos(true)}
                 className="flex-1"
                 accessibilityRole="radio"
-                accessibilityLabel="Dos métodos de pago (pago mixto)"
+                accessibilityLabel="Combinar efectivo y transferencia"
                 accessibilityState={{ selected: usarDosMetodos }}
               >
                 <View className={cn(
@@ -416,7 +416,7 @@ export default function PagoCobradoraScreen() {
                       usarDosMetodos ? "text-primary-foreground" : "text-foreground"
                     )}
                   >
-                    2 métodos
+                    Efectivo + Transfer.
                   </Text>
                 </View>
               </Pressable>
@@ -457,23 +457,40 @@ export default function PagoCobradoraScreen() {
                 })}
               </View>
             ) : (
-              <View className="bg-card rounded-3xl p-4 border border-border/40 shadow-sm gap-3">
+              <View 
+                  className="bg-card rounded-3xl p-4 gap-3"
+                  style={{
+                    borderWidth: 1,
+                    borderColor: 'rgba(0, 0, 0, 0.08)',
+                    shadowOffset: { width: 0, height: 1 },
+                    shadowOpacity: 0.05,
+                    shadowRadius: 2,
+                    elevation: 1,
+                  }}
+                >
+                {/* Helper text explicando cómo funciona */}
+                <View className="bg-primary/5 rounded-xl p-3 mb-1">
+                  <Text className="text-foreground text-xs leading-4">
+                    💡 Ingresá cuánto te pagan en efectivo. El resto se completa automáticamente como transferencia.
+                  </Text>
+                </View>
+
                 <View className="gap-2">
                   <Input
-                    label="Efectivo"
+                    label="¿Cuánto en efectivo?"
                     placeholder="0"
                     keyboardType="numeric"
                     value={montoEfectivoInput}
                     onChangeText={setMontoEfectivoInput}
                     leftIcon={<Text className="text-muted-foreground">$</Text>}
-                    accessibilityHint="Ingresa el monto a pagar en efectivo"
+                    helperText="El socio te paga esta parte en efectivo"
                   />
                 </View>
 
                 <View className="gap-1">
-                  <Text className="text-foreground text-sm font-medium">Transferencia</Text>
+                  <Text className="text-muted-foreground text-xs font-medium">El resto por transferencia:</Text>
                   <Text
-                    className="text-foreground font-semibold text-base"
+                    className="text-foreground font-bold text-xl"
                     accessibilityLabel={`Monto en transferencia: $${(montoTransferenciaCents / 100).toLocaleString("es-AR", {
                       minimumFractionDigits: 2,
                       maximumFractionDigits: 2,
@@ -484,19 +501,18 @@ export default function PagoCobradoraScreen() {
                       maximumFractionDigits: 2,
                     })}
                   </Text>
-                  <Text className="text-xs text-muted-foreground">
-                    Se calcula automaticamente como la diferencia hasta el total.
-                  </Text>
                 </View>
 
                 {!splitValido && totalCents > 0 && (
-                  <Text
-                    className="text-xs text-destructive"
-                    accessibilityRole="alert"
-                    accessibilityLiveRegion="assertive"
-                  >
-                    El efectivo debe ser mayor a $0 y menor al total para usar dos metodos.
-                  </Text>
+                  <View className="bg-destructive/10 rounded-xl p-3 flex-row items-center gap-2">
+                    <Text
+                      className="text-destructive text-xs flex-1"
+                      accessibilityRole="alert"
+                      accessibilityLiveRegion="assertive"
+                    >
+                      ⚠️ Ingresá un monto entre $1 y ${total.toLocaleString("es-AR")} para el efectivo.
+                    </Text>
+                  </View>
                 )}
               </View>
             )}
@@ -506,14 +522,24 @@ export default function PagoCobradoraScreen() {
           <View className="gap-3" accessibilityLabel="Conceptos adicionales">
             <Pressable
               onPress={() => setShowConcepto(!showConcepto)}
-              accessibilityLabel={showConcepto ? "Ocultar conceptos adicionales" : "Agregar conceptos adicionales"}
-              accessibilityHint={showConcepto ? "Colapsa la sección de conceptos" : "Expande la sección para agregar conceptos"}
+              accessibilityLabel={showConcepto ? "Ocultar cobros extra" : "¿Cobrar algo más?"}
+              accessibilityHint={showConcepto ? "Oculta esta sección" : "Agrega inscripción, uniforme u otros cobros"}
               accessibilityState={{ expanded: showConcepto }}
             >
-              <View className="bg-card rounded-3xl p-4 border border-border/40 shadow-sm flex-row items-center">
+              <View 
+                className="bg-card rounded-3xl p-4 flex-row items-center"
+                style={{
+                  borderWidth: 1,
+                  borderColor: 'rgba(0, 0, 0, 0.08)',
+                  shadowOffset: { width: 0, height: 1 },
+                  shadowOpacity: 0.05,
+                  shadowRadius: 2,
+                  elevation: 1,
+                }}
+              >
                 <View className="flex-row items-center gap-2 flex-1">
                   <Plus size={20} color="hsl(var(--primary))" />
-                  <Text className="text-primary font-bold text-sm">Agregar conceptos adicionales</Text>
+                  <Text className="text-primary font-bold text-sm">¿Cobrar algo más?</Text>
                 </View>
                 {showConcepto ? (
                   <ChevronUp size={20} color="hsl(var(--muted-foreground))" />
@@ -528,29 +554,30 @@ export default function PagoCobradoraScreen() {
                 {conceptos.map((item, index) => (
                   <View key={item.id} className="gap-2 rounded-2xl border border-border/40 p-3">
                     <View className="flex-row items-center justify-between">
-                      <Text className="text-foreground text-sm font-medium">Concepto {index + 1}</Text>
+                      <Text className="text-foreground text-sm font-medium">Cobro extra {index + 1}</Text>
                       <Pressable
                         onPress={() => removeConcepto(item.id)}
                         accessibilityRole="button"
-                        accessibilityLabel={`Quitar concepto ${index + 1}`}
-                        accessibilityHint="Elimina este concepto adicional"
+                        accessibilityLabel={`Quitar cobro ${index + 1}`}
+                        accessibilityHint="Elimina este cobro"
                       >
                         <Text className="text-destructive text-xs font-medium">Quitar</Text>
                       </Pressable>
                     </View>
                     <Input
-                      placeholder="Ej: Inscripción, uniforme..."
+                      placeholder="Ej: Inscripción, uniforme, multa..."
                       value={item.concepto}
                       onChangeText={(value) => updateConcepto(item.id, "concepto", value)}
-                      accessibilityLabel={`Nombre del concepto ${index + 1}`}
+                      accessibilityLabel={`¿Qué estás cobrando?`}
+                      helperText="Ej: inscripción, uniforme, multa..."
                     />
                     <Input
+                      label="¿Cuánto?"
                       placeholder="0"
                       keyboardType="numeric"
                       value={item.monto}
                       onChangeText={(value) => updateConcepto(item.id, "monto", value)}
                       leftIcon={<Text className="text-muted-foreground">$</Text>}
-                      accessibilityLabel={`Monto del concepto ${index + 1}`}
                     />
                   </View>
                 ))}
@@ -561,10 +588,10 @@ export default function PagoCobradoraScreen() {
                   onPress={addConcepto}
                   leftIcon={<Plus size={16} color="hsl(var(--primary))" />}
                   className="border-primary/40"
-                  accessibilityLabel="Agregar otro concepto adicional"
-                  accessibilityHint="Añade un nuevo campo para otro concepto"
+                  accessibilityLabel="Agregar otro cobro"
+                  accessibilityHint="Añade otro cobro extra"
                 >
-                  Agregar otro concepto
+                  + Agregar otro cobro
                 </Button>
               </View>
             )}

@@ -1,4 +1,4 @@
-import { ReactNode, useEffect } from "react";
+import { ReactNode, useEffect, useRef } from "react";
 import {
   View,
   Text,
@@ -23,41 +23,33 @@ const { height: SCREEN_HEIGHT } = Dimensions.get("window");
 
 export function Modal({ visible, onClose, title, children }: ModalProps) {
   const insets = useSafeAreaInsets();
+  const sheetHeight = Math.min(SCREEN_HEIGHT * 0.8, SCREEN_HEIGHT - insets.top - 16);
 
-  // Animation value for fade
-  const fadeAnim = new Animated.Value(0);
-  const slideAnim = new Animated.Value(SCREEN_HEIGHT);
+  const fadeAnim = useRef(new Animated.Value(0)).current;
+  const slideAnim = useRef(new Animated.Value(SCREEN_HEIGHT)).current;
 
   useEffect(() => {
-    if (visible) {
-      Animated.parallel([
-        Animated.timing(fadeAnim, {
-          toValue: 1,
-          duration: 250,
-          useNativeDriver: true,
-        }),
-        Animated.spring(slideAnim, {
-          toValue: 0,
-          tension: 65,
-          friction: 11,
-          useNativeDriver: true,
-        }),
-      ]).start();
-    } else {
-      Animated.parallel([
-        Animated.timing(fadeAnim, {
-          toValue: 0,
-          duration: 200,
-          useNativeDriver: true,
-        }),
-        Animated.timing(slideAnim, {
-          toValue: SCREEN_HEIGHT,
-          duration: 250,
-          useNativeDriver: true,
-        }),
-      ]).start();
+    if (!visible) {
+      return;
     }
-  }, [visible]);
+
+    fadeAnim.setValue(0);
+    slideAnim.setValue(sheetHeight);
+
+    Animated.parallel([
+      Animated.timing(fadeAnim, {
+        toValue: 1,
+        duration: 250,
+        useNativeDriver: true,
+      }),
+      Animated.spring(slideAnim, {
+        toValue: 0,
+        tension: 65,
+        friction: 11,
+        useNativeDriver: true,
+      }),
+    ]).start();
+  }, [fadeAnim, sheetHeight, slideAnim, visible]);
 
   if (!visible) return null;
 
@@ -88,7 +80,7 @@ export function Modal({ visible, onClose, title, children }: ModalProps) {
           className="bg-card rounded-t-[32px] shadow-2xl border border-border/50"
           style={{
             transform: [{ translateY: slideAnim }],
-            maxHeight: SCREEN_HEIGHT * 0.75,
+            height: sheetHeight,
           }}
         >
           {/* Handle */}
@@ -115,7 +107,8 @@ export function Modal({ visible, onClose, title, children }: ModalProps) {
 
           {/* Content */}
           <ScrollView
-            className="flex-1 px-6 py-4"
+            className="flex-1"
+            contentContainerStyle={{ paddingHorizontal: 24, paddingVertical: 16, paddingBottom: 24 }}
             showsVerticalScrollIndicator={false}
             bounces={true}
           >
