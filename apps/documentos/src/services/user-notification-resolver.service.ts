@@ -245,16 +245,39 @@ export class UserNotificationResolverService {
   }
 
   /**
-   * Resuelve usuarios desde un tipo de entidad genérico
+   * Obtiene usuarios SUPERADMIN del tenant
+   */
+  static async getSuperAdminsForTenant(tenantEmpresaId: number): Promise<NotificationRecipient[]> {
+    const users = await this.queryPlatformUsers({
+      empresa_id: tenantEmpresaId,
+      role: 'SUPERADMIN',
+    });
+
+    return users.map(u => ({
+      userId: u.id,
+      email: u.email,
+      role: u.role,
+      nombre: u.nombre,
+      apellido: u.apellido,
+      reason: 'admin_interno' as const,
+    }));
+  }
+
+  /**
+   * Resuelve usuarios desde un tipo de entidad genérico.
+   * Incluye siempre SUPERADMIN + ADMIN_INTERNO del tenant.
    */
   static async resolveFromEntity(
     tenantEmpresaId: number,
     entityType: EntityType,
     entityId: number
   ): Promise<NotificationRecipient[]> {
+    let chainRecipients: NotificationRecipient[] = [];
+
     switch (entityType) {
       case 'CHOFER':
-        return this.resolveFromChofer(tenantEmpresaId, entityId);
+        chainRecipients = await this.resolveFromChofer(tenantEmpresaId, entityId);
+        break;
 
       case 'CAMION':
       case 'ACOPLADO': {
@@ -268,31 +291,43 @@ export class UserNotificationResolverService {
               select: { empresaTransportistaId: true, dadorCargaId: true },
             });
 
-        if (!vehiculo) return [];
-
-        const recipients: NotificationRecipient[] = [];
+        if (!vehiculo) break;
 
         if (vehiculo.empresaTransportistaId) {
-          const transportistaRecipients = await this.resolveFromTransportista(
+          chainRecipients = await this.resolveFromTransportista(
             tenantEmpresaId,
             vehiculo.empresaTransportistaId
           );
-          recipients.push(...transportistaRecipients);
         } else if (vehiculo.dadorCargaId) {
-          const dadorRecipients = await this.resolveFromDador(tenantEmpresaId, vehiculo.dadorCargaId);
-          recipients.push(...dadorRecipients);
+          chainRecipients = await this.resolveFromDador(tenantEmpresaId, vehiculo.dadorCargaId);
         }
-
-        return recipients;
+        break;
       }
 
       case 'EMPRESA_TRANSPORTISTA':
-        return this.resolveFromTransportista(tenantEmpresaId, entityId);
+        chainRecipients = await this.resolveFromTransportista(tenantEmpresaId, entityId);
+        break;
 
       default:
         AppLogger.warn(`EntityType no soportado para resolución: ${entityType}`);
-        return [];
+        break;
     }
+
+    const addedUserIds = new Set(chainRecipients.map(r => r.userId));
+
+    const [admins, superAdmins] = await Promise.all([
+      this.getAdminInternosForTenant(tenantEmpresaId),
+      this.getSuperAdminsForTenant(tenantEmpresaId),
+    ]);
+
+    for (const admin of [...admins, ...superAdmins]) {
+      if (!addedUserIds.has(admin.userId)) {
+        addedUserIds.add(admin.userId);
+        chainRecipients.push(admin);
+      }
+    }
+
+    return chainRecipients;
   }
 
   /**

@@ -22,7 +22,6 @@ export function RemitosPage() {
   const token = useSelector(selectCurrentToken);
   const canApprove = user?.role === 'SUPERADMIN' || user?.role === 'ADMIN_INTERNO' || user?.role === 'DADOR_DE_CARGA';
   
-  // Por defecto mostrar pendientes
   const [activeFilter, setActiveFilter] = useState<FilterType>('PENDIENTE_APROBACION');
   const [search, setSearch] = useState('');
   const [showUploader, setShowUploader] = useState(false);
@@ -51,6 +50,7 @@ export function RemitosPage() {
   
   const { data: remitosData, isLoading, isFetching, error: remitosError, refetch } = useGetRemitosQuery(queryParams, {
     refetchOnMountOrArgChange: true,
+    pollingInterval: 30_000,
   });
   
   const remitos = remitosData?.data ?? [];

@@ -23,6 +23,9 @@ export type InternalNotificationTypeValue =
   | 'TRANSFERENCIA_RECHAZADA'
   // Clientes/Requisitos
   | 'NUEVO_REQUISITO_CLIENTE'
+  // Remitos
+  | 'REMITO_RECHAZADO'
+  | 'REMITO_APROBADO'
   // Sistema
   | 'SYSTEM_ALERT';
 
