@@ -682,7 +682,7 @@ export class DashboardController {
 
       const protocol = req.get('X-Forwarded-Proto') || req.protocol;
       const host = req.get('host');
-      const userId = user.userId!;
+      const userId = user.userId;
       const userRole = String(user.role);
       const userEmpresaId = user.empresaId ?? null;
 
