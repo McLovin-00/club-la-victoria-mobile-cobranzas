@@ -1,4 +1,4 @@
-import { createApi, fetchBaseQuery } from '@reduxjs/toolkit/query/react';
+import { createApi, fetchBaseQuery, BaseQueryFn, FetchArgs, FetchBaseQueryError } from '@reduxjs/toolkit/query/react';
 import { RootState } from '../../../store/store';
 import type { Remito, RemitoStats, RemitosListParams, RemitosListResponse } from '../types';
 
@@ -6,19 +6,40 @@ const REMITOS_API_URL =
   (import.meta as unknown as { env?: Record<string, string> })?.env?.VITE_REMITOS_API_URL ||
   '/api/remitos';
 
+const remitosBaseQuery = fetchBaseQuery({
+  baseUrl: REMITOS_API_URL,
+  prepareHeaders: (headers, { getState }) => {
+    const state = getState() as RootState;
+    const token = state.auth?.token;
+    const empresaId = state.auth?.user?.empresaId;
+    if (token) headers.set('authorization', `Bearer ${token}`);
+    if (empresaId) headers.set('x-tenant-id', String(empresaId));
+    return headers;
+  },
+});
+
+let remitosIsRedirecting = false;
+
+const remitosBaseQueryWithReauth: BaseQueryFn<string | FetchArgs, unknown, FetchBaseQueryError> = async (
+  args, api, extraOptions
+) => {
+  const result = await remitosBaseQuery(args, api, extraOptions);
+  if (result.error?.status === 401 && !remitosIsRedirecting) {
+    remitosIsRedirecting = true;
+    localStorage.removeItem('token');
+    localStorage.removeItem('user');
+    localStorage.removeItem('refreshToken');
+    setTimeout(() => {
+      window.location.href = '/login?expired=true';
+      setTimeout(() => { remitosIsRedirecting = false; }, 2000);
+    }, 100);
+  }
+  return result;
+};
+
 export const remitosApiSlice = createApi({
   reducerPath: 'remitosApi',
-  baseQuery: fetchBaseQuery({
-    baseUrl: REMITOS_API_URL,
-    prepareHeaders: (headers, { getState }) => {
-      const state = getState() as RootState;
-      const token = state.auth?.token;
-      const empresaId = state.auth?.user?.empresaId;
-      if (token) headers.set('authorization', `Bearer ${token}`);
-      if (empresaId) headers.set('x-tenant-id', String(empresaId));
-      return headers;
-    },
-  }),
+  baseQuery: remitosBaseQueryWithReauth,
   tagTypes: ['Remito', 'RemitoStats'],
   endpoints: (builder) => ({
     

@@ -169,7 +169,7 @@ export class DocumentValidationService {
           uploads: [
             {
               type: 'file',
-              name: request.fileName,
+              name: request.mimeType === 'image/jpeg' ? request.fileName.replace(/\.pdf$/i, '.jpg') : request.fileName,
               data: `data:${request.mimeType};base64,${request.imageBase64}`,
               mime: request.mimeType,
             },

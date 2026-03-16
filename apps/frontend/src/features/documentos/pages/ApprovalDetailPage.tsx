@@ -7,6 +7,8 @@ import type { ApprovalPendingDocument, EntityType } from '../types/entities';
 import { useAppSelector } from '../../../store/hooks';
 import { ArrowPathIcon, ExclamationTriangleIcon, InformationCircleIcon, ShieldExclamationIcon } from '@heroicons/react/24/outline';
 import { getRuntimeEnv } from '../../../lib/runtimeEnv';
+import { showToast } from '../../../components/ui/Toast.utils';
+import { getApiErrorMessage } from '../../../utils/apiErrors';
 
 const ROLES_CAN_EDIT = ['SUPERADMIN', 'ADMIN', 'OPERATOR', 'ADMIN_INTERNO', 'OPERADOR_INTERNO'];
 
@@ -256,20 +258,27 @@ export default function ApprovalDetailPage() {
 
   const onApprove = async () => {
     if (!entityType || !entityId || !templateId || !expiresAt) return;
-    await approve({ id: docId, confirmedEntityType: entityType, confirmedEntityId: entityId, expiresAt, reviewNotes: reviewNotes ?? undefined, templateId: Number(templateId) });
-    navigate('/documentos/aprobacion');
+    try {
+      await approve({ id: docId, confirmedEntityType: entityType, confirmedEntityId: entityId, expiresAt, reviewNotes: reviewNotes ?? undefined, templateId: Number(templateId) }).unwrap();
+      navigate('/documentos/aprobacion');
+    } catch (e) {
+      showToast(getApiErrorMessage(e), 'error');
+    }
   };
   const onReject = async () => {
-    await reject({ id: docId, reason: rejectReason ?? '', reviewNotes: reviewNotes ?? undefined });
-    navigate('/documentos/aprobacion');
+    try {
+      await reject({ id: docId, reason: rejectReason ?? '', reviewNotes: reviewNotes ?? undefined }).unwrap();
+      navigate('/documentos/aprobacion');
+    } catch (e) {
+      showToast(getApiErrorMessage(e), 'error');
+    }
   };
   const onRecheck = async () => {
     try {
       await recheckWithAI({ id: docId }).unwrap();
-      // Refrescar después de 2 segundos para dar tiempo al proceso
       setTimeout(() => refetch(), 2000);
     } catch (e) {
-      console.error('Error rechecking document:', e);
+      showToast(getApiErrorMessage(e), 'error');
     }
   };
   

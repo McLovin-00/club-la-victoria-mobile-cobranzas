@@ -65,7 +65,7 @@ export default function ApprovalQueuePage() {
   };
 
   const { data: kpis } = useGetApprovalKpisQuery();
-  const { data: pendingResp, isFetching, refetch } = useGetApprovalPendingQuery(
+  const { data: pendingResp, isFetching, error: pendingError, refetch } = useGetApprovalPendingQuery(
     { page, limit, entityType: entityType ?? undefined },
     { refetchOnMountOrArgChange: true }
   );
@@ -106,6 +106,13 @@ export default function ApprovalQueuePage() {
           <KpiCard label="T. medio revisión (m)" value={kpis?.avgReviewMinutes ?? 0} />
         </div>
       </header>
+
+      {pendingError && (
+        <div className="bg-red-50 border border-red-200 rounded-lg p-4 flex items-center justify-between">
+          <span className="text-red-700 text-sm font-medium">Error al cargar documentos pendientes. Verifique su conexión e intente nuevamente.</span>
+          <button onClick={() => refetch()} className="ml-4 px-3 py-1 text-sm font-medium text-red-700 bg-red-100 rounded-md hover:bg-red-200 transition-colors">Reintentar</button>
+        </div>
+      )}
 
       <section className="bg-card rounded-xl border p-4 shadow-sm">
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">

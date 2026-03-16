@@ -169,9 +169,18 @@ export const refreshToken = async (req: Request, res: Response) => {
     });
   } catch (error) {
     AppLogger.error('Error al refrescar token:', error);
-    res.status(401).json({
+    const isTokenError = error instanceof Error &&
+      ['JsonWebTokenError', 'TokenExpiredError', 'NotBeforeError'].includes(error.name);
+    if (isTokenError) {
+      res.status(401).json({
+        success: false,
+        message: 'Token inválido o expirado',
+      });
+      return;
+    }
+    res.status(500).json({
       success: false,
-      message: 'Token inválido o expirado',
+      message: 'Error interno al refrescar la sesión',
     });
   }
 };

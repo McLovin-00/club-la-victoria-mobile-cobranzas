@@ -49,7 +49,7 @@ export function RemitosPage() {
     limit: 20,
   };
   
-  const { data: remitosData, isLoading, isFetching, refetch } = useGetRemitosQuery(queryParams, {
+  const { data: remitosData, isLoading, isFetching, error: remitosError, refetch } = useGetRemitosQuery(queryParams, {
     refetchOnMountOrArgChange: true,
   });
   
@@ -217,6 +217,14 @@ export function RemitosPage() {
         </div>
       </div>
       
+      {/* Error de carga */}
+      {remitosError && (
+        <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4 flex items-center justify-between">
+          <span className="text-red-700 dark:text-red-400 text-sm font-medium">Error al cargar remitos. Verifique su conexión e intente nuevamente.</span>
+          <button onClick={() => refetch()} className="ml-4 px-3 py-1 text-sm font-medium text-red-700 dark:text-red-400 bg-red-100 dark:bg-red-900/40 rounded-md hover:bg-red-200 dark:hover:bg-red-900/60 transition-colors">Reintentar</button>
+        </div>
+      )}
+
       {/* Lista de remitos */}
       {isLoading ? (
         <div className="space-y-3">
