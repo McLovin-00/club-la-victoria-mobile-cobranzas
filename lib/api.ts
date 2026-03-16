@@ -1,5 +1,5 @@
 import Constants from "expo-constants";
-import type { GrupoFamiliar, GrupoFamiliarDetalle, SocioConGrupo, CobroGrupalPayload } from "./types";
+import type { GrupoFamiliar, GrupoFamiliarDetalle, SocioConGrupo, CobroGrupalPayload, PaginatedResponse } from "./types";
 
 export interface CobradorActivo {
   id: number;
@@ -68,9 +68,9 @@ export const mobileApi = {
       method: "POST",
       body: JSON.stringify(payload),
     }),
-  buscarSocios: (query: string) =>
-    request<SocioConGrupo[]>(
-      `/cobradores/mobile/socios?q=${encodeURIComponent(query)}`,
+  buscarSocios: (query: string, offset: number = 0, limit: number = 50) =>
+    request<PaginatedResponse<SocioConGrupo>>(
+      `/cobradores/mobile/socios?q=${encodeURIComponent(query)}&offset=${offset}&limit=${limit}`,
     ),
   cuotasPendientes: (socioId: number) =>
     request<Array<{ id: number; periodo: string; monto: number }>>(

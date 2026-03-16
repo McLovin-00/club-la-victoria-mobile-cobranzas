@@ -3,6 +3,17 @@
  */
 
 /**
+ * Respuesta paginada genérica
+ */
+export interface PaginatedResponse<T> {
+  data: T[];
+  total: number;
+  offset: number;
+  limit: number;
+  hasMore: boolean;
+}
+
+/**
  * Grupo familiar con resumen de miembros y deudas
  * Respuesta de GET /cobradores/mobile/grupos-familiares
  */
