@@ -188,14 +188,14 @@ export default function HomeCobradoraScreen() {
           : "bg-destructive/10 border border-destructive/30 text-destructive";
 
     return (
-      <Pressable
-        onPress={() => router.push(`/cobradora/pago?socioId=${socio.id}`)}
-        accessibilityRole="button"
-        accessibilityLabel={`${socio.apellido}, ${socio.nombre}. DNI: ${socio.dni ?? "—"}. Estado: ${estadoLabel}. ${socio.grupoFamiliar ? `Grupo: ${socio.grupoFamiliar.nombre}.` : ""} Toca para cobrar`}
-        accessibilityHint="Navega a la pantalla de cobro"
-        className="mb-3"
-      >
-        <View className={`relative overflow-hidden bg-card rounded-3xl p-4 border shadow-sm flex-row items-center gap-4 ${cardTone}`}>
+      <View className="mb-3 px-6">
+        <Pressable
+          onPress={() => router.push(`/cobradora/pago?socioId=${socio.id}`)}
+          accessibilityRole="button"
+          accessibilityLabel={`${socio.apellido}, ${socio.nombre}. DNI: ${socio.dni ?? "—"}. Estado: ${estadoLabel}. ${socio.grupoFamiliar ? `Grupo: ${socio.grupoFamiliar.nombre}.` : ""} Toca para cobrar`}
+          accessibilityHint="Navega a la pantalla de cobro"
+        >
+          <View className={`relative overflow-hidden bg-card rounded-3xl p-4 border shadow-sm flex-row items-center gap-4 ${cardTone}`}>
           <View
             className={`absolute left-0 top-0 bottom-0 w-1.5 ${indicatorTone}`}
             accessibilityElementsHidden
@@ -257,6 +257,7 @@ export default function HomeCobradoraScreen() {
           </View>
         </View>
       </Pressable>
+    </View>
     );
   }, [router]);
 
@@ -387,16 +388,16 @@ export default function HomeCobradoraScreen() {
   const renderListFooter = useCallback(() => {
     if (loadingMore) {
       return (
-        <View className="py-6 items-center justify-center gap-3">
+        <View className="py-6 items-center justify-center gap-3 px-6">
           <Spinner size="lg" />
           <Text className="text-muted-foreground text-sm">Cargando más socios...</Text>
         </View>
       );
     }
     
-    if (!hasMore && socios.length > 0 && !loading) {
+    if (!hasMore && socios.length > 0 && !loading && !loadingMore) {
       return (
-        <View className="py-4 items-center">
+        <View className="py-4 items-center px-6">
           <Text className="text-muted-foreground text-sm">No hay más socios</Text>
         </View>
       );
