@@ -1,0 +1,44 @@
+name: Mobile Cobranzas Tests
+
+on:
+  push:
+    paths:
+      - "club-la-victoria-mobile-cobranzas/**"
+  pull_request:
+    paths:
+      - "club-la-victoria-mobile-cobranzas/**"
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: club-la-victoria-mobile-cobranzas
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: club-la-victoria-mobile-cobranzas/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run tests with coverage
+        run: npm run test:ci
+
+      - name: Generate coverage badge
+        run: node scripts/generate-coverage-badge.js
+
+      - name: Upload coverage artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: mobile-cobranzas-coverage
+          path: |
+            club-la-victoria-mobile-cobranzas/coverage
+            club-la-victoria-mobile-cobranzas/badges/mobile-cobranzas-coverage.svg
