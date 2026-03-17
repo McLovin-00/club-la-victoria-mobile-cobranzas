@@ -34,6 +34,7 @@ export default function HomeCobradoraScreen() {
   
   const searchTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isMountedRef = useRef(true);
+  const isLoadingRef = useRef(false);
 
   useEffect(() => {
     isMountedRef.current = true;
@@ -81,6 +82,10 @@ export default function HomeCobradoraScreen() {
   }, [busqueda]);
 
   const cargarSocios = async (query: string, newOffset: number, append: boolean) => {
+    // Prevenir llamadas múltiples simultáneas
+    if (isLoadingRef.current) return;
+    isLoadingRef.current = true;
+    
     if (!isMountedRef.current) return;
     
     if (newOffset === 0) {
@@ -100,7 +105,12 @@ export default function HomeCobradoraScreen() {
       if (!isMountedRef.current) return;
       
       if (append) {
-        setSocios(prev => [...prev, ...response.data]);
+        // Filtrar duplicados por ID
+        setSocios(prev => {
+          const existingIds = new Set(prev.map(s => s.id));
+          const newItems = response.data.filter((s: SocioItem) => !existingIds.has(s.id));
+          return [...prev, ...newItems];
+        });
       } else {
         setSocios(response.data);
       }
@@ -111,6 +121,7 @@ export default function HomeCobradoraScreen() {
       if (!isMountedRef.current) return;
       setError(err instanceof Error ? err.message : "Error al cargar socios");
     } finally {
+      isLoadingRef.current = false;
       if (isMountedRef.current) {
         setLoading(false);
         setLoadingMore(false);
