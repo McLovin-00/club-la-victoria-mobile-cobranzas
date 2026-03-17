@@ -399,9 +399,8 @@ export default function HomeCobradoraScreen() {
   const renderListFooter = useCallback(() => {
     if (loadingMore) {
       return (
-        <View className="py-6 items-center justify-center gap-3 px-6">
+        <View className="py-6 items-center justify-center px-6">
           <Spinner size="lg" />
-          <Text className="text-muted-foreground text-sm">Cargando más socios...</Text>
         </View>
       );
     }
