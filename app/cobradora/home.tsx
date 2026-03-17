@@ -31,6 +31,7 @@ export default function HomeCobradoraScreen() {
   const [offset, setOffset] = useState(0);
   const [hasMore, setHasMore] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
+  const [totalCount, setTotalCount] = useState(0);
   
   const searchTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isMountedRef = useRef(true);
@@ -116,6 +117,7 @@ export default function HomeCobradoraScreen() {
       }
       
       setHasMore(response.hasMore);
+      setTotalCount(response.total);
       setOffset(newOffset);
     } catch (err) {
       if (!isMountedRef.current) return;
@@ -367,14 +369,14 @@ export default function HomeCobradoraScreen() {
             accessibilityRole="header"
           >
             <Text className="text-foreground text-xl font-bold tracking-tight">Resultados</Text>
-            <View 
-              className="bg-secondary px-3 py-1 rounded-full"
-              accessibilityLabel={`${socios.length} socio${socios.length !== 1 ? "s" : ""} encontrado${socios.length !== 1 ? "s" : ""}`}
-            >
-              <Text className="text-secondary-foreground font-semibold text-xs">
-                {socios.length} socio{socios.length !== 1 ? "s" : ""}
-              </Text>
-            </View>
+                <View 
+                  className="bg-secondary px-3 py-1 rounded-full"
+                  accessibilityLabel={`${totalCount} socio${totalCount !== 1 ? "s" : ""} encontrado${totalCount !== 1 ? "s" : ""}`}
+                >
+                  <Text className="text-secondary-foreground font-semibold text-xs">
+                    {totalCount} socio{totalCount !== 1 ? "s" : ""}
+                  </Text>
+                </View>
           </View>
         )}
 
