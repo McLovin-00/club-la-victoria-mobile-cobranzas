@@ -13,7 +13,10 @@
       "backgroundColor": "#ffffff"
     },
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "runtimeVersion": {
+        "policy": "appVersion"
+      }
     },
     "android": {
       "adaptiveIcon": {
@@ -23,7 +26,8 @@
         "monochromeImage": "./assets/android-icon-monochrome.png"
       },
       "predictiveBackGestureEnabled": false,
-      "package": "com.albito00.clublavictoriacobranzas"
+      "package": "com.albito00.clublavictoriacobranzas",
+      "runtimeVersion": "1.0.0"
     },
     "web": {
       "bundler": "metro",
@@ -37,6 +41,9 @@
       "eas": {
         "projectId": "00530e94-5553-4d8e-bd2a-40a2c4dbeab2"
       }
+    },
+    "updates": {
+      "url": "https://u.expo.dev/00530e94-5553-4d8e-bd2a-40a2c4dbeab2"
     }
   }
 }
