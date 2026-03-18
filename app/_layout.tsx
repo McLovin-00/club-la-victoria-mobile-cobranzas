@@ -7,7 +7,6 @@ import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { ToastProvider } from '../components/ui/toast';
-import { UpdateBanner } from '../components/updates';
 
 export default function RootLayout() {
   const systemColorScheme = useSystemColorScheme();
@@ -32,7 +31,6 @@ export default function RootLayout() {
           <Stack.Screen name="cobradora/grupo-familiar/[id]" />
           <Stack.Screen name="cobradora/pago-grupo" />
         </Stack>
-        <UpdateBanner />
       </ToastProvider>
     </SafeAreaProvider>
   );
