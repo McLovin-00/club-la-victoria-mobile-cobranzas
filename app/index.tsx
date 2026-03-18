@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Image, ScrollView, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
+import Constants from "expo-constants";
 import { CreditCard, Users, ClipboardList } from "lucide-react-native";
 import { getBinding } from "../lib/storage";
 import { Button } from "../components/ui/button";
@@ -134,6 +135,10 @@ export default function Index() {
             </Button>
           </View>
 
+          {/* Version */}
+          <Text className="text-center text-muted-foreground/50 text-xs mt-6">
+            v{Constants.expoConfig?.version ?? "1.0.0"}
+          </Text>
         </View>
       </ScrollView>
     </View>

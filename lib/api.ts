@@ -27,14 +27,8 @@ function normalizeApiBaseUrl(baseUrl: string): string {
   return `${sanitized}/api/v1`;
 }
 
-const configuredApiUrl = process.env.EXPO_PUBLIC_API_URL?.trim();
-const fallbackApiUrl = Constants.expoConfig?.hostUri
-  ? `http://${Constants.expoConfig.hostUri.split(":")[0]}:3001`
-  : "http://127.0.0.1:3001";
-
-const API_BASE_URL = normalizeApiBaseUrl(
-  configuredApiUrl && configuredApiUrl.length > 0 ? configuredApiUrl : fallbackApiUrl,
-);
+// URL de la API hardcodeada (no usar .env)
+const API_BASE_URL = normalizeApiBaseUrl("https://www.api.clublavictoria.com.ar/api/v1");
 
 async function request<T>(path: string, options?: RequestInit): Promise<T> {
   let res: Response;

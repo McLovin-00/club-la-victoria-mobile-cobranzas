@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from "react";
-import { Text, View, FlatList, Pressable, TextInput } from "react-native";
+import { Text, View, Pressable, TextInput, ScrollView } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 import { Search, Users } from "lucide-react-native";
@@ -33,7 +33,6 @@ export default function HomeCobradoraScreen() {
   const [loadingMore, setLoadingMore] = useState(false);
   const [totalCount, setTotalCount] = useState(0);
   
-  const searchTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isMountedRef = useRef(true);
   const isLoadingRef = useRef(false);
 
@@ -57,30 +56,6 @@ export default function HomeCobradoraScreen() {
     // Cargar primera página de socios
     void cargarSocios("", 0, false);
   }, []);
-
-  // Debounced search
-  useEffect(() => {
-    if (busqueda.trim() === "") {
-      setHasSearched(false);
-      void cargarSocios("", 0, false);
-      return;
-    }
-
-    if (searchTimeoutRef.current) {
-      clearTimeout(searchTimeoutRef.current);
-    }
-
-    searchTimeoutRef.current = setTimeout(() => {
-      void cargarSocios(busqueda, 0, false);
-      setHasSearched(true);
-    }, 500);
-
-    return () => {
-      if (searchTimeoutRef.current) {
-        clearTimeout(searchTimeoutRef.current);
-      }
-    };
-  }, [busqueda]);
 
   const cargarSocios = async (query: string, newOffset: number, append: boolean) => {
     // Prevenir llamadas múltiples simultáneas
@@ -130,6 +105,17 @@ export default function HomeCobradoraScreen() {
       }
     }
   };
+
+  // Función para ejecutar la búsqueda manualmente
+  const ejecutarBusqueda = useCallback(() => {
+    if (busqueda.trim() === "") {
+      setHasSearched(false);
+      void cargarSocios("", 0, false);
+      return;
+    }
+    void cargarSocios(busqueda, 0, false);
+    setHasSearched(true);
+  }, [busqueda]);
 
   const loadMore = useCallback(() => {
     if (!loadingMore && hasMore && !loading) {
@@ -201,7 +187,7 @@ export default function HomeCobradoraScreen() {
           : "bg-destructive/10 border border-destructive/30 text-destructive";
 
     return (
-      <View className="mb-3 px-6">
+      <View className="mb-3 px-2">
         <Pressable
           onPress={() => router.push(`/cobradora/pago?socioId=${socio.id}`)}
           accessibilityRole="button"
@@ -209,194 +195,70 @@ export default function HomeCobradoraScreen() {
           accessibilityHint="Navega a la pantalla de cobro"
         >
           <View className={`relative overflow-hidden bg-card rounded-3xl p-4 border shadow-sm flex-row items-center gap-4 ${cardTone}`}>
-          <View
-            className={`absolute left-0 top-0 bottom-0 w-1.5 ${indicatorTone}`}
-            accessibilityElementsHidden
-          />
-          {/* Avatar Circle */}
-          <View 
-            className={`w-12 h-12 rounded-full items-center justify-center border ${avatarTone}`}
-            accessibilityElementsHidden
-          >
-            <Text className={`font-bold text-xs tracking-wider ${avatarTextTone}`}>
-              {getInitials(socio.nombre, socio.apellido)}
-            </Text>
-          </View>
-
-          {/* Info */}
-          <View className="flex-1 justify-center gap-1.5">
-            <Text className="text-foreground font-bold text-base leading-tight">
-              {socio.apellido}, {socio.nombre}
-            </Text>
-            
-            <View className="flex-row items-center gap-2" accessibilityElementsHidden>
-              <Text className="text-muted-foreground text-xs font-medium">
-                DNI: {socio.dni ?? "—"}
-              </Text>
-              <View className={`px-2 py-0.5 rounded-md ${badgeTone}`}>
-                <Text className="text-[10px] font-bold uppercase tracking-wide">
-                  {estadoLabel}
-                </Text>
-              </View>
-            </View>
-
-            {socio.grupoFamiliar && (
-              <Pressable
-                onPress={(e) => {
-                  e.stopPropagation();
-                  router.push(`/cobradora/grupo-familiar/${socio.grupoFamiliar!.id}`);
-                }}
-                className="self-start bg-secondary/70 px-2 py-0.5 rounded-md flex-row items-center gap-1 border border-border/50"
-                accessibilityRole="button"
-                accessibilityLabel={`Ver grupo familiar ${socio.grupoFamiliar.nombre}`}
-                accessibilityHint="Navega a los detalles del grupo familiar"
-              >
-                <Users size={10} color="hsl(var(--secondary-foreground))" className="opacity-70" />
-                <Text className="text-secondary-foreground text-[10px] font-semibold">
-                  {socio.grupoFamiliar.nombre}
-                </Text>
-              </Pressable>
-            )}
-          </View>
-
-          {/* Action Button */}
-          <View 
-            className="bg-primary/10 px-4 py-2 rounded-full border border-primary/20"
-            accessibilityElementsHidden
-          >
-            <Text className="text-primary text-xs font-bold">
-              Cobrar
-            </Text>
-          </View>
-        </View>
-      </Pressable>
-    </View>
-    );
-  }, [router]);
-
-  const renderListHeader = useCallback(() => (
-    <>
-      {/* Header Hero Area */}
-      <View 
-        className="bg-primary rounded-b-[40px] px-6 shadow-sm"
-        style={{ paddingTop: Math.max(insets.top + 20, 40), paddingBottom: 56 }}
-      >
-        <View className="flex-row items-center gap-3 mb-5">
-          <ScreenBackButton onPress={() => router.replace("/")} tone="light" />
-          <View className="flex-1" />
-          <Pressable
-            className="flex-row items-center gap-2 bg-primary-foreground/20 px-4 py-3 rounded-2xl border border-primary-foreground/30"
-            onPress={() => router.push("/cobradora/grupos-familiares")}
-            accessibilityRole="button"
-            accessibilityLabel="Ver grupos familiares - Cobra a toda la familia junta"
-            accessibilityHint="Navega a la lista de grupos familiares para cobrar a varias personas de una familia"
-          >
-            <Users size={18} color="white" />
-            <Text className="text-primary-foreground font-bold text-sm">Familias</Text>
-          </Pressable>
-        </View>
-
-        <View className="flex-row items-center justify-between">
-          <View className="flex-1 pr-4">
-            <Text className="text-primary-foreground/80 font-medium text-sm mb-1 uppercase tracking-wider">
-              Bienvenido de nuevo
-            </Text>
-            <Text 
-              className="text-primary-foreground font-bold text-3xl tracking-tight" 
-              numberOfLines={1}
-              accessibilityLabel={`Cobrador: ${cobradorNombre || "Cobrador"}`}
-            >
-              {cobradorNombre || "Cobrador"}
-            </Text>
-          </View>
-          <View 
-            className="bg-primary-foreground/20 p-1.5 rounded-full border border-primary-foreground/30 shadow-sm"
-            accessibilityElementsHidden
-          >
-            <Avatar
-              initials={cobradorNombre.slice(0, 2).toUpperCase() || "CO"}
-              size="sm"
-              className="bg-background"
-              accessibilityLabel={`Avatar de ${cobradorNombre || "Cobrador"}`}
+            <View
+              className={`absolute left-0 top-0 bottom-0 w-1.5 ${indicatorTone}`}
+              accessibilityElementsHidden
             />
-          </View>
-        </View>
-      </View>
-
-      {/* Floating Search Bar */}
-      <View className="-mt-8 px-6 z-10">
-        <View 
-          className="bg-card rounded-[24px] p-2 pl-5 flex-row items-center shadow-elevated border border-border/40"
-          accessibilityRole="search"
-        >
-          <Search size={22} color="hsl(var(--muted-foreground))" className="opacity-80" />
-          <TextInput
-            className="flex-1 text-base font-medium text-foreground ml-3 py-3"
-            placeholder="Escribí nombre, apellido o DNI..."
-            placeholderTextColor="hsl(var(--muted-foreground))"
-            value={busqueda}
-            onChangeText={setBusqueda}
-            returnKeyType="done"
-            accessibilityLabel="Buscar socio"
-            accessibilityHint="La búsqueda se hace automáticamente mientras escribís"
-          />
-          {/* Indicador de búsqueda en progreso */}
-          {loading && (
-            <View className="h-10 w-10 rounded-full items-center justify-center ml-2">
-              <Spinner size="sm" />
+            {/* Avatar Circle */}
+            <View 
+              className={`w-12 h-12 rounded-full items-center justify-center border ${avatarTone}`}
+              accessibilityElementsHidden
+            >
+              <Text className={`font-bold text-xs tracking-wider ${avatarTextTone}`}>
+                {getInitials(socio.nombre, socio.apellido)}
+              </Text>
             </View>
-          )}
-        </View>
-      </View>
 
-      {/* Content Area */}
-      <View className="px-6 pt-8 pb-6 gap-4">
-        {/* Error message */}
-        {error && (
-          <View 
-            className="bg-destructive/10 border border-destructive/20 rounded-2xl p-4 flex-row items-center"
-            accessibilityRole="alert"
-            accessibilityLiveRegion="assertive"
-          >
-            <Text className="text-destructive font-medium text-sm flex-1">{error}</Text>
-          </View>
-        )}
-
-        {/* Results Header */}
-        {!loading && socios.length > 0 && (
-          <View 
-            className="flex-row items-center justify-between mb-2"
-            accessibilityRole="header"
-          >
-            <Text className="text-foreground text-xl font-bold tracking-tight">Resultados</Text>
-                <View 
-                  className="bg-secondary px-3 py-1 rounded-full"
-                  accessibilityLabel={`${totalCount} socio${totalCount !== 1 ? "s" : ""} encontrado${totalCount !== 1 ? "s" : ""}`}
-                >
-                  <Text className="text-secondary-foreground font-semibold text-xs">
-                    {totalCount} socio{totalCount !== 1 ? "s" : ""}
+            {/* Info */}
+            <View className="flex-1 justify-center gap-1.5">
+              <Text className="text-foreground font-bold text-base leading-tight">
+                {socio.apellido}, {socio.nombre}
+              </Text>
+              
+              <View className="flex-row items-center gap-2" accessibilityElementsHidden>
+                <Text className="text-muted-foreground text-xs font-medium">
+                  DNI: {socio.dni ?? "—"}
+                </Text>
+                <View className={`px-2 py-0.5 rounded-md ${badgeTone}`}>
+                  <Text className="text-[10px] font-bold uppercase tracking-wide">
+                    {estadoLabel}
                   </Text>
                 </View>
-          </View>
-        )}
+              </View>
 
-        {/* Empty State */}
-        {!loading && socios.length === 0 && !error && busqueda.length > 0 && (
-          <View 
-            className="items-center justify-center py-12 opacity-80"
-            accessibilityRole="text"
-            accessibilityLabel={`Sin resultados. No se encontraron socios que coincidan con ${busqueda}`}
-          >
-            <Search size={48} color="hsl(var(--muted-foreground))" className="mb-5 opacity-40" />
-            <Text className="text-foreground font-bold text-lg text-center mb-1">Sin resultados</Text>
-            <Text className="text-muted-foreground text-sm text-center px-4">
-              No se encontraron socios que coincidan con "{busqueda}". Intenta con otro término.
-            </Text>
+              {socio.grupoFamiliar && (
+                <Pressable
+                  onPress={(e) => {
+                    e.stopPropagation();
+                    router.push(`/cobradora/grupo-familiar/${socio.grupoFamiliar!.id}`);
+                  }}
+                  className="self-start bg-secondary/70 px-2 py-0.5 rounded-md flex-row items-center gap-1 border border-border/50"
+                  accessibilityRole="button"
+                  accessibilityLabel={`Ver grupo familiar ${socio.grupoFamiliar.nombre}`}
+                  accessibilityHint="Navega a los detalles del grupo familiar"
+                >
+                  <Users size={10} color="hsl(var(--secondary-foreground))" className="opacity-70" />
+                  <Text className="text-secondary-foreground text-[10px] font-semibold">
+                    {socio.grupoFamiliar.nombre}
+                  </Text>
+                </Pressable>
+              )}
+            </View>
+
+            {/* Action Button */}
+            <View 
+              className="bg-primary/10 px-4 py-2 rounded-full border border-primary/20"
+              accessibilityElementsHidden
+            >
+              <Text className="text-primary text-xs font-bold">
+                Cobrar
+              </Text>
+            </View>
           </View>
-        )}
+        </Pressable>
       </View>
-    </>
-  ), [insets, router, cobradorNombre, busqueda, loading, error, socios.length]);
+    );
+  }, [router]);
 
   const renderListFooter = useCallback(() => {
     if (loadingMore) {
@@ -420,17 +282,191 @@ export default function HomeCobradoraScreen() {
 
   return (
     <View className="flex-1 bg-background">
-      <FlatList
-        data={socios}
-        keyExtractor={(item) => item.id.toString()}
-        renderItem={renderSocioCard}
-        onEndReached={loadMore}
-        onEndReachedThreshold={0.5}
-        ListHeaderComponent={renderListHeader}
-        ListFooterComponent={renderListFooter}
+      <ScrollView
+        className="flex-1"
         contentContainerStyle={{ paddingBottom: insets.bottom + 24 }}
         showsVerticalScrollIndicator={false}
-      />
+        keyboardShouldPersistTaps="handled"
+      >
+        {/* Header Hero Area */}
+        <View 
+          className="bg-primary rounded-b-[40px] px-6 shadow-sm"
+          style={{ paddingTop: Math.max(insets.top + 20, 40), paddingBottom: 56 }}
+        >
+          <View className="flex-row items-center gap-3 mb-5">
+            <ScreenBackButton onPress={() => router.replace("/")} tone="light" />
+            <View className="flex-1" />
+            <Pressable
+              className="flex-row items-center gap-2 bg-primary-foreground/20 px-4 py-3 rounded-2xl border border-primary-foreground/30"
+              onPress={() => router.push("/cobradora/grupos-familiares")}
+              accessibilityRole="button"
+              accessibilityLabel="Ver grupos familiares - Cobra a toda la familia junta"
+              accessibilityHint="Navega a la lista de grupos familiares para cobrar a varias personas de una familia"
+            >
+              <Users size={18} color="white" />
+              <Text className="text-primary-foreground font-bold text-sm">Familias</Text>
+            </Pressable>
+          </View>
+
+          <View className="flex-row items-center justify-between">
+            <View className="flex-1 pr-4">
+              <Text className="text-primary-foreground/80 font-medium text-sm mb-1 uppercase tracking-wider">
+                Bienvenido de nuevo
+              </Text>
+              <Text 
+                className="text-primary-foreground font-bold text-3xl tracking-tight" 
+                numberOfLines={1}
+                accessibilityLabel={`Cobrador: ${cobradorNombre || "Cobrador"}`}
+              >
+                {cobradorNombre || "Cobrador"}
+              </Text>
+            </View>
+            <View 
+              className="bg-primary-foreground/20 p-1.5 rounded-full border border-primary-foreground/30 shadow-sm"
+              accessibilityElementsHidden
+            >
+              <Avatar
+                initials={cobradorNombre.slice(0, 2).toUpperCase() || "CO"}
+                size="sm"
+                className="bg-background"
+                accessibilityLabel={`Avatar de ${cobradorNombre || "Cobrador"}`}
+              />
+            </View>
+          </View>
+        </View>
+
+        {/* Search Bar - Outside FlatList to prevent re-mount */}
+        <View className="-mt-8 px-6 z-10">
+          <View 
+            className="bg-card rounded-[24px] p-2 pl-5 flex-row items-center shadow-elevated border border-border/40"
+            accessibilityRole="search"
+          >
+            <Search size={22} color="hsl(var(--muted-foreground))" className="opacity-80" />
+            <TextInput
+              className="flex-1 text-base font-medium text-foreground ml-3 py-3"
+              placeholder="Escribí nombre, apellido o DNI..."
+              placeholderTextColor="hsl(var(--muted-foreground))"
+              value={busqueda}
+              onChangeText={setBusqueda}
+              returnKeyType="search"
+              onSubmitEditing={ejecutarBusqueda}
+              accessibilityLabel="Buscar socio"
+              accessibilityHint="Escribí el nombre y presioná Buscar o Enter"
+            />
+            <Pressable
+              onPress={ejecutarBusqueda}
+              disabled={loading}
+              className="bg-primary px-4 py-2 rounded-full ml-2"
+              accessibilityRole="button"
+              accessibilityLabel="Buscar"
+            >
+              {loading ? (
+                <Spinner size="sm" color="#ffffff" accessibilityLabel="Buscando socios" />
+              ) : (
+                <Text className="text-primary-foreground font-bold text-sm">Buscar</Text>
+              )}
+            </Pressable>
+          </View>
+        </View>
+
+        {/* Content Area */}
+        <View className="px-6 pt-8 pb-6 gap-4">
+          {/* Error message */}
+          {error && (
+            <View 
+              className="bg-destructive/10 border border-destructive/20 rounded-2xl p-4 flex-row items-center"
+              accessibilityRole="alert"
+              accessibilityLiveRegion="assertive"
+            >
+              <Text className="text-destructive font-medium text-sm flex-1">{error}</Text>
+            </View>
+          )}
+
+          {/* Results Header */}
+          {!loading && socios.length > 0 && (
+            <View 
+              className="flex-row items-center justify-between mb-2"
+              accessibilityRole="header"
+            >
+              <Text className="text-foreground text-xl font-bold tracking-tight">Resultados</Text>
+              <View 
+                className="bg-secondary px-3 py-1 rounded-full"
+                accessibilityLabel={`${totalCount} socio${totalCount !== 1 ? "s" : ""} encontrado${totalCount !== 1 ? "s" : ""}`}
+              >
+                <Text className="text-secondary-foreground font-semibold text-xs">
+                  {totalCount} socio{totalCount !== 1 ? "s" : ""}
+                </Text>
+              </View>
+            </View>
+          )}
+
+          {/* Loading initial */}
+          {loading && (
+            <View className="py-12 items-center">
+              <Spinner size="lg" color="#0f766e" accessibilityLabel="Buscando socios" />
+              <Text className="text-muted-foreground mt-3">Buscando...</Text>
+            </View>
+          )}
+
+          {/* Empty State - only show when NOT loading */}
+          {!loading && socios.length === 0 && !error && hasSearched && (
+            <View 
+              className="items-center justify-center py-12 opacity-80"
+              accessibilityRole="text"
+              accessibilityLabel={`Sin resultados. No se encontraron socios que coincidan con ${busqueda}`}
+            >
+              <Search size={48} color="hsl(var(--muted-foreground))" className="mb-5 opacity-40" />
+              <Text className="text-foreground font-bold text-lg text-center mb-1">Sin resultados</Text>
+              <Text className="text-muted-foreground text-sm text-center px-4">
+                No se encontraron socios que coincidan con "{busqueda}". Intenta con otro término.
+              </Text>
+            </View>
+          )}
+
+          {/* Results List - Using map instead of FlatList for simpler keyboard handling */}
+          {socios.length > 0 && (
+            <View>
+              {/* Loading overlay when searching with existing results */}
+              {loading && (
+                <View className="py-4 items-center mb-4">
+                  <Spinner size="default" color="#0f766e" accessibilityLabel="Actualizando resultados" />
+                  <Text className="text-muted-foreground text-sm mt-2">Actualizando resultados...</Text>
+                </View>
+              )}
+              
+              {socios.map((socio) => (
+                <View key={socio.id}>
+                  {renderSocioCard({ item: socio })}
+                </View>
+              ))}
+              
+              {/* Load more button */}
+              {hasMore && !loadingMore && (
+                <Pressable
+                  onPress={loadMore}
+                  className="py-4 items-center"
+                >
+                  <Text className="text-primary font-semibold">Cargar más socios</Text>
+                </Pressable>
+              )}
+              
+              {/* Loading more indicator */}
+              {loadingMore && (
+                <View className="py-6 items-center">
+                  <Spinner size="lg" color="#0f766e" accessibilityLabel="Cargando más socios" />
+                </View>
+              )}
+              
+              {/* End of list */}
+              {!hasMore && socios.length > 0 && !loading && !loadingMore && (
+                <View className="py-4 items-center">
+                  <Text className="text-muted-foreground text-sm">No hay más socios</Text>
+                </View>
+              )}
+            </View>
+          )}
+        </View>
+      </ScrollView>
     </View>
   );
 }
