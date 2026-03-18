@@ -30,15 +30,8 @@
       "favicon": "./assets/favicon.png"
     },
     "plugins": [
-      "expo-router",
-      "expo-updates"
+      "expo-router"
     ],
-    "updates": {
-      "enabled": true,
-      "fallbackToCacheTimeout": 0,
-      "url": "https://u.expo.dev/00530e94-5553-4d8e-bd2a-40a2c4dbeab2"
-    },
-    "runtimeVersion": "1.0.0",
     "extra": {
       "router": {},
       "eas": {
