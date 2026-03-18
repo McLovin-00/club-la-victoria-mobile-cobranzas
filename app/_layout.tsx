@@ -1,3 +1,9 @@
+// Buffer polyfill for react-native-svg
+import { Buffer } from 'buffer';
+if (typeof global !== 'undefined' && !(global as any).Buffer) {
+  (global as any).Buffer = Buffer;
+}
+
 import '../global.css';
 import * as React from 'react';
 import { useColorScheme as useSystemColorScheme } from 'react-native';

@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useState } from 'react';
-import * as Updates from 'expo-updates';
 
 interface UseUpdatesReturn {
   /** Si hay una actualización disponible */
@@ -19,99 +18,29 @@ interface UseUpdatesReturn {
 }
 
 /**
- * Hook para manejar actualizaciones OTA con expo-updates.
- *
- * Verifica automáticamente si hay actualizaciones al montar el componente.
- *
- * @example
- * ```tsx
- * const { isUpdateAvailable, isDownloading, downloadUpdate, reloadApp } = useUpdates();
- *
- * if (isUpdateAvailable) {
- *   return (
- *     <Button onPress={downloadUpdate} loading={isDownloading}>
- *       Actualizar
- *     </Button>
- *   );
- * }
- * ```
+ * Hook para manejar actualizaciones OTA.
+ * 
+ * Actualmente deshabilitado ya que expo-updates no es compatible con RN 0.76.6.
+ * Las actualizaciones se manejan mediante nueva versión de APK.
  */
 export function useUpdates(): UseUpdatesReturn {
-  const [isUpdateAvailable, setIsUpdateAvailable] = useState(false);
-  const [isChecking, setIsChecking] = useState(false);
-  const [isDownloading, setIsDownloading] = useState(false);
-  const [error, setError] = useState<Error | null>(null);
+  const [isUpdateAvailable] = useState(false);
+  const [isChecking] = useState(false);
+  const [isDownloading] = useState(false);
+  const [error] = useState<Error | null>(null);
 
   const checkForUpdate = useCallback(async () => {
-    // En desarrollo, expo-updates no funciona
-    if (__DEV__) {
-      console.log('[useUpdates] Skip check in development mode');
-      return;
-    }
-
-    try {
-      setIsChecking(true);
-      setError(null);
-
-      const update = await Updates.checkForUpdateAsync();
-      setIsUpdateAvailable(update.isAvailable);
-
-      if (update.isAvailable) {
-        console.log('[useUpdates] Update available');
-      } else {
-        console.log('[useUpdates] No update available');
-      }
-    } catch (err) {
-      console.error('[useUpdates] Error checking for update:', err);
-      setError(err instanceof Error ? err : new Error(String(err)));
-    } finally {
-      setIsChecking(false);
-    }
+    // Deshabilitado - usar nuevas versiones de APK para actualizaciones
+    console.log('[useUpdates] OTA updates disabled - use new APK versions');
   }, []);
 
   const downloadUpdate = useCallback(async () => {
-    if (__DEV__) {
-      console.log('[useUpdates] Skip download in development mode');
-      return;
-    }
-
-    try {
-      setIsDownloading(true);
-      setError(null);
-
-      const update = await Updates.fetchUpdateAsync();
-
-      if (update.isNew) {
-        console.log('[useUpdates] Update downloaded successfully');
-      } else {
-        console.log('[useUpdates] No new update to download');
-      }
-    } catch (err) {
-      console.error('[useUpdates] Error downloading update:', err);
-      setError(err instanceof Error ? err : new Error(String(err)));
-    } finally {
-      setIsDownloading(false);
-    }
+    console.log('[useUpdates] OTA updates disabled');
   }, []);
 
   const reloadApp = useCallback(async () => {
-    if (__DEV__) {
-      console.log('[useUpdates] Skip reload in development mode');
-      return;
-    }
-
-    try {
-      await Updates.reloadAsync();
-    } catch (err) {
-      console.error('[useUpdates] Error reloading app:', err);
-      setError(err instanceof Error ? err : new Error(String(err)));
-    }
+    console.log('[useUpdates] Reload disabled');
   }, []);
-
-  // Verificar actualizaciones al montar
-  useEffect(() => {
-    checkForUpdate();
-  }, [checkForUpdate]);
 
   return {
     isUpdateAvailable,
