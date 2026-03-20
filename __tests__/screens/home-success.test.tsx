@@ -63,7 +63,7 @@ describe("HomeCobradoraScreen", () => {
       stopPropagation: jest.fn(),
     });
 
-    expect(expoRouter.__mockRouter.push).toHaveBeenCalledWith("/cobradora/pago?socioId=11");
+    expect(expoRouter.__mockRouter.push).toHaveBeenCalledWith("/cobradora/pago?socioId=11&nombre=Juan&apellido=Perez");
     expect(expoRouter.__mockRouter.push).toHaveBeenCalledWith("/cobradora/grupo-familiar/10");
   });
 });

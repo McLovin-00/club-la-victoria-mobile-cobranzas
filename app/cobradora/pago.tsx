@@ -45,9 +45,11 @@ export default function PagoCobradoraScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { showToast } = useToast();
-  const params = useLocalSearchParams<{ socioId?: string; fromGrupo?: string }>();
+  const params = useLocalSearchParams<{ socioId?: string; fromGrupo?: string; nombre?: string; apellido?: string }>();
   const socioId = Number(params.socioId ?? 0);
   const fromGrupo = params.fromGrupo ? Number(params.fromGrupo) : null;
+  const socioNombre = params.nombre ? decodeURIComponent(params.nombre) : null;
+  const socioApellido = params.apellido ? decodeURIComponent(params.apellido) : null;
 
   const [cuotas, setCuotas] = useState<CuotaItem[]>([]);
   const [seleccionadas, setSeleccionadas] = useState<number[]>([]);
@@ -247,7 +249,7 @@ export default function PagoCobradoraScreen() {
         {/* Hero Header */}
         <View
           className="bg-primary rounded-b-[40px] px-6 shadow-sm"
-          style={{ paddingTop: Math.max(insets.top + 20, 40), paddingBottom: 56 }}
+          style={{ paddingTop: Math.max(insets.top + 20, 40), paddingBottom: 40 }}
         >
           <View className="flex-row items-center gap-3 mb-5">
             <ScreenBackButton onPress={() => router.back()} tone="light" />
@@ -261,11 +263,16 @@ export default function PagoCobradoraScreen() {
             <Text className="text-primary-foreground font-bold text-3xl tracking-tight">
               Registrar pago
             </Text>
+            {socioNombre && socioApellido && (
+              <Text className="text-primary-foreground/90 font-semibold text-lg mt-1">
+                {socioApellido}, {socioNombre}
+              </Text>
+            )}
           </View>
         </View>
 
         {/* Content Area */}
-        <View className="px-6 pt-8 pb-6 gap-4">
+        <View className="px-6 pt-5 pb-6 gap-4">
           {/* Error message */}
           {error && (
             <View

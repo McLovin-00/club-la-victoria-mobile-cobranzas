@@ -51,8 +51,8 @@ export default function GrupoFamiliarDetalleScreen() {
     void loadGrupo();
   }, [loadGrupo]);
 
-  const handleMiembroPress = (socioId: number) => {
-    router.push(`/cobradora/pago?socioId=${socioId}&fromGrupo=${grupoId}`);
+  const handleMiembroPress = (socioId: number, nombre: string, apellido: string) => {
+    router.push(`/cobradora/pago?socioId=${socioId}&fromGrupo=${grupoId}&nombre=${encodeURIComponent(nombre)}&apellido=${encodeURIComponent(apellido)}`);
   };
 
   const toggleSeleccion = (socioId: number) => {
@@ -283,7 +283,7 @@ export default function GrupoFamiliarDetalleScreen() {
                 <MiembroGrupoItem
                   key={miembro.id}
                   miembro={miembro}
-                  onPress={() => handleMiembroPress(miembro.id)}
+                  onPress={() => handleMiembroPress(miembro.id, miembro.nombre, miembro.apellido)}
                   selectable={true}
                   selected={seleccionados.includes(miembro.id)}
                   onSelect={() => toggleSeleccion(miembro.id)}
@@ -313,7 +313,7 @@ export default function GrupoFamiliarDetalleScreen() {
                 <MiembroGrupoItem
                   key={miembro.id}
                   miembro={miembro}
-                  onPress={() => handleMiembroPress(miembro.id)}
+                  onPress={() => handleMiembroPress(miembro.id, miembro.nombre, miembro.apellido)}
                 />
               ))}
             </View>

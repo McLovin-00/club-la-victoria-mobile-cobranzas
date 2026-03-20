@@ -189,7 +189,7 @@ export default function HomeCobradoraScreen() {
     return (
       <View className="mb-3 px-2">
         <Pressable
-          onPress={() => router.push(`/cobradora/pago?socioId=${socio.id}`)}
+          onPress={() => router.push(`/cobradora/pago?socioId=${socio.id}&nombre=${encodeURIComponent(socio.nombre)}&apellido=${encodeURIComponent(socio.apellido)}`)}
           accessibilityRole="button"
           accessibilityLabel={`${socio.apellido}, ${socio.nombre}. DNI: ${socio.dni ?? "—"}. Estado: ${estadoLabel}. ${socio.grupoFamiliar ? `Grupo: ${socio.grupoFamiliar.nombre}.` : ""} Toca para cobrar`}
           accessibilityHint="Navega a la pantalla de cobro"
@@ -345,13 +345,13 @@ export default function HomeCobradoraScreen() {
             <TextInput
               className="flex-1 text-base font-medium text-foreground ml-3 py-3"
               placeholder="Escribí nombre, apellido o DNI..."
-              placeholderTextColor="hsl(var(--muted-foreground))"
+              placeholderTextColor="#888"
               value={busqueda}
               onChangeText={setBusqueda}
               returnKeyType="search"
               onSubmitEditing={ejecutarBusqueda}
               accessibilityLabel="Buscar socio"
-              accessibilityHint="Escribí el nombre y presioná Buscar o Enter"
+              accessibilityHint="Escribí el nombre y presioná Buscar"
             />
             <Pressable
               onPress={ejecutarBusqueda}
