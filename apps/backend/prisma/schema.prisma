@@ -193,6 +193,9 @@ model User {
   empresaId       Int?       @map("empresa_id")
   nombre          String?
   apellido        String?
+  telegramUsername String?   @unique @map("telegram_username") @db.VarChar(255)
+  telegramUserId   BigInt?   @unique @map("telegram_user_id")
+  telegramLinkedAt DateTime? @map("telegram_linked_at") @db.Timestamptz(6)
   activo          Boolean    @default(true)
   mustChangePassword Boolean  @default(false) @map("must_change_password")
   passwordChangedAt  DateTime? @map("password_changed_at") @db.Timestamptz(6)
@@ -307,4 +310,5 @@ enum UserRole {
   TRANSPORTISTA
   CHOFER
   CLIENTE
+  RESOLVER
 }

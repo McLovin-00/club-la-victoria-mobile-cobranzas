@@ -7,6 +7,7 @@ import { webSocketService } from '../services/websocket.service';
 import { useServiceFlags } from '../hooks/useServiceConfig';
 import type { RootState } from '../store/store';
 import { Logger } from '../lib/utils';
+import { getRuntimeEnv } from '../lib/runtimeEnv';
 
 interface AuthInitializerProps {
   children: React.ReactNode;
@@ -20,6 +21,7 @@ export const AuthInitializer: React.FC<AuthInitializerProps> = ({ children }) =>
   const isAuthenticated = useSelector((state: RootState) => selectIsAuthenticated(state));
   const token = useSelector((state: RootState) => selectCurrentToken(state));
   const flags = useServiceFlags();
+  const docsWebSocketUrl = getRuntimeEnv('VITE_DOCUMENTOS_WS_URL');
 
   useEffect(() => {
     if (!isInitialized) {
@@ -42,7 +44,7 @@ export const AuthInitializer: React.FC<AuthInitializerProps> = ({ children }) =>
 
   // Conectar/desconectar WebSocket según autenticación
   useEffect(() => {
-    if (isAuthenticated && token && flags.documentos) {
+    if (isAuthenticated && token && flags.documentos && docsWebSocketUrl) {
       Logger.debug('AuthInitializer: Conectando WebSocket', { token: token?.slice(0, 10) + '...' });
       webSocketService.connect(token);
     } else {
@@ -54,7 +56,7 @@ export const AuthInitializer: React.FC<AuthInitializerProps> = ({ children }) =>
       Logger.debug('AuthInitializer: Cleanup - desconectando WebSocket');
       webSocketService.disconnect();
     };
-  }, [isAuthenticated, token, flags.documentos]);
+  }, [docsWebSocketUrl, isAuthenticated, token, flags.documentos]);
 
   // Mostrar un loader mientras se inicializa la autenticación
   if (!isInitialized) {

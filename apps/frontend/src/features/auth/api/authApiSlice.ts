@@ -1,5 +1,5 @@
 import { apiSlice } from '../../../store/apiSlice';
-import { Credentials, LoginResponse, RegisterPayload } from '../types'; // Definiremos estos tipos luego
+import { Credentials, LoginResponse, RegisterPayload, UserResponse } from '../types'; // Definiremos estos tipos luego
 
 export const authApiSlice = apiSlice.injectEndpoints({
   endpoints: builder => ({
@@ -41,6 +41,13 @@ export const authApiSlice = apiSlice.injectEndpoints({
         body: payload,
       }),
     }),
+    updateProfile: builder.mutation<{ success: boolean; data: UserResponse }, { nombre?: string; apellido?: string; telegramUsername?: string | null }>({
+      query: payload => ({
+        url: '/platform/auth/profile',
+        method: 'PUT',
+        body: payload,
+      }),
+    }),
   }),
 });
 
@@ -51,4 +58,5 @@ export const {
   useLogoutMutation,
   useRefreshTokenMutation,
   useUpdateUserEmpresaMutation,
+  useUpdateProfileMutation,
 } = authApiSlice;

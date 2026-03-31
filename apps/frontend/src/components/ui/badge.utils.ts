@@ -10,6 +10,15 @@ export const badgeVariants = cva(
         destructive: 'border-transparent bg-destructive text-destructive-foreground hover:bg-destructive/80',
         outline: 'text-foreground',
         success: 'border-transparent bg-success text-success-foreground hover:bg-success/80',
+        // Ticket status variants
+        statusOpen: 'border-transparent bg-success/10 text-success',
+        statusInProgress: 'border-transparent bg-warning/10 text-warning',
+        statusResolved: 'border-transparent bg-primary/10 text-primary',
+        statusClosed: 'border-transparent bg-muted text-muted-foreground',
+        // Ticket priority variants (semantically correct colors)
+        priorityHigh: 'text-red-600',
+        priorityNormal: 'text-amber-600',
+        priorityLow: 'text-green-600',
       },
     },
     defaultVariants: {

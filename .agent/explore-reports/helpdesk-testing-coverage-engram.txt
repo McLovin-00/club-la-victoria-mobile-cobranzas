@@ -1,0 +1,105 @@
+Helpdesk Testing Coverage Exploration
+Type: discovery
+Scope: project
+Topic: sdd/helpdesk-testing-coverage/explore
+
+WHAT WAS EXPLORED
+- Helpdesk microservice location: apps/helpdesk/src
+- Total source files: 51 (excluding tests and prisma)
+- Existing test files: 14
+- Current coverage: ~21% (needs 80%)
+- Gap: 59 percentage points
+
+COMPONENTS WITH TESTS (14 files)
+- Services: 7 files (ticket, message, platform-user-link, tenant-scope, ticket-read-state, helpdesk-internal-notification, helpdesk-media-sync)
+- Routes: 3 files (admin, health, message)
+- Controllers: 1 file (ticket-create.helpers)
+- Bot utils: 1 file (telegram-html-escape)
+- Bot middleware: 1 file (middleware-routing)
+- Utils: 1 file (message-attachments)
+
+COMPONENTS WITHOUT TESTS (30 files)
+- Services (4): telegram.service.ts, websocket.service.ts, queue.service.ts, sync-resolver-config.ts
+- Controllers (3): ticket.controller.ts (684 lines), message.controller.ts (147 lines), admin-message.controller.ts
+- Middlewares (3): auth.middleware.ts (175 lines), admin.middleware.ts, error.middleware.ts
+- Routes (2): ticket.routes.ts, attachment.routes.ts
+- Bot Handlers (3): dm.handler.ts, group.handler.ts, commands.handler.ts
+- Workers (2): auto-close.worker.ts, media-sync.worker.ts
+- Schedulers (1): auto-close.scheduler.ts
+- Utils (3): controller-helper.ts, ticket-formatter.ts, viewer-context.ts
+- Config (5): database.ts, environment.ts, logger.ts, minio.ts, redis.ts
+
+TESTING INFRASTRUCTURE
+- Framework: Jest 30.0.4 + ts-jest 29.4.5
+- Integration tests: Supertest 7.1.4
+- Coverage thresholds: 70% (lines, branches, functions, statements)
+- Config: apps/helpdesk/jest.config.js
+- Test setup: apps/helpdesk/src/__tests__/jest.setup.ts
+- SonarQube server: http://10.3.0.244:9900
+- SonarQube project key: monorepo-bca
+- Quality Gate status: FAILED (needs ≥80% coverage)
+
+PRIORITY GAPS (by PRD)
+P0 - CRITICAL (9 files, 40-50 tests):
+  1. ticket.controller.ts (684 lines)
+  2. message.controller.ts (147 lines)
+  3. admin-message.controller.ts
+  4. auth.middleware.ts (175 lines)
+  5. admin.middleware.ts
+  6. error.middleware.ts
+  7. ticket.routes.ts
+  8. attachment.routes.ts
+  9. message.routes.ts
+
+P1 - HIGH (10 files, 80-120 tests):
+  10. telegram.service.ts
+  11. websocket.service.ts
+  12. queue.service.ts
+  13. sync-resolver-config.ts
+  14. dm.handler.ts
+  15. group.handler.ts
+  16. commands.handler.ts
+  17. auto-close.worker.ts
+  18. media-sync.worker.ts
+  19. auto-close.scheduler.ts
+
+P2 - MEDIUM (9 files, 50-80 tests):
+  20. controller-helper.ts
+  21. ticket-formatter.ts
+  22. viewer-context.ts
+  23. database.ts
+  24. environment.ts
+  25. logger.ts
+  26. minio.ts
+  27. redis.ts
+  28. websocket.service.ts (duplicate)
+
+ESTIMATED TEST COUNTS
+- Unit Tests: 174-280 tests
+- Integration Tests: 75-100 tests
+- E2E Tests: 60-120 tests
+- Total: 309-500 new tests
+
+TIMELINE ESTIMATE
+- P0 Components: 1-2 weeks (40-50 tests)
+- P1 Components: 1-2 weeks (80-120 tests)
+- P2 Components: 1 week (50-80 tests)
+- Infrastructure: 1 week (30-50 tests)
+- Total: 3-4 weeks
+
+RECOMMENDATIONS
+- Start with P0: Controllers, Middlewares, Routes (1-2 weeks)
+- Add test utilities and factories (parallel)
+- Add P1: Services, Workers, Bot Handlers (1-2 weeks)
+- Add P2: Utils, Config (1 week)
+- Add E2E tests (1 week)
+- Verify SonarQube Quality Gate
+
+SUCCESS CRITERIA
+- Lines coverage: ≥80%
+- Branch coverage: ≥80%
+- Function coverage: ≥80%
+- Statement coverage: ≥80%
+- SonarQube Quality Gate: PASSED
+
+Report location: .agent/explore-reports/helpdesk-testing-coverage-explore.txt

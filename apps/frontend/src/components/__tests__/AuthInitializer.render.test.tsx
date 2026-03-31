@@ -10,6 +10,7 @@ describe('AuthInitializer Render Test', () => {
     let state: any = {};
     let dispatch = jest.fn();
     let flagsDocumentos = true;
+    let docsWsUrl = 'ws://localhost:8080/socket.io/';
     const ws = { connect: jest.fn(), disconnect: jest.fn() };
 
     let AuthInitializer: React.FC<{ children: React.ReactNode }>;
@@ -29,6 +30,11 @@ describe('AuthInitializer Render Test', () => {
             webSocketService: ws,
         }));
 
+        await jest.unstable_mockModule('../../lib/runtimeEnv', () => ({
+            getRuntimeEnv: (key: string) => (key === 'VITE_DOCUMENTOS_WS_URL' ? docsWsUrl : undefined),
+            getRuntimeFlag: () => false,
+        }));
+
         // Import the component AFTER mocking
         const module = await import('../AuthInitializer');
         AuthInitializer = module.AuthInitializer;
@@ -38,6 +44,7 @@ describe('AuthInitializer Render Test', () => {
         jest.clearAllMocks();
         dispatch = jest.fn();
         flagsDocumentos = true;
+        docsWsUrl = 'ws://localhost:8080/socket.io/';
         ws.connect.mockReset();
         ws.disconnect.mockReset();
     });

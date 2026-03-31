@@ -1,11 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { UserCircleIcon, KeyIcon, BuildingOfficeIcon } from '@heroicons/react/24/outline';
 import { useSelector, useDispatch } from 'react-redux';
-import { selectCurrentUser, selectIsSuperAdmin, setCredentials } from '../features/auth/authSlice';
+import { selectCurrentUser, selectIsSuperAdmin, setCredentials, setCurrentUser } from '../features/auth/authSlice';
 import { ChangePasswordForm } from '../components/ChangePasswordForm';
 import { useGetEmpresasQuery } from '../features/empresas/api/empresasApiSlice';
 import { Empresa } from '../features/empresas/types';
-import { useUpdateUserEmpresaMutation } from '../features/auth/api/authApiSlice';
+import { useUpdateProfileMutation, useUpdateUserEmpresaMutation } from '../features/auth/api/authApiSlice';
 import { showToast } from '../components/ui/Toast.utils';
 import { Logger } from '../lib/utils';
 
@@ -19,12 +19,14 @@ export const PerfilPage = () => {
   const [selectedEmpresaId, setSelectedEmpresaId] = useState<number | null>(
     currentUser?.empresaId || null
   );
+  const [telegramUsername, setTelegramUsername] = useState(currentUser?.telegramUsername ?? '');
 
   // Obtener la lista de empresas solo si es superadmin
   const { data: empresas, isLoading: isEmpresasLoading } = useGetEmpresasQuery(undefined, {
     skip: !isSuperAdmin,
   });
   const [updateUserEmpresa, { isLoading: isUpdatingEmpresa }] = useUpdateUserEmpresaMutation();
+  const [updateProfile, { isLoading: isUpdatingProfile }] = useUpdateProfileMutation();
 
   // Actualizar selectedEmpresaId cuando cambia el usuario
   useEffect(() => {
@@ -39,7 +41,23 @@ export const PerfilPage = () => {
     } else {
       setSelectedEmpresaId(null);
     }
+    setTelegramUsername(currentUser?.telegramUsername ?? '');
   }, [currentUser]);
+
+  const handleTelegramUsernameSave = async () => {
+    try {
+      const result = await updateProfile({
+        telegramUsername: telegramUsername.trim() || null,
+      }).unwrap();
+
+      dispatch(setCurrentUser(result.data));
+      showToast('Username de Telegram actualizado correctamente.', 'success');
+    } catch (error) {
+      console.error('Error al actualizar username de Telegram:', error);
+      showToast('Error al actualizar username de Telegram.', 'error');
+      setTelegramUsername(currentUser?.telegramUsername ?? '');
+    }
+  };
 
   // Handler para cambiar la empresa seleccionada (solo para superadmin)
   const handleEmpresaChange = async (e: React.ChangeEvent<HTMLSelectElement>) => {
@@ -104,8 +122,8 @@ export const PerfilPage = () => {
             </div>
           </div>
 
-          <div className='space-y-4'>
-            <div className='grid grid-cols-1 md:grid-cols-2 gap-4'>
+            <div className='space-y-4'>
+              <div className='grid grid-cols-1 md:grid-cols-2 gap-4'>
               <div>
                 <div className='text-sm font-medium text-foreground mb-1'>Email</div>
                 <input
@@ -126,11 +144,49 @@ export const PerfilPage = () => {
                   disabled
                   value={getRolName(currentUser?.role)}
                   className='bg-muted w-full px-3 py-2 border border-border rounded-md shadow-sm text-sm text-muted-foreground'
-                />
+                  />
+                </div>
               </div>
-            </div>
 
-            {/* Selector de empresa (solo para superadmin) */}
+              <div className='mt-4'>
+                <div className='text-sm font-medium text-foreground mb-1'>Username de Telegram</div>
+                <div className='flex flex-col gap-2 sm:flex-row'>
+                  <input
+                    type='text'
+                    value={telegramUsername}
+                    onChange={(e) => setTelegramUsername(e.target.value)}
+                    className='w-full px-3 py-2 border border-border rounded-md shadow-sm text-sm bg-background text-foreground'
+                    placeholder='sin @, ej: soporte_bca'
+                    disabled={isUpdatingProfile}
+                  />
+                  <button
+                    type='button'
+                    onClick={handleTelegramUsernameSave}
+                    disabled={isUpdatingProfile}
+                    className='px-4 py-2 rounded-md bg-primary text-primary-foreground text-sm font-medium disabled:opacity-50'
+                  >
+                    {isUpdatingProfile ? 'Guardando...' : 'Guardar'}
+                  </button>
+                </div>
+                {currentUser?.telegramUsername && (
+                  <a
+                    href={`https://t.me/${import.meta.env.VITE_TELEGRAM_BOT_USERNAME || 'microsyst_bot'}`}
+                    target='_blank'
+                    rel='noopener noreferrer'
+                    className='mt-2 inline-flex items-center gap-2 px-4 py-2 rounded-md bg-blue-500 text-white text-sm font-medium hover:bg-blue-600 transition-colors'
+                  >
+                    <svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='currentColor' className='h-4 w-4'>
+                      <path d='M12 0C5.373 0 0 5.373 0 12s5.373 12 12 12 12-5.373 12-12S18.627 0 12 0zm5.568 8.16l-1.61 7.59c-.12.54-.44.67-.89.42l-2.46-1.81-1.19 1.14c-.13.13-.24.24-.49.24l.18-2.5 4.56-4.12c.2-.18-.04-.27-.31-.1l-5.64 3.55-2.43-.76c-.53-.17-.54-.53.11-.78l9.51-3.67c.44-.16.82.1.68.78z' />
+                    </svg>
+                    Hablar con Mesa de Ayuda
+                  </a>
+                )}
+                <p className='mt-1 text-xs text-muted-foreground'>
+                  Se guarda normalizado, en minúsculas y sin arroba.
+                </p>
+              </div>
+
+              {/* Selector de empresa (solo para superadmin) */}
             {isSuperAdmin && (
               <div className='mt-4'>
                 <div className='text-sm font-medium text-foreground mb-1'>

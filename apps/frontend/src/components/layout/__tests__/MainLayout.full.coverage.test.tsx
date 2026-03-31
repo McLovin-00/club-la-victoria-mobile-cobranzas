@@ -25,6 +25,7 @@ describe('MainLayout - Full Coverage', () => {
     await jest.unstable_mockModule('react-redux', () => ({
       useDispatch: () => dispatch,
       useSelector: (sel: any) => sel(state),
+      batch: (callback: () => void) => callback(),
     }));
 
     await jest.unstable_mockModule('../../../hooks/useServiceConfig', () => ({
@@ -39,14 +40,25 @@ describe('MainLayout - Full Coverage', () => {
       NotificationBell: () => <div data-testid='notification-bell'>NotificationBell</div>,
     }));
 
+    await jest.unstable_mockModule('../../../features/helpdesk/api/helpdeskApi', () => ({
+      useGetUnreadSummaryQuery: () => ({ data: { unreadTickets: 0, unreadMessages: 0 } }),
+    }));
+
+    await jest.unstable_mockModule('../../../features/helpdesk/hooks/useHelpdeskRealtime', () => ({
+      useHelpdeskRealtime: () => undefined,
+    }));
+
     // Mock de react-router-dom para evitar navegación real
-    await jest.unstable_mockModule('react-router-dom', () => ({
-      ...jest.requireActual('react-router-dom'),
+    await jest.unstable_mockModule('react-router-dom', async () => {
+      const actual = await jest.requireActual('react-router-dom');
+      return {
+      ...(actual as any),
       useNavigate: () => () => {}, // Mock para evitar navegación
       Link: ({ to, children, ...props }: any) => (
         <a href={to} {...props}>{children}</a>
       ),
-    }));
+      };
+    });
 
     ({ MainLayout } = await import('../MainLayout'));
     ({ MemoryRouter, Routes, Route } = await import('react-router-dom'));
@@ -74,7 +86,7 @@ describe('MainLayout - Full Coverage', () => {
         </MemoryRouter>
       );
 
-      const toggleButton = screen.getByLabelText('Toggle menu');
+      const toggleButton = screen.getByRole('button', { name: /menú/i });
       expect(toggleButton).toBeInTheDocument();
     });
 
@@ -89,7 +101,7 @@ describe('MainLayout - Full Coverage', () => {
         </MemoryRouter>
       );
 
-      const toggleButton = screen.getByLabelText('Toggle menu');
+      const toggleButton = screen.getByRole('button', { name: /menú/i });
       fireEvent.click(toggleButton);
       expect(toggleButton).toBeInTheDocument();
     });
@@ -105,7 +117,7 @@ describe('MainLayout - Full Coverage', () => {
         </MemoryRouter>
       );
 
-      const toggleButton = screen.getByLabelText('Toggle menu');
+      const toggleButton = screen.getByRole('button', { name: /menú/i });
       fireEvent.click(toggleButton);
 
       const overlay = document.querySelector('.backdrop-blur-sm');
@@ -372,6 +384,22 @@ describe('MainLayout - Full Coverage', () => {
       expect(screen.getAllByText('Portal Equipos')[0]).toBeInTheDocument();
     });
 
+    it('debe mostrar enlace Mesa de ayuda para ADMIN_INTERNO', () => {
+      state.auth.user = { email: 'admin@test.com', role: 'ADMIN_INTERNO', empresaId: 1 };
+
+      render(
+        <MemoryRouter initialEntries={['/']}>
+          <Routes>
+            <Route element={<MainLayout />}>
+              <Route path="/" element={<div>child</div>} />
+            </Route>
+          </Routes>
+        </MemoryRouter>
+      );
+
+      expect(screen.getByRole('link', { name: /mesa de ayuda/i })).toBeInTheDocument();
+    });
+
     it('debe mostrar enlace Empresa solo para SUPERADMIN', () => {
       state.auth.user = { email: 'super@test.com', role: 'SUPERADMIN', empresaId: 1 };
 
@@ -553,7 +581,7 @@ describe('MainLayout - Full Coverage', () => {
         </MemoryRouter>
       );
 
-      const toggleButton = screen.getByLabelText('Toggle menu');
+      const toggleButton = screen.getByRole('button', { name: /menú/i });
       fireEvent.click(toggleButton);
 
       const dashboardLink = screen.getAllByText('Dashboard')[0];
@@ -881,7 +909,7 @@ describe('MainLayout - Full Coverage', () => {
       );
 
       // Abrir sidebar
-      const toggleButton = screen.getByLabelText('Toggle menu');
+      const toggleButton = screen.getByRole('button', { name: /menú/i });
       fireEvent.click(toggleButton);
 
       // El sidebar debería estar abierto
@@ -899,7 +927,7 @@ describe('MainLayout - Full Coverage', () => {
         </MemoryRouter>
       );
 
-      const toggleButton = screen.getByLabelText('Toggle menu');
+      const toggleButton = screen.getByRole('button', { name: /menú/i });
       fireEvent.click(toggleButton);
 
       // Cuando sidebarOpen es true, debería mostrar XMarkIcon
@@ -918,7 +946,7 @@ describe('MainLayout - Full Coverage', () => {
       );
 
       // Abrir sidebar
-      const toggleButton = screen.getByLabelText('Toggle menu');
+      const toggleButton = screen.getByRole('button', { name: /menú/i });
       fireEvent.click(toggleButton);
 
       // El overlay debería aparecer
@@ -954,7 +982,7 @@ describe('MainLayout - Full Coverage', () => {
         </MemoryRouter>
       );
 
-      const toggleButton = screen.getByLabelText('Toggle menu');
+      const toggleButton = screen.getByRole('button', { name: /menú/i });
       fireEvent.click(toggleButton);
 
       // Verificar que el botón sigue existente después de cambiar estado

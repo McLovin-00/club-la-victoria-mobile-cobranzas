@@ -14,7 +14,8 @@ export type UserRole =
   | 'EMPRESA_TRANSPORTISTA'
   | 'CHOFER'
   | 'CLIENTE'
-  | 'CLIENTE_TRANSPORTE';
+  | 'CLIENTE_TRANSPORTE'
+  | 'RESOLVER';
 
 /**
  * Obtiene la ruta de destino según el rol del usuario
@@ -41,6 +42,8 @@ export function getDestinationByRole(role: UserRole): string {
       return '/portal/transportistas';
     case 'CLIENTE_TRANSPORTE':
       return '/portal/cliente';
+    case 'RESOLVER':
+      return '/helpdesk';
     default:
       return '/';
   }
@@ -65,6 +68,7 @@ export function isValidRole(role: string | null | undefined): boolean {
     'CHOFER',
     'CLIENTE',
     'CLIENTE_TRANSPORTE',
+    'RESOLVER',
   ];
   return validRoles.includes(role as UserRole);
 }

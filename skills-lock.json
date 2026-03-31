@@ -1,0 +1,10 @@
+{
+  "version": 1,
+  "skills": {
+    "code-analyzer": {
+      "source": "oimiragieo/agent-studio",
+      "sourceType": "github",
+      "computedHash": "0566c3e75807baeb4beeadae019bf2a65419364edafcd07904519c0973e694ac"
+    }
+  }
+}

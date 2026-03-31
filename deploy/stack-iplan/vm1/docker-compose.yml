@@ -23,6 +23,8 @@ services:
         condition: service_healthy
       backend:
         condition: service_healthy
+      helpdesk:
+        condition: service_healthy
     deploy:
       resources:
         limits:
@@ -46,6 +48,7 @@ services:
         VITE_API_BASE_URL: ""
         VITE_DOCUMENTOS_API_URL: ""
         VITE_DOCUMENTOS_WS_URL: ""
+        VITE_HELPDESK_WS_URL: ""
         VITE_REMITOS_API_URL: ""
         VITE_APP_TITLE: ${APP_TITLE:-BCA Group}
     image: bca/frontend:latest
@@ -221,6 +224,61 @@ services:
           cpus: "1.0"
     healthcheck:
       test: ["CMD", "wget", "-q", "--spider", "http://localhost:4803/health"]
+      interval: 30s
+      timeout: 10s
+      start_period: 20s
+      retries: 3
+
+  # =========================================================================
+  # Helpdesk - Microservicio de mesa de ayuda + Socket.IO
+  # =========================================================================
+  helpdesk:
+    build:
+      context: ${MONOREPO_PATH:-./../..}/apps/helpdesk
+      dockerfile: Dockerfile
+    image: bca/helpdesk:latest
+    container_name: bca_helpdesk
+    restart: unless-stopped
+    expose:
+      - "4804"
+    environment:
+      NODE_ENV: production
+      ENABLE_HELPDESK: "true"
+      HELPDESK_PORT: 4804
+      DATABASE_URL: postgresql://bca_app:${DB_APP_PASSWORD}@${VM2_IP:-10.8.10.121}:5432/monorepo-bca?schema=platform
+      HELPDESK_DATABASE_URL: postgresql://bca_app:${DB_APP_PASSWORD}@${VM2_IP:-10.8.10.121}:5432/monorepo-bca?schema=helpdesk
+      JWT_PUBLIC_KEY_PATH: /app/keys/jwt_public.pem
+      TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN}
+      FRONTEND_URLS: ${FRONTEND_URLS}
+      REDIS_URL: redis://:${REDIS_PASSWORD}@${VM2_IP:-10.8.10.121}:6379
+      REDIS_HOST: ${VM2_IP:-10.8.10.121}
+      REDIS_PORT: 6379
+      MINIO_ENDPOINT: ${VM2_IP:-10.8.10.121}
+      MINIO_PORT: 9000
+      MINIO_ACCESS_KEY: ${MINIO_ACCESS_KEY}
+      MINIO_SECRET_KEY: ${MINIO_SECRET_KEY}
+      MINIO_USE_SSL: "false"
+      MINIO_REGION: us-east-1
+      MINIO_BUCKET_PREFIX: helpdesk-empresa
+      MINIO_PUBLIC_BASE_URL: ${MINIO_PUBLIC_BASE_URL}
+      MINIO_INTERNAL_BASE_URL: http://${VM2_IP:-10.8.10.121}:9000
+      AUTO_CLOSE_HOURS: "72"
+      REOPEN_ALLOWED_HOURS: "72"
+    volumes:
+      - ./keys:/app/keys:ro
+    deploy:
+      resources:
+        limits:
+          memory: 2G
+          cpus: "1.0"
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "require('http').get('http://127.0.0.1:4804/health',(r)=>process.exit(r.statusCode===200?0:1)).on('error',()=>process.exit(1))",
+        ]
       interval: 30s
       timeout: 10s
       start_period: 20s

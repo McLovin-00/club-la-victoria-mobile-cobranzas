@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Outlet, NavLink, useNavigate, Link } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
-import { logout, selectCurrentUser } from '../../features/auth/authSlice';
+import { logout, selectCurrentToken, selectCurrentUser } from '../../features/auth/authSlice';
 import {
   BuildingOfficeIcon,
   HomeIcon,
@@ -15,6 +15,7 @@ import {
   TruckIcon,
   ExclamationTriangleIcon,
   ArrowsRightLeftIcon,
+  ChatBubbleLeftRightIcon,
 } from '@heroicons/react/24/outline';
 import { ThemeToggle } from '../ui/theme-toggle';
 import { Logger } from '../../lib/utils';
@@ -22,23 +23,34 @@ import { useServiceFlags } from '../../hooks/useServiceConfig';
 import bcaLogo from '../../assets/logo-bca.jpg';
 import { NotificationBell } from '../notifications/NotificationBell';
 import { getRoleLabel, handleNavItemMouseEnter } from './MainLayout.utils';
+import { useGetUnreadSummaryQuery } from '../../features/helpdesk/api/helpdeskApi';
+import { useHelpdeskRealtime } from '../../features/helpdesk/hooks/useHelpdeskRealtime';
 // Tenant selector removido de la UI: el tenant se toma del empresaId del usuario
 
 export const MainLayout = () => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const token = useSelector(selectCurrentToken);
+
+  useHelpdeskRealtime(token);
+
   return (
     <div className='h-screen bg-background overflow-hidden flex flex-col'>
       {/* Barra superior */}
       <header className='bg-card border-b border-border h-16 z-30 shadow-md px-4 md:px-6 flex-shrink-0'>
         <div className='flex items-center justify-between h-full'>
-          {/* Logo y toggle */}
+          {/* Logo y toggle del menú lateral */}
           <div className='flex items-center gap-3'>
             <button
+              type='button'
               onClick={() => setSidebarOpen(!sidebarOpen)}
-              className='p-2 rounded-md text-foreground hover:bg-accent hover:text-accent-foreground transition-colors focus:outline-none'
-              aria-label='Toggle menu'
+              className='flex items-center gap-2 min-h-10 px-3 py-2 rounded-md border border-border bg-background/80 text-foreground hover:bg-accent hover:text-accent-foreground transition-colors focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2'
+              aria-label={sidebarOpen ? 'Cerrar menú' : 'Abrir menú'}
+              aria-expanded={sidebarOpen}
             >
               {sidebarOpen ? <XMarkIcon className='h-5 w-5' /> : <Bars3Icon className='h-5 w-5' />}
+              <span className='text-sm font-medium hidden sm:inline'>
+                {sidebarOpen ? 'Cerrar' : 'Menú'}
+              </span>
             </button>
             <Link to='/' className='flex items-center gap-2'>
               <img
@@ -162,6 +174,9 @@ interface SidebarContentProps {
 
 const SidebarContent = ({ closeSidebar }: SidebarContentProps) => {
   const user = useSelector(selectCurrentUser);
+  const { data: unreadSummary } = useGetUnreadSummaryQuery(undefined, {
+    skip: !user,
+  });
   const isSuperAdmin = user?.role === 'SUPERADMIN';
   const isAdmin = user?.role === 'ADMIN' || user?.role === 'SUPERADMIN';
   const isAdminInterno = user?.role === 'ADMIN_INTERNO';
@@ -194,6 +209,13 @@ const SidebarContent = ({ closeSidebar }: SidebarContentProps) => {
         <nav className='px-4 py-4 space-y-2'>
           {/* Dashboard - Para todos los usuarios autenticados */}
           <NavItem to='/' icon={HomeIcon} text='Dashboard' closeSidebar={closeSidebar} />
+          <NavItem
+            to='/helpdesk'
+            icon={ChatBubbleLeftRightIcon}
+            text='Mesa de ayuda'
+            badge={unreadSummary && unreadSummary.unreadTickets > 0 ? String(unreadSummary.unreadTickets) : undefined}
+            closeSidebar={closeSidebar}
+          />
           {/* Documentos Rechazados - Para todos, filtrado por rol en backend */}
           {serviceFlags.documentos && (
             <NavItem

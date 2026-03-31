@@ -4,7 +4,7 @@ export interface Credentials {
   password: string;
 }
 
-export type UserRole = 'SUPERADMIN' | 'ADMIN' | 'OPERATOR' | 'ADMIN_INTERNO' | 'OPERADOR_INTERNO' | 'DADOR_DE_CARGA' | 'TRANSPORTISTA' | 'EMPRESA_TRANSPORTISTA' | 'CHOFER' | 'CLIENTE' | 'CLIENTE_TRANSPORTE';
+export type UserRole = 'SUPERADMIN' | 'ADMIN' | 'OPERATOR' | 'ADMIN_INTERNO' | 'OPERADOR_INTERNO' | 'DADOR_DE_CARGA' | 'TRANSPORTISTA' | 'EMPRESA_TRANSPORTISTA' | 'CHOFER' | 'CLIENTE' | 'CLIENTE_TRANSPORTE' | 'RESOLVER';
 
 // Tipos para la respuesta del login (lo que recibimos)
 // Ajusta esto según la respuesta REAL de tu endpoint /login
@@ -30,6 +30,9 @@ export interface UserResponse {
   avatar?: string;
   role: UserRole;
   empresaId?: number | null;
+  telegramUsername?: string | null;
+  telegramUserId?: string | null;
+  telegramLinkedAt?: string | null;
   mustChangePassword?: boolean | null;
   empresa?: {
     id: number;

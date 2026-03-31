@@ -174,6 +174,12 @@ npm run compose:dev:infra:logs
 npm run compose:test:up
 npm run compose:test:down
 npm run compose:test:logs
+
+# QA Mesa de Ayuda (plataforma /helpdesk: postgres, redis, minio, backend, frontend, helpdesk, nginx)
+npm run compose:helpdesk-qa:up
+npm run compose:helpdesk-qa:down
+npm run compose:helpdesk-qa:ps
+# Ver docs/helpdesk/SETUP_QA_PLATAFORMA.md para migraciones y primer acceso.
 ```
 
 ### Validación Pre-PR (Obligatorio)

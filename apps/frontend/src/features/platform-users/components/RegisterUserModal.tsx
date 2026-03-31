@@ -44,6 +44,7 @@ type FormData = {
   empresaId?: number | '';
   nombre?: string;
   apellido?: string;
+  telegramUsername?: string;
   // Wizard CLIENTE
   clienteRazonSocial?: string;
   clienteCuit?: string;
@@ -148,6 +149,7 @@ export const RegisterUserModal: React.FC<RegisterUserModalProps> = ({ isOpen, on
       empresaId: '',
       nombre: '',
       apellido: '',
+      telegramUsername: '',
       clienteRazonSocial: '',
       clienteCuit: '',
       clienteNotas: '',
@@ -280,6 +282,7 @@ export const RegisterUserModal: React.FC<RegisterUserModalProps> = ({ isOpen, on
           email: data.email,
           nombre: data.nombre || undefined,
           apellido: data.apellido || undefined,
+          telegramUsername: data.telegramUsername || undefined,
           empresaId: data.empresaId ? Number(data.empresaId) : undefined,
           clienteId: clienteIdFinal,
         }).unwrap();
@@ -328,6 +331,7 @@ export const RegisterUserModal: React.FC<RegisterUserModalProps> = ({ isOpen, on
           email: data.email,
           nombre: data.nombre || undefined,
           apellido: data.apellido || undefined,
+          telegramUsername: data.telegramUsername || undefined,
           empresaId: data.empresaId ? Number(data.empresaId) : undefined,
           dadorCargaId: dadorIdFinal,
         }).unwrap();
@@ -380,6 +384,7 @@ export const RegisterUserModal: React.FC<RegisterUserModalProps> = ({ isOpen, on
           email: data.email,
           nombre: data.nombre || undefined,
           apellido: data.apellido || undefined,
+          telegramUsername: data.telegramUsername || undefined,
           empresaId: data.empresaId ? Number(data.empresaId) : undefined,
           empresaTransportistaId: transportistaIdFinal,
         }).unwrap();
@@ -433,6 +438,7 @@ export const RegisterUserModal: React.FC<RegisterUserModalProps> = ({ isOpen, on
           email: data.email,
           nombre: choferMode === 'new' ? (data.choferNombre || undefined) : (data.nombre || undefined),
           apellido: choferMode === 'new' ? (data.choferApellido || undefined) : (data.apellido || undefined),
+          telegramUsername: data.telegramUsername || undefined,
           empresaId: data.empresaId ? Number(data.empresaId) : undefined,
           choferId: choferIdFinal,
         }).unwrap();
@@ -451,6 +457,7 @@ export const RegisterUserModal: React.FC<RegisterUserModalProps> = ({ isOpen, on
           : currentUser?.empresaId,
         nombre: data.nombre || undefined,
         apellido: data.apellido || undefined,
+        telegramUsername: data.telegramUsername || undefined,
       };
 
       await registerUser(payload).unwrap();
@@ -509,6 +516,20 @@ export const RegisterUserModal: React.FC<RegisterUserModalProps> = ({ isOpen, on
                     <Controller name="apellido" control={control} render={({ field }) => (
                       <input type="text" className="w-full px-3 py-2 border rounded-md" {...field} />
                     )} />
+                  </div>
+                  <div className="col-span-2">
+                    <label className="block text-sm font-medium mb-1">Username de Telegram</label>
+                    <Controller name="telegramUsername" control={control} render={({ field }) => (
+                      <input
+                        type="text"
+                        className="w-full px-3 py-2 border rounded-md"
+                        placeholder="sin @, ej: soporte_bca"
+                        {...field}
+                      />
+                    )} />
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      Se normaliza automáticamente a minúsculas y sin arroba.
+                    </p>
                   </div>
                 </React.Fragment>
               )}

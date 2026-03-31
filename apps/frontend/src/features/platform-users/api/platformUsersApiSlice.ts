@@ -9,6 +9,9 @@ export interface PlatformUser {
   role: UserRole;
   nombre?: string;
   apellido?: string;
+  telegramUsername?: string | null;
+  telegramUserId?: string | null;
+  telegramLinkedAt?: string | null;
   empresaId?: number | null;
   empresa?: { id: number; nombre: string } | null;
   activo?: boolean;
@@ -30,6 +33,7 @@ export interface RegisterUserPayload {
   empresaId?: number;
   nombre?: string;
   apellido?: string;
+  telegramUsername?: string;
   // Asociaciones por rol
   dadorCargaId?: number;
   empresaTransportistaId?: number;
@@ -65,7 +69,7 @@ export const platformUsersApiSlice = apiSlice.injectEndpoints({
 
     registerClientWizard: builder.mutation<
       { success: boolean; user: PlatformUser; tempPassword: string; message?: string },
-      { email: string; nombre?: string; apellido?: string; empresaId?: number; clienteId: number }
+      { email: string; nombre?: string; apellido?: string; telegramUsername?: string; empresaId?: number; clienteId: number }
     >({
       query: (payload) => ({
         url: `/platform/auth/wizard/register-client`,
@@ -77,7 +81,7 @@ export const platformUsersApiSlice = apiSlice.injectEndpoints({
 
     registerDadorWizard: builder.mutation<
       { success: boolean; user: PlatformUser; tempPassword: string; message?: string },
-      { email: string; nombre?: string; apellido?: string; empresaId?: number; dadorCargaId: number }
+      { email: string; nombre?: string; apellido?: string; telegramUsername?: string; empresaId?: number; dadorCargaId: number }
     >({
       query: (payload) => ({
         url: `/platform/auth/wizard/register-dador`,
@@ -89,7 +93,7 @@ export const platformUsersApiSlice = apiSlice.injectEndpoints({
 
     registerTransportistaWizard: builder.mutation<
       { success: boolean; user: PlatformUser; tempPassword: string; message?: string },
-      { email: string; nombre?: string; apellido?: string; empresaId?: number; empresaTransportistaId: number }
+      { email: string; nombre?: string; apellido?: string; telegramUsername?: string; empresaId?: number; empresaTransportistaId: number }
     >({
       query: (payload) => ({
         url: `/platform/auth/wizard/register-transportista`,
@@ -101,7 +105,7 @@ export const platformUsersApiSlice = apiSlice.injectEndpoints({
 
     registerChoferWizard: builder.mutation<
       { success: boolean; user: PlatformUser; tempPassword: string; message?: string },
-      { email: string; nombre?: string; apellido?: string; empresaId?: number; choferId: number }
+      { email: string; nombre?: string; apellido?: string; telegramUsername?: string; empresaId?: number; choferId: number }
     >({
       query: (payload) => ({
         url: `/platform/auth/wizard/register-chofer`,

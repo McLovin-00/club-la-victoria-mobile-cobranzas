@@ -66,8 +66,9 @@ node_modules/
 .DS_Store
 Thumbs.db
 
-# Stacks de deploy de otros ambientes
-deploy/stack-ip-192.168.15.136/
+# Stacks de deploy de otros ambientes (excluir salvo nginx.conf usado por Dockerfile.frontend)
+deploy/stack-ip-192.168.15.136/*
+!deploy/stack-ip-192.168.15.136/nginx.conf
 deploy/stack-ip-10.8.10.20/
 deploy/stack-ip-10.3.0.246/
 

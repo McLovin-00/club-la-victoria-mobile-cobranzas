@@ -28,6 +28,7 @@ export interface AuthPayload {
   email: string;
   role: UserRole;
   empresaId?: number;
+  empresaNombre?: string | null;
 }
 
 export interface AuthResponse {
@@ -43,6 +44,7 @@ export interface TokenPayload {
   email: string;
   role: UserRole;
   empresaId?: number | null;
+  empresaNombre?: string | null;
   // Asociaciones por rol
   dadorCargaId?: number | null;
   empresaTransportistaId?: number | null;
@@ -105,11 +107,16 @@ class AuthService extends BaseService<User, UserCreateInput, UserUpdateInput> {
 
       AppLogger.debug('🔐 Intento de login iniciado', { email });
 
-      // Buscar usuario
+      // Buscar usuario con relación empresa
       const user = await prismaService.getClient().user.findUnique({
         where: {
           email: email.toLowerCase().trim(),
         },
+        include: {
+          empresa: {
+            select: { nombre: true }
+          }
+        }
       });
 
       if (!user) {
@@ -139,6 +146,7 @@ class AuthService extends BaseService<User, UserCreateInput, UserUpdateInput> {
         email: user.email,
         role: user.role,
         empresaId: user.empresaId ?? null,
+        empresaNombre: (user as any).empresa?.nombre ?? null,
         dadorCargaId: user.dadorCargaId ?? null,
         empresaTransportistaId: user.empresaTransportistaId ?? null,
         choferId: user.choferId ?? null,
@@ -210,6 +218,11 @@ class AuthService extends BaseService<User, UserCreateInput, UserUpdateInput> {
           role: role,
           empresaId: finalEmpresaId,
         },
+        include: {
+          empresa: {
+            select: { nombre: true }
+          }
+        }
       });
 
       // Generar token para el nuevo usuario
@@ -217,11 +230,12 @@ class AuthService extends BaseService<User, UserCreateInput, UserUpdateInput> {
         userId: newUser.id,
         email: newUser.email,
         role: newUser.role,
-        empresaId: (newUser as any).empresaId ?? null,
-        dadorCargaId: (newUser as any).dadorCargaId ?? null,
-        empresaTransportistaId: (newUser as any).empresaTransportistaId ?? null,
-        choferId: (newUser as any).choferId ?? null,
-        clienteId: (newUser as any).clienteId ?? null,
+        empresaId: newUser.empresaId ?? null,
+        empresaNombre: (newUser as any).empresa?.nombre ?? null,
+        dadorCargaId: newUser.dadorCargaId ?? null,
+        empresaTransportistaId: newUser.empresaTransportistaId ?? null,
+        choferId: newUser.choferId ?? null,
+        clienteId: newUser.clienteId ?? null,
       });
 
       const authUserResponse = this.formatAuthUser(newUser);
@@ -253,6 +267,11 @@ class AuthService extends BaseService<User, UserCreateInput, UserUpdateInput> {
     try {
       const user = await prismaService.getClient().user.findUnique({
         where: { id: userId },
+        include: {
+          empresa: {
+            select: { nombre: true }
+          }
+        }
       });
 
       if (!user) {
@@ -340,6 +359,7 @@ class AuthService extends BaseService<User, UserCreateInput, UserUpdateInput> {
         email: user.email,
         role: user.role,
         empresaId: user.empresaId ?? null,
+        empresaNombre: user.empresaNombre ?? null,
         dadorCargaId: (user as any).dadorCargaId ?? null,
         empresaTransportistaId: (user as any).empresaTransportistaId ?? null,
         choferId: (user as any).choferId ?? null,
@@ -424,12 +444,13 @@ class AuthService extends BaseService<User, UserCreateInput, UserUpdateInput> {
   /**
    * Formatea un usuario para respuesta de autenticación
    */
-  private formatAuthUser(user: User): AuthPayload {
+  private formatAuthUser(user: User & { empresa?: { nombre: string } | null }): AuthPayload {
     return {
       userId: user.id,
       email: user.email,
       role: user.role,
       empresaId: user.empresaId || undefined,
+      empresaNombre: user.empresa?.nombre ?? null,
     };
   }
 
@@ -447,6 +468,11 @@ class AuthService extends BaseService<User, UserCreateInput, UserUpdateInput> {
       const updatedUser = await prismaService.getClient().user.update({
         where: { id: userId },
         data: { empresaId: empresaId },
+        include: {
+          empresa: {
+            select: { nombre: true }
+          }
+        }
       });
 
       if (!updatedUser) {
@@ -459,6 +485,7 @@ class AuthService extends BaseService<User, UserCreateInput, UserUpdateInput> {
         email: updatedUser.email,
         role: updatedUser.role,
         empresaId: updatedUser.empresaId ?? null,
+        empresaNombre: (updatedUser as any).empresa?.nombre ?? null,
         dadorCargaId: updatedUser.dadorCargaId ?? null,
         empresaTransportistaId: updatedUser.empresaTransportistaId ?? null,
         choferId: updatedUser.choferId ?? null,

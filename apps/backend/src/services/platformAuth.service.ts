@@ -38,6 +38,7 @@ export interface RegisterData {
   empresaId?: number | null;
   nombre?: string;
   apellido?: string;
+  telegramUsername?: string | null;
   // Asociaciones por rol
   dadorCargaId?: number | null;
   empresaTransportistaId?: number | null;
@@ -53,6 +54,9 @@ export interface PlatformUserProfile {
   mustChangePassword?: boolean | null;
   nombre?: string | null;
   apellido?: string | null;
+  telegramUsername?: string | null;
+  telegramUserId?: string | null;
+  telegramLinkedAt?: Date | null;
   empresa?: {
     id: number;
     nombre: string;
@@ -280,7 +284,18 @@ export class PlatformAuthService {
     this.validateRegistrationPermissions(createdBy, registerData.role || 'OPERATOR');
 
     const prisma = prismaService.getClient();
-    const { email, password, role, empresaId, nombre, apellido, empresaTransportistaId, choferId, clienteId } = registerData;
+    const {
+      email,
+      password,
+      role,
+      empresaId,
+      nombre,
+      apellido,
+      telegramUsername,
+      empresaTransportistaId,
+      choferId,
+      clienteId,
+    } = registerData;
     let { dadorCargaId } = registerData;
 
     const existingUser = await prisma.user.findUnique({
@@ -316,6 +331,7 @@ export class PlatformAuthService {
         empresaId: finalEmpresaId,
         nombre,
         apellido,
+        telegramUsername: this.normalizeTelegramUsername(telegramUsername),
         dadorCargaId: dadorCargaId ?? null,
         empresaTransportistaId: empresaTransportistaId ?? null,
         choferId: choferId ?? null,
@@ -451,6 +467,9 @@ export class PlatformAuthService {
     }
     if (data.email) {
       update.email = data.email.toLowerCase().trim();
+    }
+    if ('telegramUsername' in data) {
+      update.telegramUsername = this.normalizeTelegramUsername(data.telegramUsername);
     }
     return update;
   }
@@ -602,6 +621,16 @@ export class PlatformAuthService {
     return bcrypt.hash(password, this.SALT_ROUNDS);
   }
 
+  private static normalizeTelegramUsername(username?: string | null): string | null {
+    if (!username) {
+      return null;
+    }
+
+    const trimmed = username.trim().slice(0, 64);
+    const withoutAt = trimmed.replace(/^@+/, '');
+    return withoutAt ? withoutAt.toLowerCase() : null;
+  }
+
   private static formatUserProfile(user: PlatformUserWithRelations): PlatformUserProfile {
     return {
       id: user.id,
@@ -611,6 +640,9 @@ export class PlatformAuthService {
       mustChangePassword: (user as any).mustChangePassword ?? false,
       nombre: user.nombre,
       apellido: user.apellido,
+      telegramUsername: (user as any).telegramUsername ?? null,
+      telegramUserId: (user as any).telegramUserId != null ? String((user as any).telegramUserId) : null,
+      telegramLinkedAt: (user as any).telegramLinkedAt ?? null,
       empresa: null,
       createdAt: user.createdAt,
       updatedAt: user.updatedAt,
@@ -713,7 +745,7 @@ export class PlatformAuthService {
   }
 
   private static async createUserWithTempPassword(
-    input: { email: string; nombre?: string; apellido?: string; empresaId?: number | null },
+    input: { email: string; nombre?: string; apellido?: string; empresaId?: number | null; telegramUsername?: string | null },
     createdBy: PlatformUserProfile,
     role: UserRole,
     allowedRoles: string[],
@@ -744,6 +776,7 @@ export class PlatformAuthService {
           empresaId: finalEmpresaId,
           nombre: input.nombre,
           apellido: input.apellido,
+          telegramUsername: this.normalizeTelegramUsername(input.telegramUsername),
           mustChangePassword: true as any,
           creadoPorId: createdBy.id,
           ...roleSpecificData,
@@ -764,7 +797,7 @@ export class PlatformAuthService {
   }
 
   static async registerClientWithTempPassword(
-    input: { email: string; nombre?: string; apellido?: string; empresaId?: number | null; clienteId: number },
+    input: { email: string; nombre?: string; apellido?: string; empresaId?: number | null; telegramUsername?: string | null; clienteId: number },
     createdBy: PlatformUserProfile
   ): Promise<AuthResponse> {
     return this.createUserWithTempPassword(
@@ -775,7 +808,7 @@ export class PlatformAuthService {
   }
 
   static async registerDadorWithTempPassword(
-    input: { email: string; nombre?: string; apellido?: string; empresaId?: number | null; dadorCargaId: number },
+    input: { email: string; nombre?: string; apellido?: string; empresaId?: number | null; telegramUsername?: string | null; dadorCargaId: number },
     createdBy: PlatformUserProfile
   ): Promise<AuthResponse> {
     return this.createUserWithTempPassword(
@@ -786,7 +819,7 @@ export class PlatformAuthService {
   }
 
   static async registerTransportistaWithTempPassword(
-    input: { email: string; nombre?: string; apellido?: string; empresaId?: number | null; empresaTransportistaId: number },
+    input: { email: string; nombre?: string; apellido?: string; empresaId?: number | null; telegramUsername?: string | null; empresaTransportistaId: number },
     createdBy: PlatformUserProfile
   ): Promise<AuthResponse> {
     const dadorCargaId = await this.resolveDadorFromEntity(
@@ -801,7 +834,7 @@ export class PlatformAuthService {
   }
 
   static async registerChoferWithTempPassword(
-    input: { email: string; nombre?: string; apellido?: string; empresaId?: number | null; choferId: number },
+    input: { email: string; nombre?: string; apellido?: string; empresaId?: number | null; telegramUsername?: string | null; choferId: number },
     createdBy: PlatformUserProfile
   ): Promise<AuthResponse> {
     const dadorCargaId = await this.resolveDadorFromEntity(

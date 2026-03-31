@@ -100,6 +100,12 @@ export const apiSlice = createApi({
     'QmsIncident',
     'QmsLegal',
     'QmsKpi',
+    // Helpdesk / Mesa de Ayuda
+    'Ticket',
+    'TicketMessage',
+    'HelpdeskStats',
+    'ResolverConfig',
+    'HelpdeskUnread',
   ],
   // Optimizaciones de cache para mejor rendimiento y estabilidad
   keepUnusedDataFor: 300, // 5 minutos en cache (por defecto es 60s)

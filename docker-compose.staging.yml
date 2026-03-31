@@ -41,6 +41,7 @@ services:
       - frontend
       - backend
       - documentos
+      - helpdesk
       - minio
     deploy:
       replicas: 1
@@ -141,6 +142,7 @@ services:
     depends_on:
       - postgres
       - redis
+      - helpdesk
     deploy:
       replicas: 1  # Staging: solo 1 replica
       placement:
@@ -218,6 +220,69 @@ services:
           cpus: '0.5'
     healthcheck:
       test: ["CMD", "wget", "-qO-", "http://localhost:4802/health/ready"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # ================================
+  # HELPDESK MICROSERVICE (INTERNAL NETWORK ONLY)
+  # ================================
+  helpdesk:
+    build:
+      context: ./apps/helpdesk
+      dockerfile: Dockerfile
+    container_name: helpdesk-staging
+    environment:
+      NODE_ENV: staging
+      HELPDESK_PORT: 4803
+      HELPDESK_DATABASE_URL: ${HELPDESK_DATABASE_URL}
+      JWT_PUBLIC_KEY_PATH: /app/keys/jwt_public.pem
+      # Redis for BullMQ queues
+      REDIS_URL: redis://redis:6379
+      # MinIO for attachments
+      MINIO_ENDPOINT: minio:9000
+      MINIO_ACCESS_KEY: ${MINIO_ACCESS_KEY}
+      MINIO_SECRET_KEY: ${MINIO_SECRET_KEY}
+      MINIO_USE_SSL: "false"
+      MINIO_BUCKET_PREFIX: helpdesk-staging
+      # Telegram Bot
+      TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN}
+      # Frontend CORS
+      FRONTEND_URLS: ${FRONTEND_URLS}
+      # Logging
+      LOG_LEVEL: debug
+      # Sentry para staging
+      SENTRY_DSN: ${SENTRY_DSN:-}
+      SENTRY_ENVIRONMENT: staging
+    networks:
+      - frontend
+      - backend
+    # NO PORTS EXPOSED - Only through nginx
+    volumes:
+      - ./keys:/app/keys:ro
+    depends_on:
+      - postgres
+      - redis
+      - minio
+    deploy:
+      replicas: 1  # Staging: solo 1 replica
+      placement:
+        constraints:
+          - node.role == worker
+      resources:
+        limits:
+          memory: 768M
+          cpus: '0.75'
+        reservations:
+          memory: 384M
+          cpus: '0.375'
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:4803/health/ready"]
       interval: 30s
       timeout: 10s
       retries: 3

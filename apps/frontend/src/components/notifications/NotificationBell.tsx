@@ -30,6 +30,10 @@ const getNotificationIcon = (type: string): string => {
     TRANSFERENCIA_APROBADA: '✅',
     TRANSFERENCIA_RECHAZADA: '❌',
     NUEVO_REQUISITO_CLIENTE: '📋',
+    HELPDESK_NEW_TICKET: '🎫',
+    HELPDESK_NEW_RESPONSE: '💬',
+    HELPDESK_TICKET_CLOSED: '✅',
+    HELPDESK_TICKET_REOPENED: '♻️',
     SYSTEM_ALERT: '🔔',
   };
   return icons[type] || '🔔';

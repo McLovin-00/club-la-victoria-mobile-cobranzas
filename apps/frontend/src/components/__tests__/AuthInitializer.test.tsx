@@ -6,6 +6,7 @@ describe('AuthInitializer', () => {
   let state: any = {};
   let dispatch = jest.fn();
   let flagsDocumentos = true;
+  let docsWsUrl = 'ws://localhost:8080/socket.io/';
   const ws = { connect: jest.fn(), disconnect: jest.fn() };
 
   let AuthInitializer: React.FC<{ children: React.ReactNode }>;
@@ -24,6 +25,11 @@ describe('AuthInitializer', () => {
       webSocketService: ws,
     }));
 
+    await jest.unstable_mockModule('../../lib/runtimeEnv', () => ({
+      getRuntimeEnv: (key: string) => (key === 'VITE_DOCUMENTOS_WS_URL' ? docsWsUrl : undefined),
+      getRuntimeFlag: () => false,
+    }));
+
     ({ AuthInitializer } = await import('../AuthInitializer'));
   });
 
@@ -31,6 +37,7 @@ describe('AuthInitializer', () => {
     jest.clearAllMocks();
     dispatch = jest.fn();
     flagsDocumentos = true;
+    docsWsUrl = 'ws://localhost:8080/socket.io/';
     ws.connect.mockReset();
     ws.disconnect.mockReset();
   });
@@ -80,6 +87,22 @@ describe('AuthInitializer', () => {
     expect(screen.getByText('child')).toBeInTheDocument();
 
     unmount();
+    expect(ws.disconnect).toHaveBeenCalled();
+  });
+
+  it('no conecta WebSocket cuando falta la URL de runtime', async () => {
+    state = { auth: { initialized: true, isAuthenticated: true, token: 't' } };
+    docsWsUrl = undefined as unknown as string;
+
+    render(
+      <MemoryRouter>
+        <AuthInitializer>
+          <div>child</div>
+        </AuthInitializer>
+      </MemoryRouter>
+    );
+
+    expect(ws.connect).not.toHaveBeenCalled();
     expect(ws.disconnect).toHaveBeenCalled();
   });
 });

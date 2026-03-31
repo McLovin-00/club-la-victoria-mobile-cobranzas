@@ -118,9 +118,9 @@ export class PlatformAuthController {
       if (!actorProfile) return;
 
       const id = parseInt(req.params.id, 10);
-      const { email, nombre, apellido, role, password, empresaId,
+      const { email, nombre, apellido, telegramUsername, role, password, empresaId,
               dadorCargaId, empresaTransportistaId, choferId, clienteId } = req.body;
-      const data = { email, nombre, apellido, role, password, empresaId,
+      const data = { email, nombre, apellido, telegramUsername, role, password, empresaId,
                      dadorCargaId, empresaTransportistaId, choferId, clienteId };
 
       const result = await PlatformAuthService.updatePlatformUser(id, data, actorProfile);
@@ -236,9 +236,9 @@ export class PlatformAuthController {
       const actorProfile = await resolveActorProfile(req, res);
       if (!actorProfile) return;
 
-      const { email, nombre, apellido, empresaId, clienteId } = req.body;
+      const { email, nombre, apellido, telegramUsername, empresaId, clienteId } = req.body;
       const result = await PlatformAuthService.registerClientWithTempPassword(
-        { email, nombre, apellido, empresaId: empresaId ?? null, clienteId: Number(clienteId) },
+        { email, nombre, apellido, telegramUsername, empresaId: empresaId ?? null, clienteId: Number(clienteId) },
         actorProfile
       );
       handleWizardRegisterResult(res, result, 'register-client');
@@ -256,9 +256,9 @@ export class PlatformAuthController {
       const actorProfile = await resolveActorProfile(req, res);
       if (!actorProfile) return;
 
-      const { email, nombre, apellido, empresaId, dadorCargaId } = req.body;
+      const { email, nombre, apellido, telegramUsername, empresaId, dadorCargaId } = req.body;
       const result = await PlatformAuthService.registerDadorWithTempPassword(
-        { email, nombre, apellido, empresaId: empresaId ?? null, dadorCargaId: Number(dadorCargaId) },
+        { email, nombre, apellido, telegramUsername, empresaId: empresaId ?? null, dadorCargaId: Number(dadorCargaId) },
         actorProfile
       );
       handleWizardRegisterResult(res, result, 'register-dador');
@@ -276,9 +276,9 @@ export class PlatformAuthController {
       const actorProfile = await resolveActorProfile(req, res);
       if (!actorProfile) return;
 
-      const { email, nombre, apellido, empresaId, empresaTransportistaId } = req.body;
+      const { email, nombre, apellido, telegramUsername, empresaId, empresaTransportistaId } = req.body;
       const result = await PlatformAuthService.registerTransportistaWithTempPassword(
-        { email, nombre, apellido, empresaId: empresaId ?? null, empresaTransportistaId: Number(empresaTransportistaId) },
+        { email, nombre, apellido, telegramUsername, empresaId: empresaId ?? null, empresaTransportistaId: Number(empresaTransportistaId) },
         actorProfile
       );
       handleWizardRegisterResult(res, result, 'register-transportista');
@@ -296,14 +296,40 @@ export class PlatformAuthController {
       const actorProfile = await resolveActorProfile(req, res);
       if (!actorProfile) return;
 
-      const { email, nombre, apellido, empresaId, choferId } = req.body;
+      const { email, nombre, apellido, telegramUsername, empresaId, choferId } = req.body;
       const result = await PlatformAuthService.registerChoferWithTempPassword(
-        { email, nombre, apellido, empresaId: empresaId ?? null, choferId: Number(choferId) },
+        { email, nombre, apellido, telegramUsername, empresaId: empresaId ?? null, choferId: Number(choferId) },
         actorProfile
       );
       handleWizardRegisterResult(res, result, 'register-chofer');
     } catch (error) {
       handleWizardError(res, error, 'register-chofer');
+    }
+  }
+
+  /**
+   * Actualizar perfil propio del usuario autenticado.
+   * PUT /api/platform/auth/profile
+   */
+  static async updateProfile(req: AuthRequest, res: Response): Promise<void> {
+    try {
+      const actorProfile = await resolveActorProfile(req, res);
+      if (!actorProfile) return;
+
+      const { nombre, apellido, telegramUsername } = req.body;
+      const result = await PlatformAuthService.updatePlatformUser(
+        actorProfile.id,
+        { nombre, apellido, telegramUsername },
+        actorProfile
+      );
+
+      res.status(200).json({
+        success: true,
+        data: result,
+      });
+    } catch (error) {
+      AppLogger.error('💥 Error actualizando perfil propio de plataforma:', error);
+      res.status(500).json({ success: false, message: 'Error interno del servidor' });
     }
   }
 

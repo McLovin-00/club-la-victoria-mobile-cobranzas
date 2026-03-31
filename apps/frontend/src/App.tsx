@@ -62,6 +62,11 @@ import DadorDashboard from './features/dador/pages/DadorDashboard';
 import ChoferDashboard from './features/chofer/pages/ChoferDashboard';
 // Remitos
 import { RemitosPage } from './features/remitos/pages/RemitosPage';
+// Helpdesk
+import { HelpdeskPage } from './pages/HelpdeskPage';
+import { HelpdeskNewTicketPage } from './pages/HelpdeskNewTicketPage';
+import { TicketDetailPage } from './pages/TicketDetailPage';
+import AdminHelpdeskPage from './pages/AdminHelpdeskPage';
 
 function App() {
   return (
@@ -288,7 +293,7 @@ function App() {
               </Route>
 
               {/* Portal de Admin Interno */}
-              <Route element={<RequireAuth allowedRoles={['ADMIN_INTERNO', 'ADMIN', 'SUPERADMIN']} />}> 
+              <Route element={<RequireAuth allowedRoles={['ADMIN_INTERNO', 'ADMIN', 'SUPERADMIN', 'RESOLVER']} />}> 
                 <Route path='/portal/admin-interno' element={<AdminInternoPortalPage />} />
                 <Route path='/admin/transferencias' element={<TransferenciasPage />} />
               </Route>
@@ -319,10 +324,21 @@ function App() {
                 <Route path='/remitos' element={<RemitosPage />} />
               </Route>
 
+              {/* Helpdesk — rutas específicas antes de :id para que "nuevo" no sea un id */}
+              <Route path='/helpdesk/nuevo' element={<HelpdeskNewTicketPage />} />
+              <Route path='/helpdesk' element={<HelpdeskPage />} />
+              <Route path='/helpdesk/:id' element={<TicketDetailPage />} />
+
               {/* Ruta de Mi Perfil para todos los usuarios */}
               <Route path='/perfil' element={<PerfilPage />} />
               </Route>
             </Route>
+          </Route>
+
+          {/* Admin Helpdesk — página independiente sin MainLayout */}
+          <Route element={<RequireAuth allowedRoles={['ADMIN_INTERNO', 'ADMIN', 'SUPERADMIN', 'RESOLVER']} />}>
+            <Route path='/admin/helpdesk' element={<AdminHelpdeskPage />} />
+            <Route path='/admin/helpdesk/:id' element={<TicketDetailPage />} />
           </Route>
 
           {/* Ruta Catch-all */}

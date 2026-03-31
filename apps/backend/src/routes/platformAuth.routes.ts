@@ -178,6 +178,7 @@ router.post(
     empresaId: z.number().int().positive().optional(),
     nombre: z.string().max(100).optional(),
     apellido: z.string().max(100).optional(),
+    telegramUsername: z.string().trim().max(64).optional(),
     dadorCargaId: z.number().int().positive().optional(),
     empresaTransportistaId: z.number().int().positive().optional(),
     choferId: z.number().int().positive().optional(),
@@ -214,6 +215,7 @@ router.post(
     email: z.string().email(),
     nombre: z.string().max(100).optional(),
     apellido: z.string().max(100).optional(),
+    telegramUsername: z.string().trim().max(64).optional(),
     empresaId: z.number().int().positive().optional(),
     clienteId: z.number().int().positive(),
   })),
@@ -235,6 +237,7 @@ router.post(
     email: z.string().email(),
     nombre: z.string().max(100).optional(),
     apellido: z.string().max(100).optional(),
+    telegramUsername: z.string().trim().max(64).optional(),
     empresaId: z.number().int().positive().optional(),
     dadorCargaId: z.number().int().positive(),
   })),
@@ -256,6 +259,7 @@ router.post(
     email: z.string().email(),
     nombre: z.string().max(100).optional(),
     apellido: z.string().max(100).optional(),
+    telegramUsername: z.string().trim().max(64).optional(),
     empresaId: z.number().int().positive().optional(),
     empresaTransportistaId: z.number().int().positive(),
   })),
@@ -277,6 +281,7 @@ router.post(
     email: z.string().email(),
     nombre: z.string().max(100).optional(),
     apellido: z.string().max(100).optional(),
+    telegramUsername: z.string().trim().max(64).optional(),
     empresaId: z.number().int().positive().optional(),
     choferId: z.number().int().positive(),
   })),
@@ -294,6 +299,18 @@ router.get(
   authenticateUser,
   logAction('PLATFORM_GET_PROFILE'),
   PlatformAuthController.getProfile
+);
+
+router.put(
+  '/profile',
+  authenticateUser,
+  ValidationMiddleware.validateBody(z.object({
+    nombre: z.string().max(100).optional(),
+    apellido: z.string().max(100).optional(),
+    telegramUsername: z.string().trim().max(64).optional().nullable(),
+  })),
+  logAction('PLATFORM_UPDATE_PROFILE'),
+  PlatformAuthController.updateProfile
 );
 
 /**
@@ -406,6 +423,9 @@ router.get(
             role: true,
             nombre: true,
             apellido: true,
+            telegramUsername: true,
+            telegramUserId: true,
+            telegramLinkedAt: true,
             empresaId: true,
             activo: true,
             dadorCargaId: true,

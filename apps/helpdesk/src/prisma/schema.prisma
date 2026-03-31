@@ -1,0 +1,209 @@
+generator client {
+  provider        = "prisma-client-js"
+  binaryTargets   = ["native", "linux-musl-openssl-3.0.x"]
+  output          = "../../node_modules/@helpdesk/prisma-client"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("HELPDESK_DATABASE_URL")
+  directUrl = env("HELPDESK_DATABASE_URL")
+}
+
+// ============================================
+// ENUMS
+// ============================================
+
+enum TicketCategory {
+  TECHNICAL
+  OPERATIONAL
+}
+
+enum TicketSubcategory {
+  ERROR
+  DOUBT
+  SUGGESTION
+  BUSINESS_RULE
+}
+
+enum TicketStatus {
+  OPEN
+  IN_PROGRESS
+  RESOLVED
+  CLOSED
+}
+
+enum TicketPriority {
+  LOW
+  NORMAL
+  HIGH
+}
+
+enum MessageSenderType {
+  USER
+  RESOLVER
+  SYSTEM
+}
+
+enum AttachmentType {
+  IMAGE
+  AUDIO
+  VIDEO
+  DOCUMENT
+}
+
+// ============================================
+// MODELS
+// ============================================
+
+model Ticket {
+  id                String           @id @default(cuid())
+  number            Int              @unique
+  
+  // Clasificación
+  category          TicketCategory
+  subcategory       TicketSubcategory
+  subject           String           @db.VarChar(200)
+  
+  // Estado y prioridad
+  status            TicketStatus     @default(OPEN)
+  priority          TicketPriority   @default(NORMAL)
+  confirmedPriority TicketPriority?
+  
+  // Tenant (empresa de plataforma): aísla tickets entre organizaciones
+  empresaId         Int?             @map("empresa_id")
+  empresaNombre     String?          @map("empresa_nombre") @db.VarChar(100)
+
+  // Usuario creador (referencia al backend por ID)
+  createdBy         Int
+  createdByName     String           @db.VarChar(150)
+  
+  // Asignación
+  assignedTo        String?          @db.VarChar(100)
+  
+  // Telegram
+  telegramTopicId   Int?
+  telegramGroupId   String?          @db.VarChar(50)
+  
+  // Origen
+  source            String           @default("platform") @db.VarChar(20)
+  
+  // Timestamps de cierre
+  resolvedAt        DateTime?        @map("resolved_at") @db.Timestamptz(6)
+  closedAt          DateTime?        @map("closed_at") @db.Timestamptz(6)
+  
+  // Timestamps
+  createdAt         DateTime         @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt         DateTime         @updatedAt @map("updated_at") @db.Timestamptz(6)
+  
+  // Relaciones
+  messages          TicketMessage[]
+  readStates        TicketReadState[]
+  
+  @@index([number], map: "idx_tickets_number")
+  @@index([empresaId], map: "idx_tickets_empresa_id")
+  @@index([createdBy], map: "idx_tickets_created_by")
+  @@index([status], map: "idx_tickets_status")
+  @@index([category], map: "idx_tickets_category")
+  @@index([createdAt], map: "idx_tickets_created_at")
+  @@index([resolvedAt], map: "idx_tickets_resolved_at")
+  @@map("tickets")
+}
+
+model TicketReadState {
+  id         Int      @id @default(autoincrement())
+  ticketId   String   @map("ticket_id")
+  userId     Int      @map("user_id")
+  lastReadAt DateTime @default(now()) @map("last_read_at") @db.Timestamptz(6)
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt  DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  ticket     Ticket   @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+
+  @@unique([ticketId, userId], map: "ticket_read_states_ticket_id_user_id_key")
+  @@index([userId], map: "idx_ticket_read_states_user_id")
+  @@index([ticketId], map: "idx_ticket_read_states_ticket_id")
+  @@map("ticket_read_states")
+}
+
+model TicketMessage {
+  id              String            @id @default(cuid())
+  ticketId        String            @map("ticket_id")
+  
+  // Remitente
+  senderType      MessageSenderType
+  senderId        String?           @map("sender_id") @db.VarChar(50)
+  senderName      String            @map("sender_name") @db.VarChar(150)
+  
+  // Contenido
+  content         String            @db.Text
+  
+  // Telegram reference
+  telegramMessageId Int?            @map("telegram_message_id")
+  
+  // Timestamp
+  createdAt       DateTime          @default(now()) @map("created_at") @db.Timestamptz(6)
+  
+  // Relaciones
+  ticket          Ticket            @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  attachments     MessageAttachment[]
+  
+  @@index([ticketId], map: "idx_messages_ticket_id")
+  @@index([createdAt], map: "idx_messages_created_at")
+  @@map("ticket_messages")
+}
+
+model MessageAttachment {
+  id          String         @id @default(cuid())
+  messageId   String         @map("message_id")
+  
+  // Tipo y nombre
+  type        AttachmentType
+  filename    String         @db.VarChar(255)
+  mimeType    String         @map("mime_type") @db.VarChar(100)
+  size        Int            // bytes
+  
+  // MinIO storage
+  minioKey    String         @map("minio_key") @db.VarChar(500)
+  minioUrl    String?        @map("minio_url") @db.VarChar(500)
+  
+  // Timestamp
+  createdAt   DateTime       @default(now()) @map("created_at") @db.Timestamptz(6)
+  
+  // Relaciones
+  message     TicketMessage  @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  
+  @@index([messageId], map: "idx_attachments_message_id")
+  @@map("message_attachments")
+}
+
+model ResolverConfig {
+  id                Int      @id @default(autoincrement())
+  category          TicketCategory @unique
+  
+  // Telegram group for this category
+  telegramGroupId   String   @map("telegram_group_id") @db.VarChar(50)
+  telegramGroupName String?  @map("telegram_group_name") @db.VarChar(100)
+  
+  // List of resolver names (for reference/display)
+  resolverNames     String[] @map("resolver_names")
+  
+  // Active flag
+  isActive          Boolean  @default(true) @map("is_active")
+  
+  // Timestamps
+  createdAt         DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt         DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+  
+  @@index([category], map: "idx_resolver_config_category")
+  @@map("resolver_configs")
+}
+
+model HelpdeskConfig {
+  id        Int      @id @default(autoincrement())
+  key       String   @unique @db.VarChar(100)
+  value     Json
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+  
+  @@map("helpdesk_configs")
+}

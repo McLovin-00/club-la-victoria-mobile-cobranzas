@@ -19,6 +19,7 @@ interface Props {
     empresaId?: number | null;
     nombre?: string | null;
     apellido?: string | null;
+    telegramUsername?: string | null;
     dadorCargaId?: number | null;
     empresaTransportistaId?: number | null;
     choferId?: number | null;
@@ -47,6 +48,7 @@ type FormData = {
   empresaId?: number | '';
   nombre?: string;
   apellido?: string;
+  telegramUsername?: string;
   password?: string;
   dadorCargaId?: number | '';
   empresaTransportistaId?: number | '';
@@ -190,6 +192,7 @@ const EditPlatformUserModal: React.FC<Props> = ({ isOpen, onClose, user }) => {
       empresaId: user.empresaId ?? '',
       nombre: user.nombre ?? '',
       apellido: user.apellido ?? '',
+      telegramUsername: user.telegramUsername ?? '',
       password: '',
       dadorCargaId: user.dadorCargaId ?? '',
       empresaTransportistaId: user.empresaTransportistaId ?? '',
@@ -255,6 +258,7 @@ const EditPlatformUserModal: React.FC<Props> = ({ isOpen, onClose, user }) => {
         empresaId: user.empresaId ?? '',
         nombre: user.nombre ?? '',
         apellido: user.apellido ?? '',
+        telegramUsername: user.telegramUsername ?? '',
         password: '',
         dadorCargaId: user.dadorCargaId ?? '',
         empresaTransportistaId: user.empresaTransportistaId ?? '',
@@ -314,6 +318,7 @@ const EditPlatformUserModal: React.FC<Props> = ({ isOpen, onClose, user }) => {
         const payload: any = {
           nombre: data.nombre || null,
           apellido: data.apellido || null,
+          telegramUsername: data.telegramUsername || null,
           ...(data.password ? { password: data.password } : {}),
         };
         await updateUser({ id: user.id, data: payload }).unwrap();
@@ -329,6 +334,7 @@ const EditPlatformUserModal: React.FC<Props> = ({ isOpen, onClose, user }) => {
         empresaId: data.empresaId ? Number(data.empresaId) : null,
         nombre: data.nombre || null,
         apellido: data.apellido || null,
+        telegramUsername: data.telegramUsername || null,
         ...(data.password ? { password: data.password } : {}),
       };
       
@@ -397,6 +403,21 @@ const EditPlatformUserModal: React.FC<Props> = ({ isOpen, onClose, user }) => {
                 <Controller name="apellido" control={control} render={({ field }) => (
                   <input type="text" className="w-full px-3 py-2 border rounded-md" {...field} />
                 )} />
+              </div>
+
+              <div className="col-span-2">
+                <label className="block text-sm font-medium mb-1">Username de Telegram</label>
+                <Controller name="telegramUsername" control={control} render={({ field }) => (
+                  <input
+                    type="text"
+                    className="w-full px-3 py-2 border rounded-md"
+                    placeholder="sin @, ej: soporte_bca"
+                    {...field}
+                  />
+                )} />
+                <p className="mt-1 text-xs text-muted-foreground">
+                  Se normaliza automáticamente a minúsculas y sin arroba.
+                </p>
               </div>
 
               {/* Rol - solo lectura para DADOR/TRANSPORTISTA */}

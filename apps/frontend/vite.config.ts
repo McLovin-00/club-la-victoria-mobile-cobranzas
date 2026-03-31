@@ -9,6 +9,10 @@ import removeConsole from 'vite-plugin-remove-console'
 const apiUrl = process.env.VITE_API_URL || 'http://localhost:4800'
 const { origin: apiOrigin, pathname: apiBasePath } = new URL(apiUrl)
 
+// Resolver endpoint del microservicio Helpdesk para enrutar su API en desarrollo
+const helpdeskUrl = process.env.VITE_HELPDESK_API_URL || `http://localhost:${process.env.HELPDESK_PORT || '4803'}`
+const { origin: helpdeskOrigin } = new URL(helpdeskUrl)
+
 // Configuración de puertos desde variables de entorno
 const serverPort = parseInt(process.env.FRONTEND_PORT || '8550', 10)
 const clientPort = parseInt(process.env.FRONTEND_PORT || '8550', 10)
@@ -61,6 +65,18 @@ export default defineConfig({
     // Permitir hosts explícitos para Vite Dev Server
     allowedHosts: allAllowedHosts,
     proxy: {
+      '/api/helpdesk': {
+        target: helpdeskOrigin,
+        changeOrigin: true,
+        secure: false,
+        cookieDomainRewrite: false,
+        rewrite: (path) => path,
+        configure: (proxy) => {
+          proxy.on('error', (err) => {
+            console.log('Helpdesk proxy error:', err);
+          });
+        }
+      },
       '/api': {
         target: apiOrigin, // Dinámico según .env
         changeOrigin: true,

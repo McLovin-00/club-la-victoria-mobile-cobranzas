@@ -1,6 +1,7 @@
 import React from 'react';
 import { Card } from './ui/card';
 import logger from '../utils/logger';
+import { getRuntimeFlag } from '../lib/runtimeEnv';
 
 interface ErrorBoundaryProps {
   children: React.ReactNode;
@@ -41,7 +42,7 @@ export class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoun
             <p className='text-muted-foreground mb-4'>
               Por favor, recarga la página o contacta al administrador del sistema.
             </p>
-            {process.env.NODE_ENV === 'development' && this.state.error && (
+            {getRuntimeFlag('DEV') && this.state.error && (
               <pre className='text-xs text-left whitespace-pre-wrap overflow-auto max-h-64 text-red-500'>
                 {this.state.error.message}
               </pre>

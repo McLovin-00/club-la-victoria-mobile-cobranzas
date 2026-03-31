@@ -1,0 +1,186 @@
+Helpdesk Testing Coverage Exploration Report
+==============================================
+
+EXECUTIVE SUMMARY
+-----------------
+The helpdesk microservice has significant testing gaps, with only 14 test files 
+covering a small fraction of the codebase. Current coverage is estimated at 21%, 
+falling short of the 80% requirement for SonarQube Quality Gate.
+
+CURRENT STATE
+-------------
+Codebase Structure:
+- apps/helpdesk/src/
+  - __tests__/ (14 test files)
+  - bot/ (handlers, middleware, utils)
+  - controllers/ (4 files)
+  - config/ (5 files)
+  - middlewares/ (3 files)
+  - prisma/ (migrations)
+  - routes/ (6 files)
+  - schedulers/ (1 file)
+  - schemas/ (3 files)
+  - services/ (8 files)
+  - types/ (TypeScript types)
+  - workers/ (3 files)
+
+Total source files: 51 (excluding tests and prisma)
+Existing test files: 14
+Current coverage: ~21%
+Target coverage: 80%
+Gap: 59 percentage points
+
+TESTING INFRASTRUCTURE
+----------------------
+- Framework: Jest 30.0.4 + ts-jest 29.4.5
+- Integration tests: Supertest 7.1.4
+- Coverage thresholds: 70% (lines, branches, functions, statements)
+- Config: apps/helpdesk/jest.config.js
+- Test setup: apps/helpdesk/src/__tests__/jest.setup.ts
+
+EXISTING TEST FILES (14)
+-------------------------
+Services (7):
+  - ticket.service.test.ts
+  - message.service.test.ts
+  - platform-user-link.service.test.ts
+  - tenant-scope.test.ts
+  - ticket-read-state.service.test.ts
+  - helpdesk-internal-notification.service.test.ts
+  - helpdesk-media-sync.service.test.ts
+
+Routes (3):
+  - admin.routes.test.ts
+  - health.routes.test.ts
+  - message.routes.test.ts
+
+Controllers (1):
+  - ticket-create.helpers.test.ts
+
+Bot utils (1):
+  - telegram-html-escape.test.ts
+
+Bot middleware (1):
+  - middleware-routing.test.ts
+
+Utils (1):
+  - message-attachments.test.ts
+
+COMPONENTS WITH TESTS
+---------------------
+Services: 7 files ✓
+Routes: 3 files ✓
+Controllers: 1 file ✓
+Bot utils: 1 file ✓
+Bot middleware: 1 file ✓
+Utils: 1 file ✓
+Total: 14 files
+
+COMPONENTS WITHOUT TESTS (MAJOR GAPS)
+-------------------------------------
+Services (4): telegram.service.ts, websocket.service.ts, queue.service.ts, sync-resolver-config.ts
+Controllers (3): ticket.controller.ts (684 lines), message.controller.ts, admin-message.controller.ts
+Middlewares (3): auth.middleware.ts, admin.middleware.ts, error.middleware.ts
+Routes (2): ticket.routes.ts, attachment.routes.ts
+Bot Handlers (3): dm.handler.ts, group.handler.ts, commands.handler.ts
+Workers (2): auto-close.worker.ts, media-sync.worker.ts
+Schedulers (1): auto-close.scheduler.ts
+Utils (3): controller-helper.ts, ticket-formatter.ts, viewer-context.ts
+Config (5): database.ts, environment.ts, logger.ts, minio.ts, redis.ts
+Total: 30 files
+
+PRIORITIZED GAPS
+----------------
+P0 - CRITICAL (Controllers, Middlewares, Routes):
+1. ticket.controller.ts (684 lines) - P0
+2. message.controller.ts (147 lines) - P0
+3. admin-message.controller.ts - P0
+4. auth.middleware.ts (175 lines) - P0
+5. admin.middleware.ts - P0
+6. error.middleware.ts - P0
+7. ticket.routes.ts - P0
+8. attachment.routes.ts - P0
+9. message.routes.ts - P0
+
+P1 - HIGH (Services, Workers, Bot Handlers, Schedulers):
+10. telegram.service.ts - P1
+11. websocket.service.ts - P1
+12. queue.service.ts - P1
+13. sync-resolver-config.ts - P1
+14. dm.handler.ts - P1
+15. group.handler.ts - P1
+16. commands.handler.ts - P1
+17. auto-close.worker.ts - P1
+18. media-sync.worker.ts - P1
+19. auto-close.scheduler.ts - P1
+
+P2 - MEDIUM (Utils, Config):
+20. controller-helper.ts - P2
+21. ticket-formatter.ts - P2
+22. viewer-context.ts - P2
+23. database.ts - P2
+24. environment.ts - P2
+25. logger.ts - P2
+26. minio.ts - P2
+27. redis.ts - P2
+28. websocket.service.ts - P2
+
+SONARQUBE CONFIGURATION
+-----------------------
+Server: http://10.3.0.244:9900
+Project Key: monorepo-bca
+Quality Gate Status: FAILED (needs ≥80% coverage)
+Current Coverage: ~21%
+Target Coverage: 80% (new code)
+
+ESTIMATED TEST COUNTS
+---------------------
+Unit Tests: 174-280 tests
+  - Services: 80-120 (8 files × 10-15 tests)
+  - Controllers: 45-60 (3 files × 15-20 tests)
+  - Utils: 25-50 (5 files × 5-10 tests)
+  - Middlewares: 24-30 (3 files × 8-10 tests)
+  - Bot Utils: 5-10 (2 files × 2-5 tests)
+
+Integration Tests: 75-100 tests
+  - Routes: 75-100 (5 files × 15-20 tests)
+
+E2E Tests: 60-120 tests
+  - Core flows: 60-120 scenarios × 1-2 tests each
+
+Total: 309-500 new tests
+
+TIMELINE ESTIMATE
+-----------------
+P0 Components: 1-2 weeks (40-50 tests)
+P1 Components: 1-2 weeks (80-120 tests)
+P2 Components: 1 week (50-80 tests)
+Infrastructure: 1 week (30-50 tests)
+Total: 3-4 weeks
+
+RECOMMENDATIONS
+---------------
+Phase 1 (P0): Controllers, Middlewares, Routes - 1-2 weeks
+Phase 2 (P1): Services, Workers, Bot Handlers, Schedulers - 1-2 weeks
+Phase 3 (P2): Utils, Config - 1 week
+Phase 4 (Infrastructure): Test utilities, database integration tests, E2E tests - 1 week
+
+SUCCESS CRITERIA
+----------------
+Code Coverage:
+  - Lines: ≥80%
+  - Branches: ≥80%
+  - Functions: ≥80%
+  - Statements: ≥80%
+
+SonarQube Quality Gate:
+  - New Code Coverage: ≥80%
+  - Reliability Rating: A (0 bugs)
+  - Security Rating: A (0 vulnerabilities)
+  - Maintainability Rating: A (0 code smells)
+
+CONCLUSION
+----------
+The helpdesk microservice needs 309-500 new tests to reach 80% coverage.
+Highest priority: P0 components (controllers, middlewares, routes).
+Target: SonarQube Quality Gate PASSED.

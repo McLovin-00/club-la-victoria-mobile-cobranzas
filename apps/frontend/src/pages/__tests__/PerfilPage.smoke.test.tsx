@@ -31,6 +31,7 @@ jest.unstable_mockModule('@/features/auth/authSlice', () => ({
     selectCurrentUser: (state: unknown) => (state as any)?.auth?.user || mockUser,
     selectIsSuperAdmin: () => false,
     setCredentials: jest.fn(),
+    setCurrentUser: jest.fn(),
 }));
 
 // Mock de empresasApiSlice
@@ -41,6 +42,7 @@ jest.unstable_mockModule('@/features/empresas/api/empresasApiSlice', () => ({
 // Mock de authApiSlice
 jest.unstable_mockModule('@/features/auth/api/authApiSlice', () => ({
     useUpdateUserEmpresaMutation: () => [jest.fn(), { isLoading: false }],
+    useUpdateProfileMutation: () => [jest.fn(), { isLoading: false }],
 }));
 
 // Mock de Toast

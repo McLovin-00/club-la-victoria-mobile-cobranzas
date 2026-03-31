@@ -36,9 +36,9 @@ describe('ErrorBoundary', () => {
     expect(screen.getByText('ok')).toBeInTheDocument();
   });
 
-  it('muestra fallback y loguea cuando un child rompe (NODE_ENV=development)', () => {
-    const prev = process.env.NODE_ENV;
-    process.env.NODE_ENV = 'development';
+  it('muestra fallback y loguea cuando un child rompe (DEV=true)', () => {
+    const prev = process.env.DEV;
+    process.env.DEV = 'true';
 
     render(
       <ErrorBoundary>
@@ -55,12 +55,12 @@ describe('ErrorBoundary', () => {
       expect.any(Object)
     );
 
-    process.env.NODE_ENV = prev;
+    process.env.DEV = prev;
   });
 
   it('NO muestra detalles del error en producción', () => {
-    const prev = process.env.NODE_ENV;
-    process.env.NODE_ENV = 'production';
+    const prev = process.env.DEV;
+    process.env.DEV = 'false';
 
     render(
       <ErrorBoundary>
@@ -71,7 +71,7 @@ describe('ErrorBoundary', () => {
     expect(screen.getByText('Ha ocurrido un error inesperado')).toBeInTheDocument();
     expect(screen.queryByText('boom')).not.toBeInTheDocument();
 
-    process.env.NODE_ENV = prev;
+    process.env.DEV = prev;
   });
 });
 

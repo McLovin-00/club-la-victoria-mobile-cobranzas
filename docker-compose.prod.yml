@@ -29,6 +29,7 @@ services:
       - frontend
       - backend
       - documentos
+      - helpdesk
       - minio
     deploy:
       replicas: 1
@@ -57,6 +58,71 @@ services:
         max-size: "10m"
         max-file: "3"
 
+  # ================================
+  # HELPDESK MICROSERVICE (INTERNAL NETWORK ONLY)
+  # ================================
+  helpdesk:
+    build:
+      context: ./apps/helpdesk
+      dockerfile: Dockerfile
+    container_name: helpdesk
+    environment:
+      NODE_ENV: production
+      HELPDESK_PORT: 4803
+      HELPDESK_DATABASE_URL: ${HELPDESK_DATABASE_URL}
+      JWT_PUBLIC_KEY_PATH: /app/keys/jwt_public.pem
+      # Redis for BullMQ queues
+      REDIS_URL: redis://redis:6379
+      # MinIO for attachments
+      MINIO_ENDPOINT: minio:9000
+      MINIO_ACCESS_KEY: ${MINIO_ACCESS_KEY}
+      MINIO_SECRET_KEY: ${MINIO_SECRET_KEY}
+      MINIO_USE_SSL: "false"
+      MINIO_BUCKET_PREFIX: helpdesk
+      # Telegram Bot
+      TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN}
+      # Frontend CORS
+      FRONTEND_URLS: ${FRONTEND_URLS}
+      # Logging
+      LOG_LEVEL: info
+      # Sentry
+      SENTRY_DSN: ${SENTRY_DSN:-}
+      SENTRY_ENVIRONMENT: production
+    networks:
+      - frontend
+      - backend
+    # NO PORTS EXPOSED - Only through nginx
+    volumes:
+      - ./keys:/app/keys:ro
+    depends_on:
+      - postgres
+      - redis
+      - minio
+    deploy:
+      replicas: 2
+      placement:
+        constraints:
+          - node.role == worker
+      resources:
+        limits:
+          memory: 768M
+          cpus: '0.75'
+        reservations:
+          memory: 384M
+          cpus: '0.375'
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:4803/health/ready"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # ================================
+  # MINIO STORAGE (INTERNAL NETWORK ONLY)
   # ================================
   # FRONTEND (INTERNAL NETWORK ONLY)
   # ================================
