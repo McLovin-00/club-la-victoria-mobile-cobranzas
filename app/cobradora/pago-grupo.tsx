@@ -9,9 +9,10 @@ import { Spinner } from "../../components/ui/spinner";
 import { ScreenBackButton } from "../../components/ui/screen-back-button";
 import { useToast } from "../../components/ui/toast";
 import { mobileApi } from "../../lib/api";
+import { METODOS_PAGO, parseMontoInputToAmount, parseMontoInputToCents, toCents } from "../../lib/pagos";
 import { getBinding } from "../../lib/storage";
 import { cn } from "../../lib/utils";
-import type { ConceptoCobro, CobroSocioPayload } from "../../lib/types";
+import type { ConceptoCobro, CobroSocioPayload, GrupoFamiliarDetalle } from "../../lib/types";
 
 interface CuotaItem {
   id: number;
@@ -29,21 +30,6 @@ interface SocioCobroState {
   showConceptos: boolean;
 }
 
-const METODOS_PAGO = [
-  { id: 1, nombre: "Efectivo" },
-  { id: 2, nombre: "Transferencia" },
-] as const;
-
-const toCents = (value: number): number => Math.round(value * 100);
-
-const parseMontoInputToCents = (value: string): number => {
-  const normalizado = value.replace(".", "").replace(",", ".").trim();
-  const parsed = Number(normalizado || 0);
-  if (!Number.isFinite(parsed) || parsed < 0) {
-    return 0;
-  }
-  return toCents(parsed);
-};
 
 export default function PagoGrupoScreen() {
   const router = useRouter();
@@ -59,9 +45,12 @@ export default function PagoGrupoScreen() {
   const [error, setError] = useState<string | null>(null);
   const [usarDosMetodos, setUsarDosMetodos] = useState(false);
   const [metodoPagoId, setMetodoPagoId] = useState<number>(1);
+  const [montoUnicoInput, setMontoUnicoInput] = useState("");
   const [montoEfectivoInput, setMontoEfectivoInput] = useState("");
   const [success, setSuccess] = useState(false);
+  const [grupoData, setGrupoData] = useState<GrupoFamiliarDetalle | null>(null);
   const redirectTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const idempotencyRef = useRef<{ signature: string; key: string } | null>(null);
 
   useEffect(() => {
     return () => {
@@ -88,11 +77,12 @@ export default function PagoGrupoScreen() {
 
     const loadSociosData = async () => {
       try {
-        const grupoData = await mobileApi.getGrupoFamiliar(grupoId);
+        const grupoDataResult = await mobileApi.getGrupoFamiliar(grupoId);
+        setGrupoData(grupoDataResult);
         const sociosData: SocioCobroState[] = [];
 
         for (const socioId of socioIds) {
-          const miembro = grupoData.miembros.find((m) => m.id === socioId);
+          const miembro = grupoDataResult.miembros.find((m) => m.id === socioId);
           if (!miembro) continue;
 
           const cuotas = await mobileApi.cuotasPendientes(socioId);
@@ -211,37 +201,94 @@ export default function PagoGrupoScreen() {
       const cuotasTotal = socio.cuotas
         .filter((c) => socio.cuotasSeleccionadas.includes(c.id))
         .reduce((acc, c) => acc + Number(c.monto), 0);
-      const conceptosValidos = socio.conceptos
-        .filter((c) => c.concepto.trim().length > 0)
-        .reduce((acc, c) => acc + Number(c.monto.replace(",", ".") || 0), 0);
+        const conceptosValidos = socio.conceptos
+          .filter((c) => c.concepto.trim().length > 0)
+          .reduce((acc, c) => acc + parseMontoInputToAmount(c.monto), 0);
       total += cuotasTotal + conceptosValidos;
     }
     return total;
   }, [socios]);
 
-  const totalCents = toCents(totalCalculado);
+  // Compute net payable after group credit
+  const grupoCreditoDisponible = Number(grupoData?.creditoGrupal ?? 0);
+  const totalNeto = Math.max(totalCalculado - grupoCreditoDisponible, 0);
+
+  const totalCents = toCents(totalNeto);
+  const montoUnicoCentsIngresado = parseMontoInputToCents(montoUnicoInput);
+  const montoUnicoCents = montoUnicoCentsIngresado > 0 ? montoUnicoCentsIngresado : totalCents;
   const montoEfectivoCents = parseMontoInputToCents(montoEfectivoInput);
   const montoTransferenciaCents = Math.max(totalCents - montoEfectivoCents, 0);
+  const pagoUnicoValido = totalCalculado > 0 && montoUnicoCents >= totalCents;
   const splitValido =
     !usarDosMetodos ||
     (montoEfectivoCents > 0 && montoTransferenciaCents > 0 && montoEfectivoCents < totalCents);
+
+  const getStableIdempotencyKey = (installationId: string, signature: string) => {
+    if (idempotencyRef.current?.signature === signature) {
+      return idempotencyRef.current.key;
+    }
+
+    const key = `${installationId}-${Date.now()}`;
+    idempotencyRef.current = { signature, key };
+    return key;
+  };
+
+  const obtenerCreditoGrupalVigente = async () => {
+    try {
+      const grupoActualizado = await mobileApi.getGrupoFamiliar(grupoId);
+      setGrupoData(grupoActualizado);
+      const credito = Number(grupoActualizado.creditoGrupal ?? grupoCreditoDisponible);
+      return Number.isFinite(credito) && credito >= 0 ? credito : grupoCreditoDisponible;
+    } catch {
+      return grupoCreditoDisponible;
+    }
+  };
+
+  useEffect(() => {
+    if (!usarDosMetodos) {
+      setMontoUnicoInput(totalNeto > 0 ? String(totalNeto) : "");
+    }
+  }, [totalNeto, usarDosMetodos]);
 
   const confirmarPago = async () => {
     setError(null);
     setLoading(true);
     try {
-      if (totalCents <= 0) {
+      if (totalCalculado <= 0) {
         throw new Error("El total debe ser mayor a cero");
       }
+
+      const creditoGrupalVigente = await obtenerCreditoGrupalVigente();
+      const totalNetoVigente = Math.max(totalCalculado - creditoGrupalVigente, 0);
+      const totalCentsVigente = toCents(totalNetoVigente);
+      const montoUnicoCentsParaEnviar = montoUnicoCents === totalCents
+        ? totalCentsVigente
+        : montoUnicoCents;
+      const montoTransferenciaCentsParaEnviar = Math.max(
+        totalCentsVigente - montoEfectivoCents,
+        0,
+      );
+      const pagoUnicoValidoVigente = totalCalculado > 0 && montoUnicoCentsParaEnviar >= totalCentsVigente;
+      const splitValidoVigente =
+        !usarDosMetodos ||
+        (montoEfectivoCents > 0 &&
+          montoTransferenciaCentsParaEnviar > 0 &&
+          montoEfectivoCents < totalCentsVigente);
 
       const pagos = usarDosMetodos
         ? [
             { metodoPagoId: 1, monto: montoEfectivoCents / 100 },
-            { metodoPagoId: 2, monto: montoTransferenciaCents / 100 },
+            { metodoPagoId: 2, monto: montoTransferenciaCentsParaEnviar / 100 },
           ]
-        : [{ metodoPagoId, monto: totalCalculado }];
+        : [{ metodoPagoId, monto: montoUnicoCentsParaEnviar / 100 }];
 
-      if (usarDosMetodos && !splitValido) {
+      if (!usarDosMetodos && !pagoUnicoValidoVigente) {
+        throw new Error(
+          `Ingresá un monto igual o mayor a $${totalNetoVigente.toLocaleString("es-AR")} para registrar el cobro grupal`
+        );
+      }
+
+      if (usarDosMetodos && !splitValidoVigente) {
         throw new Error(
           "Para pago mixto, cargá un importe de efectivo mayor a 0 y menor al total"
         );
@@ -257,7 +304,7 @@ export default function PagoGrupoScreen() {
           .filter((c) => c.concepto.trim().length > 0)
           .map((c) => ({
             concepto: c.concepto.trim(),
-            monto: Number(c.monto.replace(",", ".") || 0),
+            monto: parseMontoInputToAmount(c.monto),
           }));
 
         return {
@@ -267,7 +314,15 @@ export default function PagoGrupoScreen() {
         };
       });
 
+      const operationSignature = JSON.stringify({
+        grupoId,
+        cobros,
+        pagos,
+        total: totalCalculado,
+      });
+
       await mobileApi.registrarCobroGrupal({
+        grupoId,
         cobros,
         pagos,
         actorCobro: "COBRADOR",
@@ -275,7 +330,10 @@ export default function PagoGrupoScreen() {
         installationId: binding.installationId,
         cobradorId: binding.cobradorId,
         total: totalCalculado,
-        idempotencyKey: `${binding.installationId}-${Date.now()}`,
+        idempotencyKey: getStableIdempotencyKey(
+          binding.installationId,
+          operationSignature,
+        ),
       });
 
       setSuccess(true);
@@ -286,7 +344,7 @@ export default function PagoGrupoScreen() {
       }
 
       redirectTimeoutRef.current = setTimeout(() => {
-        router.replace(`/cobradora/grupo-familiar/${grupoId}`);
+        router.replace(`/cobradora/home`);
         redirectTimeoutRef.current = null;
       }, 1500);
     } catch (err) {
@@ -370,13 +428,33 @@ export default function PagoGrupoScreen() {
             </View>
           )}
 
+          {(() => {
+            // Display group credit if available (from the getGrupoFamiliar call)
+            if (typeof grupoData?.creditoGrupal === "number" && grupoData.creditoGrupal > 0) {
+              return (
+                <View className="rounded-2xl border border-blue-200 bg-blue-50 p-4 flex-row items-center justify-between">
+                  <View className="flex-row items-center gap-2">
+                    <CreditCard size={18} color="hsl(215, 90%, 52%)" />
+                    <Text className="text-sm font-medium text-blue-700">
+                      Crédito grupal disponible
+                    </Text>
+                  </View>
+                  <Text className="text-base font-bold text-blue-700">
+                    ${grupoData.creditoGrupal.toLocaleString("es-AR")}
+                  </Text>
+                </View>
+              );
+            }
+            return null;
+          })()}
+
           {socios.map((socio, socioIndex) => {
             const socioCuotasTotal = socio.cuotas
               .filter((c) => socio.cuotasSeleccionadas.includes(c.id))
               .reduce((acc, c) => acc + Number(c.monto), 0);
             const socioConceptosValidos = socio.conceptos
               .filter((c) => c.concepto.trim().length > 0)
-              .reduce((acc, c) => acc + Number(c.monto.replace(",", ".") || 0), 0);
+              .reduce((acc, c) => acc + parseMontoInputToAmount(c.monto), 0);
             const socioTotal = socioCuotasTotal + socioConceptosValidos;
 
             return (
@@ -579,39 +657,60 @@ export default function PagoGrupoScreen() {
               </View>
 
               {!usarDosMetodos ? (
-                <View
-                  className="flex-row gap-2"
-                  accessibilityRole="radiogroup"
-                  accessibilityLabel="Seleccionar método de pago"
-                >
-                  {METODOS_PAGO.map((metodo) => {
-                    const selected = metodoPagoId === metodo.id;
-                    return (
-                      <Pressable
-                        key={metodo.id}
-                        onPress={() => setMetodoPagoId(metodo.id)}
-                        className="flex-1"
-                        accessibilityRole="radio"
-                        accessibilityState={{ selected }}
-                      >
-                        <View
-                          className={cn(
-                            "bg-card rounded-3xl p-4 border shadow-sm items-center",
-                            selected ? "border-primary bg-primary" : "border-border/40"
-                          )}
+                <View className="gap-3">
+                  <View
+                    className="flex-row gap-2"
+                    accessibilityRole="radiogroup"
+                    accessibilityLabel="Seleccionar método de pago"
+                  >
+                    {METODOS_PAGO.map((metodo) => {
+                      const selected = metodoPagoId === metodo.id;
+                      return (
+                        <Pressable
+                          key={metodo.id}
+                          onPress={() => setMetodoPagoId(metodo.id)}
+                          className="flex-1"
+                          accessibilityRole="radio"
+                          accessibilityState={{ selected }}
                         >
-                          <Text
+                          <View
                             className={cn(
-                              "text-center font-bold text-sm",
-                              selected ? "text-primary-foreground" : "text-foreground"
+                              "bg-card rounded-3xl p-4 border shadow-sm items-center",
+                              selected ? "border-primary bg-primary" : "border-border/40"
                             )}
                           >
-                            {metodo.nombre}
-                          </Text>
-                        </View>
-                      </Pressable>
-                    );
-                  })}
+                            <Text
+                              className={cn(
+                                "text-center font-bold text-sm",
+                                selected ? "text-primary-foreground" : "text-foreground"
+                              )}
+                            >
+                              {metodo.nombre}
+                            </Text>
+                          </View>
+                        </Pressable>
+                      );
+                    })}
+                  </View>
+
+                  <View className="bg-card rounded-3xl p-4 gap-3" style={{ borderWidth: 1, borderColor: 'rgba(0, 0, 0, 0.08)', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.05, shadowRadius: 2, elevation: 1 }}>
+                    <Input
+                      label="¿Cuánto paga el cliente?"
+                      placeholder="0"
+                      keyboardType="numeric"
+                      value={montoUnicoInput}
+                      onChangeText={setMontoUnicoInput}
+                      leftIcon={<Text className="text-muted-foreground">$</Text>}
+                    />
+                    <Text className="text-xs text-muted-foreground">
+                      Podés cobrar exactamente ${totalNeto.toLocaleString("es-AR")} o más. El excedente queda como crédito grupal.
+                    </Text>
+                    {!pagoUnicoValido && totalCents > 0 && (
+                      <Text className="text-xs text-destructive">
+                        Ingresá un monto igual o mayor a ${totalNeto.toLocaleString("es-AR")}. Si pagan más, el excedente queda como crédito grupal.
+                      </Text>
+                    )}
+                  </View>
                 </View>
               ) : (
                 <View className="bg-card rounded-3xl p-4 gap-3" style={{ borderWidth: 1, borderColor: 'rgba(0, 0, 0, 0.08)', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.05, shadowRadius: 2, elevation: 1 }}>
@@ -642,7 +741,7 @@ export default function PagoGrupoScreen() {
 
                   {!splitValido && totalCents > 0 && (
                     <Text className="text-xs text-destructive">
-                      El efectivo debe ser mayor a $0 y menor al total.
+                      El efectivo debe ser mayor a $0 y menor al total ({totalNeto.toLocaleString("es-AR")}).
                     </Text>
                   )}
                 </View>
@@ -668,17 +767,17 @@ export default function PagoGrupoScreen() {
                 Total a cobrar
               </Text>
               <Text className="text-foreground font-bold text-2xl tracking-tight">
-                ${totalCalculado.toLocaleString("es-AR")}
+                ${totalNeto.toLocaleString("es-AR")}
               </Text>
             </View>
             <Button
               size="lg"
-              disabled={loading || totalCalculado <= 0 || !splitValido}
+              disabled={loading || totalCalculado <= 0 || (usarDosMetodos ? !splitValido : !pagoUnicoValido)}
               loading={loading}
               leftIcon={!loading && <CreditCard size={20} color="#ffffff" />}
               onPress={() => void confirmarPago()}
               accessibilityLabel="Confirmar cobro grupal"
-              accessibilityState={{ disabled: loading || totalCalculado <= 0 || !splitValido }}
+              accessibilityState={{ disabled: loading || totalCalculado <= 0 || (usarDosMetodos ? !splitValido : !pagoUnicoValido) }}
             >
               Confirmar
             </Button>

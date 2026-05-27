@@ -189,7 +189,7 @@ export default function HomeCobradoraScreen() {
     return (
       <View className="mb-3 px-2">
         <Pressable
-          onPress={() => router.push(`/cobradora/pago?socioId=${socio.id}&nombre=${encodeURIComponent(socio.nombre)}&apellido=${encodeURIComponent(socio.apellido)}`)}
+          onPress={() => router.push(`/cobradora/pago?socioId=${socio.id}&nombre=${encodeURIComponent(socio.nombre)}&apellido=${encodeURIComponent(socio.apellido)}&creditoDisponible=${encodeURIComponent(String(socio.creditoIndividual ?? 0))}`)}
           accessibilityRole="button"
           accessibilityLabel={`${socio.apellido}, ${socio.nombre}. DNI: ${socio.dni ?? "—"}. Estado: ${estadoLabel}. ${socio.grupoFamiliar ? `Grupo: ${socio.grupoFamiliar.nombre}.` : ""} Toca para cobrar`}
           accessibilityHint="Navega a la pantalla de cobro"

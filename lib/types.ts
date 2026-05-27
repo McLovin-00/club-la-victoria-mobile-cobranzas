@@ -25,6 +25,8 @@ export interface GrupoFamiliar {
   cantidadMiembros: number;
   miembrosConDeuda: number;
   totalPendiente: number;
+  /** Crédito grupal disponible del grupo familiar, calculado por el backend */
+  creditoGrupal?: number;
 }
 
 /**
@@ -47,6 +49,7 @@ export interface MiembroGrupo {
   telefono?: string;
   cantidadCuotasPendientes: number;
   totalPendiente: number;
+  creditoIndividual?: number;
   cuotasPendientes: CuotaPendiente[];
 }
 
@@ -63,6 +66,8 @@ export interface GrupoFamiliarDetalle {
   miembrosConDeuda: number;
   totalPendiente: number;
   miembros: MiembroGrupo[];
+  /** Crédito grupal disponible del grupo familiar, calculado por el backend */
+  creditoGrupal?: number;
 }
 
 /**
@@ -77,6 +82,7 @@ export interface SocioConGrupo {
   dni?: string;
   telefono?: string;
   cantidadCuotasPendientes?: number;
+  creditoIndividual?: number;
   grupoFamiliar?: {
     id: number;
     nombre: string;
@@ -113,6 +119,7 @@ export interface CobroSocioPayload {
  * POST /cobros/pagos/operacion-grupal
  */
 export interface CobroGrupalPayload {
+  grupoId: number;
   cobros: CobroSocioPayload[];
   pagos: MetodoPago[];
   actorCobro: string;

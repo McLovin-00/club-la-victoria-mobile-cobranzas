@@ -33,7 +33,7 @@ describe("offline flow", () => {
 
     await waitFor(() => {
       expect(alert).toHaveTextContent("Sin conexión");
-      expect(mobileApi.buscarSocios).toHaveBeenCalledWith("");
+      expect(mobileApi.buscarSocios).toHaveBeenCalledWith("", 0, 50);
     });
   });
 });

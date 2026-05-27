@@ -6,29 +6,35 @@ import { createBinding, createCobrador } from "../setup/mocks";
 jest.mock("../../lib/api", () => ({
   mobileApi: {
     getCobradoresActivos: jest.fn(),
+    vincularDispositivo: jest.fn(),
   },
 }));
 
 jest.mock("../../lib/storage", () => ({
   getBinding: jest.fn(),
+  getOrCreateInstallationId: jest.fn(),
   setBinding: jest.fn(),
 }));
 
 const { mobileApi } = jest.requireMock("../../lib/api") as {
   mobileApi: {
     getCobradoresActivos: jest.Mock;
+    vincularDispositivo: jest.Mock;
   };
 };
 
 const storage = jest.requireMock("../../lib/storage") as {
   getBinding: jest.Mock;
+  getOrCreateInstallationId: jest.Mock;
   setBinding: jest.Mock;
 };
 
 describe("ConfiguracionCobradorScreen", () => {
   it("updates the current binding and returns to the landing screen", async () => {
     storage.getBinding.mockResolvedValue(createBinding());
+    storage.getOrCreateInstallationId.mockResolvedValue("device-123");
     storage.setBinding.mockResolvedValue(undefined);
+    mobileApi.vincularDispositivo.mockResolvedValue(undefined);
     mobileApi.getCobradoresActivos.mockResolvedValue([
       createCobrador(),
       createCobrador({ id: 2, nombre: "Luis Diaz" }),
@@ -46,6 +52,10 @@ describe("ConfiguracionCobradorScreen", () => {
     fireEvent.press(option);
 
     await waitFor(() => {
+      expect(mobileApi.vincularDispositivo).toHaveBeenCalledWith({
+        installationId: "device-123",
+        cobradorId: 2,
+      });
       expect(storage.setBinding).toHaveBeenCalledWith({
         installationId: "device-123",
         cobradorId: 2,

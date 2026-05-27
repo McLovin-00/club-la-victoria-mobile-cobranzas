@@ -8,9 +8,17 @@ import { Spinner } from "../../components/ui/spinner";
 import { DatePicker } from "../../components/ui/date-picker";
 import { Modal } from "../../components/ui/modal";
 import { mobileApi } from "../../lib/api";
-import { getBinding } from "../../lib/storage";
+import { getBinding, setEditOperacion } from "../../lib/storage";
 
 type OperacionCompleta = NonNullable<Awaited<ReturnType<typeof mobileApi.misCobranzas>>['operaciones'][number]>;
+type OperacionSocioCredito = {
+  id: number;
+  nombre: string;
+  apellido: string;
+  creditoIndividual?: {
+    saldo: number;
+  };
+};
 
 interface ReporteData {
   totalCobrado: number;
@@ -128,6 +136,11 @@ export default function MisCobranzasScreen() {
 
   const getOperacionResumen = (op: OperacionCompleta) => {
     return `${getOperacionSocio(op)} • ${getOperacionMetodo(op)} • ${getOperacionItems(op)}`;
+  };
+
+  const getCreditoIndividualSaldo = (socio: OperacionCompleta["socio"]) => {
+    const saldo = (socio as OperacionSocioCredito | null | undefined)?.creditoIndividual?.saldo;
+    return typeof saldo === "number" ? saldo : 0;
   };
 
 
@@ -401,18 +414,27 @@ export default function MisCobranzasScreen() {
               </View>
             </View>
 
-            {/* Info del socio si existe */}
+                {/* Info del socio si existe */}
             {selectedOp.socio && (
-              <View className="flex-row items-center gap-3 p-3 bg-muted/30 rounded-xl">
-                <View className="w-10 h-10 rounded-full bg-primary/10 items-center justify-center">
-                  <User size={18} color="hsl(var(--primary))" />
+              <View className="gap-3">
+                <View className="flex-row items-center gap-3 p-3 bg-muted/30 rounded-xl">
+                  <View className="w-10 h-10 rounded-full bg-primary/10 items-center justify-center">
+                    <User size={18} color="hsl(var(--primary))" />
+                  </View>
+                  <View className="flex-1">
+                    <Text className="text-muted-foreground text-xs font-medium uppercase tracking-wider">Socio</Text>
+                    <Text className="text-foreground font-semibold">
+                      {selectedOp.socio.nombre} {selectedOp.socio.apellido}
+                    </Text>
+                  </View>
                 </View>
-                <View className="flex-1">
-                  <Text className="text-muted-foreground text-xs font-medium uppercase tracking-wider">Socio</Text>
-                  <Text className="text-foreground font-semibold">
-                    {selectedOp.socio.nombre} {selectedOp.socio.apellido}
-                  </Text>
-                </View>
+                {getCreditoIndividualSaldo(selectedOp.socio) > 0 && (
+                  <View className="self-start rounded-full border border-primary/30 bg-primary/10 px-3 py-1">
+                    <Text className="text-primary text-xs font-semibold">
+                      Saldo a favor: ${getCreditoIndividualSaldo(selectedOp.socio).toLocaleString("es-AR")}
+                    </Text>
+                  </View>
+                )}
               </View>
             )}
 
@@ -495,6 +517,39 @@ export default function MisCobranzasScreen() {
                   Sin detalle disponible
                 </Text>
               </View>
+            )}
+
+            {/* Botón editar */}
+            {!selectedOp.socio ? (
+              <View className="bg-muted/50 rounded-2xl p-4 items-center mt-2">
+                <Text className="text-muted-foreground text-sm text-center">
+                  Esta operación no tiene socio asociado. No se puede editar desde la app.
+                </Text>
+              </View>
+            ) : (
+              <Pressable
+                onPress={async () => {
+                  await setEditOperacion(selectedOp);
+                  closeDetail();
+                  router.push({
+                    pathname: "/cobradora/pago",
+                    params: {
+                      socioId: selectedOp.socio!.id.toString(),
+                      nombre: encodeURIComponent(selectedOp.socio!.nombre),
+                      apellido: encodeURIComponent(selectedOp.socio!.apellido),
+                      operacionId: selectedOp.id.toString(),
+                      creditoDisponible: encodeURIComponent(
+                        String(getCreditoIndividualSaldo(selectedOp.socio))
+                      ),
+                    },
+                  });
+                }}
+                className="bg-primary rounded-2xl p-4 items-center mt-2"
+                accessibilityRole="button"
+                accessibilityLabel="Editar operación"
+              >
+                <Text className="text-primary-foreground font-bold text-base">Editar operación</Text>
+              </Pressable>
             )}
           </View>
         )}

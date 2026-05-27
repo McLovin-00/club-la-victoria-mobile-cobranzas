@@ -8,7 +8,7 @@ import { Badge } from "../../components/ui/badge";
 import { Spinner } from "../../components/ui/spinner";
 import { ScreenBackButton } from "../../components/ui/screen-back-button";
 import { mobileApi, CobradorActivo } from "../../lib/api";
-import { getBinding, setBinding, StoredBinding } from "../../lib/storage";
+import { getBinding, getOrCreateInstallationId, setBinding, StoredBinding } from "../../lib/storage";
 import { cn } from "../../lib/utils";
 
 export default function ConfiguracionCobradorScreen() {
@@ -41,8 +41,10 @@ export default function ConfiguracionCobradorScreen() {
     setError(null);
     setSelectedId(cobrador.id);
     try {
+      const installationId = currentBinding?.installationId || (await getOrCreateInstallationId());
+      await mobileApi.vincularDispositivo({ installationId, cobradorId: cobrador.id });
       await setBinding({
-        installationId: currentBinding?.installationId || "",
+        installationId,
         cobradorId: cobrador.id,
         cobradorNombre: cobrador.nombre,
       });

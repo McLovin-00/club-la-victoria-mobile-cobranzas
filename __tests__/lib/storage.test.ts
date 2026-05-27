@@ -35,6 +35,31 @@ describe("storage", () => {
     });
   });
 
+  it("repairs old bindings that do not have installationId", async () => {
+    const mockStorage = (AsyncStorage as typeof AsyncStorage & {
+      __storage: Map<string, string>;
+    }).__storage;
+
+    mockStorage.set("mobile-cobranzas-installation-id", "device-existing");
+    mockStorage.set(
+      "mobile-cobranzas-binding",
+      JSON.stringify({ cobradorId: 25, cobradorNombre: "Lucia Gomez" }),
+    );
+
+    await expect(getBinding()).resolves.toEqual({
+      installationId: "device-existing",
+      cobradorId: 25,
+      cobradorNombre: "Lucia Gomez",
+    });
+    await expect(AsyncStorage.getItem("mobile-cobranzas-binding")).resolves.toBe(
+      JSON.stringify({
+        installationId: "device-existing",
+        cobradorId: 25,
+        cobradorNombre: "Lucia Gomez",
+      }),
+    );
+  });
+
   it("returns null when binding payload is invalid JSON", async () => {
     const mockStorage = (AsyncStorage as typeof AsyncStorage & {
       __storage: Map<string, string>;

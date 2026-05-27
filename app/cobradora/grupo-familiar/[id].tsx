@@ -51,8 +51,13 @@ export default function GrupoFamiliarDetalleScreen() {
     void loadGrupo();
   }, [loadGrupo]);
 
-  const handleMiembroPress = (socioId: number, nombre: string, apellido: string) => {
-    router.push(`/cobradora/pago?socioId=${socioId}&fromGrupo=${grupoId}&nombre=${encodeURIComponent(nombre)}&apellido=${encodeURIComponent(apellido)}`);
+  const handleMiembroPress = (
+    socioId: number,
+    nombre: string,
+    apellido: string,
+    creditoDisponible?: number,
+  ) => {
+    router.push(`/cobradora/pago?socioId=${socioId}&fromGrupo=${grupoId}&nombre=${encodeURIComponent(nombre)}&apellido=${encodeURIComponent(apellido)}&creditoDisponible=${encodeURIComponent(String(creditoDisponible ?? 0))}`);
   };
 
   const toggleSeleccion = (socioId: number) => {
@@ -241,6 +246,20 @@ export default function GrupoFamiliarDetalleScreen() {
                 <Text className="text-muted-foreground text-xs">Total deuda</Text>
               </View>
             </View>
+
+            {typeof grupo.creditoGrupal === "number" && grupo.creditoGrupal > 0 && (
+              <View className="mt-4 flex-row items-center justify-between rounded-xl border border-blue-200 bg-blue-50 p-3">
+                <View className="flex-row items-center gap-2">
+                  <CreditCard size={16} color="hsl(215, 90%, 52%)" />
+                  <Text className="text-sm font-medium text-blue-700">
+                    Crédito grupal disponible
+                  </Text>
+                </View>
+                <Text className="text-base font-bold text-blue-700">
+                  ${grupo.creditoGrupal.toLocaleString("es-AR")}
+                </Text>
+              </View>
+            )}
           </View>
 
           {/* Miembros con deuda */}
@@ -283,7 +302,7 @@ export default function GrupoFamiliarDetalleScreen() {
                 <MiembroGrupoItem
                   key={miembro.id}
                   miembro={miembro}
-                  onPress={() => handleMiembroPress(miembro.id, miembro.nombre, miembro.apellido)}
+                onPress={() => handleMiembroPress(miembro.id, miembro.nombre, miembro.apellido, miembro.creditoIndividual)}
                   selectable={true}
                   selected={seleccionados.includes(miembro.id)}
                   onSelect={() => toggleSeleccion(miembro.id)}
@@ -313,7 +332,7 @@ export default function GrupoFamiliarDetalleScreen() {
                 <MiembroGrupoItem
                   key={miembro.id}
                   miembro={miembro}
-                  onPress={() => handleMiembroPress(miembro.id, miembro.nombre, miembro.apellido)}
+                  onPress={() => handleMiembroPress(miembro.id, miembro.nombre, miembro.apellido, miembro.creditoIndividual)}
                 />
               ))}
             </View>

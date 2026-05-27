@@ -27,8 +27,11 @@ function normalizeApiBaseUrl(baseUrl: string): string {
   return `${sanitized}/api/v1`;
 }
 
-// URL de la API hardcodeada (no usar .env)
-const API_BASE_URL = normalizeApiBaseUrl("https://www.api.clublavictoria.com.ar/api/v1");
+// URL de la API hardcodeada (no usar .env) DESARROLLO
+const API_BASE_URL = normalizeApiBaseUrl("http://192.168.1.2:3001/api/v1");
+
+// URL de la API hardcodeada (no usar .env) PRODUCCION
+// const API_BASE_URL = normalizeApiBaseUrl("https://www.api.clublavictoria.com.ar/api/v1");
 
 async function request<T>(path: string, options?: RequestInit): Promise<T> {
   let res: Response;
@@ -66,6 +69,8 @@ export const mobileApi = {
     request<PaginatedResponse<SocioConGrupo>>(
       `/cobradores/mobile/socios?q=${encodeURIComponent(query)}&offset=${offset}&limit=${limit}`,
     ),
+  obtenerSocioMobile: (socioId: number) =>
+    request<SocioConGrupo>(`/cobradores/mobile/socios/${socioId}`),
   cuotasPendientes: (socioId: number) =>
     request<Array<{ id: number; periodo: string; monto: number }>>(
       `/cobradores/mobile/socios/${socioId}/cuotas-pendientes`,
@@ -73,6 +78,11 @@ export const mobileApi = {
   registrarOperacionCobro: (payload: unknown) =>
     request("/cobros/pagos/operacion", {
       method: "POST",
+      body: JSON.stringify(payload),
+    }),
+  actualizarOperacionCobro: (operacionId: number, payload: unknown) =>
+    request(`/cobros/pagos/operacion/${operacionId}`, {
+      method: "PATCH",
       body: JSON.stringify(payload),
     }),
   registrarCobroGrupal: (payload: CobroGrupalPayload) =>
