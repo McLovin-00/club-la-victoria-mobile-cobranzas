@@ -9,6 +9,7 @@ import { Spinner } from "../../components/ui/spinner";
 import { ScreenBackButton } from "../../components/ui/screen-back-button";
 import { useToast } from "../../components/ui/toast";
 import { mobileApi } from "../../lib/api";
+import type { SocioConGrupo } from "../../lib/types";
 import { METODOS_PAGO, parseMontoInputToAmount, parseMontoInputToCents, toCents } from "../../lib/pagos";
 import { getBinding, getEditOperacion, clearEditOperacion } from "../../lib/storage";
 import { cn } from "../../lib/utils";
@@ -53,6 +54,7 @@ export default function PagoCobradoraScreen() {
     { id: "concepto-0", concepto: "", monto: "" },
   ]);
   const [loading, setLoading] = useState(false);
+  const [socioInfo, setSocioInfo] = useState<SocioConGrupo | null>(null);
   const [loadingCuotas, setLoadingCuotas] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [showConcepto, setShowConcepto] = useState(false);
@@ -130,7 +132,11 @@ export default function PagoCobradoraScreen() {
           }
         }
 
-        const data = await mobileApi.cuotasPendientes(socioId);
+        const [socioData, data] = await Promise.all([
+          mobileApi.obtenerSocioMobile(socioId),
+          mobileApi.cuotasPendientes(socioId),
+        ]);
+        setSocioInfo(socioData);
         if (cuotasOperacion.length > 0) {
           const cuotasOperacionIds = new Set(cuotasOperacion.map((cuota) => cuota.id));
           setCuotas([
@@ -436,6 +442,16 @@ export default function PagoCobradoraScreen() {
               <Text className="text-primary-foreground/90 font-semibold text-lg mt-1">
                 {socioApellido}, {socioNombre}
               </Text>
+            )}
+            {socioInfo?.categoriaNombre === "ADHERENTE" && (
+              <View
+                className={`self-start rounded-full px-3 py-1 mt-2 ${socioInfo.declaracionJurada ? "bg-green-500/20 border border-green-400/30" : "bg-primary-foreground/10 border border-primary-foreground/30"}`}
+                accessibilityLabel={`Declaración jurada: ${socioInfo.declaracionJurada ? "presentada" : "pendiente"}`}
+              >
+                <Text className={`text-xs font-semibold ${socioInfo.declaracionJurada ? "text-green-300" : "text-primary-foreground/90"}`}>
+                  Declaración jurada {socioInfo.declaracionJurada ? "✓ Presentada" : "✗ Pendiente"}
+                </Text>
+              </View>
             )}
             <View
               className="self-start rounded-full border border-primary-foreground/30 bg-primary-foreground/10 px-3 py-1 mt-2"

@@ -83,6 +83,8 @@ export interface SocioConGrupo {
   telefono?: string;
   cantidadCuotasPendientes?: number;
   creditoIndividual?: number;
+  declaracionJurada?: boolean;
+  categoriaNombre?: string;
   grupoFamiliar?: {
     id: number;
     nombre: string;

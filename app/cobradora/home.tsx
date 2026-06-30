@@ -224,6 +224,13 @@ export default function HomeCobradoraScreen() {
                     {estadoLabel}
                   </Text>
                 </View>
+                {socio.categoriaNombre === "ADHERENTE" && (
+                  <View className={`px-2 py-0.5 rounded-md ${socio.declaracionJurada ? "bg-green-500/10 border border-green-500/30" : "bg-secondary/70 border border-border/50"}`}>
+                    <Text className={`text-[10px] font-bold uppercase tracking-wide ${socio.declaracionJurada ? "text-green-700" : "text-secondary-foreground"}`}>
+                      DJ {socio.declaracionJurada ? "✓" : "✗"}
+                    </Text>
+                  </View>
+                )}
               </View>
 
               {socio.grupoFamiliar && (
