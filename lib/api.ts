@@ -28,10 +28,10 @@ function normalizeApiBaseUrl(baseUrl: string): string {
 }
 
 // URL de la API hardcodeada (no usar .env) DESARROLLO
-const API_BASE_URL = normalizeApiBaseUrl("http://192.168.1.2:3001/api/v1");
+// const API_BASE_URL = normalizeApiBaseUrl("http://192.168.1.43:3001/api/v1");
 
 // URL de la API hardcodeada (no usar .env) PRODUCCION
-// const API_BASE_URL = normalizeApiBaseUrl("https://www.api.clublavictoria.com.ar/api/v1");
+const API_BASE_URL = normalizeApiBaseUrl("https://www.api.clublavictoria.com.ar/api/v1");
 
 async function request<T>(path: string, options?: RequestInit): Promise<T> {
   let res: Response;

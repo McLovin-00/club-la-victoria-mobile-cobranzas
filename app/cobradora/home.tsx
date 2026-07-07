@@ -214,7 +214,7 @@ export default function HomeCobradoraScreen() {
               <Text className="text-foreground font-bold text-base leading-tight">
                 {socio.apellido}, {socio.nombre}
               </Text>
-              
+
               <View className="flex-row items-center gap-2" accessibilityElementsHidden>
                 <Text className="text-muted-foreground text-xs font-medium">
                   DNI: {socio.dni ?? "—"}
@@ -224,31 +224,50 @@ export default function HomeCobradoraScreen() {
                     {estadoLabel}
                   </Text>
                 </View>
-                {socio.categoriaNombre === "ADHERENTE" && (
-                  <View className={`px-2 py-0.5 rounded-md ${socio.declaracionJurada ? "bg-green-500/10 border border-green-500/30" : "bg-secondary/70 border border-border/50"}`}>
-                    <Text className={`text-[10px] font-bold uppercase tracking-wide ${socio.declaracionJurada ? "text-green-700" : "text-secondary-foreground"}`}>
-                      DJ {socio.declaracionJurada ? "✓" : "✗"}
-                    </Text>
-                  </View>
-                )}
               </View>
 
-              {socio.grupoFamiliar && (
-                <Pressable
-                  onPress={(e) => {
-                    e.stopPropagation();
-                    router.push(`/cobradora/grupo-familiar/${socio.grupoFamiliar!.id}`);
-                  }}
-                  className="self-start bg-secondary/70 px-2 py-0.5 rounded-md flex-row items-center gap-1 border border-border/50"
-                  accessibilityRole="button"
-                  accessibilityLabel={`Ver grupo familiar ${socio.grupoFamiliar.nombre}`}
-                  accessibilityHint="Navega a los detalles del grupo familiar"
-                >
-                  <Users size={10} color="hsl(var(--secondary-foreground))" className="opacity-70" />
-                  <Text className="text-secondary-foreground text-[10px] font-semibold">
-                    {socio.grupoFamiliar.nombre}
-                  </Text>
-                </Pressable>
+              {(socio.categoriaNombre === "ADHERENTE" || socio.grupoFamiliar) && (
+                <View className="flex-row items-center gap-2 flex-wrap self-start mt-0.5" accessibilityElementsHidden>
+                  {socio.categoriaNombre === "ADHERENTE" && (
+                    <View
+                      className={`px-2 py-0.5 rounded-md ${
+                        socio.declaracionJurada
+                          ? "bg-green-500/10 border border-green-500/30"
+                          : "bg-secondary/70 border border-border/50"
+                      }`}
+                      accessibilityLabel={
+                        socio.declaracionJurada
+                          ? "Declaración jurada presentada"
+                          : "Declaración jurada pendiente"
+                      }
+                    >
+                      <Text
+                        className={`text-[10px] font-bold uppercase tracking-wide ${
+                          socio.declaracionJurada ? "text-green-700" : "text-secondary-foreground"
+                        }`}
+                      >
+                        DJ {socio.declaracionJurada ? "✓" : "✗"}
+                      </Text>
+                    </View>
+                  )}
+                  {socio.grupoFamiliar && (
+                    <Pressable
+                      onPress={(e) => {
+                        e.stopPropagation();
+                        router.push(`/cobradora/grupo-familiar/${socio.grupoFamiliar!.id}`);
+                      }}
+                      className="bg-secondary/70 px-2 py-0.5 rounded-md flex-row items-center gap-1 border border-border/50"
+                      accessibilityRole="button"
+                      accessibilityLabel={`Ver grupo familiar ${socio.grupoFamiliar.nombre}`}
+                      accessibilityHint="Navega a los detalles del grupo familiar"
+                    >
+                      <Users size={10} color="hsl(var(--secondary-foreground))" className="opacity-70" />
+                      <Text className="text-secondary-foreground text-[10px] font-semibold">
+                        {socio.grupoFamiliar.nombre}
+                      </Text>
+                    </Pressable>
+                  )}
+                </View>
               )}
             </View>
 
