@@ -39,7 +39,7 @@ Checks: backend endpoint tests verify request scope, validation, and unauthentic
 
 ## Tasks
 - T1 — S1-S2 — inline — done — commit: `c61577c` — Add `POST /cobros/mobile/socios/:socioId/cuotas` and isolated contract tests. Risk: item 2 (unauthenticated financial operation, explicitly authorized and constrained to one member and period).
-- T2 — S1-S2 — inline — done — commit: pending — Add period selection/generation to mobile collection and refresh pending quotas. Risk: item 2 (exposes the authorized unauthenticated quota-generation operation in the mobile UI).
+- T2 — S1-S2 — inline — done — commit: `57bb719` — Add period selection/generation to mobile collection and refresh pending quotas. Risk: item 2 (exposes the authorized unauthenticated quota-generation operation in the mobile UI).
 
 ## Log
 
@@ -61,5 +61,6 @@ Checks: backend endpoint tests verify request scope, validation, and unauthentic
 - L16 (2026-11-04): Independent T2 verification initially timed out in a cold scratch Jest run because the full React Native transform exceeded the default 5-second test limit; the parent reproduced an 8.45-second cold run that passed with a 15-second per-test timeout. The flow test now explicitly allows 15 seconds. Independent scratch recheck passed 2 focused tests (14 skipped) with no endpoint/database calls; the strengthened flow asserts the selected pre-existing quota is preserved and $7,000 credit reduces a $10,000 payment to $3,000.
 - L17 (2026-11-04): Parent spot check of the strengthened flow/API probes passes (2 suites/2 tests), and `tsc --noEmit` passes after the final test adjustment. The earlier full suite still has four failures confirmed on baseline; no full-suite rerun was performed during the bounded correction.
 - L18 (2026-11-04): Independent high-risk verification for T2 is complete. RDD remains globally off, so no native review ran. T2 is complete; its mobile work-unit commit and final commit identity still need recording.
+- L19 (2026-11-04): Committed T2 and the mobile task artifact as `57bb719` (`feat(mobile): generate quotas from payment flow`). The mobile implementation, regression tests, and task document are included; no lockfile change was made.
 - Analysis: mobile currently applies individual credit when selected pending quotas are collected. The existing multi-member quota-generation endpoint requires JWT, so the user explicitly approved a separate public route limited to one member and one period. This change remains high risk because the route is intentionally unauthenticated.
-- Next: commit the completed mobile work unit, record its commit identity in this document and Engram mirror, then report the verified outcome and known baseline failures.
+- Next: feature complete; delivery remains local and unmanaged. Push or PR is not authorized by this task.
