@@ -6,6 +6,7 @@ import { createBinding } from "../setup/mocks";
 jest.mock("../../lib/api", () => ({
   mobileApi: {
     cuotasPendientes: jest.fn(),
+    generarCuotaMobile: jest.fn(),
     obtenerSocioMobile: jest.fn(),
     vincularDispositivo: jest.fn(),
     registrarOperacionCobro: jest.fn(),
@@ -22,6 +23,7 @@ jest.mock("../../lib/storage", () => ({
 const { mobileApi } = jest.requireMock("../../lib/api") as {
   mobileApi: {
     cuotasPendientes: jest.Mock;
+    generarCuotaMobile: jest.Mock;
     obtenerSocioMobile: jest.Mock;
     vincularDispositivo: jest.Mock;
     registrarOperacionCobro: jest.Mock;
@@ -42,6 +44,8 @@ describe("payment flow", () => {
 
   afterEach(() => {
     jest.useRealTimers();
+    mobileApi.obtenerSocioMobile.mockReset();
+    mobileApi.generarCuotaMobile.mockReset();
   });
 
   it("registers a payment and redirects after success", async () => {
@@ -83,6 +87,84 @@ describe("payment flow", () => {
     });
 
     expect(expoRouter.__mockRouter.replace).toHaveBeenCalledWith("/cobradora/home");
+  });
+
+  it("preserves selected pending quotas and applies credit to the refreshed quota", async () => {
+    jest.useRealTimers();
+    const expoRouter = jest.requireMock("expo-router") as {
+      __setLocalSearchParams: (params: Record<string, string>) => void;
+    };
+    const nextMonth = new Date(new Date().getFullYear(), new Date().getMonth() + 1, 1);
+    const periodo = `${nextMonth.getFullYear()}-${String(nextMonth.getMonth() + 1).padStart(2, "0")}`;
+
+    expoRouter.__setLocalSearchParams({ socioId: "42", creditoDisponible: "7000" });
+    mobileApi.cuotasPendientes
+      .mockResolvedValueOnce([{ id: 5, periodo: "2026-10", monto: 4000 }])
+      .mockResolvedValueOnce([
+        { id: 5, periodo: "2026-10", monto: 4000 },
+        { id: 77, periodo, monto: 6000 },
+      ]);
+    mobileApi.obtenerSocioMobile.mockResolvedValue({ id: 42, creditoIndividual: 7000 });
+    mobileApi.generarCuotaMobile.mockResolvedValue({
+      creadas: 1,
+      omitidas: 0,
+      advertenciasMorosidad: 0,
+      inhabilitados: 0,
+      desactivados: 0,
+      advertencias: [],
+    });
+    mobileApi.registrarOperacionCobro.mockResolvedValue(undefined);
+    getBinding.mockResolvedValue(createBinding({ cobradorId: 9 }));
+
+    const { findByRole, getByRole } = render(<PagoCobradoraScreen />);
+
+    fireEvent.press(await findByRole("checkbox", { name: /2026-10, \$4\.000/ }));
+    fireEvent.press(await findByRole("button", { name: "Mes siguiente" }));
+    fireEvent.press(getByRole("button", { name: "Generar cuota" }));
+
+    await findByRole("checkbox", { name: new RegExp(`${periodo}, \\$6\\.000`) });
+    expect(mobileApi.generarCuotaMobile).toHaveBeenCalledWith(42, periodo);
+    expect(mobileApi.cuotasPendientes).toHaveBeenCalledTimes(2);
+    expect(mobileApi.obtenerSocioMobile).toHaveBeenCalledTimes(2);
+
+    fireEvent.press(getByRole("checkbox", { name: new RegExp(`${periodo}, \\$6\\.000`) }));
+    fireEvent.press(getByRole("button", { name: "Confirmar cobro" }));
+
+    await waitFor(() => {
+      expect(mobileApi.registrarOperacionCobro).toHaveBeenCalledWith(
+        expect.objectContaining({
+          socioId: 42,
+          cuotaIds: [5, 77],
+          pagos: [{ metodoPagoId: 1, monto: 3000 }],
+          total: 3000,
+        }),
+      );
+    });
+  }, 15_000);
+
+  it("shows backend morosidad warnings when quota creation is skipped", async () => {
+    const expoRouter = jest.requireMock("expo-router") as {
+      __setLocalSearchParams: (params: Record<string, string>) => void;
+    };
+    const warning = "Socio Test Member marcado como MOROSO; no se creó la cuota.";
+
+    expoRouter.__setLocalSearchParams({ socioId: "42" });
+    mobileApi.cuotasPendientes.mockResolvedValueOnce([]).mockResolvedValueOnce([]);
+    mobileApi.generarCuotaMobile.mockResolvedValue({
+      creadas: 0,
+      omitidas: 0,
+      advertenciasMorosidad: 0,
+      inhabilitados: 1,
+      desactivados: 1,
+      advertencias: [warning],
+    });
+
+    const { findByRole, findByText } = render(<PagoCobradoraScreen />);
+
+    fireEvent.press(await findByRole("button", { name: "Generar cuota" }));
+
+    expect(await findByText(warning)).toBeTruthy();
+    expect(mobileApi.cuotasPendientes).toHaveBeenCalledTimes(2);
   });
 
   it("allows editing only the payment method when the original quota is no longer pending", async () => {

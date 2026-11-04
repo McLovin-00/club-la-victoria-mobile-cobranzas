@@ -2,7 +2,17 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Text, View, ScrollView, Pressable } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { Receipt, Check, Plus, ChevronDown, ChevronUp, CreditCard, CheckCircle } from "lucide-react-native";
+import {
+  Receipt,
+  Check,
+  Plus,
+  ChevronDown,
+  ChevronUp,
+  ChevronLeft,
+  ChevronRight,
+  CreditCard,
+  CheckCircle,
+} from "lucide-react-native";
 import { Button } from "../../components/ui/button";
 import { Input } from "../../components/ui/input";
 import { Spinner } from "../../components/ui/spinner";
@@ -24,6 +34,15 @@ interface ConceptoAdicionalForm {
   id: string;
   concepto: string;
   monto: string;
+}
+
+function formatPeriod(date: Date): string {
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
+}
+
+function shiftPeriod(period: string, monthOffset: number): string {
+  const [year, month] = period.split("-").map(Number);
+  return formatPeriod(new Date(year, month - 1 + monthOffset, 1));
 }
 
 export default function PagoCobradoraScreen() {
@@ -56,6 +75,9 @@ export default function PagoCobradoraScreen() {
   const [loading, setLoading] = useState(false);
   const [socioInfo, setSocioInfo] = useState<SocioConGrupo | null>(null);
   const [loadingCuotas, setLoadingCuotas] = useState(true);
+  const [generatingQuota, setGeneratingQuota] = useState(false);
+  const [quotaPeriod, setQuotaPeriod] = useState(() => formatPeriod(new Date()));
+  const [quotaGenerationNotice, setQuotaGenerationNotice] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [showConcepto, setShowConcepto] = useState(false);
   const [usarDosMetodos, setUsarDosMetodos] = useState(false);
@@ -221,6 +243,50 @@ export default function PagoCobradoraScreen() {
     setSeleccionadas((prev) =>
       prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id],
     );
+  };
+
+  const moveQuotaPeriod = (monthOffset: number) => {
+    setQuotaPeriod((current) => shiftPeriod(current, monthOffset));
+    setQuotaGenerationNotice(null);
+    setError(null);
+  };
+
+  const generateQuota = async () => {
+    if (!socioId || isEditMode || generatingQuota) return;
+
+    setGeneratingQuota(true);
+    setError(null);
+    setQuotaGenerationNotice(null);
+
+    try {
+      const result = await mobileApi.generarCuotaMobile(socioId, quotaPeriod);
+      const notice = result.advertencias.length > 0
+        ? result.advertencias.join("\n")
+        : result.creadas > 0
+          ? `Se generó la cuota ${quotaPeriod}. Ya podés seleccionarla para aplicar el saldo a favor.`
+          : `No se generó una cuota nueva para ${quotaPeriod}.`;
+      setQuotaGenerationNotice(notice);
+
+      try {
+        const [pendingQuotas, updatedMember] = await Promise.all([
+          mobileApi.cuotasPendientes(socioId),
+          mobileApi.obtenerSocioMobile(socioId),
+        ]);
+        setCuotas(pendingQuotas);
+        setSocioInfo(updatedMember);
+        const pendingIds = new Set(pendingQuotas.map((quota) => quota.id));
+        setSeleccionadas((current) => current.filter((id) => pendingIds.has(id)));
+      } catch {
+        setError(
+          "La solicitud se procesó, pero no se pudo actualizar el listado. " +
+            "Volvé a cargar las cuotas antes de continuar.",
+        );
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Error generando la cuota");
+    } finally {
+      setGeneratingQuota(false);
+    }
   };
 
   const updateConcepto = (id: string, field: "concepto" | "monto", value: string) => {
@@ -495,6 +561,57 @@ export default function PagoCobradoraScreen() {
                 </View>
               )}
             </View>
+
+            {!isEditMode && (
+              <View className="bg-card rounded-2xl border border-border/40 p-4 gap-3">
+                <Text className="text-foreground font-semibold">Generar cuota para un período</Text>
+                <View className="flex-row items-center justify-between">
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    onPress={() => moveQuotaPeriod(-1)}
+                    disabled={generatingQuota}
+                    accessibilityLabel="Mes anterior"
+                  >
+                    <ChevronLeft size={18} color="hsl(var(--foreground))" />
+                  </Button>
+                  <Text
+                    className="text-foreground font-bold text-base"
+                    accessibilityLabel={`Período seleccionado: ${quotaPeriod}`}
+                  >
+                    {quotaPeriod}
+                  </Text>
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    onPress={() => moveQuotaPeriod(1)}
+                    disabled={generatingQuota}
+                    accessibilityLabel="Mes siguiente"
+                  >
+                    <ChevronRight size={18} color="hsl(var(--foreground))" />
+                  </Button>
+                </View>
+                <Button
+                  onPress={() => void generateQuota()}
+                  loading={generatingQuota}
+                  accessibilityLabel="Generar cuota"
+                  accessibilityHint={`Genera una cuota para ${quotaPeriod} y actualiza las cuotas pendientes`}
+                >
+                  Generar cuota
+                </Button>
+                {quotaGenerationNotice && (
+                  <View
+                    className="bg-secondary rounded-xl border border-border/40 p-3"
+                    accessibilityRole="alert"
+                    accessibilityLiveRegion="polite"
+                  >
+                    <Text className="text-secondary-foreground text-sm font-medium">
+                      {quotaGenerationNotice}
+                    </Text>
+                  </View>
+                )}
+              </View>
+            )}
 
             {/* Empty state */}
             {cuotas.length === 0 ? (

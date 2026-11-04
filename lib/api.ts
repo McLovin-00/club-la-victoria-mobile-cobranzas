@@ -13,6 +13,15 @@ export interface BindingData {
   cobradorNombre?: string;
 }
 
+export interface GenerarCuotaMobileResult {
+  creadas: number;
+  omitidas: number;
+  advertenciasMorosidad: number;
+  inhabilitados: number;
+  desactivados: number;
+  advertencias: string[];
+}
+
 function normalizeApiBaseUrl(baseUrl: string): string {
   const sanitized = baseUrl.replace(/\/+$/, "");
 
@@ -74,6 +83,14 @@ export const mobileApi = {
   cuotasPendientes: (socioId: number) =>
     request<Array<{ id: number; periodo: string; monto: number }>>(
       `/cobradores/mobile/socios/${socioId}/cuotas-pendientes`,
+    ),
+  generarCuotaMobile: (socioId: number, periodo: string) =>
+    request<GenerarCuotaMobileResult>(
+      `/cobros/mobile/socios/${socioId}/cuotas`,
+      {
+        method: "POST",
+        body: JSON.stringify({ periodo }),
+      },
     ),
   registrarOperacionCobro: (payload: unknown) =>
     request("/cobros/pagos/operacion", {
