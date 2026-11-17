@@ -84,6 +84,29 @@ export const mobileApi = {
     request<Array<{ id: number; periodo: string; monto: number }>>(
       `/cobradores/mobile/socios/${socioId}/cuotas-pendientes`,
     ),
+  obtenerPeriodosCobroMobile: (socioId: number) =>
+    request<{ montoMensual: number | null; periodosPagados: string[] }>(
+      `/cobros/mobile/socios/${socioId}/periodos`,
+    ),
+  registrarCobroPeriodosMobile: (socioId: number, payload: unknown) =>
+    request(`/cobros/mobile/socios/${socioId}/cobro-periodos`, {
+      method: "POST",
+      body: JSON.stringify(payload),
+    }).catch((error: unknown) => {
+      if (error instanceof Error) {
+        let body: unknown;
+        try {
+          body = JSON.parse(error.message);
+        } catch {
+          throw error;
+        }
+        if (typeof body === "object" && body !== null && "message" in body &&
+            typeof body.message === "string") {
+          throw new Error(body.message);
+        }
+      }
+      throw error;
+    }),
   generarCuotaMobile: (socioId: number, periodo: string) =>
     request<GenerarCuotaMobileResult>(
       `/cobros/mobile/socios/${socioId}/cuotas`,

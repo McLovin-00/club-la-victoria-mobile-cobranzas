@@ -36,15 +36,6 @@ interface ConceptoAdicionalForm {
   monto: string;
 }
 
-function formatPeriod(date: Date): string {
-  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
-}
-
-function shiftPeriod(period: string, monthOffset: number): string {
-  const [year, month] = period.split("-").map(Number);
-  return formatPeriod(new Date(year, month - 1 + monthOffset, 1));
-}
-
 export default function PagoCobradoraScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
@@ -61,7 +52,7 @@ export default function PagoCobradoraScreen() {
   const fromGrupo = params.fromGrupo ? Number(params.fromGrupo) : null;
   const socioNombre = params.nombre ? decodeURIComponent(params.nombre) : null;
   const socioApellido = params.apellido ? decodeURIComponent(params.apellido) : null;
-  const creditoDisponible = params.creditoDisponible
+  const creditoInicial = params.creditoDisponible
     ? Number(decodeURIComponent(params.creditoDisponible)) || 0
     : 0;
   const editingOperacionId = params.operacionId ? Number(params.operacionId) : null;
@@ -74,10 +65,14 @@ export default function PagoCobradoraScreen() {
   ]);
   const [loading, setLoading] = useState(false);
   const [socioInfo, setSocioInfo] = useState<SocioConGrupo | null>(null);
+  const [creditoDisponible, setCreditoDisponible] = useState(creditoInicial);
   const [loadingCuotas, setLoadingCuotas] = useState(true);
-  const [generatingQuota, setGeneratingQuota] = useState(false);
-  const [quotaPeriod, setQuotaPeriod] = useState(() => formatPeriod(new Date()));
-  const [quotaGenerationNotice, setQuotaGenerationNotice] = useState<string | null>(null);
+  const [periodYear, setPeriodYear] = useState(() => new Date().getFullYear());
+  const [periodosNuevos, setPeriodosNuevos] = useState<string[]>([]);
+  const [infoPeriodos, setInfoPeriodos] = useState<{
+    montoMensual: number | null;
+    periodosPagados: string[];
+  } | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [showConcepto, setShowConcepto] = useState(false);
   const [usarDosMetodos, setUsarDosMetodos] = useState(false);
@@ -154,11 +149,19 @@ export default function PagoCobradoraScreen() {
           }
         }
 
-        const [socioData, data] = await Promise.all([
+        const [socioData, data, periodos] = await Promise.all([
           mobileApi.obtenerSocioMobile(socioId),
           mobileApi.cuotasPendientes(socioId),
+          isEditMode ? Promise.resolve(null) : mobileApi.obtenerPeriodosCobroMobile(socioId).catch(() => {
+            setError("No se pudieron cargar los períodos nuevos. Volvé a abrir el cobro para intentarlo de nuevo.");
+            return null;
+          }),
         ]);
         setSocioInfo(socioData);
+        if (socioData?.creditoIndividual != null) {
+          setCreditoDisponible(Number(socioData.creditoIndividual));
+        }
+        setInfoPeriodos(periodos);
         if (cuotasOperacion.length > 0) {
           const cuotasOperacionIds = new Set(cuotasOperacion.map((cuota) => cuota.id));
           setCuotas([
@@ -180,8 +183,22 @@ export default function PagoCobradoraScreen() {
   const totalCuotas = useMemo(() => {
     return cuotas
       .filter((cuota) => seleccionadas.includes(cuota.id))
-      .reduce((acc, cuota) => acc + Number(cuota.monto), 0);
-  }, [cuotas, seleccionadas]);
+      .reduce((acc, cuota) => acc + Number(cuota.monto), 0) +
+      periodosNuevos.length * Number(infoPeriodos?.montoMensual ?? 0);
+  }, [cuotas, seleccionadas, periodosNuevos, infoPeriodos]);
+
+  const cuotasVisibles = useMemo(() => {
+    const existentes = cuotas.map((cuota) => ({ ...cuota, nuevo: false }));
+    if (isEditMode || infoPeriodos?.montoMensual == null) return existentes;
+    const periodos = new Set([
+      ...Array.from({ length: 12 }, (_, index) => `${periodYear}-${String(index + 1).padStart(2, "0")}`),
+      ...periodosNuevos,
+    ]);
+    const nuevos = [...periodos]
+      .filter((periodo) => !cuotas.some((cuota) => cuota.periodo === periodo) && !infoPeriodos.periodosPagados.includes(periodo))
+      .map((periodo) => ({ id: 0, periodo, monto: Number(infoPeriodos.montoMensual), nuevo: true }));
+    return [...existentes, ...nuevos].sort((a, b) => a.periodo.localeCompare(b.periodo));
+  }, [cuotas, infoPeriodos, isEditMode, periodYear, periodosNuevos]);
 
   const conceptosValidos = useMemo(() => {
     return conceptos
@@ -229,6 +246,9 @@ export default function PagoCobradoraScreen() {
       const credito = Number(socio?.creditoIndividual ?? creditoDisponible);
       return Number.isFinite(credito) && credito >= 0 ? credito : creditoDisponible;
     } catch {
+      if (periodosNuevos.length > 0) {
+        throw new Error("No se pudo actualizar el saldo a favor. Verificá la conexión y volvé a intentarlo.");
+      }
       return creditoDisponible;
     }
   };
@@ -245,48 +265,10 @@ export default function PagoCobradoraScreen() {
     );
   };
 
-  const moveQuotaPeriod = (monthOffset: number) => {
-    setQuotaPeriod((current) => shiftPeriod(current, monthOffset));
-    setQuotaGenerationNotice(null);
-    setError(null);
-  };
-
-  const generateQuota = async () => {
-    if (!socioId || isEditMode || generatingQuota) return;
-
-    setGeneratingQuota(true);
-    setError(null);
-    setQuotaGenerationNotice(null);
-
-    try {
-      const result = await mobileApi.generarCuotaMobile(socioId, quotaPeriod);
-      const notice = result.advertencias.length > 0
-        ? result.advertencias.join("\n")
-        : result.creadas > 0
-          ? `Se generó la cuota ${quotaPeriod}. Ya podés seleccionarla para aplicar el saldo a favor.`
-          : `No se generó una cuota nueva para ${quotaPeriod}.`;
-      setQuotaGenerationNotice(notice);
-
-      try {
-        const [pendingQuotas, updatedMember] = await Promise.all([
-          mobileApi.cuotasPendientes(socioId),
-          mobileApi.obtenerSocioMobile(socioId),
-        ]);
-        setCuotas(pendingQuotas);
-        setSocioInfo(updatedMember);
-        const pendingIds = new Set(pendingQuotas.map((quota) => quota.id));
-        setSeleccionadas((current) => current.filter((id) => pendingIds.has(id)));
-      } catch {
-        setError(
-          "La solicitud se procesó, pero no se pudo actualizar el listado. " +
-            "Volvé a cargar las cuotas antes de continuar.",
-        );
-      }
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Error generando la cuota");
-    } finally {
-      setGeneratingQuota(false);
-    }
+  const togglePeriodoNuevo = (periodo: string) => {
+    setPeriodosNuevos((current) => current.includes(periodo)
+      ? current.filter((item) => item !== periodo)
+      : [...current, periodo]);
   };
 
   const updateConcepto = (id: string, field: "concepto" | "monto", value: string) => {
@@ -322,6 +304,10 @@ export default function PagoCobradoraScreen() {
       }
 
       const creditoVigente = await obtenerCreditoVigente();
+      if (periodosNuevos.length > 0 && toCents(creditoVigente) !== toCents(creditoDisponible)) {
+        setCreditoDisponible(creditoVigente);
+        throw new Error("El saldo a favor cambió. Revisá el total actualizado y confirmá nuevamente.");
+      }
       const creditoAplicadoVigente = Math.min(total, creditoVigente);
       const totalNetoVigente = Math.max(total - creditoAplicadoVigente, 0);
       const totalCentsVigente = toCents(totalNetoVigente);
@@ -401,12 +387,13 @@ export default function PagoCobradoraScreen() {
         const operationSignature = JSON.stringify({
           socioId,
           cuotaIds: [...seleccionadas].sort((a, b) => a - b),
+          periodosNuevos: [...periodosNuevos].sort(),
           conceptos: conceptosValidos,
           pagos: payloadPago.pagos,
           total: totalAEnviar,
         });
 
-        await mobileApi.registrarOperacionCobro({
+        const payload = {
           socioId,
           cuotaIds: seleccionadas,
           conceptos: conceptosValidos,
@@ -420,7 +407,26 @@ export default function PagoCobradoraScreen() {
             binding.installationId,
             operationSignature,
           ),
-        });
+        };
+        if (periodosNuevos.length > 0) {
+          const periodos = [
+            ...cuotas.filter((cuota) => seleccionadas.includes(cuota.id)).map((cuota) => cuota.periodo),
+            ...periodosNuevos,
+          ];
+          await mobileApi.registrarCobroPeriodosMobile(socioId, {
+            periodos,
+            conceptos: conceptosValidos,
+            pagos: payloadPago.pagos,
+            installationId: binding.installationId,
+            cobradorId: binding.cobradorId,
+            total: totalAEnviar,
+            idempotencyKey: payload.idempotencyKey,
+            totalCuotasEsperado: totalCuotas,
+            creditoEsperado: creditoVigente,
+          });
+        } else {
+          await mobileApi.registrarOperacionCobro(payload);
+        }
 
         setSuccess(true);
         showToast("¡Cobro registrado exitosamente!", "success");
@@ -562,59 +568,38 @@ export default function PagoCobradoraScreen() {
               )}
             </View>
 
-            {!isEditMode && (
-              <View className="bg-card rounded-2xl border border-border/40 p-4 gap-3">
-                <Text className="text-foreground font-semibold">Generar cuota para un período</Text>
+            {!isEditMode && infoPeriodos?.montoMensual != null && (
+              <View className="gap-3">
+                <Text className="text-muted-foreground text-sm">Seleccioná los meses que querés cobrar.</Text>
                 <View className="flex-row items-center justify-between">
                   <Button
                     variant="outline"
                     size="icon"
-                    onPress={() => moveQuotaPeriod(-1)}
-                    disabled={generatingQuota}
-                    accessibilityLabel="Mes anterior"
+                    onPress={() => setPeriodYear((year) => year - 1)}
+                    accessibilityLabel="Año anterior"
                   >
                     <ChevronLeft size={18} color="hsl(var(--foreground))" />
                   </Button>
                   <Text
                     className="text-foreground font-bold text-base"
-                    accessibilityLabel={`Período seleccionado: ${quotaPeriod}`}
+                    accessibilityLabel={`Año ${periodYear}`}
                   >
-                    {quotaPeriod}
+                    {periodYear}
                   </Text>
                   <Button
                     variant="outline"
                     size="icon"
-                    onPress={() => moveQuotaPeriod(1)}
-                    disabled={generatingQuota}
-                    accessibilityLabel="Mes siguiente"
+                    onPress={() => setPeriodYear((year) => year + 1)}
+                    accessibilityLabel="Año siguiente"
                   >
                     <ChevronRight size={18} color="hsl(var(--foreground))" />
                   </Button>
                 </View>
-                <Button
-                  onPress={() => void generateQuota()}
-                  loading={generatingQuota}
-                  accessibilityLabel="Generar cuota"
-                  accessibilityHint={`Genera una cuota para ${quotaPeriod} y actualiza las cuotas pendientes`}
-                >
-                  Generar cuota
-                </Button>
-                {quotaGenerationNotice && (
-                  <View
-                    className="bg-secondary rounded-xl border border-border/40 p-3"
-                    accessibilityRole="alert"
-                    accessibilityLiveRegion="polite"
-                  >
-                    <Text className="text-secondary-foreground text-sm font-medium">
-                      {quotaGenerationNotice}
-                    </Text>
-                  </View>
-                )}
               </View>
             )}
 
             {/* Empty state */}
-            {cuotas.length === 0 ? (
+            {cuotasVisibles.length === 0 ? (
               <View
                 className="items-center justify-center py-12 opacity-80"
                 accessibilityRole="text"
@@ -627,15 +612,15 @@ export default function PagoCobradoraScreen() {
               </View>
             ) : (
               <>
-                {cuotas.map((cuota) => {
-                  const selected = seleccionadas.includes(cuota.id);
+                {cuotasVisibles.map((cuota) => {
+                  const selected = cuota.nuevo ? periodosNuevos.includes(cuota.periodo) : seleccionadas.includes(cuota.id);
                   return (
                     <Pressable
-                      key={cuota.id}
-                      onPress={() => toggleCuota(cuota.id)}
+                      key={cuota.nuevo ? `nuevo-${cuota.periodo}` : `cuota-${cuota.id}`}
+                      onPress={() => cuota.nuevo ? togglePeriodoNuevo(cuota.periodo) : toggleCuota(cuota.id)}
                       accessibilityRole="checkbox"
                       accessibilityLabel={`${cuota.periodo}, $${Number(cuota.monto).toLocaleString("es-AR")}`}
-                      accessibilityHint="Toca para seleccionar o deseleccionar esta cuota"
+                      accessibilityHint={cuota.nuevo ? "Se generará al confirmar el cobro" : "Toca para seleccionar o deseleccionar esta cuota"}
                       accessibilityState={{ checked: selected }}
                     >
                       <View className={cn(
@@ -667,15 +652,12 @@ export default function PagoCobradoraScreen() {
                   );
                 })}
 
-                {seleccionadas.length > 0 && (
-                  <Text
-                    className="text-muted-foreground text-sm"
-                    accessibilityLiveRegion="polite"
-                  >
-                    {seleccionadas.length} cuota{seleccionadas.length !== 1 ? "s" : ""} seleccionada{seleccionadas.length !== 1 ? "s" : ""}
-                  </Text>
-                )}
               </>
+            )}
+            {seleccionadas.length + periodosNuevos.length > 0 && (
+              <Text className="text-muted-foreground text-sm" accessibilityLiveRegion="polite">
+                {seleccionadas.length + periodosNuevos.length} cuota{seleccionadas.length + periodosNuevos.length !== 1 ? "s" : ""} seleccionada{seleccionadas.length + periodosNuevos.length !== 1 ? "s" : ""}
+              </Text>
             )}
           </View>
 

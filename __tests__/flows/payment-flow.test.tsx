@@ -7,6 +7,8 @@ jest.mock("../../lib/api", () => ({
   mobileApi: {
     cuotasPendientes: jest.fn(),
     generarCuotaMobile: jest.fn(),
+    obtenerPeriodosCobroMobile: jest.fn(),
+    registrarCobroPeriodosMobile: jest.fn(),
     obtenerSocioMobile: jest.fn(),
     vincularDispositivo: jest.fn(),
     registrarOperacionCobro: jest.fn(),
@@ -24,6 +26,8 @@ const { mobileApi } = jest.requireMock("../../lib/api") as {
   mobileApi: {
     cuotasPendientes: jest.Mock;
     generarCuotaMobile: jest.Mock;
+    obtenerPeriodosCobroMobile: jest.Mock;
+    registrarCobroPeriodosMobile: jest.Mock;
     obtenerSocioMobile: jest.Mock;
     vincularDispositivo: jest.Mock;
     registrarOperacionCobro: jest.Mock;
@@ -40,12 +44,61 @@ const { getBinding, getEditOperacion, clearEditOperacion } = jest.requireMock(".
 describe("payment flow", () => {
   beforeEach(() => {
     jest.useFakeTimers();
+    mobileApi.obtenerPeriodosCobroMobile.mockResolvedValue({ montoMensual: 10000, periodosPagados: [] });
   });
 
   afterEach(() => {
     jest.useRealTimers();
     mobileApi.obtenerSocioMobile.mockReset();
     mobileApi.generarCuotaMobile.mockReset();
+    mobileApi.obtenerPeriodosCobroMobile.mockReset();
+    mobileApi.registrarCobroPeriodosMobile.mockReset();
+  });
+
+  it("allows selecting existing and new periods in one mobile collection", async () => {
+    const expoRouter = jest.requireMock("expo-router") as {
+      __setLocalSearchParams: (params: Record<string, string>) => void;
+    };
+    const now = new Date();
+    const first = `${now.getFullYear()}-01`;
+    const second = `${now.getFullYear()}-02`;
+    const previous = `${now.getFullYear() - 1}-01`;
+    expoRouter.__setLocalSearchParams({ socioId: "42", creditoDisponible: "7000" });
+    mobileApi.cuotasPendientes.mockResolvedValue([{ id: 5, periodo: previous, monto: 4000 }]);
+    mobileApi.obtenerSocioMobile.mockResolvedValue({ id: 42, creditoIndividual: 7000 });
+    mobileApi.registrarCobroPeriodosMobile.mockResolvedValue({ id: 1 });
+    getBinding.mockResolvedValue(createBinding({ cobradorId: 9 }));
+
+    const { findByRole, getByRole } = render(<PagoCobradoraScreen />);
+    fireEvent.press(await findByRole("checkbox", { name: new RegExp(`${previous}.*4\\.000`) }));
+    fireEvent.press(await findByRole("checkbox", { name: new RegExp(`${first}.*10\\.000`) }));
+    fireEvent.press(await findByRole("checkbox", { name: new RegExp(`${second}.*10\\.000`) }));
+    fireEvent.press(getByRole("button", { name: "Confirmar cobro" }));
+
+    await waitFor(() => expect(mobileApi.registrarCobroPeriodosMobile).toHaveBeenCalledWith(
+      42,
+      expect.objectContaining({ periodos: [previous, first, second], totalCuotasEsperado: 24000, creditoEsperado: 7000, total: 17000 }),
+    ));
+    expect(mobileApi.generarCuotaMobile).not.toHaveBeenCalled();
+    expect(mobileApi.registrarOperacionCobro).not.toHaveBeenCalled();
+  }, 15_000);
+
+  it("asks for a new confirmation when credit changes before collecting new periods", async () => {
+    const expoRouter = jest.requireMock("expo-router") as {
+      __setLocalSearchParams: (params: Record<string, string>) => void;
+    };
+    const year = new Date().getFullYear();
+    expoRouter.__setLocalSearchParams({ socioId: "42", creditoDisponible: "7000" });
+    mobileApi.cuotasPendientes.mockResolvedValue([]);
+    mobileApi.obtenerSocioMobile
+      .mockResolvedValueOnce({ id: 42, creditoIndividual: 7000 })
+      .mockResolvedValueOnce({ id: 42, creditoIndividual: 5000 });
+    const { findByRole, getByRole, findByText } = render(<PagoCobradoraScreen />);
+    fireEvent.press(await findByRole("checkbox", { name: new RegExp(`${year}-01.*10\\.000`) }));
+    fireEvent.press(getByRole("button", { name: "Confirmar cobro" }));
+    expect(await findByText(/El saldo a favor cambió/)).toBeTruthy();
+    expect(mobileApi.registrarCobroPeriodosMobile).not.toHaveBeenCalled();
+    expect(getByRole("button", { name: "Confirmar cobro" })).toBeTruthy();
   });
 
   it("registers a payment and redirects after success", async () => {
@@ -89,82 +142,18 @@ describe("payment flow", () => {
     expect(expoRouter.__mockRouter.replace).toHaveBeenCalledWith("/cobradora/home");
   });
 
-  it("preserves selected pending quotas and applies credit to the refreshed quota", async () => {
-    jest.useRealTimers();
+  it("does not offer paid periods for selection", async () => {
     const expoRouter = jest.requireMock("expo-router") as {
       __setLocalSearchParams: (params: Record<string, string>) => void;
     };
-    const nextMonth = new Date(new Date().getFullYear(), new Date().getMonth() + 1, 1);
-    const periodo = `${nextMonth.getFullYear()}-${String(nextMonth.getMonth() + 1).padStart(2, "0")}`;
-
-    expoRouter.__setLocalSearchParams({ socioId: "42", creditoDisponible: "7000" });
-    mobileApi.cuotasPendientes
-      .mockResolvedValueOnce([{ id: 5, periodo: "2026-10", monto: 4000 }])
-      .mockResolvedValueOnce([
-        { id: 5, periodo: "2026-10", monto: 4000 },
-        { id: 77, periodo, monto: 6000 },
-      ]);
-    mobileApi.obtenerSocioMobile.mockResolvedValue({ id: 42, creditoIndividual: 7000 });
-    mobileApi.generarCuotaMobile.mockResolvedValue({
-      creadas: 1,
-      omitidas: 0,
-      advertenciasMorosidad: 0,
-      inhabilitados: 0,
-      desactivados: 0,
-      advertencias: [],
-    });
-    mobileApi.registrarOperacionCobro.mockResolvedValue(undefined);
-    getBinding.mockResolvedValue(createBinding({ cobradorId: 9 }));
-
-    const { findByRole, getByRole } = render(<PagoCobradoraScreen />);
-
-    fireEvent.press(await findByRole("checkbox", { name: /2026-10, \$4\.000/ }));
-    fireEvent.press(await findByRole("button", { name: "Mes siguiente" }));
-    fireEvent.press(getByRole("button", { name: "Generar cuota" }));
-
-    await findByRole("checkbox", { name: new RegExp(`${periodo}, \\$6\\.000`) });
-    expect(mobileApi.generarCuotaMobile).toHaveBeenCalledWith(42, periodo);
-    expect(mobileApi.cuotasPendientes).toHaveBeenCalledTimes(2);
-    expect(mobileApi.obtenerSocioMobile).toHaveBeenCalledTimes(2);
-
-    fireEvent.press(getByRole("checkbox", { name: new RegExp(`${periodo}, \\$6\\.000`) }));
-    fireEvent.press(getByRole("button", { name: "Confirmar cobro" }));
-
-    await waitFor(() => {
-      expect(mobileApi.registrarOperacionCobro).toHaveBeenCalledWith(
-        expect.objectContaining({
-          socioId: 42,
-          cuotaIds: [5, 77],
-          pagos: [{ metodoPagoId: 1, monto: 3000 }],
-          total: 3000,
-        }),
-      );
-    });
-  }, 15_000);
-
-  it("shows backend morosidad warnings when quota creation is skipped", async () => {
-    const expoRouter = jest.requireMock("expo-router") as {
-      __setLocalSearchParams: (params: Record<string, string>) => void;
-    };
-    const warning = "Socio Test Member marcado como MOROSO; no se creó la cuota.";
-
+    const now = new Date();
+    const periodo = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
     expoRouter.__setLocalSearchParams({ socioId: "42" });
-    mobileApi.cuotasPendientes.mockResolvedValueOnce([]).mockResolvedValueOnce([]);
-    mobileApi.generarCuotaMobile.mockResolvedValue({
-      creadas: 0,
-      omitidas: 0,
-      advertenciasMorosidad: 0,
-      inhabilitados: 1,
-      desactivados: 1,
-      advertencias: [warning],
-    });
-
-    const { findByRole, findByText } = render(<PagoCobradoraScreen />);
-
-    fireEvent.press(await findByRole("button", { name: "Generar cuota" }));
-
-    expect(await findByText(warning)).toBeTruthy();
-    expect(mobileApi.cuotasPendientes).toHaveBeenCalledTimes(2);
+    mobileApi.cuotasPendientes.mockResolvedValue([]);
+    mobileApi.obtenerPeriodosCobroMobile.mockResolvedValue({ montoMensual: 10000, periodosPagados: [periodo] });
+    const { findByRole, queryByRole } = render(<PagoCobradoraScreen />);
+    await findByRole("button", { name: "Año siguiente" });
+    expect(queryByRole("checkbox", { name: new RegExp(periodo) })).toBeNull();
   });
 
   it("allows editing only the payment method when the original quota is no longer pending", async () => {
