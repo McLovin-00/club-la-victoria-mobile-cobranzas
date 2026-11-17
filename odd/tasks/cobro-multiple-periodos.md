@@ -30,7 +30,7 @@ El usuario autorizó que la nueva operación móvil sea pública, sin usuario ni
 
 ## Tasks
 - T1 — S1-S2 — inline — hecho — commit: `5e87c99` — Contrato y operación móvil para períodos existentes y nuevos, con verificación del comportamiento web. Riesgo: ítems 1, 3 y 4 (datos financieros, código compartido y concurrencia).
-- T2 — S1-S2 — inline — hecho — commit: pendiente — Lista móvil unificada, resumen y confirmación. Riesgo: ítem 1 (registro de cobros).
+- T2 — S1-S2 — inline — hecho — commit: `eedc199` — Lista móvil unificada, resumen y confirmación. Riesgo: ítem 1 (registro de cobros).
 
 ## Log
 - L1: «No me gusta mucho como quedo lo de generar cuota, tiene muchos pasos ya que hay que generar la cuota, seleccionar la cuota, pagar la cuota. La idea es que sea mas sencillo para el usuario de la app ya que la persona que lo usa es media rehacia a la tecnologia»
@@ -49,4 +49,5 @@ El usuario autorizó que la nueva operación móvil sea pública, sin usuario ni
 - L14: El usuario eligió «Por etapas a principal (Recomendado)»: `stacked-to-main`, con backend y móvil revisados en sus respectivos repositorios; no autoriza publicación ni creación de PR.
 - L15: T1 registrado en el backend como `5e87c99`. Su unidad coherente de operación transaccional, migración y pruebas suma 494 líneas; se conserva junta y se recomienda una excepción de tamaño para su revisión, sin recortar pruebas.
 - L16: La comprobación independiente de la ruta web pasó para el caso comparado. En la app local se seleccionaron una cuota existente y un período nuevo de un socio ficticio, se confirmó un cobro de $13.000 aplicando $7.000 de crédito y ambos períodos quedaron pagados. Se comprobó la interfaz en un navegador de ancho móvil; no se verificó un dispositivo nativo.
-- Siguiente: registrar el commit móvil y su identidad; no publicar ni abrir PR.
+- L17: T2 registrado en el móvil como `eedc199`, con pruebas y documentación. La unidad suma 430 líneas y se recomienda una excepción de tamaño para su revisión. Las suites completas no se repitieron después del último ajuste acotado; permanecen registradas sus fallas previas.
+- Siguiente: función completa en ramas locales. La publicación y la creación de PR no están autorizadas.
