@@ -1,6 +1,6 @@
 import React from "react";
 import PagoCobradoraScreen from "../../app/cobradora/pago";
-import { render, fireEvent, waitFor, act } from "../setup/render";
+import { render, fireEvent, waitFor } from "../setup/render";
 import { createBinding } from "../setup/mocks";
 
 jest.mock("../../lib/api", () => ({
@@ -60,25 +60,40 @@ describe("payment flow", () => {
     const expoRouter = jest.requireMock("expo-router") as {
       __setLocalSearchParams: (params: Record<string, string>) => void;
     };
-    const now = new Date();
-    const first = `${now.getFullYear()}-01`;
-    const second = `${now.getFullYear()}-02`;
-    const previous = `${now.getFullYear() - 1}-01`;
+    jest.setSystemTime(new Date(2026, 11, 15));
+    const previous = "2026-11";
     expoRouter.__setLocalSearchParams({ socioId: "42", creditoDisponible: "7000" });
     mobileApi.cuotasPendientes.mockResolvedValue([{ id: 5, periodo: previous, monto: 4000 }]);
     mobileApi.obtenerSocioMobile.mockResolvedValue({ id: 42, creditoIndividual: 7000 });
     mobileApi.registrarCobroPeriodosMobile.mockResolvedValue({ id: 1 });
     getBinding.mockResolvedValue(createBinding({ cobradorId: 9 }));
 
-    const { findByRole, getByRole } = render(<PagoCobradoraScreen />);
-    fireEvent.press(await findByRole("checkbox", { name: new RegExp(`${previous}.*4\\.000`) }));
-    fireEvent.press(await findByRole("checkbox", { name: new RegExp(`${first}.*10\\.000`) }));
-    fireEvent.press(await findByRole("checkbox", { name: new RegExp(`${second}.*10\\.000`) }));
-    fireEvent.press(getByRole("button", { name: "Confirmar cobro" }));
+    const { findByRole, getByRole, getByText, queryByLabelText, getAllByRole } = render(<PagoCobradoraScreen />);
+    expect((await findByRole("checkbox", { name: /Noviembre 2026.*4\.000/ })).props.accessibilityState.checked).toBe(true);
+    expect(getAllByRole("checkbox")).toHaveLength(1);
+    expect(queryByLabelText("Cantidad de meses")).toBeNull();
+    fireEvent.press(getByRole("button", { name: "Adelantar cuotas" }));
+    expect(getByText("2026")).toBeTruthy();
+    expect(getAllByRole("checkbox")).toHaveLength(13);
+    expect(queryByLabelText("Cantidad de meses")).toBeNull();
+    const pendiente = getByRole("checkbox", { name: "Noviembre 2026, pendiente" });
+    expect(pendiente.props.accessibilityState.disabled).toBe(true);
+    fireEvent.press(pendiente);
+    fireEvent.press(getByRole("checkbox", { name: "Diciembre 2026" }));
+    fireEvent.press(getByRole("button", { name: "Año siguiente" }));
+    expect(getByText("2027")).toBeTruthy();
+    fireEvent.press(getByRole("checkbox", { name: "Enero 2027" }));
+    fireEvent.press(getByRole("button", { name: "Año anterior" }));
+    expect(getByRole("checkbox", { name: "Diciembre 2026" }).props.accessibilityState.checked).toBe(true);
+    fireEvent.press(getByRole("button", { name: "Ocultar meses" }));
+    expect(getAllByRole("checkbox")).toHaveLength(1);
+    expect(getByText("2 meses: Diciembre 2026 a Enero 2027")).toBeTruthy();
+    expect(mobileApi.registrarCobroPeriodosMobile).not.toHaveBeenCalled();
+    fireEvent.press(getByRole("button", { name: "Cobrar $17.000" }));
 
     await waitFor(() => expect(mobileApi.registrarCobroPeriodosMobile).toHaveBeenCalledWith(
       42,
-      expect.objectContaining({ periodos: [previous, first, second], totalCuotasEsperado: 24000, creditoEsperado: 7000, total: 17000 }),
+      expect.objectContaining({ periodos: [previous, "2026-12", "2027-01"], totalCuotasEsperado: 24000, creditoEsperado: 7000, total: 17000 }),
     ));
     expect(mobileApi.generarCuotaMobile).not.toHaveBeenCalled();
     expect(mobileApi.registrarOperacionCobro).not.toHaveBeenCalled();
@@ -88,47 +103,60 @@ describe("payment flow", () => {
     const expoRouter = jest.requireMock("expo-router") as {
       __setLocalSearchParams: (params: Record<string, string>) => void;
     };
-    const year = new Date().getFullYear();
+    jest.setSystemTime(new Date(2026, 10, 15));
     expoRouter.__setLocalSearchParams({ socioId: "42", creditoDisponible: "7000" });
     mobileApi.cuotasPendientes.mockResolvedValue([]);
     mobileApi.obtenerSocioMobile
       .mockResolvedValueOnce({ id: 42, creditoIndividual: 7000 })
       .mockResolvedValueOnce({ id: 42, creditoIndividual: 5000 });
     const { findByRole, getByRole, findByText } = render(<PagoCobradoraScreen />);
-    fireEvent.press(await findByRole("checkbox", { name: new RegExp(`${year}-01.*10\\.000`) }));
-    fireEvent.press(getByRole("button", { name: "Confirmar cobro" }));
+    fireEvent.press(await findByRole("button", { name: "Adelantar cuotas" }));
+    fireEvent.press(getByRole("checkbox", { name: "Noviembre 2026" }));
+    fireEvent.press(getByRole("button", { name: "Cobrar $3.000" }));
     expect(await findByText(/El saldo a favor cambió/)).toBeTruthy();
     expect(mobileApi.registrarCobroPeriodosMobile).not.toHaveBeenCalled();
-    expect(getByRole("button", { name: "Confirmar cobro" })).toBeTruthy();
+    expect(getByRole("button", { name: "Cobrar $5.000" })).toBeTruthy();
   });
 
-  it.each(["cuota", "extra"])("reconfirma un cobro cuando cambia el saldo (%s)", async (tipo) => {
-    jest.requireMock("expo-router").__setLocalSearchParams({ socioId: "93" });
+  it.each(["cuota", "extra"])("asks for a new confirmation when credit changes for a %s", async (tipo) => {
+    const expoRouter = jest.requireMock("expo-router") as {
+      __setLocalSearchParams: (params: Record<string, string>) => void;
+    };
+    expoRouter.__setLocalSearchParams({ socioId: "42" });
     mobileApi.cuotasPendientes.mockResolvedValue(
-      tipo === "cuota" ? [{ id: 11, periodo: "2025-01", monto: 10000 }] : [],
+      tipo === "cuota" ? [{ id: 5, periodo: "2025-01", monto: 10000 }] : [],
     );
-    mobileApi.obtenerSocioMobile.mockResolvedValueOnce({ id: 93, creditoIndividual: 2000 })
-      .mockResolvedValue({ id: 93, creditoIndividual: 3000 });
-    mobileApi.registrarOperacionCobro.mockResolvedValue({ id: 17 });
+    mobileApi.obtenerSocioMobile
+      .mockResolvedValueOnce({ id: 42, creditoIndividual: 2000 })
+      .mockResolvedValue({ id: 42, creditoIndividual: 3000 });
+    mobileApi.registrarOperacionCobro.mockResolvedValue({ id: 1 });
     getBinding.mockResolvedValue(createBinding({ cobradorId: 9 }));
-    const { findByRole, getByRole, findByText, findByLabelText, getByLabelText } = render(<PagoCobradoraScreen />);
-    if (tipo === "cuota") {
-      fireEvent.press(await findByRole("checkbox", { name: /2025-01, \$10\.000/ }));
-    } else {
-      fireEvent.press(await findByLabelText("¿Cobrar algo más?"));
+
+    const { findByRole, getByRole, findByText, getByLabelText, getByPlaceholderText } = render(<PagoCobradoraScreen />);
+    if (tipo === "extra") {
+      fireEvent.press(await findByRole("button", { name: "¿Cobrar algo más?" }));
       fireEvent.changeText(getByLabelText("¿Qué estás cobrando?"), "Inscripción");
-      fireEvent.changeText(getByLabelText("¿Cuánto?"), "10000");
+      fireEvent.changeText(getByPlaceholderText("0"), "10000");
     }
-    fireEvent.press(getByRole("button", { name: "Confirmar cobro" }));
+    fireEvent.press(await findByRole("button", { name: "Cobrar $8.000" }));
+
     expect(await findByText(/El saldo a favor cambió/)).toBeTruthy();
     expect(mobileApi.registrarOperacionCobro).not.toHaveBeenCalled();
-    fireEvent.press(getByRole("button", { name: "Confirmar cobro" }));
-    await waitFor(() => expect(mobileApi.registrarOperacionCobro).toHaveBeenCalledWith(
-      expect.objectContaining({ montoNetoEsperado: 7000, total: 7000 }),
-    ));
+    expect(mobileApi.registrarCobroPeriodosMobile).not.toHaveBeenCalled();
+    fireEvent.press(getByRole("button", { name: "Cobrar $7.000" }));
+
+    await waitFor(() => expect(mobileApi.registrarOperacionCobro).toHaveBeenCalledTimes(1));
+    expect(mobileApi.registrarOperacionCobro).toHaveBeenCalledWith(expect.objectContaining({
+      cuotaIds: tipo === "cuota" ? [5] : [],
+      conceptos: tipo === "extra" ? [{ concepto: "Inscripción", monto: 10000 }] : [],
+      pagos: [{ metodoPagoId: 1, monto: 7000 }],
+      montoNetoEsperado: 7000,
+      total: 7000,
+    }));
+    expect(await findByText("¡Cobro registrado!")).toBeTruthy();
   });
 
-  it("actualiza el neto después de un conflicto sin reenviar el cobro", async () => {
+  it("ODD S4 refresca tras un 409 sin enviar un segundo POST", async () => {
     jest.requireMock("expo-router").__setLocalSearchParams({ socioId: "94" });
     mobileApi.cuotasPendientes.mockResolvedValue([{ id: 12, periodo: "2025-01", monto: 10000 }]);
     mobileApi.obtenerSocioMobile.mockResolvedValueOnce({ id: 94, creditoIndividual: 2000 })
@@ -138,19 +166,17 @@ describe("payment flow", () => {
     mobileApi.registrarOperacionCobro.mockRejectedValueOnce(new Error(JSON.stringify({ statusCode: 409, message })))
       .mockResolvedValue({ id: 18 });
     getBinding.mockResolvedValue(createBinding({ cobradorId: 9 }));
-    const { findByRole, findByText, getByRole, getByLabelText } = render(<PagoCobradoraScreen />);
-    fireEvent.press(await findByRole("checkbox", { name: /2025-01, \$10\.000/ }));
-    fireEvent.press(getByRole("button", { name: "Confirmar cobro" }));
-    expect(await findByText(message)).toBeTruthy();
-    expect(getByLabelText("¿Cuánto paga el cliente?").props.value).toBe("9000");
+    const { findByRole, findByText } = render(<PagoCobradoraScreen />);
+    fireEvent.press(await findByRole("button", { name: "Cobrar $8.000" }));
+    expect(await findByText(new RegExp(message))).toBeTruthy();
     expect(mobileApi.registrarOperacionCobro).toHaveBeenCalledTimes(1);
-    fireEvent.press(getByRole("button", { name: "Confirmar cobro" }));
+    fireEvent.press(await findByRole("button", { name: "Cobrar $9.000" }));
     await waitFor(() => expect(mobileApi.registrarOperacionCobro).toHaveBeenLastCalledWith(
       expect.objectContaining({ montoNetoEsperado: 9000, total: 9000 }),
     ));
   });
 
-  it("conserva el importe recibido al pedir otra confirmación", async () => {
+  it("ODD S1/S4 conserva el importe recibido al pedir otra confirmación", async () => {
     jest.requireMock("expo-router").__setLocalSearchParams({ socioId: "95" });
     mobileApi.cuotasPendientes.mockResolvedValue([{ id: 13, periodo: "2025-01", monto: 10000 }]);
     mobileApi.obtenerSocioMobile.mockResolvedValueOnce({ id: 95, creditoIndividual: 2000 })
@@ -158,13 +184,14 @@ describe("payment flow", () => {
     mobileApi.registrarOperacionCobro.mockResolvedValue({ id: 19 });
     getBinding.mockResolvedValue(createBinding({ cobradorId: 9 }));
     const { findByRole, findByText, getByRole, getByLabelText } = render(<PagoCobradoraScreen />);
-    fireEvent.press(await findByRole("checkbox", { name: /2025-01, \$10\.000/ }));
-    fireEvent.changeText(getByLabelText("¿Cuánto paga el cliente?"), "12000");
-    fireEvent.press(getByRole("button", { name: "Confirmar cobro" }));
+    await findByRole("button", { name: "Cobrar $8.000" });
+    fireEvent.press(getByRole("button", { name: "Dejar saldo a favor" }));
+    fireEvent.changeText(getByLabelText("Importe que entrega el socio"), "12000");
+    fireEvent.press(getByRole("button", { name: "Cobrar $12.000" }));
     expect(await findByText(/El saldo a favor cambió/)).toBeTruthy();
     expect(mobileApi.registrarOperacionCobro).not.toHaveBeenCalled();
-    expect(getByLabelText("¿Cuánto paga el cliente?").props.value).toBe("12000");
-    fireEvent.press(getByRole("button", { name: "Confirmar cobro" }));
+    expect(getByLabelText("Importe que entrega el socio").props.value).toBe("12000");
+    fireEvent.press(getByRole("button", { name: "Cobrar $12.000" }));
     await waitFor(() => expect(mobileApi.registrarOperacionCobro).toHaveBeenCalledWith(
       expect.objectContaining({ montoNetoEsperado: 7000, total: 12000 }),
     ));
@@ -181,13 +208,10 @@ describe("payment flow", () => {
     mobileApi.registrarOperacionCobro.mockResolvedValue(undefined);
     getBinding.mockResolvedValue(createBinding({ cobradorId: 9 }));
 
-    const { findByText, getByRole } = render(<PagoCobradoraScreen />);
+    const { findByText, findByRole, getByRole } = render(<PagoCobradoraScreen />);
 
-    await waitFor(async () => {
-      const checkbox = getByRole("checkbox", { name: /2025-01, \$15\.000/i });
-      fireEvent.press(checkbox);
-    });
-    fireEvent.press(getByRole("button", { name: "Confirmar cobro" }));
+    await findByRole("checkbox", { name: /Enero 2025, \$15\.000/i });
+    fireEvent.press(getByRole("button", { name: "Cobrar $15.000" }));
 
     await waitFor(() => {
       expect(mobileApi.registrarOperacionCobro).toHaveBeenCalledWith(
@@ -203,10 +227,8 @@ describe("payment flow", () => {
     });
 
     await findByText("¡Cobro registrado!");
-
-    act(() => {
-      jest.advanceTimersByTime(1500);
-    });
+    expect(getByRole("button", { name: "Listo" })).toBeTruthy();
+    fireEvent.press(getByRole("button", { name: "Listo" }));
 
     expect(expoRouter.__mockRouter.replace).toHaveBeenCalledWith("/cobradora/home");
   });
@@ -215,14 +237,32 @@ describe("payment flow", () => {
     const expoRouter = jest.requireMock("expo-router") as {
       __setLocalSearchParams: (params: Record<string, string>) => void;
     };
-    const now = new Date();
-    const periodo = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+    jest.setSystemTime(new Date(2026, 10, 15));
     expoRouter.__setLocalSearchParams({ socioId: "42" });
     mobileApi.cuotasPendientes.mockResolvedValue([]);
-    mobileApi.obtenerPeriodosCobroMobile.mockResolvedValue({ montoMensual: 10000, periodosPagados: [periodo] });
-    const { findByRole, queryByRole } = render(<PagoCobradoraScreen />);
-    await findByRole("button", { name: "Año siguiente" });
-    expect(queryByRole("checkbox", { name: new RegExp(periodo) })).toBeNull();
+    mobileApi.obtenerPeriodosCobroMobile.mockResolvedValue({ montoMensual: 10000, periodosPagados: ["2026-11", "2027-01"] });
+    getBinding.mockResolvedValue(createBinding({ cobradorId: 9 }));
+    mobileApi.registrarCobroPeriodosMobile.mockResolvedValue({ id: 1 });
+    const { findByRole, getByRole, getByText } = render(<PagoCobradoraScreen />);
+    fireEvent.press(await findByRole("button", { name: "Adelantar cuotas" }));
+    expect(getByText("Está al día")).toBeTruthy();
+    const pagado = getByRole("checkbox", { name: "Noviembre 2026, pagado" });
+    expect(pagado.props.accessibilityState).toEqual(expect.objectContaining({ checked: false, disabled: true }));
+    fireEvent.press(pagado);
+    fireEvent.press(getByRole("checkbox", { name: "Mayo 2026" }));
+    fireEvent.press(getByRole("checkbox", { name: "Diciembre 2026" }));
+    fireEvent.press(getByRole("checkbox", { name: "Mayo 2026" }));
+    fireEvent.press(getByRole("button", { name: "Año siguiente" }));
+    const enero = getByRole("checkbox", { name: "Enero 2027, pagado" });
+    expect(enero.props.accessibilityState.disabled).toBe(true);
+    fireEvent.press(enero);
+    fireEvent.press(getByRole("checkbox", { name: "Marzo 2027" }));
+    expect(getByText("2 meses: Diciembre 2026, Marzo 2027")).toBeTruthy();
+    fireEvent.press(getByRole("button", { name: "Cobrar $20.000" }));
+    await waitFor(() => expect(mobileApi.registrarCobroPeriodosMobile).toHaveBeenCalledWith(
+      42, expect.objectContaining({ periodos: ["2026-12", "2027-03"], totalCuotasEsperado: 20000, total: 20000 }),
+    ));
+    expect(mobileApi.registrarCobroPeriodosMobile).toHaveBeenCalledTimes(1);
   });
 
   it("allows editing only the payment method when the original quota is no longer pending", async () => {
@@ -275,6 +315,30 @@ describe("payment flow", () => {
     });
   });
 
+  it("lets the collector clear the saldo a favor amount without snapping back to the exact total", async () => {
+    const expoRouter = jest.requireMock("expo-router") as {
+      __setLocalSearchParams: (params: Record<string, string>) => void;
+    };
+
+    expoRouter.__setLocalSearchParams({ socioId: "42" });
+    mobileApi.cuotasPendientes.mockResolvedValue([{ id: 5, periodo: "2025-01", monto: 10000 }]);
+    getBinding.mockResolvedValue(createBinding({ cobradorId: 9 }));
+
+    const { findByRole, getByRole, getByLabelText, queryByText } = render(<PagoCobradoraScreen />);
+    await findByRole("checkbox", { name: /Enero 2025, \$10\.000/i });
+    fireEvent.press(getByRole("button", { name: "Dejar saldo a favor" }));
+
+    const input = () => getByLabelText("Importe que entrega el socio");
+    expect(input().props.value).toBe("");
+
+    fireEvent.changeText(input(), "10000");
+    expect(input().props.value).toBe("10000");
+
+    fireEvent.changeText(input(), "");
+    expect(input().props.value).toBe("");
+    expect(queryByText(/Nuevo saldo a favor por este cobro/)).toBeNull();
+  });
+
   it("allows charging more than the selected quota to generate credit", async () => {
     const expoRouter = jest.requireMock("expo-router") as {
       __setLocalSearchParams: (params: Record<string, string>) => void;
@@ -285,15 +349,13 @@ describe("payment flow", () => {
     mobileApi.registrarOperacionCobro.mockResolvedValue(undefined);
     getBinding.mockResolvedValue(createBinding({ cobradorId: 9 }));
 
-    const { getByRole, getByLabelText } = render(<PagoCobradoraScreen />);
-
-    await waitFor(async () => {
-      const checkbox = getByRole("checkbox", { name: /2025-01, \$10\.000/i });
-      fireEvent.press(checkbox);
-    });
-
-    fireEvent.changeText(getByLabelText("¿Cuánto paga el cliente?"), "15000");
-    fireEvent.press(getByRole("button", { name: "Confirmar cobro" }));
+    const { findByRole, getByRole, getByLabelText, queryByLabelText, getByText } = render(<PagoCobradoraScreen />);
+    await findByRole("checkbox", { name: /Enero 2025, \$10\.000/i });
+    expect(queryByLabelText("Importe que entrega el socio")).toBeNull();
+    fireEvent.press(getByRole("button", { name: "Dejar saldo a favor" }));
+    fireEvent.changeText(getByLabelText("Importe que entrega el socio"), "15000");
+    expect(getByText("Nuevo saldo a favor por este cobro: $5.000")).toBeTruthy();
+    fireEvent.press(getByRole("button", { name: "Cobrar $15.000" }));
 
     await waitFor(() => {
       expect(mobileApi.registrarOperacionCobro).toHaveBeenCalledWith(
@@ -304,6 +366,7 @@ describe("payment flow", () => {
         }),
       );
     });
+    expect(mobileApi.registrarCobroPeriodosMobile).not.toHaveBeenCalled();
   });
 
   it("shows the member credit balance even when it is zero", async () => {
@@ -326,31 +389,29 @@ describe("payment flow", () => {
     };
 
     expoRouter.__setLocalSearchParams({ socioId: "42", creditoDisponible: "5000" });
-    // Quota of 15000 with individual credit of 5000 available -> net payable 10000
     mobileApi.cuotasPendientes.mockResolvedValue([
       { id: 5, periodo: "2025-01", monto: 15000 },
+      { id: 6, periodo: "2025-02", monto: 9000 },
     ]);
     mobileApi.registrarOperacionCobro.mockResolvedValue(undefined);
     getBinding.mockResolvedValue(createBinding({ cobradorId: 9 }));
 
-    const { getByRole, getByLabelText, getByText } = render(<PagoCobradoraScreen />);
-
-    // Select the quota
-    await waitFor(async () => {
-      const checkbox = getByRole("checkbox", { name: /2025-01, \$15\.000/i });
-      fireEvent.press(checkbox);
-    });
-
+    const { findByRole, getByRole, getByLabelText, getByText } = render(<PagoCobradoraScreen />);
+    const enero = await findByRole("checkbox", { name: /Enero 2025, \$15\.000/i });
+    expect(enero.props.accessibilityState.checked).toBe(false);
+    fireEvent.press(enero);
     expect(getByText("Saldo a favor: $5.000")).toBeTruthy();
-
-    // The "Total a cobrar" shown in the footer should reflect the net payable after credit
-    // Expected: 15000 (quota) - 5000 (credit) = 10000 net
-    // Bug: currently shows gross 15000
     expect(getByLabelText("Total a cobrar: $10.000")).toBeTruthy();
-
-    // The split UI should be based on the NET amount (10000), not gross (15000)
-    // When cobradora enters $4000 in efectivo, transferencia should be $6000, not $11000
-    // Bug: currently uses gross for split calculation
+    fireEvent.press(getByRole("radio", { name: "Combinar efectivo y transferencia" }));
+    fireEvent.changeText(getByLabelText("¿Cuánto en efectivo?"), "4000");
+    expect(getByLabelText(/Monto en transferencia: \$6\.000/)).toBeTruthy();
+    fireEvent.press(getByRole("button", { name: "Cobrar $10.000" }));
+    await waitFor(() => expect(mobileApi.registrarOperacionCobro).toHaveBeenCalledWith(
+      expect.objectContaining({
+        cuotaIds: [5], pagos: [{ metodoPagoId: 1, monto: 4000 }, { metodoPagoId: 2, monto: 6000 }],
+        total: 10000,
+      }),
+    ));
   });
 
   it("allows confirming a selected quota fully covered by credit with zero cash payment", async () => {
@@ -363,15 +424,10 @@ describe("payment flow", () => {
     mobileApi.registrarOperacionCobro.mockResolvedValue(undefined);
     getBinding.mockResolvedValue(createBinding({ cobradorId: 9 }));
 
-    const { getByRole, getByLabelText } = render(<PagoCobradoraScreen />);
-
-    await waitFor(async () => {
-      const checkbox = getByRole("checkbox", { name: /2025-01, \$10\.000/i });
-      fireEvent.press(checkbox);
-    });
-
-    expect(getByLabelText("¿Cuánto paga el cliente?").props.value).toBe("0");
-    fireEvent.press(getByRole("button", { name: "Confirmar cobro" }));
+    const { getByRole, findByRole, getByLabelText } = render(<PagoCobradoraScreen />);
+    await findByRole("checkbox", { name: /Enero 2025, \$10\.000/i });
+    expect(getByLabelText("Total a cobrar: $0")).toBeTruthy();
+    fireEvent.press(getByRole("button", { name: "Registrar con saldo a favor" }));
 
     await waitFor(() => {
       expect(mobileApi.registrarOperacionCobro).toHaveBeenCalledWith(
@@ -399,14 +455,9 @@ describe("payment flow", () => {
     mobileApi.registrarOperacionCobro.mockResolvedValue(undefined);
     getBinding.mockResolvedValue(createBinding({ cobradorId: 9 }));
 
-    const { getByRole } = render(<PagoCobradoraScreen />);
-
-    await waitFor(async () => {
-      const checkbox = getByRole("checkbox", { name: /2025-01, \$15\.000/i });
-      fireEvent.press(checkbox);
-    });
-
-    fireEvent.press(getByRole("button", { name: "Confirmar cobro" }));
+    const { getByRole, findByRole } = render(<PagoCobradoraScreen />);
+    await findByRole("checkbox", { name: /Enero 2025, \$15\.000/i });
+    fireEvent.press(getByRole("button", { name: "Cobrar $10.000" }));
 
     await waitFor(() => {
       // Submit net amount (10000), not gross (15000)
@@ -430,11 +481,9 @@ describe("payment flow", () => {
     mobileApi.registrarOperacionCobro.mockResolvedValue(undefined);
     getBinding.mockResolvedValue(createBinding({ cobradorId: 9 }));
 
-    const { findByText, getByRole } = render(<PagoCobradoraScreen />);
-
-    await findByText("Cuotas");
-    fireEvent.press(await getByRole("checkbox", { name: /2025-01, \$15\.000/i }));
-    fireEvent.press(getByRole("button", { name: "Confirmar cobro" }));
+    const { findByRole, getByRole } = render(<PagoCobradoraScreen />);
+    await findByRole("checkbox", { name: /Enero 2025, \$15\.000/i });
+    fireEvent.press(getByRole("button", { name: "Cobrar $15.000" }));
 
     await waitFor(() => {
       // Verify the total submitted is exactly the selected quota amount (actual cash)
@@ -457,13 +506,9 @@ describe("payment flow", () => {
     mobileApi.registrarOperacionCobro.mockResolvedValue(undefined);
     getBinding.mockResolvedValue(createBinding({ cobradorId: 9 }));
 
-    const { getByRole } = render(<PagoCobradoraScreen />);
-
-    await waitFor(async () => {
-      fireEvent.press(getByRole("checkbox", { name: /2025-01, \$15\.000/i }));
-    });
-
-    fireEvent.press(getByRole("button", { name: "Confirmar cobro" }));
+    const { getByRole, findByRole } = render(<PagoCobradoraScreen />);
+    await findByRole("checkbox", { name: /Enero 2025, \$15\.000/i });
+    fireEvent.press(getByRole("button", { name: "Cobrar $7.000" }));
 
     await waitFor(() => {
       expect(mobileApi.obtenerSocioMobile).toHaveBeenCalledWith(42);
@@ -492,15 +537,11 @@ describe("payment flow", () => {
       .mockResolvedValueOnce(undefined);
     getBinding.mockResolvedValue(createBinding({ cobradorId: 9 }));
 
-    const { getByRole, findByText } = render(<PagoCobradoraScreen />);
-
-    await waitFor(async () => {
-      fireEvent.press(getByRole("checkbox", { name: /2025-01, \$10\.000/i }));
-    });
-
-    fireEvent.press(getByRole("button", { name: "Confirmar cobro" }));
+    const { getByRole, findByRole, findByText } = render(<PagoCobradoraScreen />);
+    await findByRole("checkbox", { name: /Enero 2025, \$10\.000/i });
+    fireEvent.press(getByRole("button", { name: "Cobrar $10.000" }));
     await findByText("Network request failed");
-    fireEvent.press(getByRole("button", { name: "Confirmar cobro" }));
+    fireEvent.press(getByRole("button", { name: "Cobrar $10.000" }));
 
     await waitFor(() => {
       expect(mobileApi.registrarOperacionCobro).toHaveBeenCalledTimes(2);

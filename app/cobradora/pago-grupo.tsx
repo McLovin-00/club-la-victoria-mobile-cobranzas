@@ -296,7 +296,7 @@ export default function PagoGrupoScreen() {
 
       const binding = await getBinding();
       if (!binding) {
-        throw new Error("No hay cobrador seleccionado. Configuralo desde Ajustes");
+        throw new Error("Las cobranzas no están listas. Volvé al inicio y reintentá.");
       }
 
       const cobros: CobroSocioPayload[] = socios.map((socio) => {
