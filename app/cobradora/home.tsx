@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import { Text, View, Pressable, TextInput, ScrollView } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
-import { Search, Users } from "lucide-react-native";
+import { Search, Users, ClipboardList } from "lucide-react-native";
 import { Avatar } from "../../components/ui/avatar";
 import { Spinner } from "../../components/ui/spinner";
 import { ScreenBackButton } from "../../components/ui/screen-back-button";
@@ -257,7 +257,9 @@ export default function HomeCobradoraScreen() {
                         router.push(`/cobradora/grupo-familiar/${socio.grupoFamiliar!.id}`);
                       }}
                       className="bg-secondary/70 px-2 py-0.5 rounded-md flex-row items-center gap-1 border border-border/50"
-                      accessibilityRole="button"
+                      // "link" (not "button"): on web a button role renders <button>, and this chip lives
+                      // inside the card's <button>; nested buttons trigger a React DOM-nesting error.
+                      accessibilityRole="link"
                       accessibilityLabel={`Ver grupo familiar ${socio.grupoFamiliar.nombre}`}
                       accessibilityHint="Navega a los detalles del grupo familiar"
                     >
@@ -319,11 +321,21 @@ export default function HomeCobradoraScreen() {
           className="bg-primary rounded-b-[40px] px-6 shadow-sm"
           style={{ paddingTop: Math.max(insets.top + 20, 40), paddingBottom: 56 }}
         >
-          <View className="flex-row items-center gap-3 mb-5">
+          <View className="flex-row items-center gap-2 mb-5">
             <ScreenBackButton onPress={() => router.replace("/")} tone="light" />
             <View className="flex-1" />
             <Pressable
-              className="flex-row items-center gap-2 bg-primary-foreground/20 px-4 py-3 rounded-2xl border border-primary-foreground/30"
+              className="flex-row items-center gap-2 bg-primary-foreground/20 px-3.5 py-3 rounded-2xl border border-primary-foreground/30 active:opacity-85"
+              onPress={() => router.push("/cobradora/mis-cobranzas")}
+              accessibilityRole="button"
+              accessibilityLabel="Mis cobranzas"
+              accessibilityHint="Abre el listado de cobranzas del mes y exportación de PDF"
+            >
+              <ClipboardList size={18} color="white" />
+              <Text className="text-primary-foreground font-bold text-sm">Mis cobranzas</Text>
+            </Pressable>
+            <Pressable
+              className="flex-row items-center gap-2 bg-primary-foreground/20 px-3.5 py-3 rounded-2xl border border-primary-foreground/30 active:opacity-85"
               onPress={() => router.push("/cobradora/grupos-familiares")}
               accessibilityRole="button"
               accessibilityLabel="Ver grupos familiares - Cobra a toda la familia junta"

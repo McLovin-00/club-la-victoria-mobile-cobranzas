@@ -26,6 +26,10 @@ function useLocalSearchParams() {
   return localSearchParams;
 }
 
+function useFocusEffect(effect) {
+  React.useEffect(() => effect(), [effect]);
+}
+
 function __setLocalSearchParams(params) {
   localSearchParams = params;
 }
@@ -41,6 +45,7 @@ module.exports = {
   Stack,
   useRouter,
   useLocalSearchParams,
+  useFocusEffect,
   __setLocalSearchParams,
   __resetRouter,
   __mockRouter: mockRouter,
