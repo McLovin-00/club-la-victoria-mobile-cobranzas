@@ -36,6 +36,18 @@ interface ConceptoAdicionalForm {
   monto: string;
 }
 
+const MENSAJE_NETO_DESACTUALIZADO = "El importe del cobro cambió. Revisá el total actualizado y confirmá nuevamente.";
+
+function esConflictoDeImporte(error: Error): boolean {
+  if (error.message === "El saldo a favor cambió; revisá el resumen antes de cobrar") return true;
+  try {
+    const detalle = JSON.parse(error.message);
+    return detalle?.statusCode === 409 && detalle?.message === MENSAJE_NETO_DESACTUALIZADO;
+  } catch {
+    return false;
+  }
+}
+
 export default function PagoCobradoraScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
@@ -96,6 +108,7 @@ export default function PagoCobradoraScreen() {
     if (!socioId) return;
     const load = async () => {
       try {
+        setMontoUnicoInput("");
         let cuotasOperacion: CuotaItem[] = [];
 
         if (isEditMode) {
@@ -222,6 +235,7 @@ export default function PagoCobradoraScreen() {
   const totalCents = toCents(totalNeto);
   const montoUnicoCentsIngresado = parseMontoInputToCents(montoUnicoInput);
   const montoUnicoInputVacio = montoUnicoInput.trim().length === 0;
+  const montoUnicoVisible = montoUnicoInputVacio && total > 0 ? String(totalNeto) : montoUnicoInput;
   const montoUnicoCents = montoUnicoInputVacio ? totalCents : montoUnicoCentsIngresado;
   const montoEfectivoCents = parseMontoInputToCents(montoEfectivoInput);
   const montoTransferenciaCents = Math.max(totalCents - montoEfectivoCents, 0);
@@ -246,18 +260,12 @@ export default function PagoCobradoraScreen() {
       const credito = Number(socio?.creditoIndividual ?? creditoDisponible);
       return Number.isFinite(credito) && credito >= 0 ? credito : creditoDisponible;
     } catch {
-      if (periodosNuevos.length > 0) {
+      if (!isEditMode) {
         throw new Error("No se pudo actualizar el saldo a favor. Verificá la conexión y volvé a intentarlo.");
       }
       return creditoDisponible;
     }
   };
-
-  useEffect(() => {
-    if (!usarDosMetodos) {
-      setMontoUnicoInput(total > 0 ? String(totalNeto) : "");
-    }
-  }, [total, totalNeto, usarDosMetodos]);
 
   const toggleCuota = (id: number) => {
     setSeleccionadas((prev) =>
@@ -304,15 +312,15 @@ export default function PagoCobradoraScreen() {
       }
 
       const creditoVigente = await obtenerCreditoVigente();
-      if (periodosNuevos.length > 0 && toCents(creditoVigente) !== toCents(creditoDisponible)) {
-        setCreditoDisponible(creditoVigente);
-        throw new Error("El saldo a favor cambió. Revisá el total actualizado y confirmá nuevamente.");
-      }
       const creditoAplicadoVigente = Math.min(total, creditoVigente);
       const totalNetoVigente = Math.max(total - creditoAplicadoVigente, 0);
       const totalCentsVigente = toCents(totalNetoVigente);
+      if (!isEditMode && totalCentsVigente !== totalCents) {
+        setCreditoDisponible(creditoVigente);
+        throw new Error("El saldo a favor cambió. Revisá el total actualizado y confirmá nuevamente.");
+      }
       const montoUnicoCentsParaEnviar =
-        montoUnicoInputVacio || montoUnicoCents === totalCents
+        montoUnicoInputVacio
           ? totalCentsVigente
           : montoUnicoCents;
       const montoTransferenciaCentsParaEnviar = Math.max(
@@ -391,6 +399,7 @@ export default function PagoCobradoraScreen() {
           conceptos: conceptosValidos,
           pagos: payloadPago.pagos,
           total: totalAEnviar,
+          montoNetoEsperado: totalCentsVigente,
         });
 
         const payload = {
@@ -425,7 +434,7 @@ export default function PagoCobradoraScreen() {
             creditoEsperado: creditoVigente,
           });
         } else {
-          await mobileApi.registrarOperacionCobro(payload);
+          await mobileApi.registrarOperacionCobro({ ...payload, montoNetoEsperado: totalCentsVigente / 100 });
         }
 
         setSuccess(true);
@@ -445,7 +454,16 @@ export default function PagoCobradoraScreen() {
         }, 1500);
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Error registrando cobro");
+      if (!isEditMode && err instanceof Error && esConflictoDeImporte(err)) {
+        try {
+          setCreditoDisponible(await obtenerCreditoVigente());
+          setError(MENSAJE_NETO_DESACTUALIZADO);
+        } catch (refreshError) {
+          setError(refreshError instanceof Error ? refreshError.message : MENSAJE_NETO_DESACTUALIZADO);
+        }
+      } else {
+        setError(err instanceof Error ? err.message : "Error registrando cobro");
+      }
     } finally {
       setLoading(false);
       if (isEditMode && shouldClearEdit) {
@@ -784,7 +802,7 @@ export default function PagoCobradoraScreen() {
                     label="¿Cuánto paga el cliente?"
                     placeholder="0"
                     keyboardType="numeric"
-                    value={montoUnicoInput}
+                    value={montoUnicoVisible}
                     onChangeText={setMontoUnicoInput}
                     leftIcon={<Text className="text-muted-foreground">$</Text>}
                     helperText={`Podés cobrar exactamente $${totalNeto.toLocaleString("es-AR")} o más para generar crédito a favor`}
