@@ -1,4 +1,4 @@
-import { Pressable, useColorScheme } from "react-native";
+import { Pressable } from "react-native";
 import { ArrowLeft } from "lucide-react-native";
 import { cn } from "../../lib/utils";
 
@@ -17,9 +17,8 @@ export function ScreenBackButton({
   accessibilityLabel = "Volver",
   accessibilityHint = "Regresa a la pantalla anterior",
 }: ScreenBackButtonProps) {
-  const colorScheme = useColorScheme();
   const isLight = tone === "light";
-  const defaultIconColor = colorScheme === "dark" ? "hsl(0, 0%, 95%)" : "hsl(0, 0%, 10%)";
+  const defaultIconColor = "hsl(0, 0%, 10%)";
 
   return (
     <Pressable

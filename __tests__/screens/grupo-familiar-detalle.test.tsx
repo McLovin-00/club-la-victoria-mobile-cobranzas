@@ -58,7 +58,7 @@ const { mobileApi } = jest.requireMock("../../lib/api") as {
 };
 
 describe("GrupoFamiliarDetalleScreen", () => {
-  it("selects debt members and navigates to group payment", async () => {
+  it("opens individual payment when one family member is selected", async () => {
     const expoRouter = jest.requireMock("expo-router") as {
       __mockRouter: { push: jest.Mock };
       __setLocalSearchParams: (params: Record<string, string>) => void;
@@ -103,7 +103,57 @@ describe("GrupoFamiliarDetalleScreen", () => {
 
     await waitFor(() => {
       expect(expoRouter.__mockRouter.push).toHaveBeenCalledWith(
-        "/cobradora/pago-grupo?grupoId=10&socioIds=1",
+        "/cobradora/pago?socioId=1&fromGrupo=10&nombre=Juan&apellido=Perez&creditoDisponible=0",
+      );
+    });
+  });
+
+  it("keeps group payment when multiple family members are selected", async () => {
+    const expoRouter = jest.requireMock("expo-router") as {
+      __mockRouter: { push: jest.Mock };
+      __setLocalSearchParams: (params: Record<string, string>) => void;
+    };
+
+    expoRouter.__setLocalSearchParams({ id: "10" });
+    mobileApi.getGrupoFamiliar.mockResolvedValue({
+      id: 10,
+      nombre: "Familia Perez",
+      descripcion: "Grupo principal",
+      orden: 1,
+      cantidadMiembros: 2,
+      miembrosConDeuda: 2,
+      totalPendiente: 18000,
+      miembros: [
+        {
+          id: 1,
+          nombre: "Juan",
+          apellido: "Perez",
+          dni: "30111222",
+          cantidadCuotasPendientes: 2,
+          totalPendiente: 12000,
+          cuotasPendientes: [],
+        },
+        {
+          id: 2,
+          nombre: "Ana",
+          apellido: "Perez",
+          dni: "30999888",
+          cantidadCuotasPendientes: 1,
+          totalPendiente: 6000,
+          cuotasPendientes: [],
+        },
+      ],
+    });
+
+    const { findByText, findByRole, getByRole } = render(<GrupoFamiliarDetalleScreen />);
+
+    await findByText("Familia Perez");
+    fireEvent.press(await findByRole("button", { name: "Seleccionar todos con deuda" }));
+    fireEvent.press(getByRole("button", { name: "Cobrar seleccionados" }));
+
+    await waitFor(() => {
+      expect(expoRouter.__mockRouter.push).toHaveBeenCalledWith(
+        "/cobradora/pago-grupo?grupoId=10&socioIds=1,2",
       );
     });
   });

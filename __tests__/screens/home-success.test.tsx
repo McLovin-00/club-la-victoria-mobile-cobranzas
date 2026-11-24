@@ -1,6 +1,6 @@
 import React from "react";
 import HomeCobradoraScreen from "../../app/cobradora/home";
-import { render, fireEvent, waitFor, act } from "../setup/render";
+import { render, fireEvent } from "../setup/render";
 import { createBinding, createSocio } from "../setup/mocks";
 
 jest.mock("../../lib/api", () => ({
@@ -37,33 +37,34 @@ describe("HomeCobradoraScreen", () => {
       __mockRouter: { push: jest.Mock };
     };
 
-    mobileApi.buscarSocios.mockResolvedValue([createSocio()]);
+    mobileApi.buscarSocios.mockResolvedValue({
+      data: [createSocio()],
+      total: 1,
+      offset: 0,
+      limit: 50,
+      hasMore: false,
+    });
     getBinding.mockResolvedValue(createBinding());
 
-    const { findByRole, findAllByRole, getByLabelText } = render(<HomeCobradoraScreen />);
+    const { findByRole, getByLabelText, getByRole, getByText } = render(
+      <HomeCobradoraScreen />,
+    );
 
     await findByRole("button", { name: /Perez, Juan\./i });
 
     fireEvent.changeText(getByLabelText("Buscar socio"), "Juan");
-
-    act(() => {
-      jest.advanceTimersByTime(500);
-    });
-
-    await waitFor(() => {
-      expect(mobileApi.buscarSocios).toHaveBeenCalledWith("Juan");
-    });
+    fireEvent.press(getByRole("button", { name: "Buscar" }));
+    expect(mobileApi.buscarSocios).toHaveBeenCalledWith("Juan", 0, 50);
 
     fireEvent.press(await findByRole("button", { name: /Perez, Juan\./i }));
 
-    const familyButtons = await findAllByRole("button", {
-      name: /Ver grupo familiar Familia Perez/i,
-    });
-    fireEvent.press(familyButtons[familyButtons.length - 1], {
+    fireEvent.press(getByText("Familia Perez", { includeHiddenElements: true }), {
       stopPropagation: jest.fn(),
     });
 
-    expect(expoRouter.__mockRouter.push).toHaveBeenCalledWith("/cobradora/pago?socioId=11&nombre=Juan&apellido=Perez");
+    expect(expoRouter.__mockRouter.push).toHaveBeenCalledWith(
+      "/cobradora/pago?socioId=11&nombre=Juan&apellido=Perez&creditoDisponible=0",
+    );
     expect(expoRouter.__mockRouter.push).toHaveBeenCalledWith("/cobradora/grupo-familiar/10");
   });
 });

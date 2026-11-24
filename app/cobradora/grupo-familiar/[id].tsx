@@ -81,6 +81,22 @@ export default function GrupoFamiliarDetalleScreen() {
 
   const handleCobrarSeleccionados = () => {
     if (seleccionados.length === 0) return;
+
+    if (seleccionados.length === 1) {
+      const socioId = seleccionados[0];
+      const miembro = grupo?.miembros.find((item) => item.id === socioId);
+
+      if (miembro) {
+        handleMiembroPress(
+          miembro.id,
+          miembro.nombre,
+          miembro.apellido,
+          miembro.creditoIndividual,
+        );
+        return;
+      }
+    }
+
     router.push(`/cobradora/pago-grupo?grupoId=${grupoId}&socioIds=${seleccionados.join(',')}`);
   };
 
