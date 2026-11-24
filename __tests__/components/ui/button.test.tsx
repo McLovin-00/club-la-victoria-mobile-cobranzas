@@ -26,4 +26,17 @@ describe("Button", () => {
     });
     expect(queryByText("Guardar")).toBeNull();
   });
+
+  it("merges caller accessibilityState without overwriting disabled or busy", () => {
+    const { getByRole } = render(
+      <Button disabled accessibilityState={{ expanded: true }}>
+        Desplegar
+      </Button>,
+    );
+
+    expect(getByRole("button", { name: "Desplegar" })).toHaveAccessibilityState({
+      expanded: true,
+      disabled: true,
+    });
+  });
 });

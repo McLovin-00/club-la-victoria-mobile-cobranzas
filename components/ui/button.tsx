@@ -10,7 +10,7 @@ const buttonVariants = cva(
       variant: {
         default: "bg-primary shadow-card active:opacity-90",
         destructive: "bg-destructive shadow-card active:opacity-90",
-        outline: "border border-input bg-background active:bg-muted",
+        outline: "border border-input bg-card active:bg-muted",
         secondary: "bg-secondary active:opacity-80",
         ghost: "active:bg-muted",
         link: "",
@@ -85,6 +85,7 @@ const Button = React.forwardRef<React.ElementRef<typeof Pressable>, ButtonProps>
       disabled,
       accessibilityLabel,
       accessibilityHint,
+      accessibilityState,
       ...props
     },
     ref
@@ -107,6 +108,7 @@ const Button = React.forwardRef<React.ElementRef<typeof Pressable>, ButtonProps>
 
     return (
       <Pressable
+        {...props}
         className={cn(
           buttonVariants({ variant, size, reduceMotion, className })
         )}
@@ -116,20 +118,24 @@ const Button = React.forwardRef<React.ElementRef<typeof Pressable>, ButtonProps>
         accessibilityRole="button"
         accessibilityLabel={computedLabel}
         accessibilityHint={accessibilityHint}
-        accessibilityState={{ disabled: isDisabled, busy: loading }}
-        {...props}
+        accessibilityState={{
+          ...accessibilityState,
+          disabled: isDisabled,
+          busy: loading,
+        }}
+        aria-expanded={accessibilityState?.expanded}
       >
         {loading ? (
-          <Spinner size="sm" color={variant === "default" || variant === "destructive" ? "#ffffff" : "hsl(180, 70%, 40%)"} />
+          <Spinner size="sm" color={variant === "default" || variant === "destructive" ? "#ffffff" : "hsl(146, 68%, 24%)"} />
         ) : (
           <>
-            {leftIcon && <View className="mr-1" accessibilityElementsHidden>{leftIcon}</View>}
+            {leftIcon && <View accessibilityElementsHidden aria-hidden>{leftIcon}</View>}
             <Text
               className={cn(buttonTextVariants({ variant, size, className: textClass }))}
             >
               {children}
             </Text>
-            {rightIcon && <View className="ml-1" accessibilityElementsHidden>{rightIcon}</View>}
+            {rightIcon && <View accessibilityElementsHidden aria-hidden>{rightIcon}</View>}
           </>
         )}
       </Pressable>

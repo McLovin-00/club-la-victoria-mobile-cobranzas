@@ -30,17 +30,14 @@ const Input = React.forwardRef<React.ElementRef<typeof TextInput>, InputProps>(
     return (
       <View className="gap-1.5">
         {label && (
-          <Text
-            className="text-sm font-semibold text-foreground ml-1"
-            accessibilityRole="header"
-          >
+          <Text className="text-sm font-semibold text-foreground ml-1">
             {label}
           </Text>
         )}
         <View
           className={cn(
             "flex-row items-center h-14 w-full rounded-xl border-2 px-4 transition-colors",
-            isFocused && !hasError ? "border-primary bg-primary/5" : "border-border bg-background",
+            isFocused && !hasError ? "border-primary bg-primary/5" : "border-border bg-card",
             hasError ? "border-destructive bg-destructive/5" : "",
             className
           )}
@@ -49,10 +46,10 @@ const Input = React.forwardRef<React.ElementRef<typeof TextInput>, InputProps>(
         <TextInput
           ref={ref}
           className={cn(
-            "flex-1 text-base text-foreground",
+            "flex-1 h-full text-base text-foreground",
             "placeholder:text-muted-foreground"
           )}
-          placeholderTextColor="hsl(0, 0%, 45%)"
+          placeholderTextColor="hsl(0, 0%, 38%)"
           accessibilityLabel={computedAccessibilityLabel || props.placeholder}
           accessibilityHint={computedAccessibilityHint}
           onFocus={(e) => {
