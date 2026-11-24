@@ -5,7 +5,12 @@ import { render, fireEvent, waitFor } from "../setup/render";
 jest.mock("../../lib/api", () => ({
   mobileApi: {
     misCobranzas: jest.fn(),
+    rendicion: jest.fn(),
   },
+}));
+
+jest.mock("../../lib/compartir-rendicion", () => ({
+  compartirRendicion: jest.fn(),
 }));
 
 jest.mock("../../lib/storage", () => ({
@@ -15,7 +20,11 @@ jest.mock("../../lib/storage", () => ({
 const { mobileApi } = jest.requireMock("../../lib/api") as {
   mobileApi: {
     misCobranzas: jest.Mock;
+    rendicion: jest.Mock;
   };
+};
+const { compartirRendicion } = jest.requireMock("../../lib/compartir-rendicion") as {
+  compartirRendicion: jest.Mock;
 };
 
 const { getBinding } = jest.requireMock("../../lib/storage") as {
@@ -58,5 +67,27 @@ describe("MisCobranzasScreen", () => {
       expect(getByRole("button", { name: "Cerrar" })).toBeTruthy();
       expect(mobileApi.misCobranzas).toHaveBeenCalled();
     });
+  }, 15000);
+
+  it("comparte el PDF del mes elegido sin pedir código ni selección", async () => {
+    jest.useFakeTimers();
+    jest.setSystemTime(new Date(2026, 1, 15));
+    getBinding.mockResolvedValue({ installationId: "device-1", cobradorId: 8 });
+    mobileApi.rendicion.mockResolvedValue({ cobrador: "Ana", cobros: [] });
+    compartirRendicion.mockResolvedValue(undefined);
+    const { getByRole, getByText } = render(<MisCobranzasScreen />);
+
+    expect(getByText("febrero de 2026")).toBeTruthy();
+    fireEvent.press(getByRole("button", { name: "Mes anterior" }));
+    fireEvent.press(getByRole("button", { name: "Compartir PDF" }));
+
+    try {
+      await waitFor(() => {
+        expect(mobileApi.rendicion).toHaveBeenCalledWith("device-1", { periodo: "2026-01" });
+        expect(compartirRendicion).toHaveBeenCalledWith({ cobrador: "Ana", cobros: [] });
+      });
+    } finally {
+      jest.useRealTimers();
+    }
   });
 });

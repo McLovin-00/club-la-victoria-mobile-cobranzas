@@ -1,5 +1,6 @@
 import Constants from "expo-constants";
 import type { GrupoFamiliar, GrupoFamiliarDetalle, SocioConGrupo, CobroGrupalPayload, PaginatedResponse } from "./types";
+import type { Rendicion } from "./rendicion-pdf";
 
 export interface CobradorActivo {
   id: number;
@@ -162,6 +163,22 @@ export const mobileApi = {
     }>(
       `/cobradores/${cobradorId}/mis-cobranzas?desde=${encodeURIComponent(desdeIso)}&hasta=${encodeURIComponent(hastaIso)}`,
     ),
+  rendicion: (installationId: string, consulta: { periodo?: string; desde?: string; hasta?: string }) => {
+    const params = new URLSearchParams({ installationId });
+    for (const [clave, valor] of Object.entries(consulta)) {
+      if (valor) params.set(clave, valor);
+    }
+    return request<Rendicion>(`/cobradores/mobile/rendicion?${params}`).catch((error: unknown) => {
+      if (!(error instanceof Error)) throw error;
+      try {
+        const detalle = JSON.parse(error.message) as { message?: unknown };
+        if (typeof detalle.message === "string") throw new Error(detalle.message);
+      } catch (parseError) {
+        if (!(parseError instanceof SyntaxError)) throw parseError;
+      }
+      throw error;
+    });
+  },
   // Grupos Familiares
   getGruposFamiliares: () =>
     request<GrupoFamiliar[]>("/cobradores/mobile/grupos-familiares"),

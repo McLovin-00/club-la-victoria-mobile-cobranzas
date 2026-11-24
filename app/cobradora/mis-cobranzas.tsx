@@ -2,13 +2,14 @@ import { useState } from "react";
 import { Text, View, ScrollView, Pressable, ActivityIndicator } from "react-native";
 import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { Calendar, Search, Clipboard, DollarSign, TrendingUp, User, CreditCard, Receipt, ChevronRight } from "lucide-react-native";
+import { Calendar, Search, Clipboard, DollarSign, TrendingUp, User, CreditCard, Receipt, ChevronRight, Share2, ChevronLeft } from "lucide-react-native";
 import { ScreenBackButton } from "../../components/ui/screen-back-button";
 import { Spinner } from "../../components/ui/spinner";
 import { DatePicker } from "../../components/ui/date-picker";
 import { Modal } from "../../components/ui/modal";
 import { mobileApi } from "../../lib/api";
 import { getBinding, setEditOperacion } from "../../lib/storage";
+import { compartirRendicion } from "../../lib/compartir-rendicion";
 
 type OperacionCompleta = NonNullable<Awaited<ReturnType<typeof mobileApi.misCobranzas>>['operaciones'][number]>;
 type OperacionSocioCredito = {
@@ -36,6 +37,37 @@ export default function MisCobranzasScreen() {
   const [hasConsulted, setHasConsulted] = useState(false);
   const [selectedOp, setSelectedOp] = useState<OperacionCompleta | null>(null);
   const [modalVisible, setModalVisible] = useState(false);
+  const [mesRendicion, setMesRendicion] = useState(() => {
+    const hoy = new Date();
+    return { anio: hoy.getFullYear(), mes: hoy.getMonth() + 1 };
+  });
+  const [compartiendo, setCompartiendo] = useState(false);
+  const nombreMes = new Intl.DateTimeFormat("es-AR", { month: "long", year: "numeric" })
+    .format(new Date(mesRendicion.anio, mesRendicion.mes - 1, 1));
+
+  const cambiarMes = (delta: number) => {
+    setMesRendicion((actual) => {
+      const fecha = new Date(actual.anio, actual.mes - 1 + delta, 1);
+      return { anio: fecha.getFullYear(), mes: fecha.getMonth() + 1 };
+    });
+  };
+
+  const compartirPdf = async () => {
+    setError(null);
+    setCompartiendo(true);
+    try {
+      const binding = await getBinding();
+      if (!binding?.installationId) {
+        throw new Error("Las cobranzas no están listas. Volvé al inicio y reintentá.");
+      }
+      const periodo = `${mesRendicion.anio}-${String(mesRendicion.mes).padStart(2, "0")}`;
+      await compartirRendicion(await mobileApi.rendicion(binding.installationId, { periodo }));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "No se pudo compartir la rendición");
+    } finally {
+      setCompartiendo(false);
+    }
+  };
 
   const consultar = async () => {
     setError(null);
@@ -44,7 +76,7 @@ export default function MisCobranzasScreen() {
     try {
       const binding = await getBinding();
       if (!binding) {
-        throw new Error("No hay cobrador vinculado en este dispositivo");
+        throw new Error("Las cobranzas no están listas. Volvé al inicio y reintentá.");
       }
       const result = await mobileApi.misCobranzas(
         binding.cobradorId,
@@ -225,6 +257,48 @@ export default function MisCobranzasScreen() {
                 </View>
               )}
             </Pressable>
+            <View className="mt-4 border-t border-border pt-4 gap-3">
+              <Text className="text-foreground text-base font-semibold">Rendición del mes</Text>
+              <View className="flex-row items-center justify-between">
+                <Pressable
+                  onPress={() => cambiarMes(-1)}
+                  accessibilityRole="button"
+                  accessibilityLabel="Mes anterior"
+                  className="min-h-11 min-w-11 items-center justify-center rounded-xl border border-border"
+                >
+                  <ChevronLeft size={18} color="hsl(var(--foreground))" />
+                </Pressable>
+                <Text className="text-foreground text-base font-semibold capitalize" accessibilityRole="header">
+                  {nombreMes}
+                </Text>
+                <Pressable
+                  onPress={() => cambiarMes(1)}
+                  accessibilityRole="button"
+                  accessibilityLabel="Mes siguiente"
+                  className="min-h-11 min-w-11 items-center justify-center rounded-xl border border-border"
+                >
+                  <ChevronRight size={18} color="hsl(var(--foreground))" />
+                </Pressable>
+              </View>
+              <Pressable
+                onPress={() => void compartirPdf()}
+                disabled={compartiendo}
+                accessibilityRole="button"
+                accessibilityLabel="Compartir PDF"
+                accessibilityHint="Abre las opciones para guardar o enviar la rendición del mes"
+                accessibilityState={{ disabled: compartiendo }}
+                className={`h-12 rounded-2xl items-center justify-center border border-primary ${compartiendo ? "opacity-50" : ""}`}
+              >
+                {compartiendo ? (
+                  <ActivityIndicator color="hsl(var(--primary))" />
+                ) : (
+                  <View className="flex-row items-center gap-2">
+                    <Share2 size={18} color="hsl(var(--primary))" />
+                    <Text className="text-primary font-bold text-sm">Compartir PDF</Text>
+                  </View>
+                )}
+              </Pressable>
+            </View>
           </View>
         </View>
 
